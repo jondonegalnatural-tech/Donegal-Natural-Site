@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Donegal Natural | Sales Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { background: #f8f1e9; }
+        .brand-green { color: #1E4D2B; }
+        .brand-brown { color: #6B4423; }
+        .btn-brand {
+            background-color: #1E4D2B;
+            color: #d4b78f;
+            border: 2px solid #6B4423;
+        }
+        .btn-brand:hover { background-color: #254a2f; }
+        .tab-btn.active {
+            background-color: #1E4D2B;
+            color: #d4b78f;
+            border-color: #6B4423;
+        }
+        .section-card {
+            background: white;
+            border: 3px solid #6B4423;
+            border-radius: 16px;
+            padding: 1.5rem;
+        }
+        .form-input {
+            border: 2px solid #6B4423;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Top Navigation -->
+    <nav class="bg-white border-b-2 border-[#6B4423]">
+        <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <img src="media/logo.png" alt="Donegal Natural" class="h-12 w-auto">
+                <div>
+                    <span class="text-2xl font-bold brand-green">Donegal Natural Dog Treats</span>
+                    <span class="text-sm block -mt-1 brand-brown">Salesman & Saleswoman Portal</span>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4" id="user-info" style="display: none;">
+    <div class="text-right">
+        <div id="user-name" class="font-semibold brand-green"></div>
+        <div id="welcome-territories" class="text-xs brand-brown"></div>
+    </div>
+    <button id="admin-view-btn"
+        onclick="window.location.href='internal-portal.html'"
+        class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold"
+        style="display: none;">
+    Admin View
+    </button>
+    <button onclick="logout()"
+            class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+        Logout
+    </button>
+</div>
+        </div>
+    </nav>
+
+    <!-- PORTAL VIEW -->
+    <div id="portal-view" style="display: none;">
+        <div class="max-w-7xl mx-auto px-6 py-8">
+
+            <!-- Welcome Header -->
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold brand-green">Welcome back, <span id="welcome-name"></span></h1>
+                <p class="brand-brown">Sales & Admin Portal • Donegal Natural</p>
+            </div>
+
+            <!-- Tabs -->
+    <div class="flex flex-wrap gap-2 mb-6">
+    <button data-tab="initial-sheet" id="initial-sheet-tab"
+            class="tab-btn px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold"
+            style="display: none;">
+        Initial Pricing Sheet
+    </button>
+    <button data-tab="customers" class="tab-btn active px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold">
+        Active Customers
+    </button>
+    <button data-tab="proposals" class="tab-btn px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold">
+        Price Change Proposal
+    </button>
+    <button data-tab="order-history" class="tab-btn px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold">
+        Order History
+    </button>
+    <button data-tab="customer-info" class="tab-btn px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold">
+        Submit New Customer
+    </button>
+    <button data-tab="account" class="tab-btn px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold">
+        Account
+    </button>
+    <button data-tab="admin" id="admin-tab" class="tab-btn px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold" style="display: none;">
+        Admin Dashboard
+    </button>
+</div>
+
+            <!-- TAB CONTENTS -->
+
+            <!-- Customers Tab -->
+            <div id="tab-customers" class="tab-content">
+                <div class="section-card">
+                    <h2 class="text-xl font-bold brand-green mb-4">Your Customers</h2>
+                    <div id="customers-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                </div>
+            </div>
+
+            <!-- Price Change Proposal Tab -->
+<div id="tab-proposals" class="tab-content" style="display: none;">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- LEFT: Submit form -->
+        <div class="section-card">
+            <h2 class="text-xl font-bold brand-green mb-4">Submit Price Change Proposal</h2>
+
+            <div class="mb-4">
+                <label class="block text-sm font-semibold mb-1 brand-brown">Search Products</label>
+                <input type="text" id="proposal-product-search"
+                       class="form-input w-full px-4 py-3"
+                       placeholder="Type product name..."
+                       oninput="searchProposalProducts()">
+                <div id="proposal-product-results"
+                     class="mt-2 max-h-40 overflow-y-auto border border-[#d4b78f] rounded-xl hidden"></div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-semibold mb-2 brand-brown">Products on this proposal</label>
+                <div id="proposal-items-list" class="bg-[#f8f4eb] p-4 rounded-xl min-h-[80px]">
+                    <p class="text-sm text-[#6B4423]">No products added yet. Search above to add items.</p>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-semibold mb-1 brand-brown">Overall notes (optional)</label>
+                <textarea id="proposal-overall-notes" class="form-input w-full px-4 py-3" rows="2"></textarea>
+            </div>
+
+            <button type="button" onclick="submitPriceProposal()"
+                    class="btn-brand px-8 py-3 rounded-2xl font-bold">
+                Submit Proposal for Approval
+            </button>
+        </div>
+
+        <!-- RIGHT: History -->
+        <div class="section-card">
+            <h2 class="text-xl font-bold brand-green mb-4">Submitted Proposals</h2>
+            <div id="proposal-history-list">
+                <p class="text-sm text-[#6B4423]">No proposals submitted yet.</p>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+            <!-- Order History Tab -->
+<div id="tab-order-history" class="tab-content" style="display: none;">
+    <div class="section-card">
+        <h2 class="text-xl font-bold brand-green mb-4">Order History</h2>
+        <div id="my-orders-list">
+            <!-- Populated by JavaScript -->
+        </div>
+    </div>
+</div>
+
+            <!-- Customer Information Tab -->
+<div id="tab-customer-info" class="tab-content" style="display: none;">
+    <div class="section-card max-w-2xl">
+        <h2 class="text-xl font-bold brand-green mb-4">Submit New Customer for Approval</h2>
+        <form id="customer-info-form" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-1 brand-brown">Customer / Contact Name *</label>
+                    <input type="text" id="cust-name" class="form-input w-full px-4 py-3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1 brand-brown">Company Name *</label>
+                    <input type="text" id="cust-company" class="form-input w-full px-4 py-3" required>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-1 brand-brown">Email *</label>
+                    <input type="email" id="cust-email" class="form-input w-full px-4 py-3" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1 brand-brown">Phone *</label>
+                    <input type="text" id="cust-phone" class="form-input w-full px-4 py-3" required>
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold mb-1 brand-brown">Shipping Address *</label>
+                <textarea id="cust-shipping" class="form-input w-full px-4 py-3" rows="2" required></textarea>
+            </div>
+
+            <div class="mb-1">
+                <label class="flex items-center gap-2 text-sm text-[#6B4423] cursor-pointer">
+                    <input type="checkbox" id="cust-same-address" checked onchange="toggleSameAddress()">
+                    Billing address is the same as shipping
+                </label>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold mb-1 brand-brown">Billing Address *</label>
+                <textarea id="cust-billing" class="form-input w-full px-4 py-3" rows="2" required></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold mb-1 brand-brown">Notes / Comments</label>
+                <textarea id="cust-notes" class="form-input w-full px-4 py-3" rows="2"></textarea>
+            </div>
+            <button type="submit" class="btn-brand px-8 py-3 rounded-2xl font-bold">
+                Submit Customer for Approval
+            </button>
+        </form>
+        <div id="customer-submissions-list" class="mt-8"></div>
+    </div>
+</div>
+<!-- Account Tab -->
+<div id="tab-account" class="tab-content" style="display: none;">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+
+        <!-- Profile -->
+        <div class="section-card">
+            <h2 class="text-xl font-bold brand-green mb-4">My Account</h2>
+            <div id="account-details" class="space-y-4">
+                <!-- Filled by JavaScript -->
+            </div>
+            <div class="mt-8 pt-6 border-t border-[#d4b78f]">
+                <button onclick="logout()"
+                        class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-2xl">
+                    Logout
+                </button>
+            </div>
+        </div>
+
+        <!-- Price Sheet -->
+        <div class="section-card">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold brand-green">My Price Sheet</h2>
+                <button type="button" onclick="exportPriceSheetPdf()"
+                        class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
+                    Export PDF
+                </button>
+            </div>
+            <p id="price-sheet-updated" class="text-xs text-[#6B4423] mb-3"></p>
+            <div id="price-sheet-list">
+                <p class="text-sm text-[#6B4423]">No custom prices yet. Approved proposals will appear here.</p>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Initial Pricing Sheet Tab -->
+<div id="tab-initial-sheet" class="tab-content" style="display: none;">
+    <div class="section-card">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+                <h2 class="text-xl font-bold brand-green">Initial Pricing Sheet</h2>
+                <p class="text-sm text-[#6B4423]">
+                    Review catalog prices, adjust if needed, select items, then submit for admin approval.
+                    Prices below catalog will be flagged.
+                </p>
+            </div>
+            <div class="flex gap-2">
+                <button type="button" onclick="selectAllInitialSheet(true)"
+                        class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl font-semibold">
+                    Select All
+                </button>
+                <button type="button" onclick="selectAllInitialSheet(false)"
+                        class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl font-semibold">
+                    Deselect All
+                </button>
+            </div>
+        </div>
+
+        <div id="initial-sheet-list" class="space-y-2 max-h-[60vh] overflow-y-auto mb-4">
+            <!-- Filled by JavaScript -->
+        </div>
+
+        <button type="button" onclick="submitInitialPriceSheet()"
+                class="btn-brand px-8 py-3 rounded-2xl font-bold">
+            Submit Initial Pricing Sheet
+        </button>
+    </div>
+</div>
+
+            <!-- Admin Dashboard Tab (only visible to admins) -->
+            <div id="tab-admin" class="tab-content" style="display: none;">
+                <div class="section-card">
+                    <h2 class="text-xl font-bold brand-green mb-4">Admin Dashboard</h2>
+                    <div id="admin-dashboard" style="display: none;">
+                        <!-- Admin content will be populated by JS -->
+                        <p>Admin features are active for Head Admins.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Admin Modal -->
+    <div id="admin-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-3xl p-8 max-w-2xl w-full mx-4 max-h-[80vh] overflow-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold brand-green">Pending Proposals</h3>
+                <button onclick="hideAdminPanel()" class="text-2xl leading-none">&times;</button>
+            </div>
+            <div id="admin-proposals-list"></div>
+        </div>
+    </div>
+
+    <!-- Place Order Modal -->
+<div id="place-order-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto border-2 border-[#6B4423]">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold brand-green">Place Order</h2>
+            <button onclick="hidePlaceOrderModal()" class="text-2xl leading-none">&times;</button>
+        </div>
+
+        <p class="text-sm text-[#6B4423] mb-4">
+            Customer: <strong id="place-order-customer-name" class="brand-green"></strong>
+        </p>
+
+        <div class="mb-4">
+            <label class="block text-sm font-semibold mb-1 brand-brown">Search Products</label>
+            <input type="text" id="place-order-product-search"
+                   class="form-input w-full px-4 py-3"
+                   placeholder="Type product name..."
+                   oninput="searchPlaceOrderProducts()">
+            <div id="place-order-product-results" class="mt-2 max-h-40 overflow-y-auto border border-[#d4b78f] rounded-xl hidden"></div>
+        </div>
+
+        <div class="mb-4">
+    <label class="block text-sm font-semibold mb-2 brand-brown">
+        Order Items <span class="font-normal text-[#6B4423]">(quantity is in units)</span>
+    </label>
+    <div id="place-order-items-list" class="bg-[#f8f4eb] p-4 rounded-xl min-h-[80px]">
+        <p class="text-sm text-[#6B4423]">No products added yet.</p>
+    </div>
+</div>
+
+        <div class="mb-4">
+            <label class="block text-sm font-semibold mb-1 brand-brown">Notes (optional)</label>
+            <textarea id="place-order-notes" class="form-input w-full px-4 py-3" rows="2"></textarea>
+        </div>
+
+        <div class="flex gap-3">
+            <button onclick="hidePlaceOrderModal()"
+                    class="flex-1 px-4 py-3 border-2 border-[#6B4423] rounded-xl font-semibold text-[#6B4423]">
+                Cancel
+            </button>
+            <button onclick="submitPlaceOrder()"
+                    class="flex-1 px-4 py-3 bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-bold">
+                Submit Order
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Salesman Customer Detail (view) -->
+<div id="salesman-customer-modal"
+     onclick="hideSalesmanCustomerModal()"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div onclick="event.stopImmediatePropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg mx-4 p-8 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-start mb-6">
+            <div>
+                <h2 class="text-2xl font-bold brand-green" id="sc-name">Customer</h2>
+                <p class="text-lg font-semibold text-[#6B4423]" id="sc-company"></p>
+                <p class="text-sm text-[#6B4423] mt-1" id="sc-status"></p>
+            </div>
+            <button type="button" onclick="hideSalesmanCustomerModal()"
+                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+
+        <div class="space-y-4 text-sm">
+            <div>
+                <p class="font-semibold text-[#6B4423]">Phone</p>
+                <p id="sc-phone"></p>
+            </div>
+            <div>
+                <p class="font-semibold text-[#6B4423]">Email</p>
+                <p id="sc-email"></p>
+            </div>
+            <div>
+                <p class="font-semibold text-[#6B4423]">Territory</p>
+                <p id="sc-territory"></p>
+            </div>
+            <div>
+                <p class="font-semibold text-[#6B4423]">Shipping Address</p>
+                <p id="sc-shipping"></p>
+            </div>
+            <div>
+                <p class="font-semibold text-[#6B4423]">Billing Address</p>
+                <p id="sc-billing"></p>
+            </div>
+            <div>
+                <p class="font-semibold text-[#6B4423]">Notes</p>
+                <p id="sc-notes"></p>
+            </div>
+        </div>
+
+        <div class="mt-8 flex flex-wrap justify-between gap-3">
+            <button type="button" onclick="showProposeCustomerEdit()"
+                    class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-semibold">
+                Propose Edit
+            </button>
+            <button type="button" onclick="hideSalesmanCustomerModal()"
+                    class="px-6 py-2 border-2 border-[#6B4423] rounded-xl">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Propose Customer Edit Modal -->
+<div id="propose-customer-edit-modal"
+     onclick="hideProposeCustomerEdit()"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div onclick="event.stopImmediatePropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg mx-4 p-8 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold brand-green">Propose Customer Edit</h2>
+            <button type="button" onclick="hideProposeCustomerEdit()"
+                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+
+        <form id="propose-customer-edit-form" onsubmit="submitCustomerEditProposal(event)" class="space-y-4">
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Name</label>
+                <input type="text" id="pce-name" required
+                       class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Company</label>
+                <input type="text" id="pce-company"
+                       class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Email</label>
+                    <input type="email" id="pce-email"
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Phone</label>
+                    <input type="text" id="pce-phone"
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Territory</label>
+                <input type="text" id="pce-territory"
+                       class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Shipping Address</label>
+                <textarea id="pce-shipping" rows="2"
+                          class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"></textarea>
+            </div>
+            <div>
+                <label class="flex items-center gap-2 text-sm text-[#6B4423] cursor-pointer mb-2">
+                    <input type="checkbox" id="pce-same-address" onchange="togglePceSameAddress()">
+                    Billing address is the same as shipping
+                </label>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Billing Address</label>
+                <textarea id="pce-billing" rows="2"
+                          class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Notes</label>
+                <textarea id="pce-notes" rows="2"
+                          class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"></textarea>
+            </div>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" onclick="hideProposeCustomerEdit()"
+                        class="px-6 py-2 border-2 border-[#6B4423] rounded-xl">
+                    Cancel
+                </button>
+                <button type="submit" class="btn-brand px-6 py-2 rounded-xl font-semibold">
+                    Submit for Approval
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- New Assigned Customers Alert -->
+<div id="new-customers-modal"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-md p-8">
+        <h2 class="text-2xl font-bold brand-green mb-2">New customer assigned</h2>
+        <p class="text-sm text-[#6B4423] mb-4">
+            The following customer(s) were recently assigned to you. Approve pricing so they can see rates.
+        </p>
+        <div id="new-customers-list" class="space-y-2 mb-6"></div>
+        <button type="button" onclick="dismissNewCustomersModal()"
+                class="w-full bg-[#1E4D2B] text-[#d4b78f] font-bold py-3 rounded-xl">
+            Got it
+        </button>
+    </div>
+</div>
+
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/salesman-portal.js"></script>
+</body>
+</html>

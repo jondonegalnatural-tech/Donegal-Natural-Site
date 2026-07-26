@@ -1,0 +1,128 @@
+/* =============================================
+   MOBILE STYLES — Donegal Natural Wholesale Portal
+   ============================================= */
+
+/* Force hide sidebar on mobile */
+@media (max-width: 768px) {
+  #category-sidebar {
+    display: none !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 260px !important;
+    height: 100vh !important;
+    z-index: 9999 !important;
+    overflow-y: auto;
+    box-shadow: 4px 0 15px rgba(0,0,0,0.25);
+    background: #1E4D2B;
+    border-right: 2px solid #6B4423;
+  }
+
+  #category-sidebar.mobile-open {
+    display: block !important;
+  }
+
+  #mobile-category-toggle {
+    display: block !important;
+    margin-bottom: 1rem;
+  }
+
+  /* Give product cards more breathing room */
+  .ws-product-card {
+    min-width: 290px !important;
+    max-width: 290px !important;
+    height: auto !important;
+    min-height: 480px;
+  }
+
+  .ws-horizontal-scroll {
+    padding-right: 1.5rem;
+    gap: 1rem;
+  }
+}
+
+/* Extra small phones */
+@media (max-width: 480px) {
+  .ws-product-card {
+    min-width: 270px !important;
+    max-width: 270px !important;
+  }
+}
+
+/* Hide mobile category button on desktop */
+@media (min-width: 769px) {
+  #mobile-category-toggle {
+    display: none !important;
+  }
+}
+/* =============================================
+   MOBILE IMPROVEMENTS — Tabs + Search Bar
+   ============================================= */
+
+@media (max-width: 768px) {
+
+  /* Keep tabs in a straight line */
+  .auth-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    gap: 0.4rem !important;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem !important;
+    justify-content: flex-start;
+  }
+
+  .auth-tab {
+    white-space: nowrap !important;
+    flex-shrink: 0;
+    font-size: 0.95rem !important;
+    padding: 0.6rem 1.2rem !important;
+  }
+
+  /* Improve search bar placement on mobile */
+  .search-row {
+    flex-direction: column !important;
+    gap: 1rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  #product-search {
+    width: 100% !important;
+    font-size: 1rem;
+  }
+
+  /* Make the mobile "Jump to Category" button sit nicely */
+  #mobile-category-toggle {
+    margin-bottom: 1rem;
+  }
+}
+/* Force visibility for product cards and categories */
+#portal-products,
+.ws-horizontal-scroll,
+.ws-product-card,
+[id^="ws-cat-"] {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+/* Horizontal Scroll for Product Cards */
+.ws-horizontal-scroll {
+  display: flex !important;
+  gap: 1rem !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  padding-bottom: 1rem !important;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ws-product-card {
+  flex-shrink: 0 !important;
+  scroll-snap-align: start;
+}
+/* Hide sidebar close button on desktop */
+@media (min-width: 769px) {
+  #category-sidebar button[onclick="toggleMobileCategories()"] {
+    display: none !important;
+  }
+}

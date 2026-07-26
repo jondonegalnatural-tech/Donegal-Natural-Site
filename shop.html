@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shop — Donegal Natural Dog Treats</title>
+  <meta name="description" content="Browse all-natural dog chews, bully sticks, rollios, jerky, ears, bones and more — handcrafted in Marietta, Pennsylvania.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- NAVBAR -->
+ 
+<nav class="navbar">
+  <div class="container">
+    <a href="index.html" class="navbar-logo">
+      <img src="media/logo.png" alt="Donegal Natural">
+      <div class="navbar-logo-text">Donegal Natural<span>Dog Treats</span></div>
+    </a>
+    <nav class="navbar-nav">
+      <a href="shop.html" style="color:var(--green);">Shop</a>
+      <a href="wholesale.html">Wholesale</a>
+    </nav>
+    <div class="navbar-actions">
+      <a href="wholesale.html#login" class="btn-wholesale-login">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Wholesale Login
+      </a>
+      <a href="https://www.facebook.com/DonegalNaturalDogTreats" target="_blank" rel="noopener" class="navbar-social" aria-label="Facebook">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+      </a>
+      <a href="https://www.instagram.com/donegal_natural_dogtreats/" target="_blank" rel="noopener" class="navbar-social" aria-label="Instagram">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+      </a>
+      <button class="btn-cart" id="cart-btn" aria-label="Open cart">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+        <span class="cart-count" id="cart-count">0</span>
+      </button>
+      <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</nav>
+<div class="mobile-menu" id="mobile-menu">
+  <a href="shop.html">Shop</a>
+  <a href="wholesale.html">Wholesale</a>
+  <a href="wholesale.html#login">Wholesale Login</a>
+</div>
+
+<!-- SHOP HERO -->
+<div class="shop-hero">
+  <div class="container">
+    <p class="eyebrow eyebrow-amber" style="margin-bottom:.75rem;">Natural Chews &amp; Treats</p>
+    <h1>All Products</h1>
+    <p>Single-ingredient, slow-dried treats handcrafted in Marietta, Pennsylvania.</p>
+  </div>
+</div>
+
+<!-- PRODUCTS -->
+<section class="section">
+  <div class="container">
+
+    <!-- Category Filter Tabs -->
+    <div class="shop-filters" id="shop-filters">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="Bully Sticks">Bully Sticks</button>
+      <button class="filter-btn" data-filter="Rollios">Rollios (Rolled Cow Cheeks)</button>
+      <button class="filter-btn" data-filter="Jerky">Jerky</button>
+      <button class="filter-btn" data-filter="Ears">Ears</button>
+      <button class="filter-btn" data-filter="Cow Cheeks">Cow Cheeks</button>
+      <button class="filter-btn" data-filter="Feet">Feet</button>
+      <button class="filter-btn" data-filter="Duck and Goose">Duck and Goose</button>
+      <button class="filter-btn" data-filter="Rabbit">Rabbit</button>
+      <button class="filter-btn" data-filter="Beef / Oxtails">Beef / Oxtails</button>
+      <button class="filter-btn" data-filter="Buffalo">Buffalo</button>
+      <button class="filter-btn" data-filter="Braided">Braided</button>
+      <button class="filter-btn" data-filter="Trachea">Trachea</button>
+      <button class="filter-btn" data-filter="Horns and Hooves">Horns and Hooves</button>
+      <button class="filter-btn" data-filter="Retrievers">Retrievers</button>
+      <button class="filter-btn" data-filter="Pressed Bones">Pressed Bones</button>
+      <button class="filter-btn" data-filter="Hide">Hide</button>
+    </div>
+
+    <div id="products-grid">
+      <!-- Skeletons while loading -->
+      <div class="product-card"><div class="product-card-img"><div class="skeleton" style="width:100%;height:100%"></div></div><div class="product-card-body"><div class="skeleton" style="height:.7rem;width:5rem;margin-bottom:.75rem"></div><div class="skeleton" style="height:1rem;width:80%;margin-bottom:.5rem"></div></div></div>
+      <div class="product-card"><div class="product-card-img"><div class="skeleton" style="width:100%;height:100%"></div></div><div class="product-card-body"><div class="skeleton" style="height:.7rem;width:5rem;margin-bottom:.75rem"></div><div class="skeleton" style="height:1rem;width:80%;margin-bottom:.5rem"></div></div></div>
+      <div class="product-card"><div class="product-card-img"><div class="skeleton" style="width:100%;height:100%"></div></div><div class="product-card-body"><div class="skeleton" style="height:.7rem;width:5rem;margin-bottom:.75rem"></div><div class="skeleton" style="height:1rem;width:80%;margin-bottom:.5rem"></div></div></div>
+      <div class="product-card"><div class="product-card-img"><div class="skeleton" style="width:100%;height:100%"></div></div><div class="product-card-body"><div class="skeleton" style="height:.7rem;width:5rem;margin-bottom:.75rem"></div><div class="skeleton" style="height:1rem;width:80%;margin-bottom:.5rem"></div></div></div>
+    </div>
+    <p id="no-results" style="display:none;text-align:center;color:var(--muted);padding:2rem;">No products found for this category.</p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-brand-name">Donegal Natural</div>
+        <div class="footer-brand-sub">Dog Treats</div>
+        <p class="footer-brand-p">Handcrafted in Marietta, Pennsylvania. Pure ingredients, honest treats.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Shop by Category</h4>
+        <ul>
+          <li><a href="shop.html">All Products</a></li>
+          <li><a href="shop.html?filter=Bully+Sticks">Bully Sticks</a></li>
+          <li><a href="shop.html?filter=Rollios">Rollios</a></li>
+          <li><a href="shop.html?filter=Jerky">Jerky</a></li>
+          <li><a href="shop.html?filter=Ears">Ears</a></li>
+          <li><a href="shop.html?filter=Buffalo">Buffalo</a></li>
+          <li><a href="shop.html?filter=Beef+%2F+Oxtails">Beef / Oxtails</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Business</h4>
+        <ul>
+          <li><a href="wholesale.html">Wholesale Inquiry</a></li>
+          <li><a href="wholesale.html#login">Wholesale Login</a></li>
+          <li><a href="mailto:jon.donegalnatural@gmail.com">jon.donegalnatural@gmail.com</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 Donegal Natural Dog Treats. All rights reserved.</p>
+      <p>Made with care in Pennsylvania</p>
+    </div>
+  </div>
+</footer>
+
+<!-- Product Modal -->
+<div class="modal-overlay" id="product-modal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <button class="modal-close" id="modal-close" aria-label="Close">✕</button>
+    <div class="modal-grid" id="modal-content"></div>
+  </div>
+</div>
+
+<!-- Cart Drawer -->
+<div class="cart-overlay" id="cart-overlay"></div>
+<div class="cart-drawer" id="cart-drawer">
+  <div class="cart-drawer-header">
+    <h2>Your Cart</h2>
+    <button class="cart-close" id="cart-close">✕</button>
+  </div>
+  <div class="cart-items" id="cart-items"></div>
+  <div class="cart-footer" id="cart-footer" style="display:none;">
+    <div class="cart-subtotal"><span>Subtotal</span><span id="cart-subtotal">$0.00</span></div>
+    <button class="checkout-btn" id="checkout-btn">Proceed to Checkout →</button>
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+
+<script src="js/shopify.js"></script>
+<script src="js/cart.js"></script>
+<script src="js/main.js"></script>
+<script src="js/salesman-portal.js?v=2"></script>
+<script>
+// ── Category map: Shopify product handle → Squarespace category ───────────────
+const CATEGORY_MAP = {
+  // Bully Sticks
+  'braided-bully-sticks':                   'Bully Sticks',
+  'bully-canes':                            'Bully Sticks',
+  'euro-bully-sticks':                      'Bully Sticks',
+  'green-line-bully-sticks':                'Bully Sticks',
+  'super-thick-green-line-bully-stick':     'Bully Sticks',
+
+  // Rollios (Rolled Cow Cheeks)
+  'honey-smoked-rollio':   'Rollios',
+  'peanut-butter-rollio':  'Rollios',
+  'phat-rollio':           'Rollios',
+  'regular-rollio':        'Rollios',
+  'vanilla-rollio':        'Rollios',
+
+  // Jerky
+  'beef-jerky-sticks':          'Jerky',
+  'chicken-jerky-sticks':       'Jerky',
+  'elk-jerky-sticks':           'Jerky',
+  'elk-jerky-training-treats':  'Jerky',
+  'turkey-jerky-sticks':        'Jerky',
+  'venison-and-sweet-potato':   'Jerky',
+
+  // Ears
+  'buffalo-ears':  'Ears',
+  'cow-ears':      'Ears',
+  'lamb-ears':     'Ears',
+  'pig-ears':      'Ears',
+  'rabbit-ears':   'Ears',
+
+  // Cow Cheeks
+  'chunky-cow-cheeks':  'Cow Cheeks',
+  'cow-cheek-slabs':    'Cow Cheeks',
+
+  // Feet
+  'chicken-feet':  'Feet',
+  'duck-feet':     'Feet',
+  'rabbit-feet':   'Feet',
+
+  // Duck and Goose
+  'duck-heads':   'Duck and Goose',
+  'duck-necks':   'Duck and Goose',
+  'goose-necks':  'Duck and Goose',
+
+  // Rabbit
+  'rabbit-ears':   'Rabbit',   // also in Ears — primary mapped to Ears above; rabbit products
+  // rabbit-feet mapped to Feet above; override here with multi-tag handled in JS
+
+  // Beef / Oxtails
+  'beef-lung':                  'Beef / Oxtails',
+  'beef-wrapped-corium-sticks': 'Beef / Oxtails',
+  'super-meaty-beef-tendons':   'Beef / Oxtails',
+  'beef-corium-sticks':         'Beef / Oxtails',
+
+  // Buffalo
+  'buffalo-femur-bones':                     'Buffalo',
+  'buffalo-horns':                           'Buffalo',
+  'elk-jerky-stuffed-buffalo-femur-bone':    'Buffalo',
+  'peanut-butter-stuffed-buffalo-femur-bone':'Buffalo',
+
+  // Braided
+  'braided-bully-sticks':   'Braided',   // also Bully Sticks; primary = Bully Sticks
+  'supreme-braided-rings':  'Braided',
+
+  // Trachea
+  'beef-trachea': 'Trachea',
+
+  // Horns and Hooves
+  'buffalo-horns': 'Horns and Hooves',  // also Buffalo; primary = Buffalo
+  'rams-horns':    'Horns and Hooves',
+
+  // Retrievers
+  'white-supreme-retriever': 'Retrievers',
+
+  // Pressed Bones
+  'elk-jerky-stuffed-buffalo-femur-bone':     'Pressed Bones',  // covered under Buffalo
+  'peanut-butter-stuffed-buffalo-femur-bone': 'Pressed Bones',  // covered under Buffalo
+  'supreme-pressed-bones':                    'Pressed Bones',
+  '10-inch-supreme-pressed-stick':            'Pressed Bones',
+  'supreme-pressed-ring-6-inch':              'Pressed Bones',
+
+  // Hide
+  'supreme-braided-rings':          'Hide',  // also Braided; primary = Braided
+  '10-inch-supreme-pressed-stick':  'Hide',  // also Pressed Bones; primary = Pressed Bones
+  'supreme-pressed-bones':          'Hide',  // also Pressed Bones; primary = Pressed Bones
+  'supreme-pressed-ring-6-inch':    'Hide',  // also Pressed Bones; primary = Pressed Bones
+  'white-supreme-retriever':        'Hide',  // also Retrievers; primary = Retrievers
+};
+
+// Clean primary map (last-write wins conflicts resolved manually):
+const PRIMARY_CATEGORY = {
+  // Bully Sticks
+  'braided-bully-sticks':                   'Bully Sticks',
+  'bully-canes':                            'Bully Sticks',
+  'euro-bully-sticks':                      'Bully Sticks',
+  'green-line-bully-sticks':                'Bully Sticks',
+  'super-thick-green-line-bully-stick':     'Bully Sticks',
+  // Rollios
+  'honey-smoked-rollio':   'Rollios',
+  'peanut-butter-rollio':  'Rollios',
+  'phat-rollio':           'Rollios',
+  'regular-rollio':        'Rollios',
+  'vanilla-rollio':        'Rollios',
+  // Jerky
+  'beef-jerky-sticks':          'Jerky',
+  'chicken-jerky-sticks':       'Jerky',
+  'elk-jerky-sticks':           'Jerky',
+  'elk-jerky-training-treats':  'Jerky',
+  'turkey-jerky-sticks':        'Jerky',
+  'venison-and-sweet-potato':   'Jerky',
+  // Ears
+  'buffalo-ears':  'Ears',
+  'cow-ears':      'Ears',
+  'lamb-ears':     'Ears',
+  'pig-ears':      'Ears',
+  'rabbit-ears':   'Ears',
+  // Cow Cheeks
+  'chunky-cow-cheeks':  'Cow Cheeks',
+  'cow-cheek-slabs':    'Cow Cheeks',
+  // Feet
+  'chicken-feet':  'Feet',
+  'duck-feet':     'Feet',
+  'rabbit-feet':   'Feet',
+  // Duck and Goose
+  'duck-heads':   'Duck and Goose',
+  'duck-necks':   'Duck and Goose',
+  'goose-necks':  'Duck and Goose',
+  // Rabbit (items not already covered above)
+  // rabbit-ears and rabbit-feet already mapped above — show in both by using multi-category below
+  // Beef / Oxtails
+  'beef-lung':                  'Beef / Oxtails',
+  'beef-wrapped-corium-sticks': 'Beef / Oxtails',
+  'super-meaty-beef-tendons':   'Beef / Oxtails',
+  'beef-corium-sticks':         'Beef / Oxtails',
+  // Buffalo
+  'buffalo-femur-bones':                      'Buffalo',
+  'elk-jerky-stuffed-buffalo-femur-bone':     'Buffalo',
+  'peanut-butter-stuffed-buffalo-femur-bone': 'Buffalo',
+  // Braided
+  'supreme-braided-rings': 'Braided',
+  // Trachea
+  'beef-trachea': 'Trachea',
+  // Horns and Hooves
+  'buffalo-horns': 'Horns and Hooves',
+  'rams-horns':    'Horns and Hooves',
+  // Retrievers
+  'white-supreme-retriever': 'Retrievers',
+  // Pressed Bones
+  'supreme-pressed-bones':         'Pressed Bones',
+  '10-inch-supreme-pressed-stick': 'Pressed Bones',
+  'supreme-pressed-ring-6-inch':   'Pressed Bones',
+  // Hide — any remaining hide items
+};
+
+// Multi-category: products that appear in MORE than one category
+const MULTI_CATEGORY = {
+  'rabbit-ears': ['Ears', 'Rabbit'],
+  'rabbit-feet': ['Feet', 'Rabbit'],
+  'braided-bully-sticks': ['Bully Sticks', 'Braided'],
+  'buffalo-horns': ['Horns and Hooves', 'Buffalo'],
+  'elk-jerky-stuffed-buffalo-femur-bone':     ['Buffalo', 'Pressed Bones'],
+  'peanut-butter-stuffed-buffalo-femur-bone': ['Buffalo', 'Pressed Bones'],
+  'supreme-braided-rings':         ['Braided', 'Hide'],
+  '10-inch-supreme-pressed-stick': ['Pressed Bones', 'Hide'],
+  'supreme-pressed-bones':         ['Pressed Bones', 'Hide'],
+  'supreme-pressed-ring-6-inch':   ['Pressed Bones', 'Hide'],
+  'white-supreme-retriever':       ['Retrievers', 'Hide'],
+};
+
+// Category display order — matches Squarespace exactly
+const CATEGORY_ORDER = [
+  'Bully Sticks',
+  'Rollios',
+  'Jerky',
+  'Ears',
+  'Cow Cheeks',
+  'Feet',
+  'Duck and Goose',
+  'Rabbit',
+  'Beef / Oxtails',
+  'Buffalo',
+  'Braided',
+  'Trachea',
+  'Horns and Hooves',
+  'Retrievers',
+  'Pressed Bones',
+  'Hide',
+];
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const grid      = document.getElementById('products-grid');
+  const noResults = document.getElementById('no-results');
+  let allProducts = [];
+
+  // Check URL for pre-selected filter
+  const urlFilter = decodeURIComponent(new URLSearchParams(window.location.search).get('filter') || 'all');
+
+  try {
+    allProducts = await ShopifyAPI.getProducts(50);
+
+    // Attach primary category + multi-categories to each product
+    allProducts.forEach(p => {
+      p._category  = PRIMARY_CATEGORY[p.handle] || 'Beef / Oxtails';
+      p._categories = MULTI_CATEGORY[p.handle] || [p._category];
+    });
+
+    renderProducts(urlFilter);
+
+    // Set active filter button
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.filter === urlFilter);
+    });
+  } catch(e) {
+    grid.innerHTML = '<p style="color:var(--muted);grid-column:1/-1;text-align:center;padding:2rem;">Unable to load products. Please try again shortly.</p>';
+  }
+
+  // Filter button clicks
+  document.getElementById('shop-filters').addEventListener('click', e => {
+    const btn = e.target.closest('.filter-btn');
+    if (!btn) return;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderProducts(btn.dataset.filter);
+    // Update URL without reload
+    const url = new URL(window.location);
+    if (btn.dataset.filter === 'all') url.searchParams.delete('filter');
+    else url.searchParams.set('filter', btn.dataset.filter);
+    window.history.replaceState({}, '', url);
+  });
+
+  function renderProducts(filter) {
+    if (filter === 'all') {
+      // Group by category in Squarespace order
+      let html = '';
+      CATEGORY_ORDER.forEach(cat => {
+        const group = allProducts.filter(p => p._categories.includes(cat));
+        if (group.length === 0) return;
+        html += `
+          <div class="category-section" style="grid-column:1/-1;">
+            <h2 class="category-heading">${cat}</h2>
+            <div class="category-grid">
+              ${group.map(p => renderProductCard(p, cat)).join('')}
+            </div>
+          </div>`;
+      });
+      grid.innerHTML = html || '<p style="color:var(--muted);grid-column:1/-1;text-align:center;padding:2rem;">No products found.</p>';
+      noResults.style.display = 'none';
+    } else {
+      const filtered = allProducts.filter(p => p._categories.includes(filter));
+      noResults.style.display = filtered.length === 0 ? 'block' : 'none';
+      grid.innerHTML = filtered.length === 0 ? '' : filtered.map(p => renderProductCard(p, filter)).join('');
+    }
+  }
+});
+</script>
+</body>
+</html>

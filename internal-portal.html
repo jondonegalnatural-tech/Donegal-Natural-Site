@@ -1,0 +1,2153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Donegal Natural | Internal Portal</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+body { background: #f8f1e9; }
+.brand-green { color: #1E4D2B; }
+.brand-brown { color: #6B4423; }
+.btn-brand { background-color: #1E4D2B; color: #d4b78f; border: 2px solid #6B4423; }
+.sidebar { width: 4rem; transition: width 0.3s ease; overflow: hidden; }
+.sidebar:hover { width: 16rem; }
+.nav-text { opacity: 0; transition: opacity 0.2s ease; white-space: nowrap; }
+.sidebar:hover .nav-text { opacity: 1; }
+.nav-link { transition: all 0.2s ease; }
+.nav-link:hover { background-color: #254a2f; color: #d4b78f; }
+.dashboard-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.dashboard-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); }
+/* Weekly Sales Matrix – 2 columns on large screens */
+@media (min-width: 1024px) {
+    [data-card-id="sales-matrix"] {
+        grid-column: span 2;
+    }
+}
+#weekly-matrix-section {
+    scroll-margin-top: 90px;
+}
+</style>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="min-h-screen">
+
+<!-- ==================== TOP NAVIGATION ==================== -->
+<nav class="bg-white border-b-2 border-[#6B4423] sticky top-0 z-50">
+    <div class="w-full px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <img src="media/logo.png" alt="Donegal Natural" class="h-14 w-auto">
+            <span class="text-xl font-bold brand-green hidden md:block">Donegal Natural Dog Treats LLC</span>
+        </div>
+        <div class="flex items-center gap-6">
+            <div class="hidden md:block">
+                <span class="text-[#6B4423]">Hello, </span>
+                <span id="user-name" class="font-semibold brand-green">User</span>
+            </div>
+            <button onclick="logout()" class="px-5 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-medium flex items-center gap-2">
+                <i class="fas fa-sign-out-alt"></i>
+                <span class="hidden md:inline">Logout</span>
+            </button>
+        </div>
+    </div>
+</nav>
+<!-- ==================== END TOP NAVIGATION ==================== -->
+
+<!-- ==================== MAIN LAYOUT ==================== -->
+<div class="flex w-full">
+
+    <!-- ==================== SIDEBAR ==================== -->
+    <div class="sidebar bg-[#1E4D2B] text-[#d4b78f] sticky top-[73px] h-[calc(100vh-73px)] border-r-2 border-[#6B4423] flex flex-col overflow-y-auto pt-1">
+        <div class="p-4 border-b border-[#6B4423] flex items-center">
+            <i class="fas fa-user-shield text-2xl"></i>
+            <span class="ml-3 font-semibold nav-text">Admin Panel</span>
+        </div>
+        <div class="flex-1 py-2">
+            <a href="#" onclick="showSection('dashboard')" class="nav-link flex items-center px-4 py-3">
+                <i class="fas fa-home w-6 text-center"></i>
+                <span class="ml-3 nav-text">Dashboard</span>
+            </a>
+            <a href="#" onclick="showVendorsSection()" class="nav-link flex items-center px-4 py-3">
+                <i class="fas fa-truck w-6 text-center"></i>
+                <span class="ml-3 nav-text">Vendors</span>
+            </a>
+            <a href="#" onclick="showInventorySection()" class="nav-link flex items-center px-4 py-3">
+                <i class="fas fa-boxes w-6 text-center"></i>
+                <span class="ml-3 nav-text">Inventory</span>
+            </a>
+            <a href="#" onclick="showSection('orders')" class="nav-link flex items-center px-4 py-3">
+                <i class="fas fa-shopping-cart w-6 text-center"></i>
+                <span class="ml-3 nav-text">Orders</span>
+            </a>
+            <a href="#" onclick="showSection('salesmen')" class="nav-link flex items-center px-4 py-3">
+                <i class="fas fa-users w-6 text-center"></i>
+                <span class="ml-3 nav-text">Salesmen</span>
+            </a>
+            <a href="#" onclick="showSection('customers')" class="nav-link flex items-center px-4 py-3">
+                <i class="fas fa-map-marked-alt w-6 text-center"></i>
+                <span class="ml-3 nav-text">Customers</span>
+            </a>
+            <a href="#" onclick="showInquiriesSection()" class="nav-link flex items-center px-4 py-3 relative">
+    <i class="fas fa-question-circle w-6 text-center"></i>
+    <span class="ml-3 nav-text">Customer Inquiries</span>
+    <span id="inquiries-badge"
+          class="hidden ml-auto min-w-[22px] h-[22px] px-1.5 flex items-center justify-center text-xs font-bold bg-orange-500 text-white rounded-full">
+        0
+    </span>
+</a>
+            <a href="#" onclick="showSection('reports')" class="nav-link flex items-center px-4 py-3">
+                <i class="fas fa-chart-bar w-6 text-center"></i>
+                <span class="ml-3 nav-text">Reports</span>
+            </a>
+            <a href="#" onclick="showLegalFormsSection()" class="nav-link flex items-center px-4 py-3">
+                <i class="fas fa-balance-scale w-6 text-center"></i>
+                <span class="ml-3 nav-text">Legal/Forms</span>
+            </a>
+        </div>
+    </div>
+<!-- ==================== END SIDEBAR ==================== -->
+
+         <!-- ==================== MAIN CONTENT AREA ==================== -->
+    <div class="flex-1 p-8">
+
+                    <!-- ==================== DASHBOARD ==================== -->
+        <div id="dashboard" class="content-section">
+            <div class="flex items-center justify-between mb-8">
+                <div class="flex items-center gap-4">
+                    <h1 class="text-3xl font-bold brand-green">Dashboard Home</h1>
+                    <button onclick="window.location.href='salesman-portal.html'"
+                            class="btn-brand px-5 py-2 rounded-xl text-sm font-semibold">
+                        <i class="fas fa-user-tie mr-2"></i>
+                        Salesman View
+                    </button>
+                </div>
+                <button type="button"
+        id="ach-approvals-btn"
+        onclick="showAchApprovalsPanel()"
+        class="px-5 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] hover:bg-[#f8f4eb] relative">
+    <i class="fas fa-university mr-2"></i>
+    ACH Approvals
+    <span id="ach-approvals-badge"
+          class="hidden absolute -top-2 -right-2 min-w-[20px] h-5 px-1 flex items-center justify-center text-xs font-bold bg-orange-500 text-white rounded-full">
+        0
+                    </span>
+                </button>
+                <button id="customize-dashboard-btn"
+                        onclick="toggleDashboardCustomize()"
+                        class="btn-brand px-5 py-2 rounded-xl text-sm font-semibold">
+                    <i class="fas fa-sliders-h mr-2"></i>
+                    <span id="customize-dashboard-label">Customize Dashboard</span>
+                </button>
+            </div>
+
+            <!-- Dashboard Cards -->
+            <div id="dashboard-cards"
+                 class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+<!-- Inquiries Card -->
+<div data-card-id="inquiries"
+     onclick="dashboardCardClick(event, 'inquiries')"
+     class="dashboard-card bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition"
+     draggable="false">
+    <div class="dashboard-drag-handle hidden text-center text-[#6B4423] text-xs mb-2 cursor-grab">
+        <i class="fas fa-grip-vertical mr-1"></i> Drag to reorder
+    </div>
+    <div class="flex items-center justify-between mb-4">
+        <div>
+            <p class="text-sm text-[#6B4423] font-semibold">Customer Inquiries</p>
+            <p class="text-2xl font-bold brand-green mt-0.5">Leads</p>
+        </div>
+        <i class="fas fa-question-circle text-3xl text-[#6B4423]"></i>
+    </div>
+    <div class="grid grid-cols-3 gap-2 text-center mb-3">
+        <div class="bg-orange-50 rounded-xl py-2">
+            <p class="text-xs text-orange-700 font-medium">Pending</p>
+            <p id="dash-pending-inquiries" class="text-lg font-bold text-orange-600">0</p>
+        </div>
+        <div class="bg-green-50 rounded-xl py-2">
+            <p class="text-xs text-green-700 font-medium">Approved</p>
+            <p id="dash-approved-inquiries" class="text-lg font-bold text-green-600">0</p>
+        </div>
+        <div class="bg-red-50 rounded-xl py-2">
+            <p class="text-xs text-red-600 font-medium">Denied</p>
+            <p id="dash-denied-inquiries" class="text-lg font-bold text-red-600">0</p>
+        </div>
+    </div>
+    <div id="dash-inquiries-alert" class="hidden bg-orange-50 border border-orange-200 rounded-xl px-3 py-2 text-center">
+        <p class="text-xs text-orange-700 font-semibold">
+            <i class="fas fa-inbox mr-1"></i>
+            <span id="dash-inquiries-alert-text">New inquiries waiting</span>
+        </p>
+    </div>
+</div>
+                <!-- Orders Card -->
+                <div data-card-id="orders"
+                     onclick="dashboardCardClick(event, 'orders')"
+                     class="dashboard-card bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition"
+                     draggable="false">
+                    <div class="dashboard-drag-handle hidden text-center text-[#6B4423] text-xs mb-2 cursor-grab">
+                        <i class="fas fa-grip-vertical mr-1"></i> Drag to reorder
+                    </div>
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <p class="text-sm text-[#6B4423] font-semibold">Orders</p>
+                            <p class="text-2xl font-bold brand-green mt-0.5">Status Overview</p>
+                        </div>
+                        <i class="fas fa-shopping-cart text-3xl text-[#6B4423]"></i>
+                    </div>
+                                        <div class="grid grid-cols-3 gap-2 text-center mb-3">
+                        <div class="bg-orange-50 rounded-xl py-2">
+                            <p class="text-xs text-orange-700 font-medium">Pending</p>
+                            <p id="dash-pending-count" class="text-lg font-bold text-orange-600">0</p>
+                        </div>
+                        <div class="bg-green-50 rounded-xl py-2">
+                            <p class="text-xs text-green-700 font-medium">Received</p>
+                            <p id="dash-received-count" class="text-lg font-bold text-green-600">0</p>
+                        </div>
+                        <div class="bg-blue-50 rounded-xl py-2">
+                            <p class="text-xs text-blue-700 font-medium">Processing</p>
+                            <p id="dash-processing-count" class="text-lg font-bold text-blue-600">0</p>
+                        </div>
+                    </div>
+
+                    <!-- Pending Orders Dollar Total -->
+                    <div class="bg-[#f8f4eb] rounded-xl py-2 px-3 text-center mb-3">
+                        <p class="text-xs text-[#6B4423] font-medium">Pending Orders Value</p>
+                        <p id="dash-pending-value" class="text-lg font-bold brand-green">$0</p>
+                    </div>
+
+                    <div id="dash-orders-alert" onclick="showAgingOrders(); event.stopPropagation();"
+                         class="hidden bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-center cursor-pointer hover:bg-red-100 transition">
+                        <p class="text-xs text-red-600 font-semibold">
+                            <i class="fas fa-exclamation-triangle mr-1"></i>
+                            <span id="dash-aging-text">Orders aging over 10 days</span>
+                        </p>
+                    </div>
+                    <div id="dash-orders-alert" onclick="showAgingOrders(); event.stopPropagation();"
+                         class="hidden bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-center cursor-pointer hover:bg-red-100 transition">
+                        <p class="text-xs text-red-600 font-semibold">
+                            <i class="fas fa-exclamation-triangle mr-1"></i>
+                            <span id="dash-aging-text">Orders aging over 10 days</span>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Sales Overview Card -->
+                <div data-card-id="sales"
+                     onclick="dashboardCardClick(event, 'reports')"
+                     class="dashboard-card bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition"
+                     draggable="false">
+                    <div class="dashboard-drag-handle hidden text-center text-[#6B4423] text-xs mb-2 cursor-grab">
+                        <i class="fas fa-grip-vertical mr-1"></i> Drag to reorder
+                    </div>
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <p class="text-sm text-[#6B4423] font-semibold">Sales Overview</p>
+                            <p class="text-2xl font-bold brand-green mt-0.5">Quick View</p>
+                        </div>
+                        <i class="fas fa-chart-line text-3xl text-[#6B4423]"></i>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1 text-center mb-3">
+                        <div class="min-w-0">
+                            <p class="text-xs text-[#6B4423] font-medium mb-1">YTD $</p>
+                            <p id="dash-ytd-sales" class="text-sm font-bold brand-green truncate">$0</p>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-xs text-[#6B4423] font-medium mb-1">MTD $</p>
+                            <p id="dash-mtd-sales" class="text-sm font-bold brand-green truncate">$0</p>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-xs text-[#6B4423] font-medium mb-1">WTD $</p>
+                            <p id="dash-wtd-sales" class="text-sm font-bold brand-green truncate">$0</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-1 text-center bg-[#f8f4eb] rounded-xl py-2">
+                        <div class="min-w-0">
+                            <p class="text-xs text-[#6B4423] font-medium mb-0.5">YTD Units</p>
+                            <p id="dash-ytd-units" class="text-sm font-bold brand-green">0</p>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-xs text-[#6B4423] font-medium mb-0.5">MTD Units</p>
+                            <p id="dash-mtd-units" class="text-sm font-bold brand-green">0</p>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-xs text-[#6B4423] font-medium mb-0.5">WTD Units</p>
+                            <p id="dash-wtd-units" class="text-sm font-bold brand-green">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                                <!-- Active Salesmen Card -->
+                                <div data-card-id="salesmen"
+                     onclick="dashboardCardClick(event, 'salesmen')"
+                     class="dashboard-card bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition">
+
+                    <!-- HEADER: title + count + optional edit-request link -->
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <p class="text-sm text-[#6B4423] font-semibold">Active Salesmen</p>
+                            <p id="dash-salesmen-count" class="text-3xl font-bold brand-green mt-0.5">0</p>
+
+                            <!-- Only visible when there are pending customer edit requests -->
+                            <div id="customer-edit-requests-top" class="hidden mt-2">
+                                <button type="button"
+                                        onclick="event.stopPropagation(); showCustomerChangeRequestsPanel();"
+                                        class="text-sm font-semibold text-[#1E4D2B] hover:underline flex items-center gap-2">
+                                    <i class="fas fa-user-edit"></i>
+                                    <span>Customer Edit Requests</span>
+                                    <span id="customer-change-requests-badge"
+                                          class="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                                </button>
+                            </div>
+                        </div>
+                        <i class="fas fa-users text-3xl text-[#6B4423]"></i>
+                    </div>
+
+                    <!-- BODY: Top 3 YTD -->
+                    <div class="bg-[#f8f4eb] rounded-xl p-3 mb-3 cursor-pointer"
+                         onclick="showSection('salesmen')">
+                        <p class="text-xs text-[#6B4423] font-semibold mb-2">Top 3 YTD</p>
+                        <div id="dash-top-salesmen" class="space-y-1.5 text-sm">
+                            <p class="text-[#6B4423]">Loading...</p>
+                        </div>
+                    </div>
+
+                    <!-- ACTIONS: Price Change Proposals -->
+                    <button type="button"
+                            onclick="event.stopPropagation(); showPriceProposalsPanel();"
+                            class="w-full flex items-center justify-between px-4 py-3 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] transition mb-2">
+                        <span class="text-sm font-semibold brand-green">
+                            <i class="fas fa-file-invoice-dollar mr-2"></i>
+                            Price Change Proposals
+                        </span>
+                        <span id="price-proposals-badge"
+                              class="hidden bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">0</span>
+                    </button>
+
+            
+                    
+
+                </div>
+
+                <!-- Vendors Card -->
+                <div data-card-id="vendors"
+                     onclick="dashboardCardClick(event, 'vendors')"
+                     class="dashboard-card bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition"
+                     draggable="false">
+                    <div class="dashboard-drag-handle hidden text-center text-[#6B4423] text-xs mb-2 cursor-grab">
+                        <i class="fas fa-grip-vertical mr-1"></i> Drag to reorder
+                    </div>
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <p class="text-sm text-[#6B4423] font-semibold">Vendors</p>
+                            <p class="text-2xl font-bold brand-green mt-0.5">Suppliers</p>
+                        </div>
+                        <i class="fas fa-truck text-3xl text-[#6B4423]"></i>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 mb-4 text-center">
+                        <div class="bg-green-50 rounded-xl py-2">
+                            <p class="text-xs text-green-700 font-medium">Active</p>
+                            <p id="dash-active-vendors" class="text-xl font-bold text-green-700">0</p>
+                        </div>
+                        <div class="bg-gray-100 rounded-xl py-2">
+                            <p class="text-xs text-gray-600 font-medium">Inactive</p>
+                            <p id="dash-inactive-vendors" class="text-xl font-bold text-gray-600">0</p>
+                        </div>
+                    </div>
+                    <div class="bg-[#f8f4eb] rounded-xl px-3 py-2 text-center">
+                        <p class="text-xs text-[#6B4423] mb-1">Total Purchases YTD</p>
+                        <p id="dash-vendor-ytd" class="text-sm font-semibold brand-green">$0</p>
+                    </div>
+                </div>
+
+                <!-- Profit Margin Card -->
+                <div data-card-id="profit"
+                     onclick="dashboardCardClick(event, 'profit')"
+                     class="dashboard-card bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition"
+                     draggable="false">
+                    <div class="dashboard-drag-handle hidden text-center text-[#6B4423] text-xs mb-2 cursor-grab">
+                        <i class="fas fa-grip-vertical mr-1"></i> Drag to reorder
+                    </div>
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <p class="text-sm text-[#6B4423] font-semibold">Profit Margin</p>
+                            <p class="text-2xl font-bold brand-green mt-0.5">Analysis</p>
+                        </div>
+                        <i class="fas fa-percentage text-3xl text-[#6B4423]"></i>
+                    </div>
+                    <div class="bg-[#f8f4eb] rounded-xl px-3 py-2 text-center mb-3">
+                        <p class="text-xs text-[#6B4423] mb-1">Average Margin</p>
+                        <p id="dash-avg-margin" class="text-xl font-bold brand-green">—</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 text-center">
+                        <div class="bg-green-50 rounded-xl py-2">
+                            <p class="text-xs text-green-700 font-medium">Outperform</p>
+                            <p id="dash-outperform-count" class="text-lg font-bold text-green-700">0</p>
+                        </div>
+                        <div class="bg-red-50 rounded-xl py-2">
+                            <p class="text-xs text-red-600 font-medium">Underperform</p>
+                            <p id="dash-underperform-count" class="text-lg font-bold text-red-600">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                                                <!-- Inventory & Projections Card -->
+                <div data-card-id="inventory"
+                     onclick="dashboardCardClick(event, 'inventory')"
+                     class="dashboard-card bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition"
+                     draggable="false">
+                    <div class="dashboard-drag-handle hidden text-center text-[#6B4423] text-xs mb-2 cursor-grab">
+                        <i class="fas fa-grip-vertical mr-1"></i> Drag to reorder
+                    </div>
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <p class="text-sm text-[#6B4423] font-semibold">Inventory & Projections</p>
+                            <p class="text-lg font-bold brand-green mt-0.5">Overview</p>
+                        </div>
+                        <i class="fas fa-exclamation-triangle text-3xl text-orange-500"></i>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 text-center mb-3">
+                        <div onclick="goToLowStock(event)"
+                             class="bg-orange-50 rounded-xl py-2 cursor-pointer hover:bg-orange-100 transition">
+                            <p class="text-xs text-orange-700 font-medium">Low Stock</p>
+                            <p id="dash-low-stock-count" class="text-xl font-bold text-orange-600">0</p>
+                        </div>
+                        <div onclick="goToPendingPOs(event)"
+                             class="bg-blue-50 rounded-xl py-2 cursor-pointer hover:bg-blue-100 transition">
+                            <p class="text-xs text-blue-700 font-medium">Pending POs</p>
+                            <p id="dash-pending-pos-count" class="text-xl font-bold text-blue-600">0</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-orange-600 font-medium text-center mb-3">Requires attention</p>
+                    <button onclick="goToOrderRecommendations(event)"
+                            class="w-full px-4 py-2 text-sm font-semibold border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] transition">
+                        <i class="fas fa-lightbulb mr-2"></i> Order Recommendations
+                    </button>
+                </div>
+
+                <!-- Weekly Sales Matrix Card (2 columns wide) -->
+                <div data-card-id="sales-matrix"
+                     onclick="goToSalesMatrix(event)"
+                     class="dashboard-card bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition"
+                     style="grid-column: span 2;"
+                     draggable="false">
+                    <div class="dashboard-drag-handle hidden text-center text-[#6B4423] text-xs mb-2 cursor-grab">
+                        <i class="fas fa-grip-vertical mr-1"></i> Drag to reorder
+                    </div>
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <p class="text-sm text-[#6B4423] font-semibold">Weekly Sales Matrix</p>
+                            <p class="text-lg font-bold brand-green mt-0.5">This Week</p>
+                        </div>
+                        <i class="fas fa-table text-3xl text-[#6B4423]"></i>
+                    </div>
+                    <div id="dash-matrix-top5" class="space-y-2 mb-4">
+                        <p class="text-sm text-[#6B4423]">Loading top products...</p>
+                    </div>
+                    <button onclick="goToSalesMatrix(event)"
+                            class="w-full px-4 py-2 text-sm font-semibold border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] transition">
+                        View Full Matrix →
+                    </button>
+                </div>
+
+            </div>
+        </div>
+        <!-- ==================== END DASHBOARD ==================== -->
+
+                                <!-- ==================== SALESMEN ==================== -->
+        <div id="salesmen" class="content-section" style="display: none;">
+            <div class="flex items-center justify-between mb-8">
+                <h1 class="text-3xl font-bold brand-green">Salesmen</h1>
+                <div class="flex gap-3">
+                    <button onclick="showAddSalesmanModal()"
+                            class="btn-brand px-4 py-2 text-sm rounded-xl flex items-center gap-2">
+                        <i class="fas fa-plus"></i>
+                        <span>Add Salesman</span>
+                    </button>
+                    <button onclick="addTestSalesman()"
+                            class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
+                        <i class="fas fa-plus"></i>
+                        <span>Add Test Salesman</span>
+                    </button>
+                    <button onclick="showSection('dashboard')"
+                            class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>Dashboard</span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="salesmen-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Filled by JavaScript -->
+            </div>
+        </div>
+        <!-- ==================== END SALESMEN ==================== -->
+
+                        <!-- ==================== ORDERS ==================== -->
+        <div id="orders" class="content-section" style="display: none;">
+            <div class="flex items-center justify-between mb-8">
+                <h1 class="text-3xl font-bold brand-green">Received Orders</h1>
+                                <div class="flex gap-3">
+                    <button onclick="showAddOrderModal()"
+                            class="btn-brand px-4 py-2 text-sm rounded-xl flex items-center gap-2">
+                        <i class="fas fa-plus"></i>
+                        <span>Add Order</span>
+                    </button>
+                    <button onclick="addTestOrder()" 
+                            class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
+                        <i class="fas fa-plus"></i>
+                        <span>Add Test Order</span>
+                    </button>
+                    <button onclick="showSection('dashboard')" 
+                            class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>Dashboard</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Order Status Summary Cards -->
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                <div onclick="filterOrders('pending')" class="bg-white border-2 border-[#6B4423] rounded-2xl p-5 text-center cursor-pointer hover:bg-[#f8f4eb] transition">
+                    <p class="text-sm text-[#6B4423] font-semibold">Pending</p>
+                    <p id="orders-pending-count" class="text-3xl font-bold text-orange-600 mt-1">0</p>
+                </div>
+                <div onclick="filterOrders('received')" class="bg-white border-2 border-[#6B4423] rounded-2xl p-5 text-center cursor-pointer hover:bg-[#f8f4eb] transition">
+                    <p class="text-sm text-[#6B4423] font-semibold">Received</p>
+                    <p id="orders-received-count" class="text-3xl font-bold text-green-600 mt-1">0</p>
+                </div>
+                <div onclick="filterOrders('processing')" class="bg-white border-2 border-[#6B4423] rounded-2xl p-5 text-center cursor-pointer hover:bg-[#f8f4eb] transition">
+                    <p class="text-sm text-[#6B4423] font-semibold">Processing</p>
+                    <p id="orders-processing-count" class="text-3xl font-bold text-blue-600 mt-1">0</p>
+                </div>
+                <div onclick="filterOrders('shipped')" class="bg-white border-2 border-[#6B4423] rounded-2xl p-5 text-center cursor-pointer hover:bg-[#f8f4eb] transition">
+                    <p class="text-sm text-[#6B4423] font-semibold">Shipped</p>
+                    <p id="orders-shipped-count" class="text-3xl font-bold text-purple-600 mt-1">0</p>
+                </div>
+                <div onclick="filterOrders('delivered')" class="bg-white border-2 border-[#6B4423] rounded-2xl p-5 text-center cursor-pointer hover:bg-[#f8f4eb] transition">
+                    <p class="text-sm text-[#6B4423] font-semibold">Delivered</p>
+                    <p id="orders-delivered-count" class="text-3xl font-bold text-orange-500 mt-1">0</p>
+                </div>
+            </div>
+
+                        <!-- All Orders Button + Search -->
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
+                <button onclick="showAllOrders()"
+                        class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold bg-[#1E4D2B] text-[#d4b78f] rounded-xl hover:bg-[#254a2f] transition">
+                    All Orders
+                    <span id="orders-total-count"
+                          class="inline-flex items-center justify-center min-w-[24px] h-6 px-2 text-xs font-bold bg-[#d4b78f] text-[#1E4D2B] rounded-full">
+                        0
+                    </span>
+                </button>
+                <div class="relative">
+                    <input type="text" id="orders-search"
+                           placeholder="Search order #..."
+                           class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-48 pr-8"
+                           oninput="renderOrdersTable(); updateOrdersSearchClearButton();">
+                    <button onclick="clearOrdersSearch()"
+                            id="orders-search-clear"
+                            class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-[#6B4423] hover:text-red-600 text-lg leading-none">
+                        &times;
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div id="orders-table" class="overflow-x-auto p-4"></div>
+
+            <!-- Empty state -->
+            <div id="orders-empty" class="hidden text-center py-16">
+                <i class="fas fa-inbox text-6xl text-[#d4b78f] mb-4"></i>
+                <p class="text-[#6B4423]">No orders received yet. Orders placed via other portals will appear here.</p>
+            </div>
+        </div>
+        <!-- ==================== END ORDERS ==================== -->
+
+
+                        <!-- ==================== CUSTOMER INQUIRIES ==================== -->
+        <div id="inquiries" class="content-section" style="display: none;">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h1 class="text-3xl font-bold brand-green">Customer Inquiries</h1>
+                    <p class="text-[#6B4423]">Manage new customer requests</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="showSection('dashboard')" 
+                            class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>Dashboard</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 text-center">
+                    <p class="text-sm text-[#6B4423]">Pending</p>
+                    <p id="pending-count" class="text-4xl font-bold text-orange-600 mt-1">0</p>
+                </div>
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 text-center">
+                    <p class="text-sm text-[#6B4423]">Approved</p>
+                    <p id="approved-count" class="text-4xl font-bold text-green-600 mt-1">0</p>
+                </div>
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 text-center">
+                    <p class="text-sm text-[#6B4423]">Denied</p>
+                    <p id="denied-count" class="text-4xl font-bold text-red-600 mt-1">0</p>
+                </div>
+            </div>
+
+            <div class="mb-8">
+                <h2 class="text-xl font-bold brand-green mb-4">Pending Inquiries</h2>
+                <div id="pending-inquiries-list"></div>
+            </div>
+            <div class="mb-8">
+                <h2 class="text-xl font-bold brand-green mb-4">Approved Inquiries</h2>
+                <div id="approved-inquiries-list"></div>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold brand-green mb-4">Denied Inquiries</h2>
+                <div id="denied-inquiries-list"></div>
+            </div>
+        </div>
+        <!-- ==================== END CUSTOMER INQUIRIES ==================== -->
+
+                <!-- ==================== INVENTORY ==================== -->
+        <div id="inventory" class="content-section" style="display: none;">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h1 class="text-3xl font-bold brand-green">Inventory</h1>
+                    <p class="text-[#6B4423]">Track stock levels, receive purchase orders, and view projections</p>
+                </div>
+                <button onclick="showSection('dashboard')" 
+                        class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>Dashboard</span>
+                </button>
+            </div>
+
+                        <!-- Action Buttons -->
+            <div class="flex flex-wrap gap-3 mb-8">
+                <button onclick="showCurrentInventory()" 
+                        class="btn-brand px-5 py-2 rounded-xl text-sm font-semibold">
+                    <i class="fas fa-boxes mr-2"></i> Current Inventory
+                </button>
+                <button onclick="showInventoryReceiving()" 
+                        class="px-5 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] relative">
+                    <i class="fas fa-truck-loading mr-2"></i> Receive Purchase Orders
+                    <span id="pending-pos-badge" 
+                          class="hidden absolute -top-2 -right-2 min-w-[22px] h-[22px] px-1.5 flex items-center justify-center text-xs font-bold bg-orange-500 text-white rounded-full">
+                        0
+                    </span>
+                </button>
+                <button onclick="showInventoryProjections()" 
+                        class="px-5 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                    <i class="fas fa-chart-line mr-2"></i> Projections
+                </button>
+            </div>
+
+            <!-- Content Area -->
+            <div id="inventory-content">
+                <!-- Filled by JavaScript -->
+            </div>
+        </div>
+        <!-- ==================== END INVENTORY ==================== -->
+
+                        <!-- ==================== CUSTOMERS ==================== -->
+        <div id="customers" class="content-section" style="display: none;">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h1 class="text-3xl font-bold brand-green">Customers</h1>
+                    <p class="text-[#6B4423]">Manage and track your customer base</p>
+                </div>
+                    <div class="flex gap-3">
+                    <button onclick="showAddCustomerModal()"
+                            class="btn-brand px-4 py-2 text-sm rounded-xl flex items-center gap-2">
+                        <i class="fas fa-plus"></i>
+                        <span>Add Customer</span>
+                    </button>
+                    <button onclick="addTestCustomer()" 
+                            class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
+                        <i class="fas fa-plus"></i>
+                        <span>Add Test Customer</span>
+                    </button>
+                    <button onclick="showSection('dashboard')" 
+                            class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>Dashboard</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="mb-6 max-w-md">
+                <input type="text" id="customer-search" placeholder="Search customers..."
+                       class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-3"
+                       onkeyup="searchCustomers()">
+            </div>
+
+            <div id="customer-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8"></div>
+
+            <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <i class="fas fa-map-marked-alt text-2xl text-[#6B4423]"></i>
+                        <h3 class="text-xl font-bold brand-green">Customer Map</h3>
+                    </div>
+                    <span class="text-sm text-[#6B4423]">Showing customer locations</span>
+                </div>
+                <div id="customer-map" style="height: 450px; width: 100%; border-radius: 12px; z-index: 1;"></div>
+                <p class="text-xs text-[#6B4423] mt-2 text-center">Click on pins to see customer details. Full address geocoding coming later.</p>
+            </div>
+        </div>
+        <!-- ==================== END CUSTOMERS ==================== -->
+
+                                <!-- ==================== REPORTS ==================== -->
+        <div id="reports" class="content-section" style="display: none;">
+                        <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h1 class="text-3xl font-bold brand-green">Reports</h1>
+                    <p class="text-[#6B4423]">Sales performance, customer insights, and more</p>
+                </div>
+                <button onclick="showSection('dashboard')" 
+                        class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>Dashboard</span>
+                </button>
+            </div>
+
+            <!-- ========== SALES REPORTS ========== -->
+            <div class="mb-8">
+                <h2 class="text-xl font-bold brand-green mb-4 flex items-center gap-2">
+                    <i class="fas fa-chart-line"></i> <span>Sales Reports</span>
+                </h2>
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
+                    <div id="sales-reports-content"></div>
+                </div>
+            </div>
+            <!-- ========== END SALES REPORTS ========== -->
+
+                        <!-- ========== WEEKLY ITEM SALES MATRIX ========== -->
+            <div id="weekly-matrix-section" class="mb-8">
+                <h2 class="text-xl font-bold brand-green mb-4 flex items-center gap-2">
+                    <i class="fas fa-table"></i> <span>Weekly Item Sales Matrix</span>
+                </h2>
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
+                    <!-- Metric Toggle Buttons -->
+                    <div class="mb-4 flex flex-wrap gap-2 items-center">
+                        <span class="text-sm font-semibold text-[#6B4423] mr-2">Show:</span>
+                        <button id="metric-units" onclick="setMatrixMetric('units')" class="metric-btn px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]">Units</button>
+                        <button id="metric-sales" onclick="setMatrixMetric('sales')" class="metric-btn px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">Sales $</button>
+                        <button id="metric-change" onclick="setMatrixMetric('change')" class="metric-btn px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">% Change</button>
+                        <button id="metric-potential" onclick="setMatrixMetric('potential')" class="metric-btn px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">Potential GP</button>
+                        <button id="metric-actual" onclick="setMatrixMetric('actual')" class="metric-btn px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">Actual GP</button>
+                    </div>
+
+                    <!-- % Change Disclaimer -->
+                    <div id="change-disclaimer" class="hidden mb-3 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-xl text-sm text-yellow-800">
+                        <strong>Note:</strong> The <strong>% Change</strong> metric shows <strong>Week-to-Date</strong> performance compared to the <strong>same week from the previous year</strong>.
+                        A positive percentage means higher units sold than last year. This feature is being prepared for next year’s data.
+                    </div>
+
+                    <!-- Export Buttons -->
+                    <div class="flex gap-3 mb-4">
+                        <button onclick="exportMatrixToCSV()" class="px-4 py-2 border-2 border-[#6B4423] rounded-xl text-sm hover:bg-[#f8f4eb]">
+                            <i class="fas fa-file-csv mr-2"></i> Export to CSV
+                        </button>
+                        <button onclick="exportMatrixToExcel()" class="px-4 py-2 border-2 border-[#6B4423] rounded-xl text-sm hover:bg-[#f8f4eb]">
+                            <i class="fas fa-file-excel mr-2"></i> Export to Excel
+                        </button>
+                    </div>
+
+                    <!-- Matrix Controls -->
+                    <div class="mb-4 flex flex-wrap gap-3 items-center justify-between">
+                        <div class="flex flex-wrap gap-3 items-center">
+                            <input type="text" id="matrix-search" placeholder="Search products..." class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-64" oninput="renderWeeklyMatrix()">
+                            <select id="matrix-category" class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm" onchange="renderWeeklyMatrix()">
+                                <option value="all">All Categories</option>
+                            </select>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="moveMatrixWeeks(-4)" class="px-4 py-2 border-2 border-[#6B4423] rounded-xl text-sm hover:bg-[#f8f4eb]">← Previous 4 Weeks</button>
+                            <button onclick="moveMatrixWeeks(4)" class="px-4 py-2 border-2 border-[#6B4423] rounded-xl text-sm hover:bg-[#f8f4eb]">Next 4 Weeks →</button>
+                        </div>
+                    </div>
+
+                    <!-- Matrix Container -->
+                    <div id="weekly-matrix-container" class="overflow-x-auto"></div>
+                </div>
+            </div>
+            <!-- ========== END WEEKLY ITEM SALES MATRIX ========== -->
+
+                        <!-- ========== OTHER REPORT CATEGORIES ========== -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+
+                <!-- ========== CUSTOMER INSIGHTS ========== -->
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h3 class="text-xl font-bold brand-green">Customer Insights</h3>
+                            <p class="text-sm text-[#6B4423]">Order activity and inactive customers</p>
+                        </div>
+                        <button onclick="refreshCustomerInsights()" class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                            <i class="fas fa-sync-alt mr-2"></i> Refresh
+                        </button>
+                    </div>
+
+                    <!-- Controls -->
+                    <div class="flex flex-wrap gap-4 mb-6 items-end">
+                        <div>
+                            <label class="block text-sm font-semibold text-[#6B4423] mb-1">Inactive after (days)</label>
+                            <input type="number" id="inactive-threshold" value="60" class="w-24 border-2 border-[#6B4423] rounded-xl px-3 py-2 text-center" onchange="refreshCustomerInsights()">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-[#6B4423] mb-1">Sort by</label>
+                            <select id="insights-sort" class="border-2 border-[#6B4423] rounded-xl px-3 py-2" onchange="refreshCustomerInsights()">
+                                <option value="days">Days Since Last Order</option>
+                                <option value="orders">Total Orders</option>
+                                <option value="name">Customer Name</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Clickable Summary Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div onclick="filterCustomerInsights('all')" id="card-all" class="bg-[#f8f4eb] rounded-xl p-4 text-center cursor-pointer hover:bg-[#f0e6d9] transition">
+                            <p class="text-sm text-[#6B4423]">Total Customers</p>
+                            <p id="total-customers-count" class="text-3xl font-bold brand-green mt-1">0</p>
+                        </div>
+                        <div onclick="filterCustomerInsights('active')" id="card-active" class="bg-[#f8f4eb] rounded-xl p-4 text-center cursor-pointer hover:bg-[#f0e6d9] transition">
+                            <p class="text-sm text-[#6B4423]">Active Customers</p>
+                            <p id="active-customers-count" class="text-3xl font-bold text-green-600 mt-1">0</p>
+                        </div>
+                        <div onclick="filterCustomerInsights('inactive')" id="card-inactive" class="bg-[#f8f4eb] rounded-xl p-4 text-center cursor-pointer hover:bg-[#f0e6d9] transition">
+                            <p class="text-sm text-[#6B4423]">Inactive Customers</p>
+                            <p id="inactive-customers-count" class="text-3xl font-bold text-orange-600 mt-1">0</p>
+                        </div>
+                    </div>
+
+                    <!-- Customer Activity Table -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                                    <th class="p-3 text-left">Customer</th>
+                                    <th class="p-3 text-center">Last Order</th>
+                                    <th class="p-3 text-center">Days Since</th>
+                                    <th class="p-3 text-center">Total Orders</th>
+                                    <th class="p-3 text-center">Total Spent</th>
+                                    <th class="p-3 text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="customer-insights-table"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <!-- ========== END CUSTOMER INSIGHTS ========== -->
+
+                <!-- ========== PROFIT MARGIN ANALYSIS ========== -->
+                <div id="profit-margin-section" class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
+                    <div class="mb-5">
+                        <h3 class="text-xl font-bold brand-green flex items-center gap-2">
+                            <i class="fas fa-percentage"></i> <span>Profit Margin Analysis</span>
+                        </h3>
+                        <p class="text-sm text-[#6B4423]">Average margin and top performers</p>
+                    </div>
+
+                    <!-- Summary Cards (compact) -->
+                    <div class="grid grid-cols-3 gap-3 mb-6">
+                        <div onclick="setMarginFilter('all')" class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-3 text-center cursor-pointer hover:shadow-md transition">
+                            <p class="text-xs font-semibold text-[#6B4423]">All Products</p>
+                            <p class="text-[10px] text-[#6B4423]">Avg Margin</p>
+                            <p id="pm-avg-margin" class="text-lg font-bold brand-green mt-1">—</p>
+                        </div>
+                        <div onclick="setMarginFilter('outperform')" class="bg-green-50 border border-green-300 rounded-xl p-3 text-center cursor-pointer hover:shadow-md transition">
+                            <p class="text-xs font-semibold text-green-800">Out Performing</p>
+                            <p class="text-[10px] text-green-700">Products</p>
+                            <p id="pm-outperform" class="text-lg font-bold text-green-700 mt-1">0</p>
+                        </div>
+                        <div onclick="setMarginFilter('underperform')" class="bg-red-50 border border-red-300 rounded-xl p-3 text-center cursor-pointer hover:shadow-md transition">
+                            <p class="text-xs font-semibold text-red-700">Under-Performing</p>
+                            <p class="text-[10px] text-red-600">Products</p>
+                            <p id="pm-underperform" class="text-lg font-bold text-red-600 mt-1">0</p>
+                        </div>
+                    </div>
+
+                    <!-- Top Performers -->
+                    <div class="mb-5">
+                        <h4 class="font-bold brand-green text-sm mb-2">Top Performers (Top 20%)</h4>
+                        <div id="pm-top-performers" class="space-y-1.5 text-sm max-h-48 overflow-y-auto"></div>
+                    </div>
+
+                    <!-- Search -->
+                    <div class="mb-3">
+                        <input type="text" id="pm-search" placeholder="Search products..."
+                               class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm w-full"
+                               oninput="renderProfitMarginSearch()">
+                    </div>
+
+                    <!-- Search Results (empty by default) -->
+                    <div id="pm-search-results" class="space-y-2"></div>
+                </div>
+                <!-- ========== END PROFIT MARGIN ANALYSIS ========== -->
+
+            </div>
+            <!-- ========== END OTHER REPORT CATEGORIES ========== -->
+
+            <!-- ========== INGREDIENTS CARD ========== -->
+            <div class="mb-8">
+                <div id="ingredients-card" onclick="openIngredientsModal()"
+                     class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <p class="text-sm text-[#6B4423] font-semibold">Ingredients</p>
+                            <h2 class="text-xl font-bold brand-green">USA Elky Jerky Treats/Squares</h2>
+                        </div>
+                        <i class="fas fa-flask text-3xl text-[#6B4423]"></i>
+                    </div>
+                    <p class="text-sm mb-3">Ground Elk Meat, Rice Flour, Spices, Sugar, Salt and Garlic Powder</p>
+                    <p class="text-red-600 font-semibold text-sm mb-4">NOT FOR HUMAN CONSUMPTION</p>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center mb-3">
+                        <div class="bg-[#f8f4eb] rounded-lg py-2">
+                            <p class="text-xs text-[#6B4423]">Protein</p>
+                            <p class="font-bold">29.60%</p>
+                        </div>
+                        <div class="bg-[#f8f4eb] rounded-lg py-2">
+                            <p class="text-xs text-[#6B4423]">Acid Fat</p>
+                            <p class="font-bold">18.70%</p>
+                        </div>
+                        <div class="bg-[#f8f4eb] rounded-lg py-2">
+                            <p class="text-xs text-[#6B4423]">Crude Fiber</p>
+                            <p class="font-bold">0.21%</p>
+                        </div>
+                        <div class="bg-[#f8f4eb] rounded-lg py-2">
+                            <p class="text-xs text-[#6B4423]">Moisture</p>
+                            <p class="font-bold">32.70%</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-[#1E4D2B] font-medium">Click to view all ingredients →</p>
+                </div>
+            </div>
+            <!-- ========== END INGREDIENTS CARD ========== -->
+
+            <!-- ========== MORE REPORTS ========== -->
+            <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
+                <h3 class="font-bold brand-green mb-2">More Reports</h3>
+                <p class="text-sm text-[#6B4423]">Legal and other reports coming soon.</p>
+            </div>
+            <!-- ========== END MORE REPORTS ========== -->
+
+        </div>
+        <!-- ==================== END REPORTS ==================== -->
+
+                        <!-- ==================== VENDORS ==================== -->
+        <div id="vendors" class="content-section" style="display: none;">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h1 class="text-3xl font-bold brand-green">Vendors</h1>
+                    <p class="text-[#6B4423]">Manage suppliers, purchase history, and costs</p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="openProductCostsModal()" 
+                            class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                        <i class="fas fa-dollar-sign mr-2"></i> Cost of Goods
+                    </button>
+                    <button onclick="typeof showAddVendorModal === 'function' && showAddVendorModal()" 
+                            class="btn-brand px-4 py-2 rounded-xl text-sm font-semibold">
+                        <i class="fas fa-plus mr-2"></i> Add Vendor
+                    </button>
+                    <button onclick="showSection('dashboard')" 
+                            class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>Dashboard</span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="vendors-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Filled by renderVendors() -->
+            </div>
+        </div>
+        <!-- ==================== END VENDORS ==================== -->
+
+                        <!-- ==================== LEGAL / FORMS ==================== -->
+        <div id="legal-forms" class="content-section" style="display: none;">
+                        <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h1 class="text-3xl font-bold brand-green">Legal / Forms</h1>
+                    <p class="text-[#6B4423]">Placeholder checklist of documents we should collect and store</p>
+                </div>
+                <button onclick="showSection('dashboard')" 
+                        class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>Dashboard</span>
+                </button>
+            </div>
+
+            <div class="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 mb-8 text-sm text-yellow-800">
+                <strong>Note:</strong> This is a reminder area only. Real document uploads and storage will be added later.
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
+                    <h3 class="font-bold brand-green mb-3 flex items-center gap-2">
+                        <i class="fas fa-ship"></i> Import / Customs
+                    </h3>
+                    <ul class="text-sm text-[#6B4423] space-y-1 list-disc list-inside">
+                        <li>Commercial Invoice</li>
+                        <li>Bill of Lading / Air Waybill</li>
+                        <li>Packing List</li>
+                        <li>Entry Summary / Customs paperwork</li>
+                        <li>Import permits (if required)</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
+                    <h3 class="font-bold brand-green mb-3 flex items-center gap-2">
+                        <i class="fas fa-clipboard-check"></i> Product Compliance
+                    </h3>
+                    <ul class="text-sm text-[#6B4423] space-y-1 list-disc list-inside">
+                        <li>Guaranteed Analysis (all products)</li>
+                        <li>AAFCO statements</li>
+                        <li>Product label proofs</li>
+                        <li>Nutritional adequacy claims</li>
+                        <li>Country of Origin labeling</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
+                    <h3 class="font-bold brand-green mb-3 flex items-center gap-2">
+                        <i class="fas fa-file-contract"></i> Vendor / Supplier Proofs
+                    </h3>
+                    <ul class="text-sm text-[#6B4423] space-y-1 list-disc list-inside">
+                        <li>Certificates of Analysis (COA)</li>
+                        <li>Health Certificates</li>
+                        <li>Country of Origin certificates</li>
+                        <li>Vendor quality agreements</li>
+                        <li>Supplier facility audits</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
+                    <h3 class="font-bold brand-green mb-3 flex items-center gap-2">
+                        <i class="fas fa-briefcase"></i> Business / Legal
+                    </h3>
+                    <ul class="text-sm text-[#6B4423] space-y-1 list-disc list-inside">
+                        <li>Business License</li>
+                        <li>Resale Certificate</li>
+                        <li>General Liability Insurance</li>
+                        <li>Product Liability Insurance</li>
+                        <li>Any state-specific permits</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 md:col-span-2">
+                    <h3 class="font-bold brand-green mb-3 flex items-center gap-2">
+                        <i class="fas fa-store"></i> Retail / Online Store
+                    </h3>
+                    <ul class="text-sm text-[#6B4423] space-y-1 list-disc list-inside">
+                        <li>Privacy Policy</li>
+                        <li>Terms of Service</li>
+                        <li>Return / Refund Policy</li>
+                        <li>FDA facility registration (if applicable)</li>
+                        <li>Any platform-specific compliance documents</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <!-- ==================== END LEGAL / FORMS ==================== -->
+</div>
+    <!-- ==================== END MAIN CONTENT AREA ==================== -->
+
+</div>
+<!-- ==================== END MAIN LAYOUT ==================== -->
+
+
+<!-- ==================== MODALS ==================== -->
+
+<!-- Salesman Detail Modal -->
+<div id="salesman-modal" onclick="hideSalesmanModal()" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div onclick="event.stopImmediatePropagation()" class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg mx-4 p-8 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold brand-green" id="modal-salesman-name">Brian [Last Name]</h2>
+            <button onclick="hideSalesmanModal()" class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+        <div class="space-y-5">
+            <div>
+                <p class="text-sm text-[#6B4423] font-semibold">Territory</p>
+                <p class="text-lg font-semibold" id="modal-territory">Florida</p>
+            </div>
+            <div>
+                <p class="text-sm text-[#6B4423] font-semibold">Commission %</p>
+                <input type="number" id="modal-commission" value="8" class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2 text-lg font-semibold">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-sm text-[#6B4423] font-semibold">Yearly Sales</p>
+                    <p class="text-2xl font-bold brand-green" id="modal-yearly-sales">$312,400</p>
+                </div>
+                <div>
+                    <p class="text-sm text-[#6B4423] font-semibold">Monthly Sales</p>
+                    <p class="text-2xl font-bold brand-green" id="modal-monthly-sales">$42,850</p>
+                </div>
+            </div>
+            <div>
+                <p class="text-sm text-[#6B4423] font-semibold">Price Change Quotes Submitted</p>
+                <p class="text-2xl font-bold brand-green" id="modal-quotes">7</p>
+            </div>
+            <div>
+                <p class="text-sm text-[#6B4423] font-semibold mb-1">Salesman Notes</p>
+                <textarea id="modal-notes" rows="3" class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2"></textarea>
+            </div>
+        </div>
+        <div class="mt-8 flex justify-end">
+            <button onclick="hideSalesmanModal()" class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">Close</button>
+        </div>
+    </div>
+</div>
+
+
+
+<!-- Customer Detail Modal -->
+<div id="customer-modal"
+     onclick="hideCustomerModal()"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div onclick="event.stopImmediatePropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg mx-4 p-8 max-h-[90vh] overflow-y-auto">
+
+        <div class="flex justify-between items-start mb-6">
+            <div>
+                <h2 class="text-2xl font-bold brand-green" id="modal-customer-name">Customer Name</h2>
+                <div class="flex items-center gap-3 mt-1">
+                    <p class="text-lg font-semibold text-[#6B4423]" id="modal-customer-company"></p>
+                    <span class="px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-700"
+                          id="modal-customer-status"></span>
+                </div>
+            </div>
+            <button type="button" onclick="hideCustomerModal()"
+                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+
+        <div class="space-y-5">
+            <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-4">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-sm text-[#6B4423] font-semibold">Total Orders</p>
+                        <p class="text-3xl font-bold brand-green" id="modal-customer-total-orders">0</p>
+                    </div>
+                    <button type="button" onclick="viewCustomerOrders()"
+                            class="px-4 py-2 text-sm bg-[#1E4D2B] text-[#d4b78f] rounded-xl hover:bg-[#254a2f] flex items-center gap-2">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span>View All Orders</span>
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <p class="text-sm text-[#6B4423] font-semibold">Phone</p>
+                <p class="text-lg" id="modal-customer-phone"></p>
+            </div>
+            <div>
+                <p class="text-sm text-[#6B4423] font-semibold">Email</p>
+                <p class="text-lg" id="modal-customer-email"></p>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-sm text-[#6B4423] font-semibold">Territory</p>
+                    <p class="text-lg font-semibold" id="modal-customer-territory"></p>
+                </div>
+                <div>
+                    <p class="text-sm text-[#6B4423] font-semibold">Balance Owed</p>
+                    <p class="text-lg font-bold text-red-600" id="modal-customer-balance"></p>
+                </div>
+            </div>
+            <div>
+                <p class="text-sm text-[#6B4423] font-semibold">Shipping Address</p>
+                <p class="text-lg" id="modal-customer-address"></p>
+            </div>
+            <div>
+                <p class="text-sm text-[#6B4423] font-semibold">Billing Address</p>
+                <p class="text-lg" id="modal-customer-billing"></p>
+            </div>
+            <div>
+                <p class="text-sm text-[#6B4423] font-semibold mb-1">Notes</p>
+                <p class="text-lg whitespace-pre-wrap" id="modal-customer-notes"></p>
+            </div>
+        </div>
+
+        <div class="mt-8 flex flex-wrap justify-between gap-3">
+            <div class="flex flex-wrap gap-2">
+                <button type="button" onclick="showEditCustomerModal()"
+                        class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl hover:bg-[#254a2f] flex items-center gap-2 font-semibold">
+                    <i class="fas fa-edit"></i>
+                    <span>Edit</span>
+                </button>
+                <button type="button" onclick="deactivateCustomer()"
+                        class="px-5 py-2 border-2 border-orange-500 text-orange-700 rounded-xl hover:bg-orange-50 font-semibold">
+                    Deactivate
+                </button>
+                <button type="button" onclick="deleteCustomer()"
+                        class="px-5 py-2 border-2 border-red-600 text-red-700 rounded-xl hover:bg-red-50 font-semibold">
+                    Delete
+                </button>
+            </div>
+            <button type="button" onclick="hideCustomerModal()"
+                    class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+
+<!-- Vendor Detail Modal -->
+<div id="vendor-modal" onclick="hideVendorModal()" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div onclick="event.stopImmediatePropagation()" class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg mx-4 p-8">
+        <div class="flex justify-between items-start mb-6">
+            <div>
+                <h2 class="text-2xl font-bold brand-green" id="vendor-modal-name">Vendor Name</h2>
+                <p class="text-sm text-[#6B4423]" id="vendor-modal-contact"></p>
+            </div>
+            <div class="flex items-center gap-3">
+                <div id="vendor-status-area"></div>
+                <button onclick="hideVendorModal()" class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+            </div>
+        </div>
+        <div class="space-y-4">
+            <div>
+                <p class="text-sm text-[#6B4423] font-semibold">Phone</p>
+                <p class="text-lg" id="vendor-modal-phone"></p>
+            </div>
+            <div>
+                <p class="text-sm text-[#6B4423] font-semibold">Email</p>
+                <p class="text-lg" id="vendor-modal-email"></p>
+            </div>
+            <div>
+                <p class="text-sm text-[#6B4423] font-semibold">Notes</p>
+                <p class="text-lg whitespace-pre-wrap" id="vendor-modal-notes"></p>
+            </div>
+            <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-4 mt-4">
+                <p class="text-sm text-[#6B4423] font-semibold mb-1">Purchase History</p>
+                <p class="text-sm text-[#6B4423]">Coming soon…</p>
+            </div>
+        </div>
+        <div class="mt-8 flex justify-between items-center">
+            <div class="flex gap-3">
+                <button onclick="editVendor()" class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl hover:bg-[#254a2f] flex items-center gap-2">
+                    <i class="fas fa-edit"></i>
+                    <span>Edit</span>
+                </button>
+                <button onclick="startVendorOrder()" class="px-5 py-2 border-2 border-[#1E4D2B] text-[#1E4D2B] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span>Create Order</span>
+                </button>
+            </div>
+            <button onclick="hideVendorModal()" class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Vendor Modal -->
+<div id="edit-vendor-modal" onclick="hideEditVendorModal()" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div onclick="event.stopImmediatePropagation()" class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg mx-4 p-8">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold brand-green">Edit Vendor</h2>
+            <button onclick="hideEditVendorModal()" class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+        <form id="edit-vendor-form" onsubmit="saveEditedVendor(event)">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Vendor Name</label>
+                    <input type="text" id="edit-vendor-name" required class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Contact Person</label>
+                    <input type="text" id="edit-vendor-contact" class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-[#6B4423] mb-1">Phone</label>
+                        <input type="text" id="edit-vendor-phone" class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-[#6B4423] mb-1">Email</label>
+                        <input type="email" id="edit-vendor-email" class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Notes</label>
+                    <textarea id="edit-vendor-notes" rows="3" class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"></textarea>
+                </div>
+            </div>
+            <div class="mt-8 flex justify-end gap-3">
+                <button type="button" onclick="hideEditVendorModal()" class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">Cancel</button>
+                <button type="submit" class="btn-brand px-6 py-2 rounded-xl font-semibold">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add Purchase Modal -->
+<div id="add-purchase-modal" onclick="hideAddPurchaseModal()" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div onclick="event.stopImmediatePropagation()" class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg mx-4 p-8 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold brand-green">Add Purchase</h2>
+            <button onclick="hideAddPurchaseModal()" class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+        <form id="add-purchase-form" onsubmit="savePurchase(event)">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Date</label>
+                    <input type="date" id="purchase-date" required class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Description</label>
+                    <input type="text" id="purchase-description" required class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2" placeholder="e.g. Monthly bully stick order">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Products Ordered</label>
+                    <textarea id="purchase-products" rows="3" required class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2" placeholder="List the products and sizes..."></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-[#6B4423] mb-1">Quantity</label>
+                        <input type="number" id="purchase-quantity" min="1" class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2" placeholder="Units / cases">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-[#6B4423] mb-1">Total Amount ($)</label>
+                        <input type="number" id="purchase-amount" step="0.01" min="0" required class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2" placeholder="0.00">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Notes</label>
+                    <textarea id="purchase-notes" rows="2" class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"></textarea>
+                </div>
+            </div>
+            <div class="mt-8 flex justify-end gap-3">
+                <button type="button" onclick="hideAddPurchaseModal()" class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">Cancel</button>
+                <button type="submit" class="btn-brand px-6 py-2 rounded-xl font-semibold">Save Purchase</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Vendor Order Modal -->
+<div id="vendor-order-modal" onclick="hideVendorOrderModal()" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div onclick="event.stopImmediatePropagation()" class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-4xl mx-4 p-8 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 class="text-2xl font-bold brand-green">Create Order</h2>
+                <p class="text-sm text-[#6B4423]" id="vendor-order-vendor-name"></p>
+            </div>
+            <button onclick="hideVendorOrderModal()" class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+        <div class="overflow-x-auto mb-6">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                        <th class="p-3 text-left">Product</th>
+                        <th class="p-3 text-center">Unit Cost</th>
+                        <th class="p-3 text-center">Cases</th>
+                        <th class="p-3 text-right">Line Total</th>
+                    </tr>
+                </thead>
+                <tbody id="vendor-order-grid"></tbody>
+            </table>
+        </div>
+        <div class="flex justify-end mb-6">
+            <div class="text-right">
+                <p class="text-sm text-[#6B4423]">Order Total</p>
+                <p class="text-3xl font-bold brand-green" id="vendor-order-total">$0.00</p>
+            </div>
+        </div>
+        <div class="flex justify-end gap-3">
+            <button onclick="hideVendorOrderModal()" class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">Cancel</button>
+            <button onclick="submitVendorOrder()" class="btn-brand px-6 py-2 rounded-xl font-semibold">Submit Order</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add / Update Product Cost Modal -->
+<div id="add-cost-modal" onclick="hideAddCostModal()" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+    <div onclick="event.stopImmediatePropagation()" class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg mx-4 p-8">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold brand-green">Add / Update Cost</h2>
+            <button onclick="hideAddCostModal()" class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+        <form id="add-cost-form" onsubmit="saveProductCost(event)">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Product</label>
+                    <select id="cost-product" required class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                        <option value="">Select a product...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Vendor</label>
+                    <select id="cost-vendor" required class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                        <option value="">Select a vendor...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Unit Cost ($)</label>
+                    <input type="number" id="cost-unit-cost" step="0.01" min="0" required class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2" placeholder="0.00">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Notes</label>
+                    <textarea id="cost-notes" rows="2" class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"></textarea>
+                </div>
+            </div>
+            <div class="mt-8 flex justify-end gap-3">
+                <button type="button" onclick="hideAddCostModal()" class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">Cancel</button>
+                <button type="submit" class="btn-brand px-6 py-2 rounded-xl font-semibold">Save Cost</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Product Costs Modal -->
+<div id="product-costs-modal" onclick="hideProductCostsModal()" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div onclick="event.stopImmediatePropagation()" class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-6xl mx-4 p-8 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 class="text-2xl font-bold brand-green">Manage Product Costs</h2>
+                <p class="text-sm text-[#6B4423]">Assign a vendor and unit cost to every product</p>
+            </div>
+            <button onclick="hideProductCostsModal()" class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+        <div class="mb-4">
+            <input type="text" id="cog-search" placeholder="Search products..." class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-full max-w-md" oninput="renderCostOfGoods()">
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                        <th class="p-3 text-left">Product</th>
+                        <th class="p-3 text-left">Category</th>
+                        <th class="p-3 text-left">Vendor</th>
+                        <th class="p-3 text-right">Unit Cost</th>
+                        <th class="p-3 text-center">Last Updated</th>
+                        <th class="p-3 text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="cost-of-goods-body"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Ingredients Modal -->
+<div id="ingredients-modal" onclick="closeIngredientsModal()" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div onclick="event.stopImmediatePropagation()" class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-4xl mx-4 p-8 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 class="text-2xl font-bold brand-green">Ingredients</h2>
+                <p class="text-sm text-[#6B4423]">Jerky analysis + flavored products</p>
+            </div>
+            <button onclick="closeIngredientsModal()" class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+        <div class="mb-4">
+            <input type="text" id="ingredients-search" placeholder="Search products..." class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-full max-w-md" oninput="renderIngredients()">
+        </div>
+        <div id="ingredients-list" class="space-y-2"></div>
+        <div class="mt-8 flex justify-end">
+            <button onclick="closeIngredientsModal()" class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Legal Password Modal -->
+<div id="legal-password-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-sm mx-4 p-8">
+        <h2 class="text-xl font-bold brand-green mb-2">Legal / Forms</h2>
+        <p class="text-sm text-[#6B4423] mb-6">This section is password protected.</p>
+        <input type="password" id="legal-password-input" placeholder="Enter password"
+               class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2 mb-4"
+               onkeydown="if(event.key==='Enter') checkLegalPassword()">
+        <p id="legal-password-error" class="text-red-600 text-sm mb-4 hidden">Incorrect password</p>
+        <div class="flex justify-end gap-3">
+            <button onclick="hideLegalPasswordModal()" class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">Cancel</button>
+            <button onclick="checkLegalPassword()" class="btn-brand px-5 py-2 rounded-xl font-semibold">Unlock</button>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== PROFIT MARGIN PRODUCTS MODAL ==================== -->
+<div id="pm-products-modal" onclick="hidePmProductsModal()" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div onclick="event.stopImmediatePropagation()" 
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-3xl mx-4 p-8 max-h-[85vh] overflow-y-auto">
+        
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 class="text-2xl font-bold brand-green" id="pm-modal-title">Products</h2>
+                <p class="text-sm text-[#6B4423]" id="pm-modal-subtitle"></p>
+            </div>
+            <button onclick="hidePmProductsModal()" class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+
+        <div id="pm-modal-list" class="space-y-3">
+            <!-- Product cards will be inserted here -->
+        </div>
+
+        <div class="mt-8 flex justify-end">
+            <button onclick="hidePmProductsModal()" class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+<!-- ==================== END PROFIT MARGIN PRODUCTS MODAL ==================== -->
+
+<!-- ==================== RECEIVE PURCHASE MODAL ==================== -->
+<div id="receive-purchase-modal" onclick="hideReceivePurchaseModal()" 
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div onclick="event.stopImmediatePropagation()" 
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-3xl mx-4 p-8 max-h-[90vh] overflow-y-auto">
+        
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 class="text-2xl font-bold brand-green">Confirm Receipt</h2>
+                <p class="text-sm text-[#6B4423]" id="receive-modal-subtitle"></p>
+            </div>
+            <button onclick="hideReceivePurchaseModal()" 
+                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+
+        <!-- Product lines -->
+        <div id="receive-items-list" class="space-y-3 mb-6">
+            <!-- Filled by JavaScript -->
+        </div>
+
+                <!-- Actions -->
+        <div class="flex flex-wrap justify-between gap-3">
+            <div class="flex gap-3">
+                <button onclick="acceptFullOrder()" 
+                        class="px-5 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 font-semibold">
+                    <i class="fas fa-check-double mr-2"></i> Accept Full Order
+                </button>
+                <button onclick="rejectPurchaseOrder()" 
+                        class="px-5 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 font-semibold">
+                    <i class="fas fa-times mr-2"></i> Reject
+                </button>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="hideReceivePurchaseModal()" 
+                        class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                    Cancel
+                </button>
+                <button onclick="confirmReceivedQuantities()" 
+                        class="btn-brand px-5 py-2 rounded-xl font-semibold">
+                    Confirm Received
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- ==================== END RECEIVE PURCHASE MODAL ==================== -->
+
+                <!-- Add Vendor Modal -->
+    <div id="add-vendor-modal"
+         onclick="hideAddVendorModal()"
+         class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div onclick="event.stopImmediatePropagation()"
+             class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg mx-4 p-8 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold brand-green">Add Vendor</h2>
+                <button onclick="hideAddVendorModal()"
+                        class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+            </div>
+                        <form onsubmit="saveNewVendor(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">
+                        Vendor Name <span class="text-red-600">*</span>
+                    </label>
+                    <input type="text" id="new-vendor-name" required
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">
+                        Contact Name <span class="text-red-600">*</span>
+                    </label>
+                    <input type="text" id="new-vendor-contact" required
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">
+                        Phone <span class="text-red-600">*</span>
+                    </label>
+                    <input type="text" id="new-vendor-phone" required
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">
+                        Email <span class="text-red-600">*</span>
+                    </label>
+                    <input type="email" id="new-vendor-email" required
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Notes</label>
+                    <textarea id="new-vendor-notes" rows="3"
+                              class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"></textarea>
+                </div>
+
+                <!-- Specific Products (required) -->
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">
+                        Specific Products <span class="text-red-600">*</span>
+                    </label>
+                    <div class="flex items-center gap-3">
+                        <span id="new-vendor-product-count" class="text-sm text-[#6B4423]">0 products selected</span>
+                        <button type="button" onclick="openProductChooser()"
+                                class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                            Choose Products
+                        </button>
+                    </div>
+                    <p class="text-xs text-[#6B4423] mt-1">At least one product is required</p>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="hideAddVendorModal()"
+                            class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            class="btn-brand px-5 py-2 rounded-xl font-semibold">
+                        Save Vendor
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+            <!-- Choose Products Modal -->
+    <div id="product-chooser-modal"
+         onclick="hideProductChooser()"
+         class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+        <div onclick="event.stopImmediatePropagation()"
+             class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-3xl mx-4 p-6 max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold brand-green">Choose Products for this Vendor</h2>
+                <button onclick="hideProductChooser()"
+                        class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+            </div>
+
+            <!-- Search + Filter -->
+            <div class="flex flex-wrap gap-3 mb-4">
+                <input type="text" id="chooser-search" placeholder="Search products..."
+                       class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm flex-1 min-w-[200px]"
+                       oninput="renderProductChooserList()">
+                <select id="chooser-category" class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm"
+                        onchange="renderProductChooserList()">
+                    <option value="all">All Categories</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="flex items-center gap-2 text-sm font-semibold text-[#6B4423] cursor-pointer">
+                    <input type="checkbox" id="chooser-select-all" onchange="toggleChooserSelectAll()">
+                    Select All visible
+                </label>
+            </div>
+
+            <!-- Product list -->
+            <div id="chooser-product-list"
+                 class="flex-1 overflow-y-auto border-2 border-[#6B4423] rounded-xl p-3 space-y-1 min-h-[300px] max-h-[50vh]">
+                <!-- Filled by JavaScript -->
+            </div>
+
+            <div class="flex justify-between items-center mt-4 pt-3 border-t border-[#d4b78f]">
+                <span id="chooser-selected-count" class="text-sm text-[#6B4423]">0 products selected</span>
+                <div class="flex gap-3">
+                    <button onclick="hideProductChooser()"
+                            class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                        Cancel
+                    </button>
+                    <button onclick="confirmProductChooser()"
+                            class="btn-brand px-5 py-2 rounded-xl font-semibold">
+                        Done
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<!-- Add New Salesman Modal -->
+<div id="add-salesman-modal"
+     onclick="hideAddSalesmanModal()"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div onclick="event.stopImmediatePropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-md mx-4 p-8">
+
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold brand-green">Add New Salesman</h2>
+            <button onclick="hideAddSalesmanModal()"
+                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">
+                &times;
+            </button>
+        </div>
+
+        <form id="add-salesman-form" onsubmit="addNewSalesman(event)">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">First Name</label>
+                    <input type="text" id="new-first-name" required
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Last Name</label>
+                    <input type="text" id="new-last-name" required
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Territory</label>
+                    <input type="text" id="new-territory" required
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Email</label>
+                    <input type="email" id="new-salesman-email" required
+                        class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Standard Commission %</label>
+                    <input type="number" id="new-commission" value="8" step="0.5"
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Market Price Item Commission %</label>
+                    <input type="number" id="new-market-commission" value="3" step="0.5"
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-end gap-3">
+                <button type="button"
+                        onclick="hideAddSalesmanModal()"
+                        class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="btn-brand px-6 py-2 rounded-xl font-semibold">
+                    Add Salesman
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- Add Customer Modal -->
+<div id="add-customer-modal"
+     onclick="hideAddCustomerModal()"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div onclick="event.stopImmediatePropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg mx-4 p-8 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold brand-green">Add Customer</h2>
+            <button type="button" onclick="hideAddCustomerModal()"
+                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+
+        <form onsubmit="saveNewCustomer(event)" class="space-y-4">
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">
+                    Customer Name <span class="text-red-600">*</span>
+                </label>
+                <input type="text" id="new-customer-name" required
+                       class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">
+                    Company <span class="text-red-600">*</span>
+                </label>
+                <input type="text" id="new-customer-company" required
+                       class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">
+                    Email <span class="text-red-600">*</span>
+                </label>
+                <input type="email" id="new-customer-email" required
+                       class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">
+                    Phone <span class="text-red-600">*</span>
+                </label>
+                <input type="text" id="new-customer-phone" required
+                       class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Territory</label>
+                <input type="text" id="new-customer-territory"
+                       class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"
+                       placeholder="e.g. Pennsylvania">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">
+                    Shipping Address <span class="text-red-600">*</span>
+                </label>
+                <textarea id="new-customer-address" rows="2" required
+                          class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"></textarea>
+            </div>
+
+            <div>
+                <label class="flex items-center gap-2 text-sm text-[#6B4423] cursor-pointer mb-2">
+                    <input type="checkbox" id="new-customer-same-address" checked
+                           onchange="toggleNewCustomerSameAddress()">
+                    Billing address is the same as shipping
+                </label>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Billing Address</label>
+                <textarea id="new-customer-billing" rows="2"
+                          class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"></textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Notes</label>
+                <textarea id="new-customer-notes" rows="2"
+                          class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"></textarea>
+            </div>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" onclick="hideAddCustomerModal()"
+                        class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                    Cancel
+                </button>
+                <button type="submit" class="btn-brand px-6 py-2 rounded-xl font-semibold">
+                    Save Customer
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Add Order Modal -->
+<div id="add-order-modal"
+     onclick="hideAddOrderModal()"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div onclick="event.stopImmediatePropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-3xl mx-4 p-8 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold brand-green">Add Order</h2>
+            <button onclick="hideAddOrderModal()"
+                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+        <form onsubmit="saveNewOrder(event)" class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">
+                        Customer <span class="text-red-600">*</span>
+                    </label>
+                    <select id="new-order-customer" required
+                            class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                        <option value="">Select customer...</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Salesman</label>
+                    <select id="new-order-salesman"
+                            class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                        <option value="">Select salesman...</option>
+                    </select>
+                </div>
+            </div>
+
+                        <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">
+                    Products <span class="text-red-600">*</span>
+                </label>
+
+                <!-- Search -->
+                <div class="relative mb-2">
+                    <input type="text" id="new-order-product-search"
+                           placeholder="Search products to add..."
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm"
+                           oninput="renderOrderProductSearch()"
+                           autocomplete="off">
+                    <div id="new-order-product-results"
+                         class="hidden absolute left-0 right-0 top-full mt-1 bg-white border-2 border-[#6B4423] rounded-xl max-h-48 overflow-y-auto z-20 shadow-lg">
+                    </div>
+                </div>
+
+                <!-- Selected products list -->
+                <div id="new-order-selected-list" class="space-y-2 min-h-[60px] border border-[#d4b78f] rounded-xl p-3 bg-[#f8f4eb]">
+                    <p class="text-sm text-[#6B4423]" id="new-order-empty-msg">No products added yet. Search above to add items.</p>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Notes</label>
+                <textarea id="new-order-notes" rows="2"
+                          class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"></textarea>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-2">
+                <button type="button" onclick="hideAddOrderModal()"
+                        class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                    Cancel
+                </button>
+                <button type="submit" class="btn-brand px-5 py-2 rounded-xl font-semibold">
+                    Save Order
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Market Price Modal -->
+<div id="market-price-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-lg mx-4 max-h-[85vh] overflow-y-auto border-2 border-[#6B4423]">
+        <h2 class="text-2xl font-bold brand-green mb-1">Enter Market Prices</h2>
+        <p id="market-price-subtitle" class="text-sm text-[#6B4423] mb-5"></p>
+
+        <div id="market-price-items" class="space-y-4 mb-6">
+            <!-- filled by JavaScript -->
+        </div>
+
+        <div class="flex gap-3">
+            <button onclick="hideMarketPriceModal()"
+                    class="flex-1 px-4 py-2.5 border-2 border-[#6B4423] rounded-xl text-[#6B4423] font-semibold hover:bg-[#f8f4eb]">
+                Cancel
+            </button>
+            <button onclick="confirmMarketPrices()"
+                    class="flex-1 px-4 py-2.5 bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-semibold hover:bg-[#254a2f]">
+                Confirm Prices & Approve
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Price Change Proposals Review Modal -->
+<div id="price-proposals-modal"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+     onclick="hidePriceProposalsPanel()">
+    <div onclick="event.stopPropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6">
+
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold brand-green">Price Change Proposals</h2>
+            <button type="button" onclick="hidePriceProposalsPanel()"
+                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">
+                &times;
+            </button>
+        </div>
+
+        <div id="price-proposals-list">
+            <!-- Filled by JavaScript -->
+        </div>
+    </div>
+</div>
+
+
+<!-- Edit Customer Modal -->
+<div id="edit-customer-modal"
+     onclick="hideEditCustomerModal()"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div onclick="event.stopImmediatePropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg mx-4 p-8 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold brand-green">Edit Customer</h2>
+            <button type="button" onclick="hideEditCustomerModal()"
+                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+
+        <form id="edit-customer-form" onsubmit="saveEditedCustomer(event)">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Full Name</label>
+                    <input type="text" id="edit-name" required
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Company</label>
+                    <input type="text" id="edit-company"
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-[#6B4423] mb-1">Email</label>
+                        <input type="email" id="edit-email"
+                               class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-[#6B4423] mb-1">Phone</label>
+                        <input type="text" id="edit-phone"
+                               class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Territory</label>
+                    <input type="text" id="edit-territory"
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Address</label>
+                    <textarea id="edit-address" rows="2"
+                              class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Notes</label>
+                    <textarea id="edit-notes" rows="3"
+                              class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"></textarea>
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-end gap-3">
+                <button type="button" onclick="hideEditCustomerModal()"
+                        class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="btn-brand px-6 py-2 rounded-xl font-semibold">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Inquiry Approval Modal -->
+<div id="inquiry-approval-modal"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+     onclick="hideInquiryApprovalModal()">
+    <div onclick="event.stopPropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg mx-4 p-8 max-h-[90vh] overflow-y-auto">
+
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold brand-green">Approve Inquiry</h2>
+            <button type="button" onclick="hideInquiryApprovalModal()"
+                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+
+        <input type="hidden" id="ia-inquiry-id">
+
+        <div class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Contact Name *</label>
+                    <input type="text" id="ia-name" required
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Company *</label>
+                    <input type="text" id="ia-company" required
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Email *</label>
+                    <input type="email" id="ia-email" required
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Phone</label>
+                    <input type="text" id="ia-phone"
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Shipping Address</label>
+                <textarea id="ia-shipping" rows="2"
+                          class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"></textarea>
+            </div>
+
+            <div>
+                <label class="flex items-center gap-2 text-sm text-[#6B4423] cursor-pointer mb-2">
+                    <input type="checkbox" id="ia-same-address" checked onchange="toggleIaSameAddress()">
+                    Billing same as shipping
+                </label>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Billing Address</label>
+                <textarea id="ia-billing" rows="2"
+                          class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"></textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Assign Salesman *</label>
+                <p id="ia-suggested" class="text-xs text-[#6B4423] mb-1"></p>
+                <select id="ia-salesman" required
+                        class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                    <option value="">Select salesman…</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Admin Notes</label>
+                <textarea id="ia-notes" rows="2"
+                          class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"
+                          placeholder="Optional notes for this approval"></textarea>
+            </div>
+        </div>
+
+        <div class="mt-8 flex justify-end gap-3">
+            <button type="button" onclick="hideInquiryApprovalModal()"
+                    class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                Cancel
+            </button>
+            <button type="button" id="ia-confirm-btn" onclick="confirmInquiryApproval()"
+                    class="btn-brand px-6 py-2 rounded-xl font-semibold">
+                Approve & Create Customer
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Customer Change Requests Modal -->
+<div id="customer-change-requests-modal"
+     onclick="hideCustomerChangeRequestsPanel()"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div onclick="event.stopImmediatePropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-2xl mx-4 p-8 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold brand-green">Customer Edit Requests</h2>
+            <button type="button" onclick="hideCustomerChangeRequestsPanel()"
+                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+        <div id="customer-change-requests-list"></div>
+    </div>
+</div>
+
+<!-- ACH Approvals Modal -->
+<div id="ach-approvals-modal"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+     onclick="hideAchApprovalsPanel()">
+    <div onclick="event.stopPropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold brand-green">ACH Payment Approvals</h2>
+            <button type="button" onclick="hideAchApprovalsPanel()"
+                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+        <p class="text-sm text-[#6B4423] mb-4">
+            Customers who requested ACH. Approve only accounts you want to allow ACH for.
+        </p>
+        <div id="ach-approvals-list">
+            <p class="text-sm text-[#6B4423]">Loading…</p>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== END MODALS ==================== -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/internal-portal.js"></script>
+</body>
+</html>

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Donegal Natural | Wholesale Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { background: #f8f1e9; }
+        .brand-green { color: #1E4D2B; }
+        .brand-brown { color: #6B4423; }
+        .sidebar-link { transition: all 0.2s ease; }
+        .sidebar-link.active {
+            background-color: #1E4D2B;
+            color: #d4b78f;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- ================== TOP NAVBAR ================== -->
+    <nav class="bg-white border-b-2 border-[#6B4423] sticky top-0 z-50">
+        <div class="max-w-screen-2xl mx-auto px-6 py-4 flex items-center justify-between">
+            <!-- Left: Logo + Brand -->
+            <div class="flex items-center gap-3">
+                <img src="media/logo.png" alt="Donegal Natural Dog Treats" class="h-12 w-auto flex-shrink-0">
+                <div>
+                    <span class="text-2xl font-bold brand-green">Donegal Natural Dog Treats</span>
+                    <span class="text-sm block -mt-1 brand-brown">Wholesale Portal</span>
+                </div>
+            </div>
+
+            <!-- Right: Welcome Message + Logout -->
+            <div class="flex items-center gap-8">
+                <div class="text-right hidden md:block">
+                    <div id="welcome-name" class="font-semibold brand-green text-2xl leading-tight"></div>
+                </div>
+                <button onclick="logout()"
+                        class="px-5 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-medium">
+                    Logout
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="flex flex-1 max-w-screen-2xl mx-auto w-full">
+
+        <!-- ================== LEFT SIDEBAR ================== -->
+        <div class="w-64 bg-white border-r-2 border-[#6B4423] p-5 hidden lg:block">
+            <div class="mb-8">
+                <h3 class="font-bold text-lg brand-green mb-4 px-2">Menu</h3>
+                <nav class="space-y-1">
+                    <a href="#" data-target="section-products"
+                       class="sidebar-link flex items-center gap-3 px-4 py-3 text-sm font-medium brand-brown hover:bg-[#f8f4eb] active">
+                        <i class="fas fa-boxes w-5"></i>
+                        <span>Browse Products</span>
+                    </a>
+                    <a href="#" data-target="section-quotes"
+                       class="sidebar-link flex items-center gap-3 px-4 py-3 text-sm font-medium brand-brown hover:bg-[#f8f4eb]">
+                        <i class="fas fa-file-invoice-dollar w-5"></i>
+                        <span>My Quotes</span>
+                    </a>
+                    <a href="#" data-target="section-orders"
+                       class="sidebar-link flex items-center gap-3 px-4 py-3 text-sm font-medium brand-brown hover:bg-[#f8f4eb]">
+                        <i class="fas fa-shopping-cart w-5"></i>
+                        <span>Order History</span>
+                        <span id="order-history-badge"
+                              class="ml-auto hidden bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full"></span>
+                    </a>
+                    <a href="#" data-target="section-account"
+                       class="sidebar-link flex items-center gap-3 px-4 py-3 text-sm font-medium brand-brown hover:bg-[#f8f4eb]">
+                        <i class="fas fa-user w-5"></i>
+                        <span>Account</span>
+                    </a>
+                </nav>
+            </div>
+
+            <!-- Shipping Policy -->
+            <div class="bg-white border border-[#6B4423] rounded-2xl p-4 text-sm mb-4">
+                <div class="flex items-start gap-2">
+                    <i class="fas fa-truck text-[#1E4D2B] mt-0.5"></i>
+                    <div>
+                        <p class="font-semibold text-[#1E4D2B] text-sm mb-1">Shipping Policy</p>
+                        <p class="text-[#6B4423] text-xs leading-snug">
+                            Orders shipped <strong>west of the Mississippi River</strong> qualify for
+                            <strong>FREE SHIPPING</strong> on orders of <strong>$2,000.00+</strong>.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dog Fact -->
+            <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-2xl p-4 text-sm">
+                <div id="dog-fact" class="text-[#6B4423]"></div>
+            </div>
+        </div>
+
+        <!-- ================== MAIN CONTENT ================== -->
+        <div class="flex-1 p-6 overflow-auto">
+
+            <!-- Products Section -->
+            <div id="section-products" class="portal-section">
+                <!-- Categories -->
+                <div class="mb-5">
+                    <div id="category-filters"></div>
+                </div>
+
+                <!-- Search Bar -->
+                <div class="mb-6 max-w-md mx-auto relative">
+                    <div class="relative">
+                        <input type="text" id="product-search"
+                               class="w-full pl-10 pr-10 py-3 border-2 border-[#6B4423] rounded-2xl focus:outline-none focus:border-[#1E4D2B]"
+                               placeholder="Search products...">
+                        <i class="fas fa-search absolute left-4 top-4 text-[#6B4423]"></i>
+                        <button id="clear-search"
+                                class="hidden absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-[#6B4423] hover:text-[#c56134] transition">
+                            <i class="fas fa-times text-lg"></i>
+                        </button>
+                    </div>
+                    <div id="search-suggestions"
+                         class="hidden absolute z-50 w-full bg-white border-2 border-[#6B4423] rounded-2xl mt-1 shadow-lg max-h-80 overflow-auto"></div>
+                </div>
+
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-2xl font-bold brand-green">Wholesale Products</h2>
+                    <button onclick="showQuoteSidebar()"
+                            class="lg:hidden flex items-center gap-2 px-4 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl text-sm font-bold">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        <span>View Quote (<span id="quote-count-mobile">0</span>)</span>
+                    </button>
+                </div>
+
+                <div id="portal-products" class="w-full">
+                    <!-- JS renders the product table here -->
+                </div>
+            </div>
+
+            <!-- My Quotes Section -->
+            <div id="section-quotes" class="portal-section" style="display: none;">
+                <!-- Content is rendered by loadMyQuotes() -->
+            </div>
+
+            <!-- Order History Section -->
+            <div id="section-orders" class="portal-section" style="display: none;">
+                <!-- Content is rendered by loadOrderHistory() -->
+            </div>
+
+            <!-- Account Section -->
+            <div id="section-account" class="portal-section" style="display: none;">
+                <h2 class="text-2xl font-bold brand-green mb-6">Account Information</h2>
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-8 max-w-2xl">
+                    <div id="account-details" class="space-y-4">
+                        <!-- Populated by showAccountInfo() -->
+                    </div>
+                    <div class="mt-8 pt-6 border-t border-[#d4b78f]">
+                        <button onclick="logout()"
+                                class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-2xl">
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ================== RIGHT QUOTE SIDEBAR ================== -->
+        <div id="quote-sidebar"
+             class="hidden lg:block w-80 bg-white border-l-2 border-[#1E4D2B] p-5 overflow-hidden quote-sidebar lg:sticky lg:top-4 flex flex-col">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold text-lg brand-green">Current Quote</h3>
+                <div class="flex items-center gap-2">
+                    <button onclick="expandQuoteModal()"
+                            class="text-[#1E4D2B] hover:text-[#254a2f] p-1" title="Expand Quote">
+                        <i class="fas fa-expand-arrows-alt"></i>
+                    </button>
+                    <button onclick="hideQuoteSidebar()" class="lg:hidden text-xl">&times;</button>
+                </div>
+            </div>
+
+            <div id="quote-items-list" class="flex-1 overflow-y-auto pr-1" style="max-height: 420px;">
+                <!-- Items are dynamically added here -->
+            </div>
+
+            <div id="quote-summary" class="pt-3 border-t border-[#6B4423] bg-white mt-auto">
+                <!-- Summary is dynamically added here by updateQuoteSidebar() -->
+            </div>
+        </div>
+
+    </div>
+<!-- Force Password Change Modal -->
+<div id="password-change-modal"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
+    <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-md p-8">
+        <h2 class="text-2xl font-bold brand-green mb-2">Set a permanent password</h2>
+        <p class="text-sm text-[#6B4423] mb-6">
+            For security, please choose a new password before continuing.
+        </p>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">New password</label>
+                <input type="password" id="new-password" class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Confirm password</label>
+                <input type="password" id="confirm-password" class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+            </div>
+            <p id="password-change-error" class="hidden text-sm text-red-600"></p>
+            <button type="button" onclick="submitPasswordChange()"
+                    class="w-full bg-[#1E4D2B] text-[#d4b78f] font-bold py-3 rounded-xl">
+                Save password & continue
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Onboarding: Billing + Payment Modal -->
+<div id="onboarding-modal"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
+    <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg p-8 max-h-[90vh] overflow-y-auto">
+        <h2 class="text-2xl font-bold brand-green mb-2">Complete your account</h2>
+        <p class="text-sm text-[#6B4423] mb-6">
+            Please provide your billing address and preferred payment method before using the portal.
+        </p>
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Billing Address *</label>
+                <textarea id="onboard-billing" rows="3" required
+                          class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-[#6B4423] mb-2">Payment Method *</label>
+                <div class="space-y-2 text-sm text-[#6B4423]">
+                    <label class="flex items-start gap-2 cursor-pointer">
+                        <input type="radio" name="payment-method" value="check" class="mt-1" checked>
+                        <span><strong>Check</strong> — preferred method</span>
+                    </label>
+                    <label class="flex items-start gap-2 cursor-pointer">
+                        <input type="radio" name="payment-method" value="credit_card" class="mt-1">
+                        <span><strong>Credit Card</strong> — a 3% processing fee will be applied</span>
+                    </label>
+                    <label class="flex items-start gap-2 cursor-pointer">
+                        <input type="radio" name="payment-method" value="ach" class="mt-1">
+                        <span><strong>ACH</strong> — requires admin approval (not available to all accounts)</span>
+                    </label>
+                </div>
+            </div>
+            <p id="onboarding-error" class="hidden text-sm text-red-600"></p>
+            <button type="button" onclick="submitOnboarding()"
+                    class="w-full bg-[#1E4D2B] text-[#d4b78f] font-bold py-3 rounded-xl">
+                Save & enter portal
+            </button>
+        </div>
+    </div>
+</div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/wholesale-portal.js"></script>
+</body>
+</html>
