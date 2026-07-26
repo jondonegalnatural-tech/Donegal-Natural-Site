@@ -2145,6 +2145,157 @@ body { background: #f8f1e9; }
     </div>
 </div>
 
+
+<!-- ================== SHIP INVOICE MODAL ================== -->
+<div id="ship-invoice-modal"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
+    <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6">
+        <div class="flex items-start justify-between mb-4">
+            <div>
+                <h2 class="text-2xl font-bold brand-green">Invoice</h2>
+                <p class="text-sm text-[#6B4423]" id="ship-invoice-subtitle">Review before shipping</p>
+            </div>
+            <button type="button" onclick="hideShipInvoiceModal()"
+                    class="text-2xl text-[#6B4423] leading-none">&times;</button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 text-sm">
+            <div class="bg-[#f8f4eb] rounded-xl p-3">
+                <p class="text-xs text-[#6B4423]">Customer</p>
+                <p class="font-semibold brand-green" id="ship-inv-customer">—</p>
+            </div>
+            <div class="bg-[#f8f4eb] rounded-xl p-3">
+                <p class="text-xs text-[#6B4423]">Salesman</p>
+                <p class="font-semibold brand-green" id="ship-inv-salesman">—</p>
+            </div>
+            <div class="bg-[#f8f4eb] rounded-xl p-3">
+                <p class="text-xs text-[#6B4423]">Order ID</p>
+                <p class="font-mono text-sm" id="ship-inv-id">—</p>
+            </div>
+        </div>
+
+        <!-- Line items -->
+        <div class="mb-4">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="font-bold brand-green">Line Items</h3>
+            </div>
+            <div id="ship-inv-items" class="space-y-2"></div>
+        </div>
+
+        <!-- Add product -->
+        <div class="mb-4 relative">
+            <label class="block text-sm font-semibold text-[#6B4423] mb-1">Add product</label>
+            <input type="text" id="ship-inv-product-search"
+                   oninput="renderShipInvoiceProductSearch()"
+                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"
+                   placeholder="Search products…">
+            <div id="ship-inv-product-results"
+                 class="hidden absolute z-50 w-full bg-white border-2 border-[#6B4423] rounded-xl mt-1 max-h-56 overflow-auto shadow-lg"></div>
+        </div>
+
+        <!-- Totals -->
+        <div class="border-t border-[#d4b78f] pt-4 space-y-3 mb-6">
+            <div class="flex justify-between text-sm">
+                <span class="text-[#6B4423]">Subtotal</span>
+                <span id="ship-inv-subtotal" class="font-semibold">$0.00</span>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+                <label class="text-sm text-[#6B4423]" for="ship-inv-shipping">Shipping</label>
+                <input type="number" id="ship-inv-shipping" min="0" step="0.01" value="0"
+                       oninput="recalcShipInvoiceTotals()"
+                       class="w-36 border-2 border-[#6B4423] rounded-xl px-3 py-2 text-right">
+            </div>
+            <div class="flex justify-between text-lg font-bold brand-green">
+                <span>Final Total</span>
+                <span id="ship-inv-total">$0.00</span>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-3">
+            <button type="button" onclick="hideShipInvoiceModal()"
+                    class="px-5 py-2 border-2 border-[#6B4423] rounded-xl">
+                Cancel
+            </button>
+            <button type="button" onclick="confirmShipInvoice()"
+                    class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] font-bold rounded-xl">
+                Confirm Ship
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ================== SHIP INVOICE MODAL ================== -->
+<div id="ship-invoice-modal"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
+    <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6">
+        <div class="flex items-start justify-between mb-4">
+            <div>
+                <h2 class="text-2xl font-bold brand-green">Invoice</h2>
+                <p class="text-sm text-[#6B4423]" id="ship-invoice-subtitle">Review before shipping</p>
+            </div>
+            <button type="button" onclick="hideShipInvoiceModal()"
+                    class="text-2xl text-[#6B4423] leading-none">&times;</button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 text-sm">
+            <div class="bg-[#f8f4eb] rounded-xl p-3">
+                <p class="text-xs text-[#6B4423]">Customer</p>
+                <p class="font-semibold brand-green" id="ship-inv-customer">—</p>
+            </div>
+            <div class="bg-[#f8f4eb] rounded-xl p-3">
+                <p class="text-xs text-[#6B4423]">Salesman</p>
+                <p class="font-semibold brand-green" id="ship-inv-salesman">—</p>
+            </div>
+            <div class="bg-[#f8f4eb] rounded-xl p-3">
+                <p class="text-xs text-[#6B4423]">Order ID</p>
+                <p class="font-mono text-sm" id="ship-inv-id">—</p>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <h3 class="font-bold brand-green mb-2">Line Items</h3>
+            <div id="ship-inv-items" class="space-y-2"></div>
+        </div>
+
+        <div class="mb-4 relative">
+            <label class="block text-sm font-semibold text-[#6B4423] mb-1">Add product</label>
+            <input type="text" id="ship-inv-product-search"
+                   oninput="renderShipInvoiceProductSearch()"
+                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"
+                   placeholder="Search products…">
+            <div id="ship-inv-product-results"
+                 class="hidden absolute z-50 w-full bg-white border-2 border-[#6B4423] rounded-xl mt-1 max-h-56 overflow-auto shadow-lg"></div>
+        </div>
+
+        <div class="border-t border-[#d4b78f] pt-4 space-y-3 mb-6">
+            <div class="flex justify-between text-sm">
+                <span class="text-[#6B4423]">Subtotal</span>
+                <span id="ship-inv-subtotal" class="font-semibold">$0.00</span>
+            </div>
+            <div class="flex items-center justify-between gap-4">
+                <label class="text-sm text-[#6B4423]" for="ship-inv-shipping">Shipping</label>
+                <input type="number" id="ship-inv-shipping" min="0" step="0.01" value="0"
+                       oninput="recalcShipInvoiceTotals()"
+                       class="w-36 border-2 border-[#6B4423] rounded-xl px-3 py-2 text-right">
+            </div>
+            <div class="flex justify-between text-lg font-bold brand-green">
+                <span>Final Total</span>
+                <span id="ship-inv-total">$0.00</span>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-3">
+            <button type="button" onclick="hideShipInvoiceModal()"
+                    class="px-5 py-2 border-2 border-[#6B4423] rounded-xl">
+                Cancel
+            </button>
+            <button type="button" onclick="confirmShipInvoice()"
+                    class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] font-bold rounded-xl">
+                Confirm Ship
+            </button>
+        </div>
+    </div>
+</div>
 <!-- ==================== END MODALS ==================== -->
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
