@@ -1231,6 +1231,99 @@ async function denyOrder(orderId) {
 }
 
 // ================== SHIP INVOICE MODAL ==================
+const WEST_OF_MISSISSIPPI_STATES = [
+    'WA', 'OR', 'CA', 'NV', 'ID', 'MT', 'WY', 'UT', 'AZ', 'NM', 'CO',
+    'ND', 'SD', 'NE', 'KS', 'OK', 'TX', 'MN', 'IA', 'MO', 'AR', 'LA',
+    'AK', 'HI',
+    'WASHINGTON', 'OREGON', 'CALIFORNIA', 'NEVADA', 'IDAHO', 'MONTANA',
+    'WYOMING', 'UTAH', 'ARIZONA', 'NEW MEXICO', 'COLORADO',
+    'NORTH DAKOTA', 'SOUTH DAKOTA', 'NEBRASKA', 'KANSAS', 'OKLAHOMA', 'TEXAS',
+    'MINNESOTA', 'IOWA', 'MISSOURI', 'ARKANSAS', 'LOUISIANA',
+    'ALASKA', 'HAWAII'
+];
+
+function getShipInvoiceLocationText(order) {
+    if (!order) return '';
+    const parts = [
+        order.customer,
+        order.customerCompany,
+        order.territory,
+        order.shippingAddress,
+        order.shipping_address,
+        order.notes
+    ];
+    return parts.filter(Boolean).join(' ').toUpperCase();
+}
+
+function isPennsylvaniaLocation(text) {
+    const t = (text || '').toUpperCase();
+    return (
+        t.includes('PENNSYLVANIA') ||
+        t.includes(', PA') ||
+        t.includes(' PA ') ||
+        t.endsWith(' PA') ||
+        t.includes(' PA,')
+    );
+}
+
+function isWestOfMississippiLocation(text) {
+    const t = (text || '').toUpperCase();
+    return WEST_OF_MISSISSIPPI_STATES.some(state => {
+        if (state.length === 2) {
+            return (
+                t.includes(', ' + state) ||
+                t.includes(' ' + state + ' ') ||
+                t.endsWith(' ' + state)
+            );
+        }
+        return t.includes(state);
+    });
+}
+
+function getShipInvoiceSubtotal() {
+    let subtotal = 0;
+    (shipInvoiceItems || []).forEach(item => {
+        if (item.isMarketPrice || item.unitPrice == null) return;
+        subtotal += (parseFloat(item.unitPrice) || 0) * (parseInt(item.quantity, 10) || 0);
+    });
+    return subtotal;
+}
+
+function applyAutoShippingRules() {
+    const shippingEl = document.getElementById('ship-inv-shipping');
+    if (!shippingEl || !shipInvoiceOrder) return;
+
+    const subtotal = getShipInvoiceSubtotal();
+    const locationText = getShipInvoiceLocationText(shipInvoiceOrder);
+
+    let free = false;
+    let reason = '';
+
+    if (subtotal >= 2000 && isWestOfMississippiLocation(locationText)) {
+        free = true;
+        reason = 'Free shipping: $2,000+ west of the Mississippi';
+    } else if (subtotal >= 200 && isPennsylvaniaLocation(locationText)) {
+        free = true;
+        reason = 'Free shipping: $200+ in Pennsylvania';
+    }
+
+    const noteEl = document.getElementById('ship-inv-shipping-note');
+
+    if (free) {
+        shippingEl.value = '0.00';
+        shippingEl.readOnly = true;
+        shippingEl.classList.add('bg-gray-100');
+        if (noteEl) noteEl.textContent = reason;
+    } else {
+        shippingEl.readOnly = false;
+        shippingEl.classList.remove('bg-gray-100');
+        if (noteEl) noteEl.textContent = 'Enter shipping amount ($)';
+        const current = parseFloat(shippingEl.value);
+        shippingEl.value = (!isNaN(current) && current >= 0)
+            ? current.toFixed(2)
+            : '0.00';
+    }
+}
 let shipInvoiceOrder = null;
 let shipInvoiceItems = [];
 
@@ -1257,9 +1350,10 @@ function openShipInvoiceModal(orderId) {
     document.getElementById('ship-invoice-subtitle').textContent =
         'Review line items and shipping, then confirm ship';
 
-    const shippingEl = document.getElementById('ship-inv-shipping');
+        const shippingEl = document.getElementById('ship-inv-shipping');
     if (shippingEl) {
-        shippingEl.value = order.shippingCost != null ? order.shippingCost : 0;
+        const start = order.shippingCost != null ? Number(order.shippingCost) : 0;
+        shippingEl.value = (isNaN(start) ? 0 : start).toFixed(2);
     }
 
     const searchEl = document.getElementById('ship-inv-product-search');
@@ -1404,11 +1498,9 @@ function addShipInvoiceProduct(productName) {
 }
 
 function recalcShipInvoiceTotals() {
-    let subtotal = 0;
-    shipInvoiceItems.forEach(item => {
-        if (item.isMarketPrice || item.unitPrice == null) return;
-        subtotal += (parseFloat(item.unitPrice) || 0) * (parseInt(item.quantity, 10) || 0);
-    });
+    const subtotal = getShipInvoiceSubtotal();
+
+    applyAutoShippingRules();
 
     const shipping = parseFloat(document.getElementById('ship-inv-shipping')?.value) || 0;
     const total = subtotal + shipping;
@@ -1630,25 +1722,6 @@ async function updateOrderStatus(orderId, newStatus) {
     const newStatusLower = String(newStatus).toLowerCase();
 
     let shippingCost = order.shippingCost != null ? order.shippingCost : null;
-
-    // If moving to Shipped, ask for shipping cost first
-    if (newStatusLower === 'shipped') {
-        const currentShipping = order.shippingCost != null ? order.shippingCost : '';
-        const input = prompt(
-            `Enter shipping cost for Order #${String(order.id).slice(0, 8)}\nCustomer: ${order.customer || 'N/A'}\n\n(e.g. 45.00)`,
-            currentShipping
-        );
-
-        if (input === null) return;
-
-        const shippingValue = parseFloat(input);
-        if (isNaN(shippingValue) || shippingValue < 0) {
-            alert('Please enter a valid shipping amount (0 or higher).');
-            return;
-        }
-
-        shippingCost = shippingValue;
-    }
 
     try {
         const updatePayload = {
