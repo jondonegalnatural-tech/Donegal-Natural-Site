@@ -6113,24 +6113,6 @@ async function saveNewVendor(event) {
     }
 }
 
-function addTestVendor() {
-    const newVendor = {
-        id: Date.now(),
-        name: "Bully Stick Supplier",
-        contact: "Mike Johnson",
-        phone: "555-987-6543",
-        email: "orders@bullysticksupplier.com",
-        notes: "Primary supplier for all Bully Stick products",
-        categories: ["Bully Sticks"],
-        active: true,                    // <-- new field
-        purchases: [],
-        createdAt: new Date().toISOString()
-    };
-
-    vendors.unshift(newVendor);
-    saveVendors();
-    renderVendors();
-}
 
 function showVendorDetail(vendorId) {
     const vendor = vendors.find(v => v.id === vendorId);
@@ -6147,7 +6129,7 @@ function showVendorDetail(vendorId) {
     document.getElementById('vendor-modal-email').textContent = vendor.email || 'N/A';
     document.getElementById('vendor-modal-notes').textContent = vendor.notes || 'None';
 
-    // Status badge + toggle button (now in the header)
+    // Status badge + toggle button
     const isActive = vendor.active !== false;
     const statusHTML = isActive
         ? `<span class="px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 mr-2">Active</span>
@@ -6168,14 +6150,16 @@ function showVendorDetail(vendorId) {
         purchaseHTML = `<div class="space-y-2">`;
         purchases.forEach(p => {
             const dateObj = new Date(p.date);
-            const formattedDate = `${(dateObj.getMonth()+1).toString().padStart(2,'0')}/${dateObj.getDate().toString().padStart(2,'0')}/${dateObj.getFullYear()}`;
-            const productCount = p.products ? p.products.split('\n').filter(line => line.trim() !== '').length : 0;
+            const formattedDate = `${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getDate().toString().padStart(2, '0')}/${dateObj.getFullYear()}`;
+
+            // FIXED: use the items array that loadVendors builds
+            const productCount = (p.items && p.items.length) ? p.items.length : (p.quantity || 0);
 
             purchaseHTML += `
                 <div class="flex justify-between items-center text-sm border-b border-[#d4b78f] pb-2">
                     <span>${formattedDate}</span>
                     <span class="font-semibold">${productCount} product(s)</span>
-                    <span class="font-bold brand-green">$${p.amount.toFixed(2)}</span>
+                    <span class="font-bold brand-green">$${Number(p.amount || 0).toFixed(2)}</span>
                 </div>
             `;
         });
