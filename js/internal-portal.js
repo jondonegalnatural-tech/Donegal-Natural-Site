@@ -4895,16 +4895,10 @@ async function confirmReceivedQuantities() {
 
         // Write each updated product to Supabase
     try {
-        console.log('Receive items to write:', items);
-        console.log('In-memory inventory sample:', inventory);
-        for (const item of items) {
+                for (const item of items) {
             const name = item.productName;
-            console.log('Writing product:', name, 'qty:', inventory[name]);
             if (name && inventory[name] !== undefined) {
                 await upsertInventoryQuantity(name, inventory[name]);
-                console.log('Upserted:', name);
-            } else {
-                console.log('Skipped:', name, 'inventory value:', inventory[name]);
             }
         }
     } catch (err) {
