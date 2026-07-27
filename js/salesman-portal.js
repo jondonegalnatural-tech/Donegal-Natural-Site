@@ -1695,7 +1695,7 @@ function createOrderCard(order, showSalesman = false) {
                 <div class="pr-3">
                     <span class="font-medium">${item.product || item.name || "Item"}</span>
                     <span class="text-[#6B4423]"> × ${qty} units</span>
-                    <div class="text-xs text-[#6B4423]">${priceLabel} each</div>
+                                        <div class="text-xs text-[#6B4423]">${priceLabel} each</div>
                 </div>
                 <div class="text-right font-semibold">${lineLabel}</div>
             </div>
