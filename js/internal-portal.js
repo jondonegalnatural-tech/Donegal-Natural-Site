@@ -6528,86 +6528,122 @@ function renderCostOfGoods() {
     const search = (searchInput?.value || '').toLowerCase();
     tbody.innerHTML = '';
 
-    // Keep track of which products are expanded
     if (!window.expandedProducts) window.expandedProducts = {};
 
     PRODUCT_CATALOG.forEach((product, index) => {
-        if (search && 
-            !product.name.toLowerCase().includes(search) && 
+        if (search &&
+            !product.name.toLowerCase().includes(search) &&
             !(product.category || '').toLowerCase().includes(search)) {
             return;
         }
 
         const costsForProduct = productCosts.filter(c => c.productName === product.name);
         const isExpanded = window.expandedProducts[product.name] === true;
+        const hasMultiple = costsForProduct.length > 1;
+        const hasSingle = costsForProduct.length === 1;
+        const singleCost = hasSingle ? costsForProduct[0] : null;
 
-        // --- Collapsed / Header row ---
+        // Format date helper
+        const formatDate = (iso) => {
+            if (!iso) return '—';
+            const d = new Date(iso);
+            return `${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}/${d.getFullYear()}`;
+        };
+
+        // --- Main row ---
         const headerRow = document.createElement('tr');
-        headerRow.className = 'border-b border-[#d4b78f] hover:bg-[#f8f4eb] cursor-pointer';
-        headerRow.innerHTML = `
-            <td class="p-3 font-medium">
-                <span class="mr-2 text-[#6B4423]">${isExpanded ? '▼' : '▶'}</span>
-                ${product.name}
-            </td>
-            <td class="p-3 text-sm text-[#6B4423]">${product.category || ''}</td>
-            <td class="p-3 text-sm">${costsForProduct.length > 0 ? costsForProduct.length + ' cost(s)' : '—'}</td>
-            <td class="p-3"></td>
-            <td class="p-3"></td>
-            <td class="p-3 text-center">
-                <button data-index="${index}" class="add-cost-btn px-3 py-1 text-xs bg-[#1E4D2B] text-[#d4b78f] rounded-lg hover:bg-[#254a2f]">
-                    Add Cost
-                </button>
-            </td>
-        `;
+        headerRow.className = 'border-b border-[#d4b78f] hover:bg-[#f8f4eb]';
 
-        // Click on the row (except the button) toggles expand/collapse
-        headerRow.addEventListener('click', function(e) {
-            if (e.target.closest('.add-cost-btn')) return; // don't toggle when clicking the button
-            window.expandedProducts[product.name] = !isExpanded;
-            renderCostOfGoods();
-        });
+        if (hasMultiple) {
+            // Multiple costs → expandable summary
+            headerRow.classList.add('cursor-pointer');
+            headerRow.innerHTML = `
+                <td class="p-3 font-medium">
+                    <span class="mr-2 text-[#6B4423]">${isExpanded ? '▼' : '▶'}</span>
+                    ${product.name}
+                </td>
+                <td class="p-3 text-sm text-[#6B4423]">${product.category || ''}</td>
+                <td class="p-3 text-sm">${costsForProduct.length} cost(s)</td>
+                <td class="p-3"></td>
+                <td class="p-3"></td>
+                <td class="p-3 text-center">
+                    <button data-index="${index}" class="add-cost-btn px-3 py-1 text-xs bg-[#1E4D2B] text-[#d4b78f] rounded-lg hover:bg-[#254a2f]">
+                        Add Cost
+                    </button>
+                </td>
+            `;
+            headerRow.addEventListener('click', function(e) {
+                if (e.target.closest('.add-cost-btn')) return;
+                window.expandedProducts[product.name] = !isExpanded;
+                renderCostOfGoods();
+            });
+        } else if (hasSingle) {
+            // Single cost → show details on the main row
+            headerRow.innerHTML = `
+                <td class="p-3 font-medium">${product.name}</td>
+                <td class="p-3 text-sm text-[#6B4423]">${product.category || ''}</td>
+                <td class="p-3">${singleCost.vendorName}</td>
+                <td class="p-3 text-right font-semibold">$${parseFloat(singleCost.unitCost).toFixed(2)}</td>
+                <td class="p-3 text-center text-sm">${formatDate(singleCost.lastUpdated)}</td>
+                <td class="p-3 text-center">
+                    <div class="flex justify-center gap-2">
+                        <button data-id="${singleCost.id}" class="edit-cost-btn px-3 py-1 text-xs border border-[#6B4423] rounded-lg hover:bg-white">
+                            Edit
+                        </button>
+                        <button data-id="${singleCost.id}" class="delete-cost-btn px-3 py-1 text-xs border border-red-400 text-red-600 rounded-lg hover:bg-red-50">
+                            Delete
+                        </button>
+                        <button data-index="${index}" class="add-cost-btn px-3 py-1 text-xs bg-[#1E4D2B] text-[#d4b78f] rounded-lg hover:bg-[#254a2f]">
+                            Add Cost
+                        </button>
+                    </div>
+                </td>
+            `;
+        } else {
+            // No costs
+            headerRow.innerHTML = `
+                <td class="p-3 font-medium">${product.name}</td>
+                <td class="p-3 text-sm text-[#6B4423]">${product.category || ''}</td>
+                <td class="p-3 text-sm">—</td>
+                <td class="p-3"></td>
+                <td class="p-3"></td>
+                <td class="p-3 text-center">
+                    <button data-index="${index}" class="add-cost-btn px-3 py-1 text-xs bg-[#1E4D2B] text-[#d4b78f] rounded-lg hover:bg-[#254a2f]">
+                        Add Cost
+                    </button>
+                </td>
+            `;
+        }
 
         tbody.appendChild(headerRow);
 
-        // --- Expanded cost rows ---
-        if (isExpanded) {
-            if (costsForProduct.length === 0) {
-                const emptyRow = document.createElement('tr');
-                emptyRow.className = 'bg-[#f8f4eb] border-b border-[#d4b78f]';
-                emptyRow.innerHTML = `
-                    <td class="p-3 pl-10 text-sm text-[#6B4423] italic" colspan="6">No costs assigned yet</td>
+        // --- Expanded rows (only for multiple costs) ---
+        if (hasMultiple && isExpanded) {
+            costsForProduct.forEach(cost => {
+                const costRow = document.createElement('tr');
+                costRow.className = 'bg-[#f8f4eb] border-b border-[#d4b78f]';
+                costRow.innerHTML = `
+                    <td class="p-3 pl-10 text-sm" colspan="2"></td>
+                    <td class="p-3">${cost.vendorName}</td>
+                    <td class="p-3 text-right font-semibold">$${parseFloat(cost.unitCost).toFixed(2)}</td>
+                    <td class="p-3 text-center text-sm">${formatDate(cost.lastUpdated)}</td>
+                    <td class="p-3 text-center">
+                        <div class="flex justify-center gap-2">
+                            <button data-id="${cost.id}" class="edit-cost-btn px-3 py-1 text-xs border border-[#6B4423] rounded-lg hover:bg-white">
+                                Edit
+                            </button>
+                            <button data-id="${cost.id}" class="delete-cost-btn px-3 py-1 text-xs border border-red-400 text-red-600 rounded-lg hover:bg-red-50">
+                                Delete
+                            </button>
+                        </div>
+                    </td>
                 `;
-                tbody.appendChild(emptyRow);
-            } else {
-                costsForProduct.forEach(cost => {
-    const d = new Date(cost.lastUpdated);
-    const lastUpdated = `${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')}/${d.getFullYear()}`;
-
-    const costRow = document.createElement('tr');
-    costRow.className = 'bg-[#f8f4eb] border-b border-[#d4b78f]';
-    costRow.innerHTML = `
-        <td class="p-3 pl-10 text-sm" colspan="2"></td>
-        <td class="p-3">${cost.vendorName}</td>
-        <td class="p-3 text-right font-semibold">$${parseFloat(cost.unitCost).toFixed(2)}</td>
-        <td class="p-3 text-center text-sm">${lastUpdated}</td>
-        <td class="p-3 text-center">
-            <div class="flex justify-center gap-2">
-                <button data-id="${cost.id}" class="edit-cost-btn px-3 py-1 text-xs border border-[#6B4423] rounded-lg hover:bg-white">
-                    Edit
-                </button>
-                <button data-id="${cost.id}" class="delete-cost-btn px-3 py-1 text-xs border border-red-400 text-red-600 rounded-lg hover:bg-red-50">
-                    Delete
-                </button>
-            </div>
-        </td>
-    `;
-    tbody.appendChild(costRow);
-});
-            }
+                tbody.appendChild(costRow);
+            });
         }
     });
 
-    // Event listeners for buttons
+    // Event listeners
     tbody.querySelectorAll('.add-cost-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -6620,7 +6656,7 @@ function renderCostOfGoods() {
     tbody.querySelectorAll('.edit-cost-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
-            const costId = parseInt(this.getAttribute('data-id'));
+            const costId = this.getAttribute('data-id'); // keep as string (UUID)
             window.editingCostId = costId;
             editProductCostById(costId);
         });
@@ -6629,7 +6665,7 @@ function renderCostOfGoods() {
     tbody.querySelectorAll('.delete-cost-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             e.stopPropagation();
-            const costId = parseInt(this.getAttribute('data-id'));
+            const costId = this.getAttribute('data-id'); // keep as string (UUID)
             deleteProductCost(costId);
         });
     });
