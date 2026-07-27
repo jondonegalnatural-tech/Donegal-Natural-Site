@@ -4944,19 +4944,18 @@ async function updatePendingPOIndicators() {
         count = pendingCount || 0;
     } catch (err) {
         console.error('updatePendingPOIndicators error:', err);
-        // fallback to in-memory count if the query fails
         if (typeof getPendingPurchaseOrderCount === 'function') {
             count = getPendingPurchaseOrderCount();
         }
     }
 
-    // Dashboard card
+    // Inventory / Stock & Receiving card
     const dashEl = document.getElementById('dash-pending-pos-count');
     if (dashEl) {
         dashEl.textContent = count;
     }
 
-    // Badge on the Receive Purchase Orders button
+    // Badge on the Receive Purchase Orders button (if present)
     const badge = document.getElementById('pending-pos-badge');
     if (badge) {
         if (count > 0) {
