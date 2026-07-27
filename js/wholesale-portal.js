@@ -2973,7 +2973,7 @@ async function submitOnboarding() {
                 payment_method_status: paymentStatus,
                 onboarding_complete: true
             })
-            .eq('email', email)
+            .ilike('email', email)
             .select();
 
         console.log('Update data:', data);
