@@ -6491,7 +6491,32 @@ async function submitVendorOrder() {
 }
 
 // ================== COST OF GOODS ==================
-let productCosts = JSON.parse(localStorage.getItem('productCosts')) || [];
+let productCosts = [];
+async function loadProductCosts() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('product_costs')
+            .select('*')
+            .order('product_name');
+
+        if (error) throw error;
+
+        productCosts = (data || []).map(row => ({
+            id: row.id,
+            productName: row.product_name,
+            category: row.category || '',
+            vendorName: row.vendor_name,
+            unitCost: Number(row.unit_cost),
+            notes: row.notes || '',
+            lastUpdated: row.last_updated
+        }));
+
+        console.log('Product costs loaded from Supabase:', productCosts.length);
+    } catch (err) {
+        console.error('loadProductCosts error:', err);
+        productCosts = [];
+    }
+}
 
 function saveProductCosts() {
     localStorage.setItem('productCosts', JSON.stringify(productCosts));
