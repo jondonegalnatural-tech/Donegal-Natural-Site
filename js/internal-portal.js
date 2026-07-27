@@ -4268,6 +4268,26 @@ async function loadInventory() {
     }
 }
 
+async function upsertInventoryQuantity(productName, quantity) {
+    try {
+        const { error } = await supabaseClient
+            .from('inventory')
+            .upsert(
+                {
+                    product_name: productName,
+                    quantity: quantity,
+                    updated_at: new Date().toISOString()
+                },
+                { onConflict: 'product_name' }
+            );
+
+        if (error) throw error;
+    } catch (err) {
+        console.error('upsertInventoryQuantity error:', err);
+        throw err;
+    }
+}
+
 function saveInventory() {
     // localStorage writes removed – data now lives in Supabase
 }
@@ -4873,9 +4893,17 @@ async function confirmReceivedQuantities() {
         }
     });
 
-    saveInventory();
-        if (typeof updateDashboardLowStock === 'function') {
-        updateDashboardLowStock();
+        // Write each updated product to Supabase
+    try {
+        for (const item of items) {
+            const name = item.productName;
+            if (name && inventory[name] !== undefined) {
+                await upsertInventoryQuantity(name, inventory[name]);
+            }
+        }
+    } catch (err) {
+        console.error('Failed to save inventory to Supabase:', err);
+        alert('Inventory updated in memory, but could not save to database.\n' + (err.message || ''));
     }
 
     // Mark the purchase as received in Supabase
