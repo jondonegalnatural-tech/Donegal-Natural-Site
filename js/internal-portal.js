@@ -4931,8 +4931,24 @@ function getPendingPurchaseOrderCount() {
     return count;
 }
 
-function updatePendingPOIndicators() {
-    const count = getPendingPurchaseOrderCount();
+async function updatePendingPOIndicators() {
+    let count = 0;
+
+    try {
+        const { count: pendingCount, error } = await supabaseClient
+            .from('vendor_purchases')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'pending');
+
+        if (error) throw error;
+        count = pendingCount || 0;
+    } catch (err) {
+        console.error('updatePendingPOIndicators error:', err);
+        // fallback to in-memory count if the query fails
+        if (typeof getPendingPurchaseOrderCount === 'function') {
+            count = getPendingPurchaseOrderCount();
+        }
+    }
 
     // Dashboard card
     const dashEl = document.getElementById('dash-pending-pos-count');
