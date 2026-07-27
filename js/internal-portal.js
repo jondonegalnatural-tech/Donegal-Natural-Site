@@ -4415,7 +4415,7 @@ function showInventoryReceiving() {
     const pendingPurchases = [];
     const rejectedPurchases = [];
 
-    if (typeof vendors !== 'undefined' && Array.isArray(vendors)) {
+        if (typeof vendors !== 'undefined' && Array.isArray(vendors)) {
         vendors.forEach(vendor => {
             const purchases = vendor.purchases || [];
             purchases.forEach(p => {
@@ -4427,7 +4427,7 @@ function showInventoryReceiving() {
 
                 if (!p.status || p.status === 'pending') {
                     pendingPurchases.push(entry);
-                } else if (p.status === 'rejected') {
+                } else if (p.status === 'rejected' || p.status === 'received') {
                     rejectedPurchases.push(entry);
                 }
             });
@@ -4488,12 +4488,12 @@ function showInventoryReceiving() {
 
     // ===== REJECTED / HISTORY =====
     html += `
-        <h3 class="font-semibold brand-green mb-3 mt-4">Rejected / History</h3>
+        <h3 class="font-semibold brand-green mb-3 mt-4">Order History</h3>
     `;
 
     if (rejectedPurchases.length === 0) {
         html += `
-            <p class="text-sm text-[#6B4423] mb-2">No rejected purchase orders.</p>
+            <p class="text-sm text-[#6B4423] mb-2">No order history yet.</p>
         `;
     } else {
         html += `<div class="space-y-3">`;
@@ -4509,7 +4509,7 @@ function showInventoryReceiving() {
                     </div>
                     <div class="text-right">
                         <p class="font-bold text-gray-500">$${(p.amount || 0).toFixed(2)}</p>
-                        <span class="inline-block mt-1 px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-700 rounded-full">Rejected</span>
+                        <span class="inline-block mt-1 px-2 py-0.5 text-xs font-semibold ${p.status === 'received' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'} rounded-full">${p.status === 'received' ? 'Received' : 'Rejected'}</span>
                     </div>
                 </div>
             `;
