@@ -4237,14 +4237,44 @@ const INVENTORY_CATEGORY_ORDER = [
 ];
 
 // Load inventory from localStorage (or start empty)
-let inventory = JSON.parse(localStorage.getItem('inventory') || '{}');
+let inventory = {};
+async function loadInventory() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('inventory')
+            .select('product_name, quantity');
 
-function saveInventory() {
-    localStorage.setItem('inventory', JSON.stringify(inventory));
+        if (error) throw error;
+
+        // Build the same object shape the rest of the code expects
+        inventory = {};
+        (data || []).forEach(row => {
+            inventory[row.product_name] = Number(row.quantity) || 0;
+        });
+
+        // Ensure every catalog product has an entry (default 0)
+        if (typeof PRODUCT_CATALOG !== 'undefined') {
+            PRODUCT_CATALOG.forEach(product => {
+                if (inventory[product.name] === undefined) {
+                    inventory[product.name] = 0;
+                }
+            });
+        }
+
+        console.log('Inventory loaded from Supabase:', Object.keys(inventory).length);
+    } catch (err) {
+        console.error('loadInventory error:', err);
+        inventory = {};
+    }
 }
 
-function showInventorySection() {
+function saveInventory() {
+    // localStorage writes removed – data now lives in Supabase
+}
+
+async function showInventorySection() {
     showSection('inventory');
+    await loadInventory();
     showCurrentInventory();
 }
 
