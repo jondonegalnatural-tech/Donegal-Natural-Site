@@ -6736,6 +6736,9 @@ if (typeof loadVendors === 'function') {
         if (typeof updateDashboardVendors === 'function') {
             updateDashboardVendors();
         }
+        if (typeof updatePendingPOIndicators === 'function') {
+            updatePendingPOIndicators();
+        }
     });
 }
 

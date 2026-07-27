@@ -206,10 +206,11 @@ body { background: #f8f1e9; }
                             <p class="text-xs text-green-700 font-medium">Received</p>
                             <p id="dash-received-count" class="text-lg font-bold text-green-600">0</p>
                         </div>
-                        <div class="bg-blue-50 rounded-xl py-2">
-                            <p class="text-xs text-blue-700 font-medium">Processing</p>
-                            <p id="dash-processing-count" class="text-lg font-bold text-blue-600">0</p>
-                        </div>
+                        <div class="bg-blue-50 rounded-xl py-2 cursor-pointer hover:bg-blue-100 transition"
+     onclick="if (typeof showInventoryReceiving === 'function') { showInventoryReceiving(); } else if (typeof showSection === 'function') { showSection('inventory'); }">
+    <p class="text-xs text-blue-700 font-medium">Pending POs</p>
+    <p id="dash-pending-pos-count" class="text-xl font-bold text-blue-600">0</p>
+</div>
                     </div>
 
                     <!-- Pending Orders Dollar Total -->
