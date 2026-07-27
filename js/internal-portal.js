@@ -6821,12 +6821,23 @@ function editProductCostById(costId) {
     }, 100);
 }
 
-function deleteProductCost(costId) {
+async function deleteProductCost(costId) {
     if (!confirm('Are you sure you want to delete this cost?')) return;
 
-    productCosts = productCosts.filter(c => c.id !== costId);
-    saveProductCosts();
-    renderCostOfGoods();
+    try {
+        const { error } = await supabaseClient
+            .from('product_costs')
+            .delete()
+            .eq('id', costId);
+
+        if (error) throw error;
+
+        await loadProductCosts();
+        renderCostOfGoods();
+    } catch (err) {
+        console.error('deleteProductCost error:', err);
+        alert('Could not delete cost.\n' + (err.message || ''));
+    }
 }
 
 function clearOrdersSearch() {
