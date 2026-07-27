@@ -1954,11 +1954,38 @@ async function updateInitialSheetTabVisibility() {
     const tabBtn = document.getElementById("initial-sheet-tab");
     if (!tabBtn) return;
 
-    const record = await getMySalesmanRecord();
-    const status = (record && record.priceSheetStatus) ? record.priceSheetStatus : null;
+    const user = getCurrentUser() || currentUser;
+    if (!user) {
+        tabBtn.style.display = "none";
+        return;
+    }
 
-    // Show only when required or pending
-    if (status === "required" || status === "pending") {
+    const email = (user.email || "").toLowerCase().trim();
+    const record = await getMySalesmanRecord();
+    const status = (record && record.priceSheetStatus)
+        ? String(record.priceSheetStatus).toLowerCase().trim()
+        : "";
+
+    // If they already have a price sheet with prices, never show the Initial Sheet tab
+    let hasApprovedSheet = false;
+    if (email) {
+        try {
+            const { data: sheet } = await supabaseClient
+                .from("salesman_price_sheets")
+                .select("id, prices")
+                .eq("salesman_email", email)
+                .maybeSingle();
+
+            if (sheet && sheet.prices && Object.keys(sheet.prices).length > 0) {
+                hasApprovedSheet = true;
+            }
+        } catch (e) {
+            // ignore lookup errors
+        }
+    }
+
+    // Show only when status is explicitly required/pending AND they don't already have a sheet
+    if ((status === "required" || status === "pending") && !hasApprovedSheet) {
         tabBtn.style.display = "";
     } else {
         tabBtn.style.display = "none";
