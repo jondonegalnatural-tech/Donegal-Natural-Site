@@ -2959,9 +2959,13 @@ async function submitOnboarding() {
 
     const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
     const paymentStatus = method === 'ach' ? 'pending_admin' : 'active';
+    const email = (user.email || '').toLowerCase().trim();
+
+    console.log('Onboarding update for email:', email);
+    console.log('Payload:', { billing, method, paymentStatus });
 
     try {
-        const { error } = await supabaseClient
+        const { data, error } = await supabaseClient
             .from('customers')
             .update({
                 billing_address: billing,
@@ -2969,14 +2973,24 @@ async function submitOnboarding() {
                 payment_method_status: paymentStatus,
                 onboarding_complete: true
             })
-            .eq('email', (user.email || '').toLowerCase().trim());
+            .eq('email', email)
+            .select();
+
+        console.log('Update data:', data);
+        console.log('Update error:', error);
 
         if (error) throw error;
+
+        if (!data || data.length === 0) {
+            alert('Update ran but no customer row was matched for email: ' + email);
+            return;
+        }
 
         document.getElementById('onboarding-modal')?.classList.add('hidden');
         location.reload();
     } catch (err) {
         console.error(err);
+        alert('Onboarding save failed:\n' + (err.message || JSON.stringify(err)));
         if (errEl) {
             errEl.textContent = err.message || 'Could not save account info.';
             errEl.classList.remove('hidden');
