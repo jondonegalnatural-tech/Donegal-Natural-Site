@@ -6518,62 +6518,7 @@ async function loadProductCosts() {
     }
 }
 
-function saveProductCosts() {
-    localStorage.setItem('productCosts', JSON.stringify(productCosts));
-    if (typeof updateDashboardVendors === 'function') updateDashboardVendors();
-}
 
-function saveProductCost(event) {
-    event.preventDefault();
-
-    const productName = document.getElementById('cost-product').value;
-    const vendorName = document.getElementById('cost-vendor').value;
-    const unitCostRaw = document.getElementById('cost-unit-cost').value;
-    const unitCost = parseFloat(unitCostRaw);
-    const notes = document.getElementById('cost-notes').value.trim();
-
-    console.log('Saving cost:', { productName, vendorName, unitCost, notes });
-
-    if (!productName || !vendorName || isNaN(unitCost)) {
-        alert('Please fill in Product, Vendor, and a valid Unit Cost.');
-        return;
-    }
-
-    const catalogItem = PRODUCT_CATALOG.find(p => p.name === productName);
-    const category = catalogItem ? catalogItem.category : '';
-
-    if (window.editingCostId) {
-        // Updating an existing record
-        const existing = productCosts.find(c => c.id === window.editingCostId);
-        if (existing) {
-            existing.productName = productName;
-            existing.category = category;
-            existing.vendorName = vendorName;
-            existing.unitCost = unitCost;
-            existing.notes = notes;
-            existing.lastUpdated = new Date().toISOString();
-        }
-        window.editingCostId = null;
-    } else {
-        // Adding a new record
-        const newCost = {
-            id: Date.now() + Math.floor(Math.random() * 1000),
-            productName: productName,
-            category: category,
-            vendorName: vendorName,
-            unitCost: unitCost,
-            lastUpdated: new Date().toISOString(),
-            notes: notes
-        };
-        productCosts.unshift(newCost);
-    }
-
-    saveProductCosts();
-    renderCostOfGoods();
-    hideAddCostModal();
-
-    console.log('Current productCosts:', productCosts);
-}
 
 function renderCostOfGoods() {
     const tbody = document.getElementById('cost-of-goods-body');
@@ -6719,51 +6664,62 @@ function hideAddCostModal() {
     document.getElementById('add-cost-modal').classList.add('hidden');
 }
 
-function saveProductCost(event) {
+async function saveProductCost(event) {
     event.preventDefault();
 
     const productName = document.getElementById('cost-product').value;
     const vendorName = document.getElementById('cost-vendor').value;
-    const unitCost = parseFloat(document.getElementById('cost-unit-cost').value);
-    const notes = document.getElementById('cost-notes').value.trim();
+    const unitCostRaw = document.getElementById('cost-unit-cost').value;
+    const unitCost = parseFloat(unitCostRaw);
+    const notes = (document.getElementById('cost-notes').value || '').trim();
 
     if (!productName || !vendorName || isNaN(unitCost)) {
-        alert('Please fill in Product, Vendor, and Unit Cost.');
+        alert('Please fill in Product, Vendor, and a valid Unit Cost.');
         return;
     }
 
     const catalogItem = PRODUCT_CATALOG.find(p => p.name === productName);
     const category = catalogItem ? catalogItem.category : '';
 
-    // Are we editing an existing record?
-    if (window.editingCostId) {
-        const existing = productCosts.find(c => c.id === window.editingCostId);
-        if (existing) {
-            existing.productName = productName;
-            existing.category = category;
-            existing.vendorName = vendorName;
-            existing.unitCost = unitCost;
-            existing.notes = notes;
-            existing.lastUpdated = new Date().toISOString();
-        }
-        window.editingCostId = null;
-    } else {
-        // Adding a brand new cost record
-        const newCost = {
-            id: Date.now(),
-            productName,
-            category,
-            vendorName,
-            unitCost,
-            lastUpdated: new Date().toISOString(),
-            notes
-        };
-        productCosts.unshift(newCost);
-    }
+    try {
+        if (window.editingCostId) {
+            // Update existing row
+            const { error } = await supabaseClient
+                .from('product_costs')
+                .update({
+                    product_name: productName,
+                    category: category || null,
+                    vendor_name: vendorName,
+                    unit_cost: unitCost,
+                    notes: notes || null,
+                    last_updated: new Date().toISOString()
+                })
+                .eq('id', window.editingCostId);
 
-    saveProductCosts();
-    renderCostOfGoods();
-    hideAddCostModal();
+            if (error) throw error;
+            window.editingCostId = null;
+        } else {
+            // Insert new row
+            const { error } = await supabaseClient
+                .from('product_costs')
+                .insert({
+                    product_name: productName,
+                    category: category || null,
+                    vendor_name: vendorName,
+                    unit_cost: unitCost,
+                    notes: notes || null
+                });
+
+            if (error) throw error;
+        }
+
+        await loadProductCosts();
+        renderCostOfGoods();
+        hideAddCostModal();
+    } catch (err) {
+        console.error('saveProductCost error:', err);
+        alert('Could not save cost.\n' + (err.message || ''));
+    }
 }
 
 function assignProductCost(productName) {
