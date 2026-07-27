@@ -162,7 +162,17 @@
             <!-- Order History Tab -->
 <div id="tab-order-history" class="tab-content" style="display: none;">
     <div class="section-card">
-        <h2 class="text-xl font-bold brand-green mb-4">Order History</h2>
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h2 class="text-xl font-bold brand-green">Order History</h2>
+            <div class="flex items-center gap-2">
+                <label class="text-sm font-semibold text-[#6B4423]">Filter by customer</label>
+                <select id="order-history-customer-filter"
+                        class="form-input px-3 py-2 text-sm min-w-[180px]"
+                        onchange="renderMyOrders()">
+                    <option value="">All customers (recent first)</option>
+                </select>
+            </div>
+        </div>
         <div id="my-orders-list">
             <!-- Populated by JavaScript -->
         </div>

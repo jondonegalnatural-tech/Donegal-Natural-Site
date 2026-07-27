@@ -1525,48 +1525,72 @@ if (orderFormEl) {
     });
 }
 
-function renderMyOrders() {
+async function renderMyOrders() {
     const container = document.getElementById("my-orders-list");
     if (!container) return;
 
-    let orders = JSON.parse(localStorage.getItem("submittedOrders") || "[]");
     const user = getCurrentUser() || currentUser;
+    if (!user) {
+        container.innerHTML = `<p class="text-sm text-[#6B4423]">Please log in.</p>`;
+        return;
+    }
 
-    if (user.role === "salesman") {
-        orders = orders.filter(o => o.salesmanEmail === user.email);
-        if (orders.length === 0) {
-            container.innerHTML = "<p style='color:#6B4423;'>You haven't submitted any orders yet.</p>";
+    container.innerHTML = `<p class="text-sm text-[#6B4423]">Loading orders...</p>`;
+
+    try {
+        let query = supabaseClient
+            .from("orders")
+            .select("*")
+            .order("submitted_at", { ascending: false });
+
+        // Salesmen only see their own orders; admins see all
+        if (user.role === "salesman") {
+            query = query.eq("salesman_email", (user.email || "").toLowerCase().trim());
+        }
+
+        const { data, error } = await query;
+
+        if (error) {
+            console.error(error);
+            container.innerHTML = `<p class="text-sm text-red-600">Could not load orders.</p>`;
             return;
         }
-        container.innerHTML = orders.map(order => createOrderCard(order, false)).join("");
-        return;
+
+        const orders = data || [];
+
+        // Populate the customer filter dropdown (unique names only)
+        const filterEl = document.getElementById("order-history-customer-filter");
+        if (filterEl) {
+            const currentValue = filterEl.value || "";
+            const names = [...new Set(orders.map(o => o.customer_name || o.customer || "").filter(Boolean))].sort();
+            filterEl.innerHTML = `<option value="">All customers (recent first)</option>` +
+                names.map(n => `<option value="${n.replace(/"/g, "&quot;")}">${n}</option>`).join("");
+            filterEl.value = currentValue; // keep selection if possible
+        }
+
+        // Apply customer filter if one is selected
+        const selectedCustomer = (filterEl && filterEl.value) ? filterEl.value.trim() : "";
+        let filtered = orders;
+        if (selectedCustomer) {
+            filtered = orders.filter(o =>
+                (o.customer_name || o.customer || "").trim() === selectedCustomer
+            );
+        }
+
+        if (filtered.length === 0) {
+            container.innerHTML = selectedCustomer
+                ? `<p class="text-sm text-[#6B4423]">No orders found for this customer.</p>`
+                : `<p class="text-sm text-[#6B4423]">No orders yet.</p>`;
+            return;
+        }
+
+        // Already sorted by submitted_at desc from the query
+        container.innerHTML = filtered.map(order => createOrderCard(order, user.role === "admin")).join("");
+
+    } catch (err) {
+        console.error(err);
+        container.innerHTML = `<p class="text-sm text-red-600">Error loading orders.</p>`;
     }
-
-    // Admin view - group by salesman
-    if (orders.length === 0) {
-        container.innerHTML = "<p style='color:#6B4423;'>No orders have been submitted yet.</p>";
-        return;
-    }
-
-    const grouped = {};
-    orders.forEach(order => {
-        if (!grouped[order.salesman]) grouped[order.salesman] = [];
-        grouped[order.salesman].push(order);
-    });
-
-    let html = '';
-    Object.keys(grouped).forEach(salesmanName => {
-        const salesmanOrders = grouped[salesmanName];
-        html += `
-            <div style="margin-bottom: 2rem;">
-                <h4 style="color:#1E4D2B; margin-bottom:0.75rem; padding-bottom:0.4rem; border-bottom:2px solid #6B4423;">
-                    ${salesmanName} <span style="font-size:0.85rem; color:#888; font-weight:400;">(${salesmanOrders.length} order${salesmanOrders.length > 1 ? 's' : ''})</span>
-                </h4>
-                ${salesmanOrders.map(order => createOrderCard(order, true)).join("")}
-            </div>
-        `;
-    });
-    container.innerHTML = html;
 }
 
 function getSalesmanCommissionRates(user) {
@@ -1693,11 +1717,11 @@ function createOrderCard(order, showSalesman = false) {
         <div style="background:#fff; border:2px solid #6B4423; border-radius:12px; padding:1rem; margin-bottom:1rem;">
             <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:0.75rem;">
                 <div>
-                    <strong style="color:#1E4D2B; font-size:1.05rem;">${order.customer || "Customer"}</strong>
+                    <strong style="color:#1E4D2B; font-size:1.05rem;">${order.customer_name || order.customer || "Customer"}</strong>
                     <div style="font-size:0.8rem; color:#888; margin-top:0.15rem;">
-                        Order #${order.id} · ${new Date(order.submittedAt).toLocaleDateString()}
+                        Order #${order.id} · ${new Date(order.submitted_at || order.submittedAt).toLocaleDateString()}
                     </div>
-                    ${showSalesman ? `<div style="font-size:0.8rem; color:#6B4423;">Salesman: ${order.salesman || "N/A"}</div>` : ""}
+                    ${showSalesman ? `<div style="font-size:0.8rem; color:#6B4423;">Salesman: ${order.salesman_name || order.salesman || "N/A"}</div>` : ""}
                 </div>
                 <span class="px-3 py-1 text-xs font-semibold rounded-full ${statusClass}">
                     ${status}
