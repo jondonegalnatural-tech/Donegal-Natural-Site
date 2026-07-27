@@ -100,10 +100,13 @@ function showSection(section) {
 
     // === Dashboard ===
     if (section === 'dashboard') {
-        if (typeof updateDashboardSales === 'function') {
-            updateDashboardSales();
-        }
+    if (typeof updateDashboardSales === 'function') {
+        updateDashboardSales();
     }
+    if (typeof updatePendingPOIndicators === 'function') {
+        updatePendingPOIndicators();
+    }
+}
 
     if (typeof updateDashboardOrders === 'function') updateDashboardOrders();
 }
@@ -6731,6 +6734,7 @@ function assignProductCost(productName) {
 }
 
 // Load vendors early so the dashboard card is correct on first paint
+// Load vendors early so the dashboard cards are correct on first paint
 if (typeof loadVendors === 'function') {
     loadVendors().then(() => {
         if (typeof updateDashboardVendors === 'function') {
@@ -6739,6 +6743,11 @@ if (typeof loadVendors === 'function') {
         if (typeof updatePendingPOIndicators === 'function') {
             updatePendingPOIndicators();
         }
+        setTimeout(() => {
+            if (typeof updatePendingPOIndicators === 'function') {
+                updatePendingPOIndicators();
+            }
+        }, 800);
     });
 }
 
