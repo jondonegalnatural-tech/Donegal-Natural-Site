@@ -4811,7 +4811,7 @@ function acceptFullOrder() {
     confirmReceivedQuantities();
 }
 
-function confirmReceivedQuantities() {
+async function confirmReceivedQuantities() {
     if (!currentReceivePurchase) return;
 
     const { purchaseId, vendorId, purchase } = currentReceivePurchase;
@@ -4845,13 +4845,21 @@ function confirmReceivedQuantities() {
         updateDashboardLowStock();
     }
 
-    // Mark the purchase as received
-    const purchaseIndex = vendor.purchases.findIndex(p => p.id === purchaseId);
-    if (purchaseIndex !== -1) {
-        vendor.purchases[purchaseIndex].status = 'received';
-        vendor.purchases[purchaseIndex].receivedAt = new Date().toISOString();
-        saveVendors();
-    }
+    // Mark the purchase as received in Supabase
+try {
+    const { error } = await supabaseClient
+        .from('vendor_purchases')
+        .update({
+            status: 'received',
+            received_at: new Date().toISOString()
+        })
+        .eq('id', purchaseId);
+
+    if (error) throw error;
+} catch (err) {
+    console.error('confirmReceivedQuantities status update error:', err);
+    alert('Inventory was updated, but the purchase status could not be saved.\n' + (err.message || ''));
+}
 
     hideReceivePurchaseModal();
 
@@ -4865,7 +4873,7 @@ function confirmReceivedQuantities() {
     alert('Inventory updated successfully.');
 }
 
-function rejectPurchaseOrder() {
+async function rejectPurchaseOrder() {
     if (!currentReceivePurchase) return;
 
     const confirmed = confirm('Reject this purchase order?\n\nIt will be marked as rejected and will not update inventory.');
@@ -4875,12 +4883,21 @@ function rejectPurchaseOrder() {
     const vendor = vendors.find(v => v.id === vendorId);
     if (!vendor) return;
 
-    const purchaseIndex = vendor.purchases.findIndex(p => p.id === purchaseId);
-    if (purchaseIndex !== -1) {
-        vendor.purchases[purchaseIndex].status = 'rejected';
-        vendor.purchases[purchaseIndex].rejectedAt = new Date().toISOString();
-        saveVendors();
-    }
+    try {
+    const { error } = await supabaseClient
+        .from('vendor_purchases')
+        .update({
+            status: 'rejected',
+            rejected_at: new Date().toISOString()
+        })
+        .eq('id', purchaseId);
+
+    if (error) throw error;
+} catch (err) {
+    console.error('rejectPurchaseOrder error:', err);
+    alert('Could not reject the purchase order.\n' + (err.message || ''));
+    return;
+}
 
     hideReceivePurchaseModal();
 
