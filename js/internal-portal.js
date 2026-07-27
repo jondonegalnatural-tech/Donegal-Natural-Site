@@ -3079,80 +3079,96 @@ function showSalesmanDetail(salesmanId = null) {
         return;
     }
 
-    // Force create a default salesman if none exists
-    if (salesmen.length === 0) {
-        const defaultSalesman = {
-            id: Date.now(),
-            firstName: "Brian",
-            lastName: "Last Name",
-            territory: "Florida",
-            commission: 8,
-            yearlySales: 312400,
-            monthlySales: 42850,
-            notes: "Strong performer in Florida.",
-            quotesSubmitted: 7
-        };
-        salesmen.push(defaultSalesman);
-        saveSalesmen();
-        console.log("Created default salesman for testing");
+    // Prefer the salesman that was clicked; fall back to first if needed
+    let salesman = null;
+    if (salesmanId != null) {
+        salesman = salesmen.find(s => String(s.id) === String(salesmanId));
     }
-
-    const salesman = salesmen[0]; // Show the first salesman for now
-
+    if (!salesman && salesmen.length > 0) {
+        salesman = salesmen[0];
+    }
     if (!salesman) {
         console.error("No salesman data available");
         return;
     }
 
-    // Populate fields with null safety
+    // Remember which salesman is open so save can target the right row
+    modal.dataset.salesmanId = salesman.id || '';
+
     const setText = (id, value) => {
         const el = document.getElementById(id);
         if (el) el.textContent = value;
     };
-
     const setValue = (id, value) => {
         const el = document.getElementById(id);
         if (el) el.value = value;
     };
 
-    setText('modal-salesman-name', `${salesman.firstName} ${salesman.lastName}`);
+    const displayName = salesman.name
+        || [salesman.firstName, salesman.lastName].filter(Boolean).join(' ')
+        || 'Salesman';
+
+    setText('modal-salesman-name', displayName);
     setText('modal-territory', salesman.territory || 'N/A');
-    setValue('modal-commission', salesman.commission || 8);
-    setText('modal-yearly-sales', '$' + (salesman.yearlySales || 0).toLocaleString());
-    setText('modal-monthly-sales', '$' + (salesman.monthlySales || 0).toLocaleString());
+    setValue('modal-commission', salesman.commission != null ? salesman.commission : 8);
+    setValue('modal-market-commission', salesman.marketCommission != null ? salesman.marketCommission : 3);
+    setText('modal-yearly-sales', '$' + (Number(salesman.yearlySales) || 0).toLocaleString());
+    setText('modal-monthly-sales', '$' + (Number(salesman.monthlySales) || 0).toLocaleString());
     setText('modal-quotes', salesman.quotesSubmitted || 0);
     setValue('modal-notes', salesman.notes || '');
 
     modal.style.display = 'flex';
-    console.log("Salesman modal opened with data:", salesman);
+    modal.classList.remove('hidden');
 }
 
-function hideSalesmanModal() {
+async function hideSalesmanModal() {
     const modal = document.getElementById('salesman-modal');
     if (!modal) return;
 
-    // Save changes made in the modal
-    const nameEl = document.getElementById('modal-salesman-name');
+    const salesmanId = modal.dataset.salesmanId;
     const commissionEl = document.getElementById('modal-commission');
+    const marketEl = document.getElementById('modal-market-commission');
     const notesEl = document.getElementById('modal-notes');
 
-    if (nameEl && salesmen.length > 0) {
-        const fullName = nameEl.textContent.trim();
-        const salesman = salesmen.find(s => `${s.firstName} ${s.lastName}` === fullName);
+    const commission = commissionEl ? parseFloat(commissionEl.value) : null;
+    const marketCommission = marketEl ? parseFloat(marketEl.value) : null;
+    const notes = notesEl ? notesEl.value.trim() : '';
 
+    if (salesmanId) {
+        const salesman = salesmen.find(s => String(s.id) === String(salesmanId));
         if (salesman) {
-            if (commissionEl) {
-                salesman.commission = parseFloat(commissionEl.value) || salesman.commission;
-            }
-            if (notesEl) {
-                salesman.notes = notesEl.value.trim();
-            }
+            if (!isNaN(commission)) salesman.commission = commission;
+            if (!isNaN(marketCommission)) salesman.marketCommission = marketCommission;
+            salesman.notes = notes;
+        }
 
-            saveSalesmen(); // Save to localStorage
+        // Persist to Supabase
+        try {
+            const payload = {
+                notes: notes || null
+            };
+            if (!isNaN(commission)) payload.commission = commission;
+            if (!isNaN(marketCommission)) payload.market_commission = marketCommission;
+
+            const { error } = await supabaseClient
+                .from('salesmen')
+                .update(payload)
+                .eq('id', salesmanId);
+
+            if (error) throw error;
+
+            // Keep localStorage in sync for other helpers
+            saveSalesmen();
+            if (typeof renderSalesmen === 'function') renderSalesmen();
+            if (typeof updateDashboardSalesmen === 'function') updateDashboardSalesmen();
+        } catch (err) {
+            console.error(err);
+            alert('Could not save salesman changes.\n' + (err.message || ''));
         }
     }
 
     modal.style.display = 'none';
+    modal.classList.add('hidden');
 }
 
 function showAddSalesmanModal() {
