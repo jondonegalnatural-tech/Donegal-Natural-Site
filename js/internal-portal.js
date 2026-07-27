@@ -5748,10 +5748,87 @@ function updateDashboardSales() {
 }
 
 // ================== VENDORS SYSTEM ==================
-let vendors = JSON.parse(localStorage.getItem('vendors')) || [];
+let vendors = [];
+
+async function loadVendors() {
+    try {
+        // 1. Fetch all vendors
+        const { data: vendorRows, error: vErr } = await supabaseClient
+            .from('vendors')
+            .select('*')
+            .order('name');
+
+        if (vErr) throw vErr;
+
+        // 2. Fetch all purchases
+        const { data: purchaseRows, error: pErr } = await supabaseClient
+            .from('vendor_purchases')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (pErr) throw pErr;
+
+        // 3. Fetch all items
+        const { data: itemRows, error: iErr } = await supabaseClient
+            .from('vendor_purchase_items')
+            .select('*');
+
+        if (iErr) throw iErr;
+
+        // 4. Nest them into the exact shape the existing UI expects
+        vendors = (vendorRows || []).map(v => {
+            const purchases = (purchaseRows || [])
+                .filter(p => p.vendor_id === v.id)
+                .map(p => {
+                    const items = (itemRows || [])
+                        .filter(i => i.purchase_id === p.id)
+                        .map(i => ({
+                            productName: i.product_name,
+                            quantity: i.quantity,
+                            unitCost: Number(i.unit_cost),
+                            lineTotal: Number(i.line_total)
+                        }));
+
+                    return {
+                        id: p.id,
+                        date: p.date,
+                        description: p.description,
+                        products: '',
+                        items: items,
+                        quantity: p.quantity,
+                        amount: Number(p.amount),
+                        notes: p.notes,
+                        status: p.status,
+                        createdAt: p.created_at,
+                        receivedAt: p.received_at,
+                        rejectedAt: p.rejected_at
+                    };
+                });
+
+            return {
+                id: v.id,
+                name: v.name,
+                contact: v.contact,
+                phone: v.phone,
+                email: v.email,
+                notes: v.notes,
+                categories: v.categories || [],
+                products: v.products || [],
+                active: v.active !== false,
+                purchases: purchases,
+                createdAt: v.created_at
+            };
+        });
+
+        console.log('Vendors loaded from Supabase:', vendors.length);
+    } catch (err) {
+        console.error('loadVendors error:', err);
+        vendors = [];
+    }
+}
 
 function saveVendors() {
-    localStorage.setItem('vendors', JSON.stringify(vendors));
+    // localStorage writes removed – data now lives in Supabase
     if (typeof updateDashboardVendors === 'function') updateDashboardVendors();
 }
 
@@ -5983,8 +6060,7 @@ function confirmProductChooser() {
     hideProductChooser();
 }
 
-// Update saveNewVendor to include categories + products
-function saveNewVendor(event) {
+async function saveNewVendor(event) {
     event.preventDefault();
 
     const name = (document.getElementById('new-vendor-name')?.value || '').trim();
@@ -5993,85 +6069,48 @@ function saveNewVendor(event) {
         return;
     }
 
-    // Get selected categories
-    const catSelect = document.getElementById('new-vendor-categories');
-    const selectedCategories = catSelect
-        ? Array.from(catSelect.selectedOptions).map(o => o.value)
-        : [];
-
-    const newVendor = {
-        id: Date.now(),
-        name: name,
-        contact: (document.getElementById('new-vendor-contact')?.value || '').trim(),
-        phone: (document.getElementById('new-vendor-phone')?.value || '').trim(),
-        email: (document.getElementById('new-vendor-email')?.value || '').trim(),
-        notes: (document.getElementById('new-vendor-notes')?.value || '').trim(),
-        categories: selectedCategories,
-        products: [...tempSelectedProducts],   // specific products
-        active: true,
-        purchases: [],
-        createdAt: new Date().toISOString()
-    };
-
-    if (typeof vendors === 'undefined' || !Array.isArray(vendors)) {
-        vendors = JSON.parse(localStorage.getItem('vendors') || '[]');
-    }
-
-    vendors.unshift(newVendor);
-    saveVendors();
-    renderVendors();
-    hideAddVendorModal();
-
-    if (typeof updateDashboardVendors === 'function') {
-        updateDashboardVendors();
-    }
-
-    alert(`Vendor added: ${newVendor.name}\nCategories: ${selectedCategories.length}\nProducts: ${tempSelectedProducts.length}`);
-}
-
-function saveNewVendor(event) {
-    event.preventDefault();
-
-    const name = (document.getElementById('new-vendor-name')?.value || '').trim();
-    if (!name) {
-        alert('Vendor name is required.');
-        return;
-    }
-
-    // Require at least one product
     if (!tempSelectedProducts || tempSelectedProducts.length === 0) {
         alert('Please select at least one product for this vendor.');
         return;
     }
 
-    const newVendor = {
-        id: Date.now(),
-        name: name,
-        contact: (document.getElementById('new-vendor-contact')?.value || '').trim(),
-        phone: (document.getElementById('new-vendor-phone')?.value || '').trim(),
-        email: (document.getElementById('new-vendor-email')?.value || '').trim(),
-        notes: (document.getElementById('new-vendor-notes')?.value || '').trim(),
-        categories: [],                          // kept for compatibility, left empty
-        products: [...tempSelectedProducts],     // specific products (required)
-        active: true,
-        purchases: [],
-        createdAt: new Date().toISOString()
-    };
+    const contact = (document.getElementById('new-vendor-contact')?.value || '').trim();
+    const phone = (document.getElementById('new-vendor-phone')?.value || '').trim();
+    const email = (document.getElementById('new-vendor-email')?.value || '').trim();
+    const notes = (document.getElementById('new-vendor-notes')?.value || '').trim();
 
-    if (typeof vendors === 'undefined' || !Array.isArray(vendors)) {
-        vendors = JSON.parse(localStorage.getItem('vendors') || '[]');
+    try {
+        const { data, error } = await supabaseClient
+            .from('vendors')
+            .insert({
+                name: name,
+                contact: contact || null,
+                phone: phone || null,
+                email: email || null,
+                notes: notes || null,
+                categories: [],
+                products: [...tempSelectedProducts],
+                active: true
+            })
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        // Refresh from Supabase
+        await loadVendors();
+        renderVendors();
+        hideAddVendorModal();
+
+        if (typeof updateDashboardVendors === 'function') {
+            updateDashboardVendors();
+        }
+
+        alert('Vendor added: ' + name + '\nProducts: ' + tempSelectedProducts.length);
+    } catch (err) {
+        console.error('saveNewVendor error:', err);
+        alert('Could not save vendor.\n' + (err.message || ''));
     }
-
-    vendors.unshift(newVendor);
-    saveVendors();
-    renderVendors();
-    hideAddVendorModal();
-
-    if (typeof updateDashboardVendors === 'function') {
-        updateDashboardVendors();
-    }
-
-    alert(`Vendor added: ${newVendor.name}\nProducts: ${tempSelectedProducts.length}`);
 }
 
 function addTestVendor() {
@@ -6154,24 +6193,34 @@ function showVendorDetail(vendorId) {
     document.getElementById('vendor-modal').classList.remove('hidden');
 }
 
-function toggleVendorStatus() {
+async function toggleVendorStatus() {
     const vendor = vendors.find(v => v.id === window.currentVendorId);
     if (!vendor) {
         alert('Vendor not found');
         return;
     }
 
-    // Toggle the status
-    vendor.active = (vendor.active === false) ? true : false;
+    const newActive = vendor.active === false ? true : false;
 
-    // Save to localStorage
-    saveVendors();
+    try {
+        const { error } = await supabaseClient
+            .from('vendors')
+            .update({ active: newActive })
+            .eq('id', vendor.id);
 
-    // Refresh the list and the open modal
-    renderVendors();
-    showVendorDetail(vendor.id);
+        if (error) throw error;
 
-    if (typeof updateDashboardVendors === 'function') updateDashboardVendors();
+        await loadVendors();
+        renderVendors();
+        showVendorDetail(vendor.id);
+
+        if (typeof updateDashboardVendors === 'function') {
+            updateDashboardVendors();
+        }
+    } catch (err) {
+        console.error('toggleVendorStatus error:', err);
+        alert('Could not update vendor status.\n' + (err.message || ''));
+    }
 }
 
 function hideVendorModal() {
@@ -6198,58 +6247,98 @@ function hideEditVendorModal() {
     document.getElementById('edit-vendor-modal').classList.add('hidden');
 }
 
-function saveEditedVendor(event) {
+async function saveEditedVendor(event) {
     event.preventDefault();
 
     const vendor = vendors.find(v => v.id === window.currentVendorId);
     if (!vendor) return;
 
-    // Update the vendor object
-    vendor.name = document.getElementById('edit-vendor-name').value.trim();
-    vendor.contact = document.getElementById('edit-vendor-contact').value.trim();
-    vendor.phone = document.getElementById('edit-vendor-phone').value.trim();
-    vendor.email = document.getElementById('edit-vendor-email').value.trim();
-    vendor.notes = document.getElementById('edit-vendor-notes').value.trim();
+    const name = document.getElementById('edit-vendor-name').value.trim();
+    const contact = document.getElementById('edit-vendor-contact').value.trim();
+    const phone = document.getElementById('edit-vendor-phone').value.trim();
+    const email = document.getElementById('edit-vendor-email').value.trim();
+    const notes = document.getElementById('edit-vendor-notes').value.trim();
 
-    // Save to localStorage
-    saveVendors();
+    if (!name) {
+        alert('Vendor name is required.');
+        return;
+    }
 
-    // Refresh the list
-    renderVendors();
+    try {
+        const { error } = await supabaseClient
+            .from('vendors')
+            .update({
+                name: name,
+                contact: contact || null,
+                phone: phone || null,
+                email: email || null,
+                notes: notes || null
+            })
+            .eq('id', vendor.id);
 
-    // Close the edit modal
-    hideEditVendorModal();
+        if (error) throw error;
 
-    // Optional: re-open the detail modal so the user sees the updated info
-    showVendorDetail(vendor.id);
+        await loadVendors();
+        renderVendors();
+        hideEditVendorModal();
+        showVendorDetail(vendor.id);
+
+        if (typeof updateDashboardVendors === 'function') {
+            updateDashboardVendors();
+        }
+    } catch (err) {
+        console.error('saveEditedVendor error:', err);
+        alert('Could not update vendor.\n' + (err.message || ''));
+    }
 }
 
 function startVendorOrder() {
     const vendor = vendors.find(v => v.id === window.currentVendorId);
     if (!vendor) return;
 
-    // For this test we only show Bully Sticks
-    const bullyStickProducts = PRODUCT_CATALOG.filter(p => p.category === "Bully Sticks");
+    // Use the products that were assigned to this vendor
+    let productNames = Array.isArray(vendor.products) ? vendor.products : [];
 
-    // Store the products we are working with so we can calculate later
-    window.currentOrderProducts = bullyStickProducts.map(p => {
-        // Give each product a random test cost between $0.40 and $6.00
-        const randomCost = (Math.random() * 5.6 + 0.4).toFixed(2);
+    // If the vendor has no products assigned, fall back to the full catalog
+    // (you can change this later if you prefer a strict empty state)
+    if (productNames.length === 0) {
+        productNames = PRODUCT_CATALOG.map(p => p.name);
+    }
+
+    // Build the working list for the order grid
+    window.currentOrderProducts = productNames.map(name => {
+        const catalogItem = PRODUCT_CATALOG.find(p => p.name === name);
+
+        // Try to get a real unit cost from productCosts if it exists
+        let unitCost = 1.00; // sensible default
+        if (typeof productCosts !== 'undefined' && Array.isArray(productCosts)) {
+            const costRecord = productCosts.find(c => c.productName === name);
+            if (costRecord && costRecord.unitCost != null) {
+                unitCost = Number(costRecord.unitCost);
+            }
+        } else if (catalogItem && catalogItem.unitPrice != null) {
+            // fallback to catalog selling price if no cost exists yet
+            unitCost = Number(catalogItem.unitPrice);
+        }
+
         return {
-            ...p,
-            unitCost: parseFloat(randomCost),
+            name: name,
+            caseSize: catalogItem ? catalogItem.caseSize : '',
+            unitCost: unitCost,
             quantity: 0
         };
     });
 
     // Set vendor name in the modal
-    document.getElementById('vendor-order-vendor-name').textContent = vendor.name;
+    const nameEl = document.getElementById('vendor-order-vendor-name');
+    if (nameEl) nameEl.textContent = vendor.name;
 
     // Build the grid
     renderVendorOrderGrid();
 
     // Show the modal
-    document.getElementById('vendor-order-modal').classList.remove('hidden');
+    const modal = document.getElementById('vendor-order-modal');
+    if (modal) modal.classList.remove('hidden');
 }
 
 function renderVendorOrderGrid() {
@@ -6306,7 +6395,7 @@ function hideVendorOrderModal() {
     document.getElementById('vendor-order-modal').classList.add('hidden');
 }
 
-function submitVendorOrder() {
+async function submitVendorOrder() {
     const vendor = vendors.find(v => v.id === window.currentVendorId);
     if (!vendor || !window.currentOrderProducts) return;
 
@@ -6318,51 +6407,69 @@ function submitVendorOrder() {
         return;
     }
 
-    // Calculate total and build structured items + text summary
+    // Calculate totals and build items
     let totalAmount = 0;
-    let productsText = '';
     const items = [];
 
     orderedItems.forEach(item => {
         const lineTotal = item.unitCost * item.quantity;
         totalAmount += lineTotal;
 
-        productsText += `• ${item.name} x${item.quantity} @ $${item.unitCost.toFixed(2)}\n`;
-
         items.push({
-            productName: item.name,
+            product_name: item.name,
             quantity: item.quantity,
-            unitCost: item.unitCost,
-            lineTotal: lineTotal
+            unit_cost: item.unitCost,
+            line_total: lineTotal
         });
     });
 
-    // Create the purchase record
-    if (!vendor.purchases) vendor.purchases = [];
+    try {
+        // 1. Insert the purchase header
+        const { data: purchase, error: pErr } = await supabaseClient
+            .from('vendor_purchases')
+            .insert({
+                vendor_id: vendor.id,
+                date: new Date().toISOString().split('T')[0],
+                description: `Order – ${orderedItems.length} product(s)`,
+                quantity: orderedItems.reduce((sum, i) => sum + i.quantity, 0),
+                amount: totalAmount,
+                notes: 'Submitted via Create Order grid',
+                status: 'pending'
+            })
+            .select()
+            .single();
 
-    const newPurchase = {
-        id: Date.now(),
-        date: new Date().toISOString().split('T')[0],
-        description: `Order – ${orderedItems.length} product(s)`,
-        products: productsText.trim(),
-        items: items,                          // ← structured line items for Inventory
-        quantity: orderedItems.reduce((sum, i) => sum + i.quantity, 0),
-        amount: totalAmount,
-        notes: 'Submitted via Create Order grid',
-        status: 'pending',                     // ← for Inventory receiving
-        createdAt: new Date().toISOString()
-    };
+        if (pErr) throw pErr;
 
-    vendor.purchases.unshift(newPurchase);
-    saveVendors();
+        // 2. Insert the line items
+        const itemsPayload = items.map(i => ({
+            purchase_id: purchase.id,
+            product_name: i.product_name,
+            quantity: i.quantity,
+            unit_cost: i.unit_cost,
+            line_total: i.line_total
+        }));
 
-    hideVendorOrderModal();
-    hideVendorModal();
+        const { error: iErr } = await supabaseClient
+            .from('vendor_purchase_items')
+            .insert(itemsPayload);
 
-    // Re-open the vendor detail so the new purchase is visible
-    showVendorDetail(vendor.id);
+        if (iErr) throw iErr;
 
-    alert(`Order submitted!\n\nTotal: $${totalAmount.toFixed(2)}\n\nThis has been added to the vendor’s Purchase History.`);
+        // 3. Refresh from Supabase so the nested shape is up to date
+        await loadVendors();
+
+        hideVendorOrderModal();
+        hideVendorModal();
+
+        // Re-open the vendor detail so the new purchase is visible
+        showVendorDetail(vendor.id);
+
+        alert(`Order submitted!\n\nTotal: $${totalAmount.toFixed(2)}\n\nThis has been added to the vendor’s Purchase History and will appear in Receive Purchase Orders.`);
+    } catch (err) {
+        console.error('submitVendorOrder error:', err);
+        alert('Could not submit order.\n' + (err.message || ''));
+    }
 }
 
 // ================== COST OF GOODS ==================
@@ -7305,10 +7412,14 @@ function checkLegalPassword() {
     }
 }
 
-function showVendorsSection() {
+async function showVendorsSection() {
     showSection('vendors');
+    await loadVendors();
     if (typeof renderVendors === 'function') {
         renderVendors();
+    }
+    if (typeof updateDashboardVendors === 'function') {
+        updateDashboardVendors();
     }
 }
 
