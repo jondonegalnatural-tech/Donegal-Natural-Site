@@ -1669,30 +1669,26 @@ function createOrderCard(order, showSalesman = false) {
     let normalSubtotal = 0;
     let marketSubtotal = 0;
 
-    const itemRows = (order.items || []).map(item => {
+        const itemRows = (order.items || []).map(item => {
         const qty = parseInt(item.quantity, 10) || 0;
         const isMarket = !!item.isMarketPrice;
-        const unitPrice = isMarket ? null : (parseFloat(item.unitPrice) || 0);
-        const lineTotal = isMarket ? 0 : unitPrice * qty;
+        const unitPriceNum = parseFloat(item.unitPrice);
+        const hasRealPrice = !isNaN(unitPriceNum) && unitPriceNum > 0;
+        const lineTotal = hasRealPrice ? unitPriceNum * qty : 0;
 
-        if (!isMarket) {
+        if (isMarket) {
+            if (hasRealPrice) {
+                productSubtotal += lineTotal;
+                marketSubtotal += lineTotal;
+            }
+        } else {
             productSubtotal += lineTotal;
             normalSubtotal += lineTotal;
-        } else {
-            const priced = parseFloat(item.unitPrice);
-            if (!isNaN(priced) && priced > 0) {
-                productSubtotal += priced * qty;
-                marketSubtotal += priced * qty;
-            }
         }
 
-        const priceLabel = isMarket
-            ? (item.displayPrice || "Market Price")
-            : "$" + unitPrice.toFixed(2);
-
-        const lineLabel = isMarket
-            ? (item.displayPrice || "Market Price")
-            : "$" + lineTotal.toFixed(2);
+        const lineLabel = hasRealPrice
+            ? "$" + lineTotal.toFixed(2)
+            : (item.displayPrice || "Market Price");
 
         return `
             <div class="flex justify-between text-sm py-1 border-b border-[#eee]">

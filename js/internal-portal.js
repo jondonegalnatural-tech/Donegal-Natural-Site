@@ -1194,7 +1194,7 @@ function confirmMarketPrices() {
             if (item) {
                 item.unitPrice = value;
                 item.displayPrice = '$' + value.toFixed(2);
-                item.isMarketPrice = false; // now priced
+                // Keep isMarketPrice = true so market commission still applies
             }
         }
     });
@@ -1204,14 +1204,27 @@ function confirmMarketPrices() {
         return;
     }
 
-    // Save the updated order
-    localStorage.setItem('submittedOrders', JSON.stringify(allOrders));
+    // Persist the priced items to Supabase and move status to received
+    (async () => {
+        try {
+            const { error } = await supabaseClient
+                .from('orders')
+                .update({
+                    items: order.items,
+                    status: 'received'
+                })
+                .eq('id', currentMarketPriceOrderId);
 
-    // Now approve it
-    updateOrderStatus(currentMarketPriceOrderId, 'Received');
+            if (error) throw error;
 
-    hideMarketPriceModal();
-    alert('Market prices saved and order approved.');
+            hideMarketPriceModal();
+            await loadOrders();
+            alert('Market prices saved and order approved.');
+        } catch (err) {
+            console.error(err);
+            alert('Could not save market prices.\n' + (err.message || ''));
+        }
+    })();
 }
 
 async function denyOrder(orderId) {
