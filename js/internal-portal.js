@@ -4373,9 +4373,11 @@ function renderCurrentInventoryList() {
 
     // Build ordered category list
     const orderedCategories = [];
-    INVENTORY_CATEGORY_ORDER.forEach(cat => {
-        if (grouped[cat]) orderedCategories.push(cat);
-    });
+    if (typeof INVENTORY_CATEGORY_ORDER !== 'undefined') {
+        INVENTORY_CATEGORY_ORDER.forEach(cat => {
+            if (grouped[cat]) orderedCategories.push(cat);
+        });
+    }
     Object.keys(grouped).forEach(cat => {
         if (!orderedCategories.includes(cat)) orderedCategories.push(cat);
     });
@@ -4408,6 +4410,7 @@ function renderCurrentInventoryList() {
             products.forEach(p => {
                 const lowStock = p.qty > 0 && p.qty < 50;
                 const priceText = p.unitPrice != null ? `$${Number(p.unitPrice).toFixed(2)}` : '—';
+                const safeName = p.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 
                 html += `
                     <div class="flex items-center justify-between bg-[#f8f4eb] border border-[#d4b78f] rounded-xl px-4 py-3">
@@ -4419,8 +4422,14 @@ function renderCurrentInventoryList() {
                             ${lowStock ? '<p class="text-xs text-orange-600 mt-0.5">Low stock</p>' : ''}
                         </div>
                         <div class="text-right flex-shrink-0">
-                            <p class="text-2xl font-bold brand-green">${p.qty}</p>
-                            <p class="text-xs text-[#6B4423]">cases</p>
+                            <input type="number"
+                                   min="0"
+                                   step="1"
+                                   value="${p.qty}"
+                                   data-product="${safeName}"
+                                   class="inventory-qty-input w-20 text-center text-2xl font-bold brand-green bg-white border-2 border-[#6B4423] rounded-lg py-1"
+                                   onkeydown="if(event.key==='Enter'){this.blur();}">
+                            <p class="text-xs text-[#6B4423] mt-0.5">cases</p>
                         </div>
                     </div>
                 `;
@@ -4436,6 +4445,36 @@ function renderCurrentInventoryList() {
     });
 
     list.innerHTML = html;
+
+    // Wire inline save
+    list.querySelectorAll('.inventory-qty-input').forEach(input => {
+        input.addEventListener('blur', async function () {
+            const productName = this.getAttribute('data-product');
+            const newQty = parseInt(this.value, 10);
+            if (!productName || isNaN(newQty) || newQty < 0) {
+                this.value = inventory[productName] !== undefined ? inventory[productName] : 0;
+                return;
+            }
+
+            const previous = Number(inventory[productName]) || 0;
+            if (newQty === previous) return;
+
+            try {
+                inventory[productName] = newQty;
+                if (typeof upsertInventoryQuantity === 'function') {
+                    await upsertInventoryQuantity(productName, newQty);
+                }
+                if (typeof updateDashboardLowStock === 'function') {
+                    updateDashboardLowStock();
+                }
+            } catch (err) {
+                console.error('Inline inventory save error:', err);
+                alert('Could not save quantity.\n' + (err.message || ''));
+                this.value = previous;
+                inventory[productName] = previous;
+            }
+        });
+    });
 }
 
 function updateDashboardLowStock() {
