@@ -1745,8 +1745,8 @@ async function updateOrderStatus(orderId, newStatus) {
         // Inventory: decrease stock when order is marked shipped
         if (newStatusLower === 'shipped' && previousStatus !== 'shipped') {
             order.shippingCost = shippingCost;
-            if (typeof decreaseInventoryForOrder === 'function') {
-                decreaseInventoryForOrder(order);
+                        if (typeof decreaseInventoryForOrder === 'function') {
+                await decreaseInventoryForOrder(order);
             }
         }
 
@@ -5053,46 +5053,38 @@ function updateDashboardLowStock() {
 }
 
 //=======Inventory Helper Function===========\\
-function decreaseInventoryForOrder(order) {
-    if (!order || !order.items || !Array.isArray(order.items)) return;
+async function decreaseInventoryForOrder(order) {
+    if (!order || !Array.isArray(order.items) || order.items.length === 0) return;
 
-    ensureInventoryInitialized();
+    // Ensure we have current inventory in memory
+    if (typeof loadInventory === 'function' && Object.keys(inventory || {}).length === 0) {
+        await loadInventory();
+    }
+    if (typeof ensureInventoryInitialized === 'function') {
+        ensureInventoryInitialized();
+    }
 
-    let updated = false;
+    try {
+        for (const item of order.items) {
+            const name = item.product || item.productName || item.name;
+            const qty = parseInt(item.quantity, 10) || 0;
+            if (!name || qty <= 0) continue;
 
-    order.items.forEach(item => {
-        const productName = item.product || item.productName || item.name;
-        const qty = parseInt(item.quantity, 10) || 0;
+            const current = Number(inventory[name]) || 0;
+            const next = Math.max(0, current - qty);
+            inventory[name] = next;
 
-        if (!productName || qty <= 0) return;
-
-        // Try exact match first
-        if (inventory[productName] !== undefined) {
-            inventory[productName] = Math.max(0, inventory[productName] - qty);
-            updated = true;
-            return;
-        }
-
-        // Fallback: try to find a catalog product whose name contains the order product name (or vice versa)
-        if (typeof PRODUCT_CATALOG !== 'undefined') {
-            const match = PRODUCT_CATALOG.find(p =>
-                p.name.toLowerCase().includes(productName.toLowerCase()) ||
-                productName.toLowerCase().includes(p.name.toLowerCase())
-            );
-
-            if (match && inventory[match.name] !== undefined) {
-                inventory[match.name] = Math.max(0, inventory[match.name] - qty);
-                updated = true;
+            if (typeof upsertInventoryQuantity === 'function') {
+                await upsertInventoryQuantity(name, next);
             }
         }
-    });
 
-    if (updated) {
-        saveInventory();
-            if (typeof updateDashboardLowStock === 'function') {
-        updateDashboardLowStock();
-    }
-        console.log('Inventory decreased for shipped order', order.id);
+        if (typeof updateDashboardLowStock === 'function') {
+            updateDashboardLowStock();
+        }
+    } catch (err) {
+        console.error('decreaseInventoryForOrder error:', err);
+        alert('Order shipped, but inventory could not be updated.\n' + (err.message || ''));
     }
 }
 
