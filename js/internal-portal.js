@@ -4469,7 +4469,7 @@ function showInventoryReceiving() {
             const dateStr = p.date || (p.createdAt ? p.createdAt.split('T')[0] : '—');
             const itemCount = p.items ? p.items.length : 0;
             html += `
-                <div onclick="openReceivePurchaseModal(${p.id}, ${p.vendorId})"
+                <div onclick="openReceivePurchaseModal('${p.id}', '${p.vendorId}')"
                      class="flex items-center justify-between bg-[#f8f4eb] border border-[#d4b78f] rounded-xl px-5 py-4 cursor-pointer hover:bg-[#f0e6d9] transition">
                     <div>
                         <p class="font-semibold brand-green">${p.vendorName}</p>
