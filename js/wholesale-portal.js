@@ -2839,8 +2839,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         return; // stop portal init until password is changed
     }
 
-    // Load customer record for onboarding + pricing gate
+        // Load customer record for onboarding + pricing gate
     try {
+        const email = (user.email || '').toLowerCase().trim();
         const { data: customer } = await supabaseClient
             .from('customers')
             .select('*')
@@ -2857,14 +2858,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Customer load error:', err);
     }
 
-        // Normal portal init
+    // Normal portal init
     await loadPortalInventory();
     renderCategoryFilters();
     renderPortalProducts();
     updateQuoteSidebar();
     setupSearch();
     displayWelcome();
-
+    
     const sidebarLinks = document.querySelectorAll('.sidebar-link');
     sidebarLinks.forEach(link => {
         link.addEventListener('click', function (e) {
