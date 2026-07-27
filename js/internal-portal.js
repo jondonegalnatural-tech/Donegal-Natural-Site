@@ -1670,7 +1670,7 @@ function updateDashboardPendingValue() {
                 }
 
                 // Fallback if no catalog price found
-                if (!unitPrice) unitPrice = item.unitPrice || item.price || 50;
+                if (!unitPrice) unitPrice = getOrderItemUnitPrice(item);
 
                 total += qty * unitPrice;
             });
@@ -3025,7 +3025,7 @@ function updateReportsSalesSummary() {
         let orderTotal = 0;
 
         order.items.forEach(item => {
-            orderTotal += (item.quantity || 1) * 50;
+            orderTotal += (item.quantity || 1) * getOrderItemUnitPrice(item);
         });
 
         if (orderDate >= startOfYear) ytdSales += orderTotal;
@@ -5765,52 +5765,25 @@ async function updateDashboardSalesmen() {
     }
 }
 
-function updateDashboardSales() {
-    const ytdEl = document.getElementById('dash-ytd-sales');
-    const mtdEl = document.getElementById('dash-mtd-sales');
-    const wtdEl = document.getElementById('dash-wtd-sales');
-
-    if (!allOrders || allOrders.length === 0) {
-        if (ytdEl) ytdEl.textContent = '$0';
-        if (mtdEl) mtdEl.textContent = '$0';
-        if (wtdEl) wtdEl.textContent = '$0';
-        return;
+// Shared helper – real unit price for any order line item
+function getOrderItemUnitPrice(item) {
+    if (item.unitPrice != null && !isNaN(Number(item.unitPrice))) {
+        return Number(item.unitPrice);
     }
-
-    let ytdTotal = 0;
-    let mtdTotal = 0;
-    let wtdTotal = 0;
-
-    const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay());
-
-    allOrders.forEach(order => {
-        if (!order.items) return;
-        const orderDate = new Date(order.submittedAt);
-        let orderTotal = 0;
-
-        order.items.forEach(item => {
-            orderTotal += (item.quantity || 1) * 50;
-        });
-
-        if (orderDate >= startOfYear) ytdTotal += orderTotal;
-        if (orderDate >= startOfMonth) mtdTotal += orderTotal;
-        if (orderDate >= startOfWeek) wtdTotal += orderTotal;
-    });
-
-    if (ytdEl) ytdEl.textContent = '$' + ytdTotal.toLocaleString();
-    if (mtdEl) mtdEl.textContent = '$' + mtdTotal.toLocaleString();
-    if (wtdEl) wtdEl.textContent = '$' + wtdTotal.toLocaleString();
+    const name = (item.product || item.productName || item.name || '').trim();
+    if (name && typeof PRODUCT_CATALOG !== 'undefined') {
+        const match = PRODUCT_CATALOG.find(p => p.name === name);
+        if (match && match.unitPrice != null && !match.isMarketPrice) {
+            return Number(match.unitPrice);
+        }
+    }
+    return 0;
 }
 
 function updateDashboardSales() {
     const ytdEl = document.getElementById('dash-ytd-sales');
     const mtdEl = document.getElementById('dash-mtd-sales');
     const wtdEl = document.getElementById('dash-wtd-sales');
-
     const ytdUnitsEl = document.getElementById('dash-ytd-units');
     const mtdUnitsEl = document.getElementById('dash-mtd-units');
     const wtdUnitsEl = document.getElementById('dash-wtd-units');
@@ -5843,8 +5816,7 @@ function updateDashboardSales() {
 
         order.items.forEach(item => {
             const qty = item.quantity || 1;
-            // Temporary dollar calculation – replace with real price later if needed
-            orderTotal += qty * 50;
+            orderTotal += qty * getOrderItemUnitPrice(item);
             orderUnits += qty;
         });
 
@@ -5865,7 +5837,6 @@ function updateDashboardSales() {
     if (ytdEl) ytdEl.textContent = '$' + ytdTotal.toLocaleString();
     if (mtdEl) mtdEl.textContent = '$' + mtdTotal.toLocaleString();
     if (wtdEl) wtdEl.textContent = '$' + wtdTotal.toLocaleString();
-
     if (ytdUnitsEl) ytdUnitsEl.textContent = ytdUnits.toLocaleString();
     if (mtdUnitsEl) mtdUnitsEl.textContent = mtdUnits.toLocaleString();
     if (wtdUnitsEl) wtdUnitsEl.textContent = wtdUnits.toLocaleString();
