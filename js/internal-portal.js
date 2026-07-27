@@ -6492,6 +6492,7 @@ async function submitVendorOrder() {
 
 // ================== COST OF GOODS ==================
 let productCosts = [];
+
 async function loadProductCosts() {
     try {
         const { data, error } = await supabaseClient
@@ -6518,7 +6519,15 @@ async function loadProductCosts() {
     }
 }
 
+async function openProductCostsModal() {
+    document.getElementById('product-costs-modal').classList.remove('hidden');
+    await loadProductCosts();
+    renderCostOfGoods();
+}
 
+function hideProductCostsModal() {
+    document.getElementById('product-costs-modal').classList.add('hidden');
+}
 
 function renderCostOfGoods() {
     const tbody = document.getElementById('cost-of-goods-body');
@@ -6798,19 +6807,16 @@ function editProductCost(productName) {
     }, 100);
 }
 
-function openProductCostsModal() {
-    document.getElementById('product-costs-modal').classList.remove('hidden');
-    renderCostOfGoods();   // fill the grid when the modal opens
-}
 
-function hideProductCostsModal() {
-    document.getElementById('product-costs-modal').classList.add('hidden');
-}
 
 function editProductCostById(costId) {
-    const costRecord = productCosts.find(c => c.id === costId);
-    if (!costRecord) return;
+    const costRecord = productCosts.find(c => String(c.id) === String(costId));
+    if (!costRecord) {
+        alert('Cost record not found.');
+        return;
+    }
 
+    window.editingCostId = costId;
     showAddCostModal();
 
     setTimeout(() => {
