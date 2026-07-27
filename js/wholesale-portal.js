@@ -15,6 +15,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 // ================== GLOBAL VARIABLES ==================
 let currentCategoryFilter = 'All';
 let quoteItems = JSON.parse(localStorage.getItem('wholesaleQuote')) || [];
+let portalInventory = {}; // product_name → quantity
 
 // ================== MAIN CATEGORIES ==================
 const MAIN_CATEGORIES = [
@@ -1919,6 +1920,26 @@ function createStyledRow(parent, categories) {
     parent.appendChild(row);
 }
 
+async function loadPortalInventory() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('inventory')
+            .select('product_name, quantity');
+
+        if (error) throw error;
+
+        portalInventory = {};
+        (data || []).forEach(row => {
+            portalInventory[row.product_name] = Number(row.quantity) || 0;
+        });
+
+        console.log('Portal inventory loaded:', Object.keys(portalInventory).length);
+    } catch (err) {
+        console.error('loadPortalInventory error:', err);
+        portalInventory = {};
+    }
+}
+
 // ================== RENDER PORTAL PRODUCTS (With Grouping) ==================
 function renderPortalProducts() {
     const container = document.getElementById('portal-products');
@@ -2836,7 +2857,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Customer load error:', err);
     }
 
-    // Normal portal init
+        // Normal portal init
+    await loadPortalInventory();
     renderCategoryFilters();
     renderPortalProducts();
     updateQuoteSidebar();
