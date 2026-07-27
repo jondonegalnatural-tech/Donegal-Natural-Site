@@ -1690,12 +1690,16 @@ function createOrderCard(order, showSalesman = false) {
             ? "$" + lineTotal.toFixed(2)
             : (item.displayPrice || "Market Price");
 
+        const unitLabel = hasRealPrice
+            ? "$" + unitPriceNum.toFixed(2)
+            : (item.displayPrice || "Market Price");
+
         return `
             <div class="flex justify-between text-sm py-1 border-b border-[#eee]">
                 <div class="pr-3">
                     <span class="font-medium">${item.product || item.name || "Item"}</span>
                     <span class="text-[#6B4423]"> × ${qty} units</span>
-                                        <div class="text-xs text-[#6B4423]">${priceLabel} each</div>
+                    <div class="text-xs text-[#6B4423]">${unitLabel} each</div>
                 </div>
                 <div class="text-right font-semibold">${lineLabel}</div>
             </div>
