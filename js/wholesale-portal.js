@@ -17,6 +17,7 @@ let currentCategoryFilter = 'All';
 let quoteItems = JSON.parse(localStorage.getItem('wholesaleQuote')) || [];
 let portalInventory = {}; // product_name → quantity
 
+
 // ================== MAIN CATEGORIES ==================
 const MAIN_CATEGORIES = [
     "All",
@@ -2034,8 +2035,15 @@ function renderPortalProducts() {
             const row = document.createElement('tr');
             row.style.borderBottom = '1px solid #6B4423';
             row.innerHTML = `
-                <td style="border:1px solid #6B4423; padding:0.5rem; font-weight:600; color:#1E4D2B;">
+                                <td style="border:1px solid #6B4423; padding:0.5rem; font-weight:600; color:#1E4D2B;">
                     ${product.name}
+                    ${(() => {
+                        const qty = portalInventory[product.name];
+                        if (qty === undefined) return '';
+                        if (qty <= 0) return ' <span style="display:inline-block;margin-left:6px;padding:1px 6px;font-size:0.7rem;font-weight:700;border-radius:999px;background:#fee2e2;color:#b91c1c;">Out of Stock</span>';
+                        if (qty < 50) return ' <span style="display:inline-block;margin-left:6px;padding:1px 6px;font-size:0.7rem;font-weight:700;border-radius:999px;background:#ffedd5;color:#c2410c;">Low Stock</span>';
+                        return '';
+                    })()}
                 </td>
                 <td style="border:1px solid #6B4423; padding:0.5rem; color:#6B4423; text-align:center; width:90px;">
                     ${product.cs || ""}
@@ -2865,7 +2873,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateQuoteSidebar();
     setupSearch();
     displayWelcome();
-    
+
     const sidebarLinks = document.querySelectorAll('.sidebar-link');
     sidebarLinks.forEach(link => {
         link.addEventListener('click', function (e) {
