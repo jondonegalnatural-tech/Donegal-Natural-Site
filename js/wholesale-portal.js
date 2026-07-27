@@ -2844,7 +2844,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const { data: customer } = await supabaseClient
             .from('customers')
             .select('*')
-            .eq('email', (user.email || '').toLowerCase().trim())
+            .ilike('email', email)
             .maybeSingle();
 
         window._currentCustomer = customer || null;
@@ -2907,21 +2907,28 @@ async function submitPasswordChange() {
         return;
     }
 
+    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    const email = (user.email || '').toLowerCase().trim();
+
     try {
-        const { error } = await supabaseClient.auth.updateUser({ password: p1 });
-        if (error) throw error;
+        const { error: authError } = await supabaseClient.auth.updateUser({ password: p1 });
+        if (authError) throw authError;
 
-        const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        // Clear must_change_password on profile (if RLS allows)
+        if (user.id) {
+            await supabaseClient
+                .from('profiles')
+                .update({ must_change_password: false })
+                .eq('id', user.id);
+        }
 
-        await supabaseClient
-            .from('profiles')
-            .update({ must_change_password: false })
-            .eq('id', user.id);
-
-        await supabaseClient
-            .from('customers')
-            .update({ password_changed: true })
-            .eq('email', (user.email || '').toLowerCase().trim());
+        // Mark customer as password_changed
+        if (email) {
+            await supabaseClient
+                .from('customers')
+                .update({ password_changed: true })
+                .ilike('email', email);
+        }
 
         user.mustChangePassword = false;
         localStorage.setItem('currentUser', JSON.stringify(user));
