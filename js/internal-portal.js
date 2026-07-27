@@ -6113,7 +6113,6 @@ async function saveNewVendor(event) {
     }
 }
 
-
 function showVendorDetail(vendorId) {
     const vendor = vendors.find(v => v.id === vendorId);
     if (!vendor) return;
@@ -6712,6 +6711,15 @@ function assignProductCost(productName) {
     setTimeout(() => {
         document.getElementById('cost-product').value = productName;
     }, 100);
+}
+
+// Load vendors early so the dashboard card is correct on first paint
+if (typeof loadVendors === 'function') {
+    loadVendors().then(() => {
+        if (typeof updateDashboardVendors === 'function') {
+            updateDashboardVendors();
+        }
+    });
 }
 
 function editProductCost(productName) {
