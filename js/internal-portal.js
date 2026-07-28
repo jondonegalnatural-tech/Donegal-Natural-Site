@@ -5911,17 +5911,39 @@ async function updateDashboardSalesmen() {
         return;
     }
 
-    // Top 3 from real order YTD (not yearly_sales column)
+    // Ensure orders are loaded before calculating YTD
+    try {
+        if (typeof loadOrders === 'function' && (!allOrders || allOrders.length === 0)) {
+            await loadOrders();
+        }
+    } catch (err) {
+        console.warn('updateDashboardSalesmen: could not load orders', err);
+    }
+
     const now = new Date();
     const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const ytdByName = {};
+    const ytdByKey = {};
 
     (allOrders || []).forEach(order => {
-        const orderDate = new Date(order.submittedAt || order.submitted_at || order.date || 0);
+        const orderDate = new Date(
+            order.submittedAt || order.submitted_at || order.created_at || order.date || 0
+        );
         if (isNaN(orderDate.getTime()) || orderDate < startOfYear) return;
 
-        const name = (order.salesman || order.salesman_name || order.salesmanName || '').trim();
-        if (!name) return;
+        const name = (
+            order.salesman ||
+            order.salesman_name ||
+            order.salesmanName ||
+            ''
+        ).trim();
+        const email = (
+            order.salesmanEmail ||
+            order.salesman_email ||
+            ''
+        ).trim().toLowerCase();
+
+        const key = name || email;
+        if (!key) return;
 
         let orderTotal = 0;
         (order.items || []).forEach(item => {
@@ -5932,25 +5954,29 @@ async function updateDashboardSalesmen() {
             orderTotal += qty * unit;
         });
 
-        if (!ytdByName[name]) ytdByName[name] = 0;
-        ytdByName[name] += orderTotal;
+        if (!ytdByKey[key]) ytdByKey[key] = { name: name || key, ytd: 0 };
+        ytdByKey[key].ytd += orderTotal;
+        if (name) ytdByKey[key].name = name;
     });
 
-    const topSalesmen = Object.keys(ytdByName)
-        .map(name => ({ name, ytd: ytdByName[name] }))
+    let topSalesmen = Object.values(ytdByKey)
         .sort((a, b) => b.ytd - a.ytd)
         .slice(0, 3);
 
+    // Fallback: show active salesmen at $0 if no order names matched
     if (topSalesmen.length === 0) {
-        container.innerHTML = '<p class="text-[#6B4423] text-sm">No YTD sales yet</p>';
-    } else {
-        container.innerHTML = topSalesmen.map((s, i) => `
-            <div class="flex justify-between items-center">
-                <span class="font-medium truncate pr-2">${i + 1}. ${s.name}</span>
-                <span class="font-semibold whitespace-nowrap">$${s.ytd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-            </div>
-        `).join('');
+        topSalesmen = activeList.slice(0, 3).map(s => ({
+            name: s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || 'Unnamed',
+            ytd: 0
+        }));
     }
+
+    container.innerHTML = topSalesmen.map((s, i) => `
+        <div class="flex justify-between items-center">
+            <span class="font-medium truncate pr-2">${i + 1}. ${s.name}</span>
+            <span class="font-semibold whitespace-nowrap">$${Math.round(s.ytd).toLocaleString()}</span>
+        </div>
+    `).join('');
 
     if (typeof updatePriceProposalsBadge === 'function') {
         updatePriceProposalsBadge();
