@@ -3302,8 +3302,11 @@ function showSalesmanDetail(salesmanId = null) {
     setText('modal-territory', salesman.territory || 'N/A');
     setValue('modal-commission', salesman.commission != null ? salesman.commission : 8);
     setValue('modal-market-commission', salesman.marketCommission != null ? salesman.marketCommission : 3);
-    setText('modal-yearly-sales', '$' + (Number(salesman.yearlySales) || 0).toLocaleString());
-    setText('modal-monthly-sales', '$' + (Number(salesman.monthlySales) || 0).toLocaleString());
+    const totals = typeof getSalesmanOrderTotals === 'function'
+        ? getSalesmanOrderTotals(salesman)
+        : { yearly: 0, monthly: 0 };
+    setText('modal-yearly-sales', '$' + Math.round(totals.yearly).toLocaleString());
+    setText('modal-monthly-sales', '$' + Math.round(totals.monthly).toLocaleString());
     setText('modal-quotes', salesman.quotesSubmitted || 0);
     setValue('modal-notes', salesman.notes || '');
 
