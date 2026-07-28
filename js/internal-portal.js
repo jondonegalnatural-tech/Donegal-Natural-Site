@@ -1402,10 +1402,11 @@ function renderShipInvoiceItems() {
     }
 
     container.innerHTML = shipInvoiceItems.map((item, index) => {
-        const priceLabel = item.isMarketPrice
-            ? 'Market'
-            : (item.unitPrice != null
-                ? ('$' + Number(item.unitPrice).toFixed(2))
+                const hasRealPrice = item.unitPrice != null && !isNaN(Number(item.unitPrice)) && Number(item.unitPrice) > 0;
+        const priceLabel = hasRealPrice
+            ? ('$' + Number(item.unitPrice).toFixed(2))
+            : (item.isMarketPrice
+                ? 'Market'
                 : (item.displayPrice || '—'));
 
         return `
