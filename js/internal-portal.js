@@ -331,6 +331,74 @@ function getSalesmanOrderTotals(salesman) {
     return { yearly, monthly };
 }
 
+function renderSalesmanOrdersList(salesman) {
+    const container = document.getElementById('modal-salesman-orders');
+    if (!container) return;
+
+    const fullName = (
+        salesman.name ||
+        [salesman.firstName, salesman.lastName].filter(Boolean).join(' ') ||
+        ''
+    ).trim().toLowerCase();
+    const email = (salesman.email || '').trim().toLowerCase();
+
+    const matched = (allOrders || []).filter(order => {
+        const orderName = (
+            order.salesman ||
+            order.salesman_name ||
+            order.salesmanName ||
+            ''
+        ).trim().toLowerCase();
+        const orderEmail = (
+            order.salesmanEmail ||
+            order.salesman_email ||
+            ''
+        ).trim().toLowerCase();
+        return (fullName && orderName === fullName) || (email && orderEmail === email);
+    }).sort((a, b) => {
+        const da = new Date(a.submittedAt || a.submitted_at || a.date || 0);
+        const db = new Date(b.submittedAt || b.submitted_at || b.date || 0);
+        return db - da;
+    });
+
+    if (matched.length === 0) {
+        container.innerHTML = '<p class="text-sm text-[#6B4423]">No orders for this salesman yet.</p>';
+        return;
+    }
+
+    container.innerHTML = matched.map(order => {
+        const id = order.id || order.order_id || '—';
+        const shortId = String(id).length > 8 ? String(id).slice(0, 8) : id;
+        const customer = order.customer || order.customer_name || '—';
+        const status = order.status || '—';
+        const date = new Date(order.submittedAt || order.submitted_at || order.date || 0);
+        const dateText = isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
+
+        let total = 0;
+        (order.items || []).forEach(item => {
+            const qty = parseInt(item.quantity, 10) || 0;
+            const unit = typeof getOrderItemUnitPrice === 'function'
+                ? getOrderItemUnitPrice(item)
+                : (parseFloat(item.unitPrice) || 0);
+            total += qty * unit;
+        });
+
+        return `
+            <div class="bg-white border border-[#d4b78f] rounded-lg px-3 py-2 text-sm">
+                <div class="flex justify-between gap-2">
+                    <span class="font-semibold brand-green">#${shortId}</span>
+                    <span class="text-[#6B4423]">${dateText}</span>
+                </div>
+                <div class="flex justify-between gap-2 mt-1">
+                    <span class="truncate">${customer}</span>
+                    <span class="font-semibold whitespace-nowrap">$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <p class="text-xs text-[#6B4423] mt-1">${status}</p>
+            </div>
+        `;
+    }).join('');
+}
+
 function renderSalesmen() {
     const list = document.getElementById('salesmen-list');
     if (!list) return;
@@ -3265,7 +3333,7 @@ function updateReportsSalesSummary() {
 function showSalesmanDetail(salesmanId = null) {
     const modal = document.getElementById('salesman-modal');
     if (!modal) {
-        console.error("ERROR: salesman-modal not found in HTML");
+        console.error('ERROR: salesman-modal not found in HTML');
         return;
     }
 
@@ -3278,7 +3346,7 @@ function showSalesmanDetail(salesmanId = null) {
         salesman = salesmen[0];
     }
     if (!salesman) {
-        console.error("No salesman data available");
+        console.error('No salesman data available');
         return;
     }
 
@@ -3302,6 +3370,7 @@ function showSalesmanDetail(salesmanId = null) {
     setText('modal-territory', salesman.territory || 'N/A');
     setValue('modal-commission', salesman.commission != null ? salesman.commission : 8);
     setValue('modal-market-commission', salesman.marketCommission != null ? salesman.marketCommission : 3);
+
     const totals = typeof getSalesmanOrderTotals === 'function'
         ? getSalesmanOrderTotals(salesman)
         : { yearly: 0, monthly: 0 };
@@ -3309,6 +3378,12 @@ function showSalesmanDetail(salesmanId = null) {
     setText('modal-monthly-sales', '$' + Math.round(totals.monthly).toLocaleString());
     setText('modal-quotes', salesman.quotesSubmitted || 0);
     setValue('modal-notes', salesman.notes || '');
+
+    if (typeof loadOrders === 'function' && (!allOrders || allOrders.length === 0)) {
+        loadOrders().then(() => renderSalesmanOrdersList(salesman));
+    } else {
+        renderSalesmanOrdersList(salesman);
+    }
 
     modal.style.display = 'flex';
     modal.classList.remove('hidden');

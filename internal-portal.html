@@ -1104,13 +1104,23 @@ body { background: #f8f1e9; }
                 <p class="text-sm text-[#6B4423] font-semibold">Price Change Quotes Submitted</p>
                 <p class="text-2xl font-bold brand-green" id="modal-quotes">7</p>
             </div>
-            <div>
+                <div>
                 <p class="text-sm text-[#6B4423] font-semibold mb-1">Salesman Notes</p>
                 <textarea id="modal-notes" rows="3" class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2"></textarea>
             </div>
+            <div>
+                <p class="text-sm text-[#6B4423] font-semibold mb-2">Orders</p>
+                <div id="modal-salesman-orders"
+                     class="space-y-2 max-h-64 overflow-y-auto border border-[#d4b78f] rounded-xl p-3 bg-[#f8f4eb]">
+                    <p class="text-sm text-[#6B4423]">Loading…</p>
+                </div>
+            </div>
         </div>
         <div class="mt-8 flex justify-end">
-            <button onclick="hideSalesmanModal()" class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">Close</button>
+            <button onclick="hideSalesmanModal()"
+                    class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                Close
+            </button>
         </div>
     </div>
 </div>
