@@ -5978,13 +5978,18 @@ function updateDashboardSales() {
     allOrders.forEach(order => {
         if (!order.items || !Array.isArray(order.items)) return;
 
-        const orderDate = new Date(order.submittedAt || order.date || now);
+        const orderDate = new Date(order.submittedAt || order.submitted_at || order.date || now);
+        if (isNaN(orderDate.getTime())) return;
+
         let orderTotal = 0;
         let orderUnits = 0;
 
         order.items.forEach(item => {
-            const qty = item.quantity || 1;
-            orderTotal += qty * getOrderItemUnitPrice(item);
+            const qty = parseInt(item.quantity, 10) || 0;
+            const unit = typeof getOrderItemUnitPrice === 'function'
+                ? getOrderItemUnitPrice(item)
+                : (parseFloat(item.unitPrice) || 0);
+            orderTotal += qty * unit;
             orderUnits += qty;
         });
 
@@ -6002,9 +6007,9 @@ function updateDashboardSales() {
         }
     });
 
-    if (ytdEl) ytdEl.textContent = '$' + ytdTotal.toLocaleString();
-    if (mtdEl) mtdEl.textContent = '$' + mtdTotal.toLocaleString();
-    if (wtdEl) wtdEl.textContent = '$' + wtdTotal.toLocaleString();
+    if (ytdEl) ytdEl.textContent = '$' + Math.round(ytdTotal).toLocaleString();
+    if (mtdEl) mtdEl.textContent = '$' + Math.round(mtdTotal).toLocaleString();
+    if (wtdEl) wtdEl.textContent = '$' + Math.round(wtdTotal).toLocaleString();
     if (ytdUnitsEl) ytdUnitsEl.textContent = ytdUnits.toLocaleString();
     if (mtdUnitsEl) mtdUnitsEl.textContent = mtdUnits.toLocaleString();
     if (wtdUnitsEl) wtdUnitsEl.textContent = wtdUnits.toLocaleString();
