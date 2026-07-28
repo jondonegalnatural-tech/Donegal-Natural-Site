@@ -27,6 +27,138 @@ function filterCustomerInsights(filterType) {
     refreshCustomerInsights();
 }
 
+async function refreshCustomerInsights() {
+    const tableBody = document.getElementById('customer-insights-table');
+    const totalEl = document.getElementById('total-customers-count');
+    const activeEl = document.getElementById('active-customers-count');
+    const inactiveEl = document.getElementById('inactive-customers-count');
+
+    if (!tableBody) return;
+
+    // Ensure data is loaded
+    if (!allCustomers || allCustomers.length === 0) {
+        if (typeof loadCustomers === 'function') await loadCustomers();
+    }
+    if (!allOrders || allOrders.length === 0) {
+        if (typeof loadOrders === 'function') await loadOrders();
+    }
+
+    const threshold = parseInt(document.getElementById('inactive-threshold')?.value, 10) || 60;
+    const sortBy = document.getElementById('insights-sort')?.value || 'days';
+    const now = new Date();
+
+    // Build insight rows from customers + orders
+    const rows = (allCustomers || []).map(customer => {
+        const name = customer.name || '';
+        const company = customer.company || '';
+        const customerOrders = (allOrders || []).filter(o => {
+            const cName = (o.customer || o.customer_name || '').toLowerCase();
+            return cName && name && cName === name.toLowerCase();
+        });
+
+        let totalSpent = 0;
+        let lastOrderDate = null;
+
+        customerOrders.forEach(order => {
+            const orderDate = new Date(order.submittedAt || order.submitted_at || order.date || 0);
+            if (!lastOrderDate || orderDate > lastOrderDate) lastOrderDate = orderDate;
+
+            (order.items || []).forEach(item => {
+                const qty = parseInt(item.quantity, 10) || 0;
+                const unit = typeof getOrderItemUnitPrice === 'function'
+                    ? getOrderItemUnitPrice(item)
+                    : (parseFloat(item.unitPrice) || 0);
+                totalSpent += qty * unit;
+            });
+        });
+
+        const daysSince = lastOrderDate
+            ? Math.floor((now - lastOrderDate) / (1000 * 60 * 60 * 24))
+            : null;
+
+        const isInactive = daysSince === null || daysSince >= threshold;
+
+        return {
+            name,
+            company,
+            lastOrderDate,
+            daysSince,
+            orderCount: customerOrders.length,
+            totalSpent,
+            isInactive
+        };
+    });
+
+    const activeRows = rows.filter(r => !r.isInactive);
+    const inactiveRows = rows.filter(r => r.isInactive);
+
+    if (totalEl) totalEl.textContent = rows.length;
+    if (activeEl) activeEl.textContent = activeRows.length;
+    if (inactiveEl) inactiveEl.textContent = inactiveRows.length;
+
+    // Highlight selected filter card
+    ['all', 'active', 'inactive'].forEach(type => {
+        const card = document.getElementById('card-' + type);
+        if (!card) return;
+        if (currentInsightsFilter === type) {
+            card.classList.add('ring-2', 'ring-[#1E4D2B]');
+        } else {
+            card.classList.remove('ring-2', 'ring-[#1E4D2B]');
+        }
+    });
+
+    // Apply filter
+    let filtered = rows;
+    if (currentInsightsFilter === 'active') filtered = activeRows;
+    if (currentInsightsFilter === 'inactive') filtered = inactiveRows;
+
+    // Sort
+    filtered = filtered.slice().sort((a, b) => {
+        if (sortBy === 'orders') return b.orderCount - a.orderCount;
+        if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
+        // days (default) — nulls last, highest days first
+        if (a.daysSince === null && b.daysSince === null) return 0;
+        if (a.daysSince === null) return 1;
+        if (b.daysSince === null) return -1;
+        return b.daysSince - a.daysSince;
+    });
+
+    if (filtered.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="6" class="p-6 text-center text-[#6B4423]">
+                    No customers match this filter.
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tableBody.innerHTML = filtered.map(r => {
+        const lastOrderText = r.lastOrderDate
+            ? r.lastOrderDate.toLocaleDateString()
+            : 'Never';
+        const daysText = r.daysSince !== null ? r.daysSince : '—';
+        const statusBadge = r.isInactive
+            ? `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">Inactive</span>`
+            : `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700">Active</span>`;
+
+        return `
+            <tr class="border-t border-[#d4b78f] hover:bg-[#f8f4eb]">
+                <td class="p-3">
+                    <p class="font-semibold brand-green">${r.name || '—'}</p>
+                    <p class="text-xs text-[#6B4423]">${r.company || ''}</p>
+                </td>
+                <td class="p-3 text-center">${lastOrderText}</td>
+                <td class="p-3 text-center">${daysText}</td>
+                <td class="p-3 text-center">${r.orderCount}</td>
+                <td class="p-3 text-center">$${r.totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                <td class="p-3 text-center">${statusBadge}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
 function showSection(section) {
     if (section === 'salesmen' && typeof renderSalesmen === 'function') {
         renderSalesmen();
@@ -87,11 +219,13 @@ function showSection(section) {
         if (typeof renderCostOfGoods === 'function') {
         setTimeout(() => renderCostOfGoods(), 100);
         }
-        if (typeof renderProfitMarginSection === 'function') {
-        setTimeout(() => renderProfitMarginSection(), 150);
-        }
-        if (typeof renderProfitMarginSection === 'function') {
-        setTimeout(() => renderProfitMarginSection(), 150);
+        if (typeof loadProductCosts === 'function') {
+            loadProductCosts().then(() => {
+                if (typeof renderProfitMarginSection === 'function') renderProfitMarginSection();
+                if (typeof updateDashboardProfitMargin === 'function') updateDashboardProfitMargin();
+            });
+        } else if (typeof renderProfitMarginSection === 'function') {
+            setTimeout(() => renderProfitMarginSection(), 150);
         }
         renderIngredients();
         
