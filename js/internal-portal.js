@@ -278,6 +278,59 @@ function addTestSalesman() {
     }
 }
 
+function getSalesmanOrderTotals(salesman) {
+    const fullName = (
+        salesman.name ||
+        [salesman.firstName, salesman.lastName].filter(Boolean).join(' ') ||
+        ''
+    ).trim().toLowerCase();
+    const email = (salesman.email || '').trim().toLowerCase();
+
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    let yearly = 0;
+    let monthly = 0;
+
+    (allOrders || []).forEach(order => {
+        const orderName = (
+            order.salesman ||
+            order.salesman_name ||
+            order.salesmanName ||
+            ''
+        ).trim().toLowerCase();
+        const orderEmail = (
+            order.salesmanEmail ||
+            order.salesman_email ||
+            ''
+        ).trim().toLowerCase();
+
+        const nameMatch = fullName && orderName && orderName === fullName;
+        const emailMatch = email && orderEmail && orderEmail === email;
+        if (!nameMatch && !emailMatch) return;
+
+        const orderDate = new Date(
+            order.submittedAt || order.submitted_at || order.created_at || order.date || 0
+        );
+        if (isNaN(orderDate.getTime())) return;
+
+        let orderTotal = 0;
+        (order.items || []).forEach(item => {
+            const qty = parseInt(item.quantity, 10) || 0;
+            const unit = typeof getOrderItemUnitPrice === 'function'
+                ? getOrderItemUnitPrice(item)
+                : (parseFloat(item.unitPrice) || 0);
+            orderTotal += qty * unit;
+        });
+
+        if (orderDate >= startOfYear) yearly += orderTotal;
+        if (orderDate >= startOfMonth) monthly += orderTotal;
+    });
+
+    return { yearly, monthly };
+}
+
 function renderSalesmen() {
     const list = document.getElementById('salesmen-list');
     if (!list) return;
@@ -299,12 +352,9 @@ function renderSalesmen() {
 
     salesmen.forEach(s => {
         const isActive = s.active !== false;
-        const monthly = s.monthlySales != null
-            ? '$' + Number(s.monthlySales).toLocaleString()
-            : '—';
-        const yearly = s.yearlySales != null
-            ? '$' + Number(s.yearlySales).toLocaleString()
-            : '—';
+        const totals = getSalesmanOrderTotals(s);
+        const monthly = '$' + Math.round(totals.monthly).toLocaleString();
+        const yearly = '$' + Math.round(totals.yearly).toLocaleString();
 
         const card = document.createElement('div');
         card.className = 'bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition';
