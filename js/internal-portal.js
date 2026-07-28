@@ -12,6 +12,10 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 // ================== GLOBAL VARIABLES ==================
 let currentMatrixStartDate = null;
 let currentMatrixMetric = 'units';
+let currentMatrixView = 'table';          // 'table' | 'trends'
+let currentTrendsMode = 'multi';          // 'multi' | 'mtd' (mtd later)
+let currentTrendsMetric = 'units';        // 'units' | 'sales'
+let trendsChartInstance = null;
 let currentInsightsFilter = 'all';
 let allCustomers = [];
 let allOrders = [];
@@ -1310,6 +1314,315 @@ function exportMatrixToExcel() {
 
     const wb = XLSX.utils.table_to_book(table, { sheet: "Weekly Sales" });
     XLSX.writeFile(wb, `Weekly_Sales_Matrix_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ================== TRENDS VIEW (Phase 1) ==================
+function setMatrixView(view) {
+    currentMatrixView = view;
+
+    const tableView = document.getElementById('matrix-table-view');
+    const trendsView = document.getElementById('matrix-trends-view');
+    const btnTable = document.getElementById('matrix-view-table');
+    const btnTrends = document.getElementById('matrix-view-trends');
+
+    if (!tableView || !trendsView) return;
+
+    if (view === 'trends') {
+        tableView.classList.add('hidden');
+        trendsView.classList.remove('hidden');
+        if (btnTable) {
+            btnTable.className = 'px-5 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]';
+        }
+        if (btnTrends) {
+            btnTrends.className = 'px-5 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]';
+        }
+        initTrendsYears();
+        populateTrendsCategoryDropdown();
+        renderTrendsChart();
+    } else {
+        trendsView.classList.add('hidden');
+        tableView.classList.remove('hidden');
+        if (btnTable) {
+            btnTable.className = 'px-5 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]';
+        }
+        if (btnTrends) {
+            btnTrends.className = 'px-5 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]';
+        }
+        if (typeof renderWeeklyMatrix === 'function') renderWeeklyMatrix();
+    }
+}
+
+function setTrendsMode(mode) {
+    currentTrendsMode = mode;
+    const btnMulti = document.getElementById('trends-mode-multi');
+    const btnMtd = document.getElementById('trends-mode-mtd');
+
+    if (mode === 'multi') {
+        if (btnMulti) btnMulti.className = 'px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]';
+        if (btnMtd) btnMtd.className = 'px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]';
+        renderTrendsChart();
+    } else {
+        // Phase 3 – MTD vs LY MTD (placeholder for now)
+        if (btnMtd) btnMtd.className = 'px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]';
+        if (btnMulti) btnMulti.className = 'px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]';
+        alert('MTD vs Last Year MTD is coming in Phase 3. Multi-Year Trend is available now.');
+        setTrendsMode('multi');
+    }
+}
+
+function setTrendsMetric(metric) {
+    currentTrendsMetric = metric;
+    const btnUnits = document.getElementById('trends-metric-units');
+    const btnSales = document.getElementById('trends-metric-sales');
+
+    if (metric === 'units') {
+        if (btnUnits) btnUnits.className = 'px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]';
+        if (btnSales) btnSales.className = 'px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]';
+    } else {
+        if (btnSales) btnSales.className = 'px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]';
+        if (btnUnits) btnUnits.className = 'px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]';
+    }
+    renderTrendsChart();
+}
+
+function initTrendsYears() {
+    const currentYear = new Date().getFullYear();
+    const years = [currentYear - 2, currentYear - 1, currentYear];
+
+    years.forEach((year, idx) => {
+        const label = document.getElementById('trends-year-' + idx + '-label');
+        if (label) label.textContent = year;
+        const cb = document.getElementById('trends-year-' + idx);
+        if (cb) cb.dataset.year = year;
+    });
+}
+
+function populateTrendsCategoryDropdown() {
+    const select = document.getElementById('trends-category');
+    if (!select || typeof PRODUCT_CATALOG === 'undefined') return;
+
+    const categories = [...new Set(PRODUCT_CATALOG.map(p => p.category))].sort();
+    const current = select.value || 'all';
+
+    select.innerHTML = '<option value="all">All Categories</option>';
+    categories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat;
+        select.appendChild(opt);
+    });
+    select.value = current;
+}
+
+function getMonthlyTrendData(selectedYears, categoryFilter, metric) {
+    // Returns { year: { 0: val, 1: val, ... 11: val } }
+    const result = {};
+    selectedYears.forEach(y => {
+        result[y] = {};
+        for (let m = 0; m < 12; m++) result[y][m] = 0;
+    });
+
+    if (!allOrders || allOrders.length === 0) return result;
+
+    const productNamesInCategory = new Set();
+    if (categoryFilter && categoryFilter !== 'all' && typeof PRODUCT_CATALOG !== 'undefined') {
+        PRODUCT_CATALOG.forEach(p => {
+            if (p.category === categoryFilter) productNamesInCategory.add(p.name);
+        });
+    }
+
+    allOrders.forEach(order => {
+        const orderDate = new Date(order.submittedAt || order.submitted_at || order.date || 0);
+        if (isNaN(orderDate.getTime())) return;
+
+        const year = orderDate.getFullYear();
+        const month = orderDate.getMonth(); // 0-11
+
+        if (!selectedYears.includes(year)) return;
+
+        (order.items || []).forEach(item => {
+            const name = item.product || item.name || '';
+            if (!name) return;
+
+            if (categoryFilter && categoryFilter !== 'all') {
+                if (!productNamesInCategory.has(name)) {
+                    // fuzzy match fallback
+                    let matched = false;
+                    productNamesInCategory.forEach(pn => {
+                        if (name.toLowerCase().includes(pn.toLowerCase()) || pn.toLowerCase().includes(name.toLowerCase())) {
+                            matched = true;
+                        }
+                    });
+                    if (!matched) return;
+                }
+            }
+
+            const qty = parseInt(item.quantity, 10) || 0;
+            if (qty <= 0) return;
+
+            if (metric === 'sales') {
+                const unit = typeof getOrderItemUnitPrice === 'function'
+                    ? getOrderItemUnitPrice(item)
+                    : (parseFloat(item.unitPrice) || 0);
+                result[year][month] += qty * unit;
+            } else {
+                result[year][month] += qty;
+            }
+        });
+    });
+
+    return result;
+}
+
+function renderTrendsChart() {
+    const canvas = document.getElementById('trends-chart');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    // Collect selected years
+    const selectedYears = [];
+    for (let i = 0; i < 3; i++) {
+        const cb = document.getElementById('trends-year-' + i);
+        if (cb && cb.checked) {
+            const y = parseInt(cb.dataset.year || cb.nextElementSibling?.textContent, 10);
+            if (!isNaN(y)) selectedYears.push(y);
+        }
+    }
+    if (selectedYears.length === 0) {
+        // force at least current year
+        const currentYear = new Date().getFullYear();
+        selectedYears.push(currentYear);
+    }
+    selectedYears.sort((a, b) => a - b);
+
+    const category = document.getElementById('trends-category')?.value || 'all';
+    const metric = currentTrendsMetric || 'units';
+    const monthlyData = getMonthlyTrendData(selectedYears, category, metric);
+
+    const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    // Brand palette
+    const colors = [
+        { border: '#1E4D2B', bg: 'rgba(30, 77, 43, 0.15)' },
+        { border: '#6B4423', bg: 'rgba(107, 68, 35, 0.15)' },
+        { border: '#c9a227', bg: 'rgba(201, 162, 39, 0.15)' }
+    ];
+
+    const datasets = selectedYears.map((year, idx) => {
+        const data = [];
+        for (let m = 0; m < 12; m++) data.push(Math.round((monthlyData[year] || {})[m] || 0));
+        const c = colors[idx % colors.length];
+        return {
+            label: String(year),
+            data: data,
+            borderColor: c.border,
+            backgroundColor: c.bg,
+            borderWidth: 2.5,
+            tension: 0.3,
+            fill: true,
+            pointRadius: 3,
+            pointHoverRadius: 5
+        };
+    });
+
+    if (trendsChartInstance) {
+        trendsChartInstance.destroy();
+        trendsChartInstance = null;
+    }
+
+    trendsChartInstance = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: monthLabels,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { color: '#6B4423', font: { weight: '600' } }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const v = ctx.parsed.y || 0;
+                            if (metric === 'sales') {
+                                return ctx.dataset.label + ': $' + v.toLocaleString();
+                            }
+                            return ctx.dataset.label + ': ' + v.toLocaleString() + ' units';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#6B4423' },
+                    grid: { color: 'rgba(107, 68, 35, 0.08)' }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#6B4423',
+                        callback: function(value) {
+                            if (metric === 'sales') {
+                                if (value >= 1000) return '$' + (value / 1000).toFixed(0) + 'k';
+                                return '$' + value;
+                            }
+                            return value;
+                        }
+                    },
+                    grid: { color: 'rgba(107, 68, 35, 0.08)' }
+                }
+            }
+        }
+    });
+
+    // Summary cards
+    updateTrendsSummary(selectedYears, monthlyData, metric, category);
+}
+
+function updateTrendsSummary(selectedYears, monthlyData, metric, category) {
+    const currentYear = new Date().getFullYear();
+    const prevYear = currentYear - 1;
+
+    let ytd = 0;
+    let prevYtd = 0;
+
+    if (monthlyData[currentYear]) {
+        Object.values(monthlyData[currentYear]).forEach(v => ytd += v);
+    }
+    if (monthlyData[prevYear]) {
+        Object.values(monthlyData[prevYear]).forEach(v => prevYtd += v);
+    }
+
+    const ytdEl = document.getElementById('trends-summary-ytd');
+    const vsEl = document.getElementById('trends-summary-vsly');
+    const topEl = document.getElementById('trends-summary-topcat');
+
+    if (ytdEl) {
+        if (metric === 'sales') {
+            ytdEl.textContent = '$' + Math.round(ytd).toLocaleString();
+        } else {
+            ytdEl.textContent = Math.round(ytd).toLocaleString() + ' units';
+        }
+    }
+
+    if (vsEl) {
+        if (prevYtd === 0) {
+            vsEl.textContent = '—';
+        } else {
+            const pct = ((ytd - prevYtd) / prevYtd) * 100;
+            const sign = pct >= 0 ? '+' : '';
+            vsEl.textContent = sign + pct.toFixed(1) + '%';
+            vsEl.className = 'text-xl font-bold mt-1 ' + (pct >= 0 ? 'text-green-700' : 'text-red-600');
+        }
+    }
+
+    if (topEl) {
+        topEl.textContent = (category && category !== 'all') ? category : 'All Categories';
+    }
 }
 
 // ================== ORDERS ==================
