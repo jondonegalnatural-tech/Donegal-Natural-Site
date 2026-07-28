@@ -6663,37 +6663,69 @@ async function loadVendorPurchases(vendorId) {
 }
 
 async function showVendorDetail(vendorId) {
-    const vendor = vendors.find(v => String(v.id) === String(vendorId));
-    if (!vendor) {
-        console.error('Vendor not found for id:', vendorId);
+    if (vendorId == null || vendorId === '') {
+        console.error('showVendorDetail: no vendorId');
         return;
     }
 
-    window.currentVendorId = vendorId;
+    let vendor = (vendors || []).find(v => String(v.id) === String(vendorId));
 
-    if (vendor.active === undefined) vendor.active = true;
+    // If not in memory, fetch this row from Supabase
+    if (!vendor) {
+        try {
+            const { data, error } = await supabaseClient
+                .from('vendors')
+                .select('id, name, contact, phone, email, notes, categories, products, active, created_at, updated_at')
+                .eq('id', vendorId)
+                .maybeSingle();
 
-    const nameEl = document.getElementById('vendor-modal-name');
-    const contactEl = document.getElementById('vendor-modal-contact');
-    const phoneEl = document.getElementById('vendor-modal-phone');
-    const emailEl = document.getElementById('vendor-modal-email');
-    const notesEl = document.getElementById('vendor-modal-notes');
+            if (error) throw error;
+            if (data) {
+                vendor = {
+                    id: data.id,
+                    name: data.name || '',
+                    contact: data.contact || '',
+                    phone: data.phone || '',
+                    email: data.email || '',
+                    notes: data.notes || '',
+                    categories: data.categories || [],
+                    products: data.products || [],
+                    active: data.active !== false,
+                    purchases: []
+                };
+            }
+        } catch (err) {
+            console.error('showVendorDetail fetch error:', err);
+        }
+    }
 
-    if (nameEl) nameEl.textContent = vendor.name || 'Vendor';
-    if (contactEl) contactEl.textContent = vendor.contact || vendor.contact_name || 'No contact listed';
-    if (phoneEl) phoneEl.textContent = vendor.phone || 'N/A';
-    if (emailEl) emailEl.textContent = vendor.email || 'N/A';
-    if (notesEl) notesEl.textContent = vendor.notes || 'None';
+    if (!vendor) {
+        alert('Vendor not found.');
+        return;
+    }
+
+    window.currentVendorId = vendor.id;
+
+    const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    };
+
+    setText('vendor-modal-name', vendor.name || 'Vendor');
+    setText('vendor-modal-contact', vendor.contact || 'No contact listed');
+    setText('vendor-modal-phone', vendor.phone || 'N/A');
+    setText('vendor-modal-email', vendor.email || 'N/A');
+    setText('vendor-modal-notes', vendor.notes || 'None');
 
     const isActive = vendor.active !== false;
-    const statusHTML = isActive
-        ? `<span class="px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 mr-2">Active</span>
-           <button onclick="toggleVendorStatus()" class="px-3 py-1 text-xs border border-red-400 text-red-600 rounded-lg hover:bg-red-50">Mark Inactive</button>`
-        : `<span class="px-3 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-600 mr-2">Inactive</span>
-           <button onclick="toggleVendorStatus()" class="px-3 py-1 text-xs border border-green-600 text-green-700 rounded-lg hover:bg-green-50">Mark Active</button>`;
-
     const statusArea = document.getElementById('vendor-status-area');
-    if (statusArea) statusArea.innerHTML = statusHTML;
+    if (statusArea) {
+        statusArea.innerHTML = isActive
+            ? `<span class="px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 mr-2">Active</span>
+               <button type="button" onclick="toggleVendorStatus()" class="px-3 py-1 text-xs border border-red-400 text-red-600 rounded-lg hover:bg-red-50">Mark Inactive</button>`
+            : `<span class="px-3 py-1 text-xs font-semibold rounded-full bg-gray-200 text-gray-600 mr-2">Inactive</span>
+               <button type="button" onclick="toggleVendorStatus()" class="px-3 py-1 text-xs border border-green-600 text-green-700 rounded-lg hover:bg-green-50">Mark Active</button>`;
+    }
 
     const historyContainer = document.getElementById('vendor-modal-recent-orders')
         || document.querySelector('#vendor-modal .bg-\\[\\#f8f4eb\\]');
@@ -6706,40 +6738,44 @@ async function showVendorDetail(vendorId) {
     }
 
     const modal = document.getElementById('vendor-modal');
-    if (modal) modal.classList.remove('hidden');
-
-    const purchases = await loadVendorPurchases(vendorId);
-    vendor.purchases = purchases;
-
-    let purchaseHTML = '';
-    if (!purchases.length) {
-        purchaseHTML = '<p class="text-sm text-[#6B4423]">No orders yet.</p>';
-    } else {
-        purchaseHTML = '<div class="space-y-2">';
-        purchases.slice(0, 5).forEach(p => {
-            const dateObj = new Date(p.date || p.created_at || 0);
-            const formattedDate = isNaN(dateObj.getTime())
-                ? '—'
-                : `${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getDate().toString().padStart(2, '0')}/${dateObj.getFullYear()}`;
-            const amount = parseFloat(p.amount) || 0;
-            const label = p.description || (p.quantity != null ? `${p.quantity} unit(s)` : 'Order');
-
-            purchaseHTML += `
-                <div class="flex justify-between items-center text-sm border-b border-[#d4b78f] pb-2 gap-2">
-                    <span class="whitespace-nowrap">${formattedDate}</span>
-                    <span class="truncate flex-1 text-center">${label}</span>
-                    <span class="font-bold brand-green whitespace-nowrap">$${amount.toFixed(2)}</span>
-                </div>
-            `;
-        });
-        purchaseHTML += '</div>';
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
     }
 
+    const purchases = typeof loadVendorPurchases === 'function'
+        ? await loadVendorPurchases(vendor.id)
+        : [];
+    vendor.purchases = purchases;
+
     if (historyContainer) {
-        historyContainer.innerHTML = `
-            <p class="text-sm text-[#6B4423] font-semibold mb-3">Recent Orders (last 5)</p>
-            ${purchaseHTML}
-        `;
+        if (!purchases.length) {
+            historyContainer.innerHTML = `
+                <p class="text-sm text-[#6B4423] font-semibold mb-3">Recent Orders (last 5)</p>
+                <p class="text-sm text-[#6B4423]">No orders yet.</p>
+            `;
+        } else {
+            const rows = purchases.slice(0, 5).map(p => {
+                const dateObj = new Date(p.date || p.created_at || 0);
+                const formattedDate = isNaN(dateObj.getTime())
+                    ? '—'
+                    : dateObj.toLocaleDateString();
+                const amount = parseFloat(p.amount) || 0;
+                const label = p.description || 'Order';
+                return `
+                    <div class="flex justify-between items-center text-sm border-b border-[#d4b78f] pb-2 gap-2">
+                        <span class="whitespace-nowrap">${formattedDate}</span>
+                        <span class="truncate flex-1 text-center">${label}</span>
+                        <span class="font-bold brand-green whitespace-nowrap">$${amount.toFixed(2)}</span>
+                    </div>
+                `;
+            }).join('');
+
+            historyContainer.innerHTML = `
+                <p class="text-sm text-[#6B4423] font-semibold mb-3">Recent Orders (last 5)</p>
+                <div class="space-y-2">${rows}</div>
+            `;
+        }
     }
 }
 
