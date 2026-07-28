@@ -16,7 +16,7 @@ let currentInsightsFilter = 'all';
 let allCustomers = [];
 let allOrders = [];
 let currentFilter = 'all';
-let salesmen = JSON.parse(localStorage.getItem('salesmen')) || [];
+let salesmen = [];
 
 // ================== SHARED HELPER FUNCTIONS ==================
 // Functions used by more than one section will be placed here.
@@ -263,7 +263,7 @@ function showSection(section) {
 // --- Salesmen Helpers ---
 
 function saveSalesmen() {
-    localStorage.setItem('salesmen', JSON.stringify(salesmen));
+    // localStorage writes removed – salesmen live in Supabase
 }
 
 function addTestSalesman() {
@@ -474,12 +474,44 @@ function openSalesmanOrderInvoice(orderId) {
     alert('Order detail view is not available yet for #' + orderId);
 }
 
-function renderSalesmen() {
+async function loadSalesmen() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('salesmen')
+            .select('*')
+            .order('last_name', { ascending: true });
+
+        if (error) throw error;
+
+        salesmen = (data || []).map(s => ({
+            id: s.id,
+            firstName: s.first_name,
+            lastName: s.last_name,
+            name: [s.first_name, s.last_name].filter(Boolean).join(' '),
+            email: s.email,
+            territory: s.territory || '',
+            commission: Number(s.commission) || 8,
+            marketCommission: Number(s.market_commission) || 3,
+            priceSheetStatus: s.price_sheet_status,
+            yearlySales: Number(s.yearly_sales) || 0,
+            monthlySales: Number(s.monthly_sales) || 0,
+            active: s.active !== false,
+            notes: s.notes || ''
+        }));
+    } catch (err) {
+        console.error('loadSalesmen error:', err);
+        salesmen = [];
+    }
+}
+
+
+async function renderSalesmen() {
     const list = document.getElementById('salesmen-list');
     if (!list) return;
 
-    // Reload from storage in case array is stale
-    salesmen = JSON.parse(localStorage.getItem('salesmen') || '[]');
+    if (typeof loadSalesmen === 'function') {
+        await loadSalesmen();
+    }
 
     list.innerHTML = '';
 
@@ -2176,9 +2208,9 @@ async function showAddOrderModal() {
     }
 
     // Salesmen
-    if (typeof salesmen === 'undefined' || !Array.isArray(salesmen)) {
-        salesmen = JSON.parse(localStorage.getItem('salesmen') || '[]');
-    }
+if (!Array.isArray(salesmen) || salesmen.length === 0) {
+    if (typeof loadSalesmen === 'function') await loadSalesmen();
+}
     const salesmanSelect = document.getElementById('new-order-salesman');
     if (salesmanSelect) {
         salesmanSelect.innerHTML = '<option value="">Select salesman...</option>' +
