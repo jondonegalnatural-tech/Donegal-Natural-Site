@@ -227,7 +227,7 @@ function showSection(section) {
         } else if (typeof renderProfitMarginSection === 'function') {
             setTimeout(() => renderProfitMarginSection(), 150);
         }
-        renderIngredients();
+        
         
        
     }
@@ -7095,150 +7095,252 @@ function updateOrdersSearchClearButton() {
     }
 }
 
-// ================== INGREDIENTS ==================
-let productIngredients = JSON.parse(localStorage.getItem('productIngredients')) || null;
+// ================== INGREDIENTS (Supabase) ==================
+let productIngredients = [];
 
-// Default data (used only the first time)
 function getDefaultIngredients() {
     return [
-        // ===== JERKY STICK TREATS =====
         {
-            id: 1,
             group: "Jerky Stick Treats",
             name: "USA Beef Jerky Treats",
             ingredients: "Ground Beef Meat, Rice Flour, Spices, Sugar, Salt and Garlic Powder",
             notForHuman: true,
-            analysis: { protein: "29.60%", fat: "18.70%", fiber: "0.21%", moisture: "32.70%" }
+            analysis: { protein: "29.60%", fat: "18.70%", fiber: "0.21%", moisture: "32.70%" },
+            sortOrder: 1
         },
         {
-            id: 2,
             group: "Jerky Stick Treats",
             name: "USA Turkey Jerky Treats",
             ingredients: "Ground Turkey Meat, Rice Flour, Spices, Sugar, Salt and Garlic Powder",
             notForHuman: true,
-            analysis: { protein: "30.80%", fat: "16.90%", fiber: "0.25%", moisture: "32.20%" }
+            analysis: { protein: "30.80%", fat: "16.90%", fiber: "0.25%", moisture: "32.20%" },
+            sortOrder: 2
         },
         {
-            id: 3,
             group: "Jerky Stick Treats",
             name: "USA Chicken Jerky Treats",
             ingredients: "Ground Chicken Meat, Rice Flour, Spices, Sugar, Salt and Garlic Powder",
             notForHuman: true,
-            analysis: { protein: "31.20%", fat: "16.40%", fiber: "0.25%", moisture: "32.00%" }
+            analysis: { protein: "31.20%", fat: "16.40%", fiber: "0.25%", moisture: "32.00%" },
+            sortOrder: 3
         },
         {
-            id: 4,
             group: "Jerky Stick Treats",
             name: "USA Elky Jerky Treats/Squares",
             ingredients: "Ground Elk Meat, Rice Flour, Spices, Sugar, Salt and Garlic Powder",
             notForHuman: true,
-            analysis: { protein: "29.60%", fat: "18.70%", fiber: "0.21%", moisture: "32.70%" }
+            analysis: { protein: "29.60%", fat: "18.70%", fiber: "0.21%", moisture: "32.70%" },
+            sortOrder: 4
         },
         {
-            id: 5,
             group: "Jerky Stick Treats",
             name: "USA Venison & Sweet Potato Jerky Treats",
             ingredients: "Ground Venison, Sweet Potato, Rice Flour, Spices, Sugar, Salt and Garlic Powder",
             notForHuman: true,
-            analysis: { protein: "27.50%", fat: "17.80%", fiber: "1.80%", moisture: "31.50%" }
+            analysis: { protein: "27.50%", fat: "17.80%", fiber: "1.80%", moisture: "31.50%" },
+            sortOrder: 5
         },
-
-        // ===== NATURAL VANILLA =====
         {
-            id: 10,
             group: "Natural Vanilla",
             name: "Vanilla Rollios (all sizes + PHAT)",
             ingredients: "Flavored with natural vanilla",
             notForHuman: false,
-            analysis: null
+            analysis: null,
+            sortOrder: 10
         },
         {
-            id: 11,
             group: "Natural Vanilla",
             name: "Vanilla Cow Ears / Lamb Ears / Ox Tails / Chicken Feet",
             ingredients: "Flavored with natural vanilla",
             notForHuman: false,
-            analysis: null
+            analysis: null,
+            sortOrder: 11
         },
         {
-            id: 12,
             group: "Natural Vanilla",
             name: "Vanilla Cow Cheek Slabs & Chunky Cheeks",
             ingredients: "Flavored with natural vanilla",
             notForHuman: false,
-            analysis: null
+            analysis: null,
+            sortOrder: 12
         },
         {
-            id: 13,
             group: "Natural Vanilla",
             name: "Vanilla Supreme Chips / Binky’s / Retrievers / Braided Donuts / Twisty Q’s",
             ingredients: "Flavored with natural vanilla",
             notForHuman: false,
-            analysis: null
+            analysis: null,
+            sortOrder: 13
         },
-
-        // ===== NATURAL HONEY + SMOKE =====
         {
-            id: 20,
             group: "Natural Honey + Smoke",
             name: "Honey Smoked Rollios (all sizes + PHAT)",
             ingredients: "Natural honey and natural smoke flavoring",
             notForHuman: false,
-            analysis: null
+            analysis: null,
+            sortOrder: 20
         },
         {
-            id: 21,
             group: "Natural Honey + Smoke",
             name: "Honey Smoked Cow Ears / MAGNA Buffalo Ears / Ox Tails",
             ingredients: "Natural honey and natural smoke flavoring",
             notForHuman: false,
-            analysis: null
+            analysis: null,
+            sortOrder: 21
         },
         {
-            id: 22,
             group: "Natural Honey + Smoke",
             name: "Smoked Cow Hooves",
             ingredients: "Natural smoke flavoring",
             notForHuman: false,
-            analysis: null
+            analysis: null,
+            sortOrder: 22
         },
-
-        // ===== ALL NATURAL PEANUT BUTTER =====
         {
-            id: 30,
             group: "All Natural Peanut Butter",
             name: "Peanut Butter Rollios",
             ingredients: "All natural peanut butter",
             notForHuman: false,
-            analysis: null
+            analysis: null,
+            sortOrder: 30
         },
         {
-            id: 31,
             group: "All Natural Peanut Butter",
             name: "Peanut Butter Stuffed Buffalo Bone",
             ingredients: "All natural peanut butter",
             notForHuman: false,
-            analysis: null
+            analysis: null,
+            sortOrder: 31
         },
         {
-            id: 32,
             group: "All Natural Peanut Butter",
             name: "Peanut Butter Supreme Chips / Binky’s",
             ingredients: "All natural peanut butter",
             notForHuman: false,
-            analysis: null
+            analysis: null,
+            sortOrder: 32
         }
     ];
 }
 
-// Load or create the data
-if (!productIngredients) {
-    productIngredients = getDefaultIngredients();
-    localStorage.setItem('productIngredients', JSON.stringify(productIngredients));
+function mapIngredientRow(row) {
+    return {
+        id: row.id,
+        group: row.group_name,
+        name: row.name,
+        ingredients: row.ingredients || '',
+        notForHuman: !!row.not_for_human,
+        analysis: row.analysis || null,
+        sortOrder: row.sort_order != null ? row.sort_order : 0
+    };
 }
 
-function saveIngredients() {
-    localStorage.setItem('productIngredients', JSON.stringify(productIngredients));
+async function loadIngredients() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('product_ingredients')
+            .select('*')
+            .order('sort_order', { ascending: true });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            // First-time seed from defaults
+            const defaults = getDefaultIngredients();
+            const payload = defaults.map(d => ({
+                group_name: d.group,
+                name: d.name,
+                ingredients: d.ingredients,
+                not_for_human: d.notForHuman,
+                analysis: d.analysis,
+                sort_order: d.sortOrder
+            }));
+
+            const { data: inserted, error: insertError } = await supabaseClient
+                .from('product_ingredients')
+                .insert(payload)
+                .select();
+
+            if (insertError) throw insertError;
+            productIngredients = (inserted || []).map(mapIngredientRow);
+        } else {
+            productIngredients = data.map(mapIngredientRow);
+        }
+
+        updateIngredientsCardPreview();
+        return productIngredients;
+    } catch (err) {
+        console.error('loadIngredients error:', err);
+        productIngredients = [];
+        return [];
+    }
+}
+
+async function saveIngredientItem(item) {
+    if (!item || !item.id) return;
+
+    try {
+        const { error } = await supabaseClient
+            .from('product_ingredients')
+            .update({
+                ingredients: item.ingredients || '',
+                not_for_human: !!item.notForHuman,
+                analysis: item.analysis || null,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', item.id);
+
+        if (error) throw error;
+    } catch (err) {
+        console.error('saveIngredientItem error:', err);
+        alert('Could not save ingredient.\n' + (err.message || ''));
+        throw err;
+    }
+}
+
+function updateIngredientsCardPreview() {
+    const elky = productIngredients.find(i =>
+        (i.name || '').toLowerCase().includes('elky')
+    ) || productIngredients[0];
+
+    if (!elky) return;
+
+    const titleEl = document.getElementById('ingredients-card-title');
+    const textEl = document.getElementById('ingredients-card-text');
+    const warnEl = document.getElementById('ingredients-card-warning');
+    const analysisEl = document.getElementById('ingredients-card-analysis');
+
+    if (titleEl) titleEl.textContent = elky.name || '';
+    if (textEl) textEl.textContent = elky.ingredients || '';
+    if (warnEl) {
+        if (elky.notForHuman) {
+            warnEl.textContent = 'NOT FOR HUMAN CONSUMPTION';
+            warnEl.classList.remove('hidden');
+        } else {
+            warnEl.textContent = '';
+            warnEl.classList.add('hidden');
+        }
+    }
+    if (analysisEl && elky.analysis) {
+        analysisEl.innerHTML = `
+            <div class="bg-[#f8f4eb] rounded-lg py-2">
+                <p class="text-xs text-[#6B4423]">Protein</p>
+                <p class="font-bold">${elky.analysis.protein || '—'}</p>
+            </div>
+            <div class="bg-[#f8f4eb] rounded-lg py-2">
+                <p class="text-xs text-[#6B4423]">Acid Fat</p>
+                <p class="font-bold">${elky.analysis.fat || '—'}</p>
+            </div>
+            <div class="bg-[#f8f4eb] rounded-lg py-2">
+                <p class="text-xs text-[#6B4423]">Crude Fiber</p>
+                <p class="font-bold">${elky.analysis.fiber || '—'}</p>
+            </div>
+            <div class="bg-[#f8f4eb] rounded-lg py-2">
+                <p class="text-xs text-[#6B4423]">Moisture</p>
+                <p class="font-bold">${elky.analysis.moisture || '—'}</p>
+            </div>
+        `;
+    }
 }
 
 function renderIngredients() {
@@ -7249,12 +7351,16 @@ function renderIngredients() {
     const search = (searchInput?.value || '').toLowerCase();
     container.innerHTML = '';
 
-    // Group items
+    if (!productIngredients || productIngredients.length === 0) {
+        container.innerHTML = '<p class="text-[#6B4423] text-sm p-4">No ingredients loaded yet.</p>';
+        return;
+    }
+
     const groups = {};
     productIngredients.forEach(item => {
         if (search &&
-            !item.name.toLowerCase().includes(search) &&
-            !item.group.toLowerCase().includes(search)) {
+            !(item.name || '').toLowerCase().includes(search) &&
+            !(item.group || '').toLowerCase().includes(search)) {
             return;
         }
         if (!groups[item.group]) groups[item.group] = [];
@@ -7262,7 +7368,6 @@ function renderIngredients() {
     });
 
     Object.keys(groups).forEach(groupName => {
-        // Group header
         const header = document.createElement('div');
         header.className = 'mt-5 mb-2';
         header.innerHTML = `<h3 class="text-lg font-bold brand-green border-b border-[#d4b78f] pb-1">${groupName}</h3>`;
@@ -7270,9 +7375,7 @@ function renderIngredients() {
 
         groups[groupName].forEach(item => {
             const isExpanded = window.expandedIngredients && window.expandedIngredients[item.id];
-
-            const card = document.createElement('div');
-            card.className = 'border border-[#d4b78f] rounded-xl overflow-hidden mb-2';
+            const safeId = String(item.id).replace(/'/g, "\\'");
 
             let analysisHTML = '';
             if (item.analysis) {
@@ -7282,37 +7385,39 @@ function renderIngredients() {
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
                             <div class="bg-[#f8f4eb] rounded-lg py-2">
                                 <p class="text-xs text-[#6B4423]">Protein</p>
-                                <p class="font-bold">${item.analysis.protein}</p>
+                                <p class="font-bold">${item.analysis.protein || '—'}</p>
                             </div>
                             <div class="bg-[#f8f4eb] rounded-lg py-2">
                                 <p class="text-xs text-[#6B4423]">Acid Fat</p>
-                                <p class="font-bold">${item.analysis.fat}</p>
+                                <p class="font-bold">${item.analysis.fat || '—'}</p>
                             </div>
                             <div class="bg-[#f8f4eb] rounded-lg py-2">
                                 <p class="text-xs text-[#6B4423]">Crude Fiber</p>
-                                <p class="font-bold">${item.analysis.fiber}</p>
+                                <p class="font-bold">${item.analysis.fiber || '—'}</p>
                             </div>
                             <div class="bg-[#f8f4eb] rounded-lg py-2">
                                 <p class="text-xs text-[#6B4423]">Moisture</p>
-                                <p class="font-bold">${item.analysis.moisture}</p>
+                                <p class="font-bold">${item.analysis.moisture || '—'}</p>
                             </div>
                         </div>
                     </div>
                 `;
             }
 
+            const card = document.createElement('div');
+            card.className = 'border border-[#d4b78f] rounded-xl overflow-hidden mb-2';
             card.innerHTML = `
                 <div class="flex items-center justify-between px-4 py-3 bg-[#f8f4eb] cursor-pointer hover:bg-[#f0e6d9]"
-                     onclick="toggleIngredient(${item.id})">
+                     onclick="toggleIngredient('${safeId}')">
                     <span class="font-medium">${item.name}</span>
                     <span class="text-[#6B4423] text-lg">${isExpanded ? '▼' : '▶'}</span>
                 </div>
-                <div id="ingredient-detail-${item.id}" class="${isExpanded ? '' : 'hidden'} px-4 py-4 bg-white text-sm space-y-2">
+                <div id="ingredient-detail-${safeId}" class="${isExpanded ? '' : 'hidden'} px-4 py-4 bg-white text-sm space-y-2">
                     <p><strong>Ingredients:</strong> ${item.ingredients}</p>
                     ${item.notForHuman ? '<p class="text-red-600 font-semibold">NOT FOR HUMAN CONSUMPTION</p>' : ''}
                     ${analysisHTML}
                     <div class="pt-3">
-                        <button onclick="editIngredient(${item.id}); event.stopPropagation();"
+                        <button onclick="editIngredient('${safeId}'); event.stopPropagation();"
                                 class="px-4 py-1.5 text-xs bg-[#1E4D2B] text-[#d4b78f] rounded-lg hover:bg-[#254a2f]">
                             Edit
                         </button>
@@ -7330,48 +7435,53 @@ function toggleIngredient(id) {
     renderIngredients();
 }
 
-function editIngredient(id) {
-    const item = productIngredients.find(i => i.id === id);
+async function editIngredient(id) {
+    const item = productIngredients.find(i => String(i.id) === String(id));
     if (!item) return;
 
-    const newIngredients = prompt("Edit Ingredients:", item.ingredients);
+    const newIngredients = prompt('Edit Ingredients:', item.ingredients);
     if (newIngredients === null) return;
 
     item.ingredients = newIngredients.trim();
 
     if (item.analysis) {
-        const protein = prompt("Protein % (number only):", item.analysis.protein.replace('%', ''));
-        const fat     = prompt("Acid Fat % (number only):", item.analysis.fat.replace('%', ''));
-        const fiber   = prompt("Crude Fiber % (number only):", item.analysis.fiber.replace('%', ''));
-        const moisture = prompt("Moisture % (number only):", item.analysis.moisture.replace('%', ''));
+        const protein = prompt('Protein % (number only):', String(item.analysis.protein || '').replace('%', ''));
+        const fat = prompt('Acid Fat % (number only):', String(item.analysis.fat || '').replace('%', ''));
+        const fiber = prompt('Crude Fiber % (number only):', String(item.analysis.fiber || '').replace('%', ''));
+        const moisture = prompt('Moisture % (number only):', String(item.analysis.moisture || '').replace('%', ''));
 
         if (protein !== null && protein !== '') item.analysis.protein = protein + '%';
-        if (fat !== null && fat !== '')         item.analysis.fat = fat + '%';
-        if (fiber !== null && fiber !== '')     item.analysis.fiber = fiber + '%';
+        if (fat !== null && fat !== '') item.analysis.fat = fat + '%';
+        if (fiber !== null && fiber !== '') item.analysis.fiber = fiber + '%';
         if (moisture !== null && moisture !== '') item.analysis.moisture = moisture + '%';
     }
 
-    saveIngredients();
-    renderIngredients();
-    alert("Ingredients saved successfully!");
+    try {
+        await saveIngredientItem(item);
+        updateIngredientsCardPreview();
+        renderIngredients();
+        alert('Ingredients saved successfully!');
+    } catch (err) {
+        // error already alerted in saveIngredientItem
+    }
 }
 
-// Modal open / close
-function openIngredientsModal() {
+async function openIngredientsModal() {
     const modal = document.getElementById('ingredients-modal');
-    if (modal) {
-        modal.classList.remove('hidden');
-        renderIngredients();
+    if (!modal) return;
+
+    if (!productIngredients || productIngredients.length === 0) {
+        await loadIngredients();
     }
+
+    modal.classList.remove('hidden');
+    renderIngredients();
 }
 
 function closeIngredientsModal() {
     const modal = document.getElementById('ingredients-modal');
-    if (modal) {
-        modal.classList.add('hidden');
-    }
+    if (modal) modal.classList.add('hidden');
 }
-
 // ================== PROFIT MARGIN ANALYSIS ==================
 
 function getProductMarginData() {
@@ -7698,6 +7808,11 @@ function showLegalFormsSection() {
     if (isLegalFormsUnlocked()) {
         // Already unlocked — just show the section
         showSection('legal-forms');
+        if (typeof loadIngredients === 'function') {
+            loadIngredients().then(() => {
+                if (typeof renderIngredients === 'function') renderIngredients();
+            });
+        }
     } else {
         // Show password modal
         const input = document.getElementById('legal-password-input');
@@ -7725,9 +7840,14 @@ function checkLegalPassword() {
     const errorEl = document.getElementById('legal-password-error');
 
     if (input && input.value === LEGAL_PASSWORD) {
-        unlockLegalForms();
+                unlockLegalForms();
         hideLegalPasswordModal();
         showSection('legal-forms');
+        if (typeof loadIngredients === 'function') {
+            loadIngredients().then(() => {
+                if (typeof renderIngredients === 'function') renderIngredients();
+            });
+        }
     } else {
         if (errorEl) errorEl.classList.remove('hidden');
         if (input) {
