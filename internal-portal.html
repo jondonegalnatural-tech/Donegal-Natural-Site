@@ -2181,11 +2181,12 @@ body { background: #f8f1e9; }
 <!-- ================== SHIP INVOICE MODAL ================== -->
 <div id="ship-invoice-modal"
      class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
-    <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6">
+    <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6"
+         onclick="event.stopImmediatePropagation()">
         <div class="flex items-start justify-between mb-4">
             <div>
                 <h2 class="text-2xl font-bold brand-green">Invoice</h2>
-                <p class="text-sm text-[#6B4423]" id="ship-invoice-subtitle">Review before shipping</p>
+                <p class="text-sm text-[#6B4423]" id="ship-invoice-subtitle">Review line items and shipping, then confirm ship</p>
             </div>
             <button type="button" onclick="hideShipInvoiceModal()"
                     class="text-2xl text-[#6B4423] leading-none">&times;</button>
@@ -2206,15 +2207,11 @@ body { background: #f8f1e9; }
             </div>
         </div>
 
-        <!-- Line items -->
         <div class="mb-4">
-            <div class="flex items-center justify-between mb-2">
-                <h3 class="font-bold brand-green">Line Items</h3>
-            </div>
+            <h3 class="font-bold brand-green mb-2">Line Items</h3>
             <div id="ship-inv-items" class="space-y-2"></div>
         </div>
 
-        <!-- Add product -->
         <div class="mb-4 relative">
             <label class="block text-sm font-semibold text-[#6B4423] mb-1">Add product</label>
             <input type="text" id="ship-inv-product-search"
@@ -2225,7 +2222,6 @@ body { background: #f8f1e9; }
                  class="hidden absolute z-50 w-full bg-white border-2 border-[#6B4423] rounded-xl mt-1 max-h-56 overflow-auto shadow-lg"></div>
         </div>
 
-        <!-- Totals -->
         <div class="border-t border-[#d4b78f] pt-4 space-y-3 mb-6">
             <div class="flex justify-between text-sm items-center">
                 <span class="text-[#6B4423]">Subtotal</span>
@@ -2251,19 +2247,6 @@ body { background: #f8f1e9; }
                 <span id="ship-inv-total">$0.00</span>
             </div>
         </div>
-    <div>
-        <label class="text-sm text-[#6B4423]" for="ship-inv-shipping">Shipping ($)</label>
-        <p id="ship-inv-shipping-note" class="text-xs text-[#6B4423]"></p>
-    </div>
-    <input type="number" id="ship-inv-shipping" min="0" step="0.01" value="0.00"
-           oninput="recalcShipInvoiceTotals()"
-           class="w-36 border-2 border-[#6B4423] rounded-xl px-3 py-2 text-right">
-</div>
-            <div class="flex justify-between text-lg font-bold brand-green">
-                <span>Final Total</span>
-                <span id="ship-inv-total">$0.00</span>
-            </div>
-        </div>
 
         <div class="flex justify-end gap-3">
             <button type="button" onclick="hideShipInvoiceModal()"
@@ -2277,7 +2260,6 @@ body { background: #f8f1e9; }
         </div>
     </div>
 </div>
-
 <!-- ================== ORDER INVOICE MODAL (read-only) ================== -->
 <div id="order-invoice-modal"
      class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4"
@@ -2297,7 +2279,7 @@ body { background: #f8f1e9; }
                 </div>
             </div>
             <div class="flex flex-col items-end gap-2">
-            <img src="media/logo.png" alt="Donegal Natural" class="h-40 w-auto md:h-48">
+            <img src="media/logo.png" alt="Donegal Natural" class="h-36 w-auto md:h-40">
                 <button type="button" onclick="hideOrderInvoiceModal()"
                         class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
             </div>
@@ -2377,8 +2359,9 @@ body { background: #f8f1e9; }
             </div>
         </div>
 
+<p class="text-center text-sm text-[#6B4423] mt-2 font-medium">Terms of payment: 10 days</p>
         <p class="text-center text-sm italic text-[#6B4423] mb-6">
-            It has been a pleasure doing business with you. Thank you.
+            Please allow 7 to 10 business days for your order to be shipped. It has been a pleasure doing business with you. Thank you.
         </p>
 
         <div class="flex justify-end">
