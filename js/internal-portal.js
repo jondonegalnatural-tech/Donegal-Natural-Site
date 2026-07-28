@@ -1005,6 +1005,31 @@ function renderOrdersTable() {
     return { total, hasMarketPrice };
 }
 
+    let html = `
+    <div class="mb-3 flex justify-between items-center">
+        <button id="print-selected-btn"
+                onclick="printSelectedOrders()"
+                class="hidden px-4 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl text-sm font-semibold hover:bg-[#254a2f]">
+            Print Selected Orders
+        </button>
+    </div>
+    <table class="w-full">
+        <thead>
+            <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                <th class="p-3 text-center w-10">
+                    <input type="checkbox" id="select-all-orders" onchange="toggleSelectAllOrders(this)">
+                </th>
+                <th class="p-3 text-left">Order ID</th>
+                <th class="p-3 text-left">Salesman</th>
+                <th class="p-3 text-left">Customer</th>
+                <th class="p-3 text-left">Total</th>
+                <th class="p-3 text-left">Status</th>
+                <th class="p-3 text-left">Date</th>
+            </tr>
+        </thead>
+        <tbody>
+`;
+
     filteredOrders.forEach(order => {
         const currentStatus = order.status || 'submitted';
         const statusLower = (currentStatus || '').toLowerCase();
