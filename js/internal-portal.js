@@ -1299,8 +1299,9 @@ function isWestOfMississippiLocation(text) {
 function getShipInvoiceSubtotal() {
     let subtotal = 0;
     (shipInvoiceItems || []).forEach(item => {
-        if (item.isMarketPrice || item.unitPrice == null) return;
-        subtotal += (parseFloat(item.unitPrice) || 0) * (parseInt(item.quantity, 10) || 0);
+        const unit = parseFloat(item.unitPrice);
+        if (isNaN(unit) || unit < 0) return; // skip only if no real price yet
+        subtotal += unit * (parseInt(item.quantity, 10) || 0);
     });
     return subtotal;
 }
