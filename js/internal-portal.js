@@ -7590,17 +7590,40 @@ function showPmProductsModal(filter, searchTerm = '') {
 
     if (!modal || !listContainer) return;
 
-    const data = getProductMarginData();
+    const marginData = getProductMarginData();
+    const marginByName = {};
+    marginData.forEach(p => { marginByName[p.name] = p; });
+
     let filtered = [];
     let title = 'Products';
     let subtitle = '';
 
     if (filter === 'search') {
-        filtered = data.filter(p => p.name.toLowerCase().includes(searchTerm));
+        const term = (searchTerm || '').toLowerCase().trim();
+        const catalog = (typeof PRODUCT_CATALOG !== 'undefined') ? PRODUCT_CATALOG : [];
+        filtered = catalog
+            .filter(p =>
+                p.name.toLowerCase().includes(term) ||
+                (p.category || '').toLowerCase().includes(term)
+            )
+            .map(p => {
+                if (marginByName[p.name]) return marginByName[p.name];
+                return {
+                    name: p.name,
+                    category: p.category || '',
+                    unitCost: null,
+                    sellingPrice: parseFloat(p.unitPrice) || 0,
+                    marginDollar: null,
+                    marginPercent: null,
+                    status: 'no-cost'
+                };
+            });
         title = 'Search Results';
-        subtitle = `Showing products matching "${searchTerm}"`;
+        subtitle = term
+            ? `Showing products matching "${searchTerm}"`
+            : 'Search results';
     } else {
-        filtered = data;
+        filtered = marginData;
         title = 'All Products';
         subtitle = 'All products with cost data';
     }
@@ -7615,25 +7638,29 @@ function showPmProductsModal(filter, searchTerm = '') {
     } else {
         filtered.forEach(p => {
             let statusBadge = '';
-            if (p.status === 'outperform') {
+            let detailLine = '';
+
+            if (p.status === 'no-cost' || p.unitCost == null) {
+                statusBadge = '<span class="px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded-full">No cost data</span>';
+                detailLine = `Price: $${(p.sellingPrice || 0).toFixed(2)} · Add a cost in Cost of Goods to see margin`;
+            } else if (p.status === 'outperform') {
                 statusBadge = '<span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">★ Outperform</span>';
+                detailLine = `Cost: $${p.unitCost.toFixed(2)} · Price: $${p.sellingPrice.toFixed(2)} · Margin: $${p.marginDollar.toFixed(2)} (${p.marginPercent.toFixed(1)}%)`;
             } else if (p.status === 'underperform') {
                 statusBadge = '<span class="px-2 py-1 text-xs font-semibold bg-red-100 text-red-700 rounded-full">⚠ Under</span>';
+                detailLine = `Cost: $${p.unitCost.toFixed(2)} · Price: $${p.sellingPrice.toFixed(2)} · Margin: $${p.marginDollar.toFixed(2)} (${p.marginPercent.toFixed(1)}%)`;
             } else {
                 statusBadge = '<span class="px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded-full">Normal</span>';
+                detailLine = `Cost: $${p.unitCost.toFixed(2)} · Price: $${p.sellingPrice.toFixed(2)} · Margin: $${p.marginDollar.toFixed(2)} (${p.marginPercent.toFixed(1)}%)`;
             }
 
             const card = document.createElement('div');
             card.className = 'bg-[#f8f4eb] border border-[#d4b78f] rounded-xl px-4 py-3';
             card.innerHTML = `
-                <div class="flex justify-between items-start">
+                <div class="flex justify-between items-start gap-3">
                     <div>
                         <p class="font-medium">${p.name}</p>
-                        <p class="text-sm text-[#6B4423] mt-1">
-                            Cost: $${p.unitCost.toFixed(2)} &nbsp;|&nbsp; 
-                            Price: $${p.sellingPrice.toFixed(2)} &nbsp;|&nbsp; 
-                            Margin: $${p.marginDollar.toFixed(2)} (${p.marginPercent.toFixed(1)}%)
-                        </p>
+                        <p class="text-sm text-[#6B4423] mt-1">${detailLine}</p>
                     </div>
                     <div>${statusBadge}</div>
                 </div>
