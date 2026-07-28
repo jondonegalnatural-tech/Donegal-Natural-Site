@@ -1907,6 +1907,7 @@ function updateDashboardOrders() {
     let received = 0;
     let processing = 0;
     let agingCount = 0;
+    let pendingValue = 0;
 
     const now = new Date();
     const tenDaysAgo = new Date(now);
@@ -1914,47 +1915,53 @@ function updateDashboardOrders() {
 
     allOrders.forEach(order => {
         const status = (order.status || '').toString().trim().toLowerCase();
+        const orderDate = new Date(
+            order.submittedAt || order.submitted_at || order.date || now
+        );
+
+        let orderTotal = 0;
+        (order.items || []).forEach(item => {
+            const qty = parseInt(item.quantity, 10) || 0;
+            const unit = typeof getOrderItemUnitPrice === 'function'
+                ? getOrderItemUnitPrice(item)
+                : (parseFloat(item.unitPrice) || 0);
+            orderTotal += qty * unit;
+        });
 
         if (status === 'pending' || status === 'submitted' || status === '') {
             pending++;
+            pendingValue += orderTotal;
         } else if (status === 'received') {
             received++;
-            // Check aging
-            const orderDate = new Date(order.submittedAt || order.date || now);
-            if (orderDate < tenDaysAgo) agingCount++;
+            if (!isNaN(orderDate.getTime()) && orderDate < tenDaysAgo) agingCount++;
         } else if (status === 'processing') {
             processing++;
-            // Check aging
-            const orderDate = new Date(order.submittedAt || order.date || now);
-            if (orderDate < tenDaysAgo) agingCount++;
+            if (!isNaN(orderDate.getTime()) && orderDate < tenDaysAgo) agingCount++;
         }
     });
 
-    // Update the numbers
     const pendingEl = document.getElementById('dash-pending-count');
     const receivedEl = document.getElementById('dash-received-count');
     const processingEl = document.getElementById('dash-processing-count');
+    const pendingValueEl = document.getElementById('dash-pending-value');
 
     if (pendingEl) pendingEl.textContent = pending;
     if (receivedEl) receivedEl.textContent = received;
     if (processingEl) processingEl.textContent = processing;
+    if (pendingValueEl) {
+        pendingValueEl.textContent = '$' + Math.round(pendingValue).toLocaleString();
+    }
 
-    // Aging alert
     const alertEl = document.getElementById('dash-orders-alert');
     const agingText = document.getElementById('dash-aging-text');
 
-        if (alertEl && agingText) {
+    if (alertEl && agingText) {
         if (agingCount > 0) {
             alertEl.classList.remove('hidden');
             agingText.textContent = `${agingCount} order${agingCount > 1 ? 's' : ''} aging over 10 days`;
         } else {
             alertEl.classList.add('hidden');
         }
-    }
-
-    // Update pending dollar value
-    if (typeof updateDashboardPendingValue === 'function') {
-        updateDashboardPendingValue();
     }
 }
 
@@ -2416,37 +2423,59 @@ function showMonthlySalesModal() {
     alert(`Monthly Sales: $${totalSales}\nAverage Order: $${avg}`);
 }
 
-function updateDashboardVendors() {
-    // Active / Inactive counts
-    const activeCount = vendors.filter(v => v.active !== false).length;
-    const inactiveCount = vendors.filter(v => v.active === false).length;
-
+async function updateDashboardVendors() {
     const activeEl = document.getElementById('dash-active-vendors');
     const inactiveEl = document.getElementById('dash-inactive-vendors');
+    const ytdEl = document.getElementById('dash-vendor-ytd');
+
+    let vendorRows = Array.isArray(vendors) ? vendors : [];
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('vendors')
+            .select('id, name, active');
+
+        if (!error && data) {
+            vendorRows = data.map(v => ({
+                id: v.id,
+                name: v.name,
+                active: v.active !== false
+            }));
+            vendors = vendorRows;
+        }
+    } catch (err) {
+        console.warn('updateDashboardVendors: vendors load failed', err);
+    }
+
+    const activeCount = vendorRows.filter(v => v.active !== false).length;
+    const inactiveCount = vendorRows.filter(v => v.active === false).length;
 
     if (activeEl) activeEl.textContent = activeCount;
     if (inactiveEl) inactiveEl.textContent = inactiveCount;
 
-    // Total Purchases YTD
-    const ytdEl = document.getElementById('dash-vendor-ytd');
-    if (!ytdEl) return;
-
+    let ytdTotal = 0;
     const now = new Date();
     const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-    let ytdTotal = 0;
+    try {
+        const { data: allPurchases, error: pErr } = await supabaseClient
+            .from('vendor_purchases')
+            .select('amount, date, created_at, vendor_id, status');
 
-    vendors.forEach(vendor => {
-        if (!vendor.purchases) return;
-        vendor.purchases.forEach(p => {
-            const purchaseDate = new Date(p.date);
-            if (purchaseDate >= startOfYear) {
+        if (!pErr && allPurchases) {
+            allPurchases.forEach(p => {
+                const d = new Date(p.date || p.created_at || 0);
+                if (isNaN(d.getTime()) || d < startOfYear) return;
                 ytdTotal += parseFloat(p.amount) || 0;
-            }
-        });
-    });
+            });
+        }
+    } catch (err) {
+        console.warn('updateDashboardVendors: purchases load failed', err);
+    }
 
-    ytdEl.textContent = '$' + ytdTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    if (ytdEl) {
+        ytdEl.textContent = '$' + Math.round(ytdTotal).toLocaleString();
+    }
 }
 
 // Optional: make it rotate every 4 seconds
@@ -3439,12 +3468,6 @@ function showSalesmanDetail(salesmanId = null) {
     setText('modal-monthly-sales', '$' + Math.round(totals.monthly).toLocaleString());
     setText('modal-quotes', salesman.quotesSubmitted || 0);
     setValue('modal-notes', salesman.notes || '');
-
-    if (typeof loadOrders === 'function' && (!allOrders || allOrders.length === 0)) {
-        loadOrders().then(() => renderSalesmanOrdersList(salesman));
-    } else {
-        renderSalesmanOrdersList(salesman);
-    }
 
     modal.style.display = 'flex';
     modal.classList.remove('hidden');
@@ -6623,22 +6646,47 @@ async function saveNewVendor(event) {
     }
 }
 
+async function loadVendorPurchases(vendorId) {
+    try {
+        const { data, error } = await supabaseClient
+            .from('vendor_purchases')
+            .select('id, vendor_id, date, description, quantity, amount, notes, status, created_at')
+            .eq('vendor_id', vendorId)
+            .order('date', { ascending: false });
+
+        if (error) throw error;
+        return data || [];
+    } catch (err) {
+        console.error('loadVendorPurchases error:', err);
+        return [];
+    }
+}
+
 function showVendorDetail(vendorId) {
-    const vendor = vendors.find(v => v.id === vendorId);
-    if (!vendor) return;
+
+async function showVendorDetail(vendorId) {
+    const vendor = vendors.find(v => String(v.id) === String(vendorId));
+    if (!vendor) {
+        console.error('Vendor not found for id:', vendorId);
+        return;
+    }
 
     window.currentVendorId = vendorId;
 
     if (vendor.active === undefined) vendor.active = true;
 
-    // Basic info
-    document.getElementById('vendor-modal-name').textContent = vendor.name || 'Vendor';
-    document.getElementById('vendor-modal-contact').textContent = vendor.contact || 'No contact listed';
-    document.getElementById('vendor-modal-phone').textContent = vendor.phone || 'N/A';
-    document.getElementById('vendor-modal-email').textContent = vendor.email || 'N/A';
-    document.getElementById('vendor-modal-notes').textContent = vendor.notes || 'None';
+    const nameEl = document.getElementById('vendor-modal-name');
+    const contactEl = document.getElementById('vendor-modal-contact');
+    const phoneEl = document.getElementById('vendor-modal-phone');
+    const emailEl = document.getElementById('vendor-modal-email');
+    const notesEl = document.getElementById('vendor-modal-notes');
 
-    // Status badge + toggle button
+    if (nameEl) nameEl.textContent = vendor.name || 'Vendor';
+    if (contactEl) contactEl.textContent = vendor.contact || vendor.contact_name || 'No contact listed';
+    if (phoneEl) phoneEl.textContent = vendor.phone || 'N/A';
+    if (emailEl) emailEl.textContent = vendor.email || 'N/A';
+    if (notesEl) notesEl.textContent = vendor.notes || 'None';
+
     const isActive = vendor.active !== false;
     const statusHTML = isActive
         ? `<span class="px-3 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700 mr-2">Active</span>
@@ -6649,41 +6697,52 @@ function showVendorDetail(vendorId) {
     const statusArea = document.getElementById('vendor-status-area');
     if (statusArea) statusArea.innerHTML = statusHTML;
 
-    // Recent Orders (last 5)
-    const purchases = (vendor.purchases || []).slice(0, 5);
+    const historyContainer = document.getElementById('vendor-modal-recent-orders')
+        || document.querySelector('#vendor-modal .bg-\\[\\#f8f4eb\\]');
+
+    if (historyContainer) {
+        historyContainer.innerHTML = `
+            <p class="text-sm text-[#6B4423] font-semibold mb-3">Recent Orders (last 5)</p>
+            <p class="text-sm text-[#6B4423]">Loading…</p>
+        `;
+    }
+
+    const modal = document.getElementById('vendor-modal');
+    if (modal) modal.classList.remove('hidden');
+
+    const purchases = await loadVendorPurchases(vendorId);
+    vendor.purchases = purchases;
+
     let purchaseHTML = '';
-
-    if (purchases.length === 0) {
-        purchaseHTML = `<p class="text-sm text-[#6B4423]">No orders yet.</p>`;
+    if (!purchases.length) {
+        purchaseHTML = '<p class="text-sm text-[#6B4423]">No orders yet.</p>';
     } else {
-        purchaseHTML = `<div class="space-y-2">`;
-        purchases.forEach(p => {
-            const dateObj = new Date(p.date);
-            const formattedDate = `${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getDate().toString().padStart(2, '0')}/${dateObj.getFullYear()}`;
-
-            // FIXED: use the items array that loadVendors builds
-            const productCount = (p.items && p.items.length) ? p.items.length : (p.quantity || 0);
+        purchaseHTML = '<div class="space-y-2">';
+        purchases.slice(0, 5).forEach(p => {
+            const dateObj = new Date(p.date || p.created_at || 0);
+            const formattedDate = isNaN(dateObj.getTime())
+                ? '—'
+                : `${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getDate().toString().padStart(2, '0')}/${dateObj.getFullYear()}`;
+            const amount = parseFloat(p.amount) || 0;
+            const label = p.description || (p.quantity != null ? `${p.quantity} unit(s)` : 'Order');
 
             purchaseHTML += `
-                <div class="flex justify-between items-center text-sm border-b border-[#d4b78f] pb-2">
-                    <span>${formattedDate}</span>
-                    <span class="font-semibold">${productCount} product(s)</span>
-                    <span class="font-bold brand-green">$${Number(p.amount || 0).toFixed(2)}</span>
+                <div class="flex justify-between items-center text-sm border-b border-[#d4b78f] pb-2 gap-2">
+                    <span class="whitespace-nowrap">${formattedDate}</span>
+                    <span class="truncate flex-1 text-center">${label}</span>
+                    <span class="font-bold brand-green whitespace-nowrap">$${amount.toFixed(2)}</span>
                 </div>
             `;
         });
-        purchaseHTML += `</div>`;
+        purchaseHTML += '</div>';
     }
 
-    const historyContainer = document.querySelector('#vendor-modal .bg-\\[\\#f8f4eb\\]');
     if (historyContainer) {
         historyContainer.innerHTML = `
             <p class="text-sm text-[#6B4423] font-semibold mb-3">Recent Orders (last 5)</p>
             ${purchaseHTML}
         `;
     }
-
-    document.getElementById('vendor-modal').classList.remove('hidden');
 }
 
 async function toggleVendorStatus() {
