@@ -6739,8 +6739,8 @@ async function showVendorDetail(vendorId) {
 
     const modal = document.getElementById('vendor-modal');
     if (modal) {
+        modal.style.display = '';
         modal.classList.remove('hidden');
-        modal.style.display = 'flex';
     }
 
     const purchases = typeof loadVendorPurchases === 'function'
@@ -6810,7 +6810,10 @@ async function toggleVendorStatus() {
 }
 
 function hideVendorModal() {
-    document.getElementById('vendor-modal').classList.add('hidden');
+    const modal = document.getElementById('vendor-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.style.display = '';
 }
 
 function editVendor() {
