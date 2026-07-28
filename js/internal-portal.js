@@ -570,21 +570,39 @@ function openOrderInvoiceModal(orderId) {
         }
     }
 
-    // Notes
+// Notes — hide system default text
     const notesEl = document.getElementById('inv-notes');
     if (notesEl) {
-        notesEl.textContent = (order.notes || '').trim() || '—';
+        const raw = (order.notes || '').trim();
+        const isSystem =
+            !raw ||
+            /^created via add order$/i.test(raw);
+        notesEl.textContent = isSystem ? '' : raw;
     }
 
-    // Totals
+// Totals (+ credit only if > 0 after ship)
     const shipping = Number(order.shippingCost != null ? order.shippingCost : 0) || 0;
-    const total = subtotal + shipping;
+    const credit = Number(order.credit != null ? order.credit : 0) || 0;
+    const total = Math.max(0, subtotal + shipping - credit);
 
     const subEl = document.getElementById('inv-subtotal');
     const shipCostEl = document.getElementById('inv-shipping');
+    const creditRow = document.getElementById('inv-credit-row');
+    const creditEl = document.getElementById('inv-credit');
     const totEl = document.getElementById('inv-total');
+
     if (subEl) subEl.textContent = '$' + subtotal.toFixed(2);
     if (shipCostEl) shipCostEl.textContent = '$' + shipping.toFixed(2);
+
+    if (creditRow && creditEl) {
+        if (credit > 0) {
+            creditRow.classList.remove('hidden');
+            creditEl.textContent = '−$' + credit.toFixed(2);
+        } else {
+            creditRow.classList.add('hidden');
+        }
+    }
+
     if (totEl) totEl.textContent = '$' + total.toFixed(2);
 
     // Ensure customers are available for addresses on next open if missing
@@ -1320,6 +1338,7 @@ async function loadOrders() {
                 salesmanEmail: o.salesman_email,
                 notes: o.notes,
                 shippingCost: o.shipping_cost,
+                credit: o.credit != null ? Number(o.credit) : 0,
                 items: o.items || []
             }));
         }
@@ -1863,10 +1882,16 @@ function openShipInvoiceModal(orderId) {
     document.getElementById('ship-invoice-subtitle').textContent =
         'Review line items and shipping, then confirm ship';
 
-        const shippingEl = document.getElementById('ship-inv-shipping');
+const shippingEl = document.getElementById('ship-inv-shipping');
     if (shippingEl) {
         const start = order.shippingCost != null ? Number(order.shippingCost) : 0;
         shippingEl.value = (isNaN(start) ? 0 : start).toFixed(2);
+    }
+
+    const creditEl = document.getElementById('ship-inv-credit');
+    if (creditEl) {
+        const startCredit = order.credit != null ? Number(order.credit) : 0;
+        creditEl.value = (isNaN(startCredit) ? 0 : startCredit).toFixed(2);
     }
 
     const searchEl = document.getElementById('ship-inv-product-search');
@@ -2016,8 +2041,9 @@ function recalcShipInvoiceTotals() {
 
     applyAutoShippingRules();
 
-    const shipping = parseFloat(document.getElementById('ship-inv-shipping')?.value) || 0;
-    const total = subtotal + shipping;
+const shipping = parseFloat(document.getElementById('ship-inv-shipping')?.value) || 0;
+    const credit = parseFloat(document.getElementById('ship-inv-credit')?.value) || 0;
+    const total = Math.max(0, subtotal + shipping - credit);
 
     const subEl = document.getElementById('ship-inv-subtotal');
     const totEl = document.getElementById('ship-inv-total');
@@ -2033,9 +2059,18 @@ async function confirmShipInvoice() {
         return;
     }
 
-    const shipping = parseFloat(document.getElementById('ship-inv-shipping')?.value);
+const shipping = parseFloat(document.getElementById('ship-inv-shipping')?.value);
     if (isNaN(shipping) || shipping < 0) {
         alert('Enter a valid shipping amount (0 or higher).');
+        return;
+    }
+
+    const creditRaw = document.getElementById('ship-inv-credit')?.value;
+    const credit = creditRaw === '' || creditRaw == null
+        ? 0
+        : parseFloat(creditRaw);
+    if (isNaN(credit) || credit < 0) {
+        alert('Enter a valid credit amount (0 or higher).');
         return;
     }
 
@@ -2054,9 +2089,10 @@ async function confirmShipInvoice() {
     try {
         const { error } = await supabaseClient
             .from('orders')
-            .update({
+    .update({
                 status: 'shipped',
                 shipping_cost: shipping,
+                credit: credit,
                 items: itemsPayload
             })
             .eq('id', orderId);

@@ -2231,7 +2231,12 @@ body { background: #f8f1e9; }
                 <span class="text-[#6B4423]">Subtotal</span>
                 <span id="ship-inv-subtotal" class="font-semibold">$0.00</span>
             </div>
-            <div class="flex items-center justify-between gap-4">
+                        <div class="flex items-center justify-between gap-4">
+                <label class="text-sm text-[#6B4423]" for="ship-inv-credit">Credit ($)</label>
+                <input type="number" id="ship-inv-credit" min="0" step="0.01" value="0.00"
+                       oninput="recalcShipInvoiceTotals()"
+                       class="w-36 border-2 border-[#6B4423] rounded-xl px-3 py-2 text-right">
+            </div>
     <div>
         <label class="text-sm text-[#6B4423]" for="ship-inv-shipping">Shipping ($)</label>
         <p id="ship-inv-shipping-note" class="text-xs text-[#6B4423]"></p>
@@ -2240,79 +2245,6 @@ body { background: #f8f1e9; }
            oninput="recalcShipInvoiceTotals()"
            class="w-36 border-2 border-[#6B4423] rounded-xl px-3 py-2 text-right">
 </div>
-            <div class="flex justify-between text-lg font-bold brand-green">
-                <span>Final Total</span>
-                <span id="ship-inv-total">$0.00</span>
-            </div>
-        </div>
-
-        <div class="flex justify-end gap-3">
-            <button type="button" onclick="hideShipInvoiceModal()"
-                    class="px-5 py-2 border-2 border-[#6B4423] rounded-xl">
-                Cancel
-            </button>
-            <button type="button" onclick="confirmShipInvoice()"
-                    class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] font-bold rounded-xl">
-                Confirm Ship
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- ================== SHIP INVOICE MODAL ================== -->
-<div id="ship-invoice-modal"
-     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
-    <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6">
-        <div class="flex items-start justify-between mb-4">
-            <div>
-                <h2 class="text-2xl font-bold brand-green">Invoice</h2>
-                <p class="text-sm text-[#6B4423]" id="ship-invoice-subtitle">Review before shipping</p>
-            </div>
-            <button type="button" onclick="hideShipInvoiceModal()"
-                    class="text-2xl text-[#6B4423] leading-none">&times;</button>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 text-sm">
-            <div class="bg-[#f8f4eb] rounded-xl p-3">
-                <p class="text-xs text-[#6B4423]">Customer</p>
-                <p class="font-semibold brand-green" id="ship-inv-customer">—</p>
-            </div>
-            <div class="bg-[#f8f4eb] rounded-xl p-3">
-                <p class="text-xs text-[#6B4423]">Salesman</p>
-                <p class="font-semibold brand-green" id="ship-inv-salesman">—</p>
-            </div>
-            <div class="bg-[#f8f4eb] rounded-xl p-3">
-                <p class="text-xs text-[#6B4423]">Order ID</p>
-                <p class="font-mono text-sm" id="ship-inv-id">—</p>
-            </div>
-        </div>
-
-        <div class="mb-4">
-            <h3 class="font-bold brand-green mb-2">Line Items</h3>
-            <div id="ship-inv-items" class="space-y-2"></div>
-        </div>
-
-        <div class="mb-4 relative">
-            <label class="block text-sm font-semibold text-[#6B4423] mb-1">Add product</label>
-            <input type="text" id="ship-inv-product-search"
-                   oninput="renderShipInvoiceProductSearch()"
-                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"
-                   placeholder="Search products…">
-            <div id="ship-inv-product-results"
-                 class="hidden absolute z-50 w-full bg-white border-2 border-[#6B4423] rounded-xl mt-1 max-h-56 overflow-auto shadow-lg"></div>
-        </div>
-
-        <div class="border-t border-[#d4b78f] pt-4 space-y-3 mb-6">
-            <div class="flex justify-between text-sm">
-                <span class="text-[#6B4423]">Subtotal</span>
-                <span id="ship-inv-subtotal" class="font-semibold">$0.00</span>
-            </div>
-            <div class="flex items-center justify-between gap-4">
-                <label class="text-sm text-[#6B4423]" for="ship-inv-shipping">Shipping</label>
-                <input type="number" id="ship-inv-shipping" min="0" step="0.01" value="0"
-                       oninput="recalcShipInvoiceTotals()"
-                       class="w-36 border-2 border-[#6B4423] rounded-xl px-3 py-2 text-right">
-            </div>
             <div class="flex justify-between text-lg font-bold brand-green">
                 <span>Final Total</span>
                 <span id="ship-inv-total">$0.00</span>
@@ -2351,19 +2283,19 @@ body { background: #f8f1e9; }
                 </div>
             </div>
             <div class="flex flex-col items-end gap-2">
-                <img src="media/logo.png" alt="Donegal Natural" class="h-16 w-auto">
+            <img src="media/logo.png" alt="Donegal Natural" class="h-28 w-auto md:h-32">
                 <button type="button" onclick="hideOrderInvoiceModal()"
                         class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
             </div>
         </div>
 
-        <!-- Invoice No + Date -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-0 mb-6 overflow-hidden rounded-xl border-2 border-[#1E4D2B]">
-            <div class="bg-[#1E4D2B] text-[#d4b78f] px-4 py-3">
+<!-- Invoice No + Date (separate blocks) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <div class="bg-[#1E4D2B] text-[#d4b78f] px-4 py-3 rounded-xl border-2 border-[#1E4D2B]">
                 <p class="text-xs uppercase tracking-wide opacity-90">Invoice No.</p>
                 <p id="inv-number" class="font-mono font-semibold text-sm break-all">—</p>
             </div>
-            <div class="bg-[#1E4D2B] text-[#d4b78f] px-4 py-3 border-t-2 sm:border-t-0 sm:border-l-2 border-[#254a2f]">
+            <div class="bg-[#1E4D2B] text-[#d4b78f] px-4 py-3 rounded-xl border-2 border-[#1E4D2B]">
                 <p class="text-xs uppercase tracking-wide opacity-90">Date</p>
                 <p id="inv-date" class="font-semibold">—</p>
             </div>
@@ -2411,7 +2343,7 @@ body { background: #f8f1e9; }
                 <div class="bg-[#1E4D2B] text-[#d4b78f] px-3 py-2 text-sm font-semibold">Notes</div>
                 <div id="inv-notes" class="p-3 text-sm text-[#6B4423] min-h-[72px] whitespace-pre-wrap">—</div>
             </div>
-            <div class="space-y-2 text-sm self-end">
+<div class="space-y-2 text-sm self-end">
                 <div class="flex justify-between">
                     <span class="text-[#6B4423]">SUBTOTAL</span>
                     <span id="inv-subtotal" class="font-semibold">$0.00</span>
@@ -2419,6 +2351,10 @@ body { background: #f8f1e9; }
                 <div class="flex justify-between">
                     <span class="text-[#6B4423]">SHIPPING</span>
                     <span id="inv-shipping" class="font-semibold">$0.00</span>
+                </div>
+                <div id="inv-credit-row" class="hidden flex justify-between">
+                    <span class="text-[#6B4423]">CREDIT</span>
+                    <span id="inv-credit" class="font-semibold text-red-700">−$0.00</span>
                 </div>
                 <div class="flex justify-between text-lg font-bold brand-green border-t border-[#d4b78f] pt-2">
                     <span>TOTAL</span>
