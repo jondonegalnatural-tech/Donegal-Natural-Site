@@ -240,6 +240,13 @@ function showSection(section) {
     if (typeof updatePendingPOIndicators === 'function') {
         updatePendingPOIndicators();
     }
+    // Refresh inquiry counts for the dashboard card
+    if (typeof loadInquiries === 'function') {
+        loadInquiries().then(() => {
+            if (typeof updateInquiryStats === 'function') updateInquiryStats();
+        });
+    }
+
 }
 
     if (typeof updateDashboardOrders === 'function') updateDashboardOrders();
