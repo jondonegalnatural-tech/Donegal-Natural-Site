@@ -246,6 +246,13 @@ function showSection(section) {
             if (typeof updateInquiryStats === 'function') updateInquiryStats();
         });
     }
+    if (typeof loadInventory === 'function') {
+    loadInventory().then(() => {
+        if (typeof updateDashboardLowStock === 'function') updateDashboardLowStock();
+    });
+} else if (typeof updateDashboardLowStock === 'function') {
+    updateDashboardLowStock();
+}
 
 }
 
@@ -2739,8 +2746,8 @@ function updateTotalOrdersBadge() {
 
     // Always show current total orders in the system
     const total = (typeof allOrders !== 'undefined' && Array.isArray(allOrders))
-        ? allOrders.length
-        : JSON.parse(localStorage.getItem('submittedOrders') || '[]').length;
+    ? allOrders.length
+    : 0;
 
     badge.textContent = total;
 }
@@ -5453,10 +5460,6 @@ async function updatePendingPOIndicators() {
 }
 
 function updateDashboardLowStock() {
-    if (typeof inventory === 'undefined' || inventory === null) {
-        inventory = JSON.parse(localStorage.getItem('inventory') || '{}');
-    }
-
     ensureInventoryInitialized();
 
     let lowStockCount = 0;
@@ -5818,13 +5821,17 @@ window.onload = function() {
     if (typeof updateDashboardProfitMargin === 'function') {
         updateDashboardProfitMargin();
     }
-    if (typeof updateDashboardLowStock === 'function') {
+    if (typeof loadInventory === 'function')  {
+        loadInventory().then(() => {
+            if (typeof updateDashboardLowStock === 'function') updateDashboardLowStock();
+        });
+    } else if (typeof updateDashboardLowStock === 'function') {
         updateDashboardLowStock();
     }
-        if (typeof initDashboardDragAndDrop === 'function') {
+    if (typeof initDashboardDragAndDrop === 'function') {
         initDashboardDragAndDrop();
     }
-        if (typeof updateDashboardOrders === 'function') {
+    if (typeof updateDashboardOrders === 'function') {
         updateDashboardOrders();
     }
     if (typeof updateDashboardSalesMatrix === 'function') {
