@@ -6668,35 +6668,45 @@ async function showVendorDetail(vendorId) {
         return;
     }
 
-    let vendor = (vendors || []).find(v => String(v.id) === String(vendorId));
+    let vendor = null;
 
-    // If not in memory, fetch this row from Supabase
-    if (!vendor) {
-        try {
-            const { data, error } = await supabaseClient
-                .from('vendors')
-                .select('id, name, contact, phone, email, notes, categories, products, active, created_at, updated_at')
-                .eq('id', vendorId)
-                .maybeSingle();
+    // Always load full row from Supabase so contact/phone/email are present
+    try {
+        const { data, error } = await supabaseClient
+            .from('vendors')
+            .select('id, name, contact, phone, email, notes, categories, products, active, created_at, updated_at')
+            .eq('id', vendorId)
+            .maybeSingle();
 
-            if (error) throw error;
-            if (data) {
-                vendor = {
-                    id: data.id,
-                    name: data.name || '',
-                    contact: data.contact || '',
-                    phone: data.phone || '',
-                    email: data.email || '',
-                    notes: data.notes || '',
-                    categories: data.categories || [],
-                    products: data.products || [],
-                    active: data.active !== false,
-                    purchases: []
-                };
+        if (error) throw error;
+
+        if (data) {
+            vendor = {
+                id: data.id,
+                name: data.name || '',
+                contact: data.contact || '',
+                phone: data.phone || '',
+                email: data.email || '',
+                notes: data.notes || '',
+                categories: data.categories || [],
+                products: data.products || [],
+                active: data.active !== false,
+                purchases: []
+            };
+
+            // Keep in-memory list in sync
+            const idx = (vendors || []).findIndex(v => String(v.id) === String(vendorId));
+            if (idx >= 0) {
+                vendors[idx] = { ...vendors[idx], ...vendor };
             }
-        } catch (err) {
-            console.error('showVendorDetail fetch error:', err);
         }
+    } catch (err) {
+        console.error('showVendorDetail fetch error:', err);
+    }
+
+    // Fallback to memory only if fetch failed
+    if (!vendor) {
+        vendor = (vendors || []).find(v => String(v.id) === String(vendorId)) || null;
     }
 
     if (!vendor) {
@@ -6706,9 +6716,19 @@ async function showVendorDetail(vendorId) {
 
     window.currentVendorId = vendor.id;
 
+    const modal = document.getElementById('vendor-modal');
+    if (!modal) {
+        console.error('vendor-modal not found in HTML');
+        return;
+    }
+
     const setText = (id, value) => {
         const el = document.getElementById(id);
-        if (el) el.textContent = value;
+        if (!el) {
+            console.warn('Missing modal element:', id);
+            return;
+        }
+        el.textContent = value;
     };
 
     setText('vendor-modal-name', vendor.name || 'Vendor');
@@ -6728,7 +6748,7 @@ async function showVendorDetail(vendorId) {
     }
 
     const historyContainer = document.getElementById('vendor-modal-recent-orders')
-        || document.querySelector('#vendor-modal .bg-\\[\\#f8f4eb\\]');
+        || modal.querySelector('.bg-\\[\\#f8f4eb\\]');
 
     if (historyContainer) {
         historyContainer.innerHTML = `
@@ -6737,11 +6757,8 @@ async function showVendorDetail(vendorId) {
         `;
     }
 
-    const modal = document.getElementById('vendor-modal');
-    if (modal) {
-        modal.style.display = '';
-        modal.classList.remove('hidden');
-    }
+    modal.style.display = '';
+    modal.classList.remove('hidden');
 
     const purchases = typeof loadVendorPurchases === 'function'
         ? await loadVendorPurchases(vendor.id)
