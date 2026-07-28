@@ -3172,12 +3172,17 @@ function updateReportsSalesSummary() {
     startOfWeek.setDate(now.getDate() - now.getDay());
 
     allOrders.forEach(order => {
-        if (!order.items) return;
-        const orderDate = new Date(order.submittedAt);
-        let orderTotal = 0;
+        if (!order.items || !Array.isArray(order.items)) return;
+        const orderDate = new Date(order.submittedAt || order.submitted_at || order.date || now);
+        if (isNaN(orderDate.getTime())) return;
 
+        let orderTotal = 0;
         order.items.forEach(item => {
-            orderTotal += (item.quantity || 1) * getOrderItemUnitPrice(item);
+            const qty = parseInt(item.quantity, 10) || 0;
+            const unit = typeof getOrderItemUnitPrice === 'function'
+                ? getOrderItemUnitPrice(item)
+                : (parseFloat(item.unitPrice) || 0);
+            orderTotal += qty * unit;
         });
 
         if (orderDate >= startOfYear) ytdSales += orderTotal;
@@ -3189,24 +3194,20 @@ function updateReportsSalesSummary() {
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="bg-[#f8f4eb] rounded-xl p-5 text-center">
                 <p class="text-sm text-[#6B4423]">Year to Date</p>
-                <p class="text-3xl font-bold brand-green mt-1">$${ytdSales.toLocaleString()}</p>
+                <p class="text-3xl font-bold brand-green mt-1">$${ytdSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             <div class="bg-[#f8f4eb] rounded-xl p-5 text-center">
                 <p class="text-sm text-[#6B4423]">Month to Date</p>
-                <p class="text-3xl font-bold brand-green mt-1">$${mtdSales.toLocaleString()}</p>
+                <p class="text-3xl font-bold brand-green mt-1">$${mtdSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             <div class="bg-[#f8f4eb] rounded-xl p-5 text-center">
                 <p class="text-sm text-[#6B4423]">Week to Date</p>
-                <p class="text-3xl font-bold brand-green mt-1">$${wtdSales.toLocaleString()}</p>
+                <p class="text-3xl font-bold brand-green mt-1">$${wtdSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             <div class="bg-[#f8f4eb] rounded-xl p-5 text-center">
                 <p class="text-sm text-[#6B4423]">Total Orders</p>
                 <p class="text-3xl font-bold brand-green mt-1">${totalOrders}</p>
             </div>
-        </div>
-
-        <div class="mt-6 text-xs text-[#6B4423] text-center">
-            Using $50 placeholder value per item • Real pricing will be connected later
         </div>
     `;
 }
@@ -5875,7 +5876,7 @@ async function updateDashboardSalesmen() {
             .order('yearly_sales', { ascending: false });
 
         if (error) {
-            console.error("Error loading salesmen for dashboard:", error);
+            console.error('Error loading salesmen for dashboard:', error);
             salesmen = [];
         } else {
             salesmen = (data || []).map(s => ({
@@ -5910,25 +5911,51 @@ async function updateDashboardSalesmen() {
         return;
     }
 
-    const topSalesmen = activeList
-        .map(s => ({
-            name: s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || 'Unnamed',
-            ytd: Number(s.yearlySales) || 0
-        }))
+    // Top 3 from real order YTD (not yearly_sales column)
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const ytdByName = {};
+
+    (allOrders || []).forEach(order => {
+        const orderDate = new Date(order.submittedAt || order.submitted_at || order.date || 0);
+        if (isNaN(orderDate.getTime()) || orderDate < startOfYear) return;
+
+        const name = (order.salesman || order.salesman_name || order.salesmanName || '').trim();
+        if (!name) return;
+
+        let orderTotal = 0;
+        (order.items || []).forEach(item => {
+            const qty = parseInt(item.quantity, 10) || 0;
+            const unit = typeof getOrderItemUnitPrice === 'function'
+                ? getOrderItemUnitPrice(item)
+                : (parseFloat(item.unitPrice) || 0);
+            orderTotal += qty * unit;
+        });
+
+        if (!ytdByName[name]) ytdByName[name] = 0;
+        ytdByName[name] += orderTotal;
+    });
+
+    const topSalesmen = Object.keys(ytdByName)
+        .map(name => ({ name, ytd: ytdByName[name] }))
         .sort((a, b) => b.ytd - a.ytd)
         .slice(0, 3);
 
-    container.innerHTML = topSalesmen.map((s, i) => `
-        <div class="flex justify-between items-center">
-            <span class="font-medium truncate pr-2">${i + 1}. ${s.name}</span>
-            <span class="font-semibold whitespace-nowrap">$${s.ytd.toLocaleString()}</span>
-        </div>
-    `).join('');
+    if (topSalesmen.length === 0) {
+        container.innerHTML = '<p class="text-[#6B4423] text-sm">No YTD sales yet</p>';
+    } else {
+        container.innerHTML = topSalesmen.map((s, i) => `
+            <div class="flex justify-between items-center">
+                <span class="font-medium truncate pr-2">${i + 1}. ${s.name}</span>
+                <span class="font-semibold whitespace-nowrap">$${s.ytd.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+            </div>
+        `).join('');
+    }
 
-    if (typeof updatePriceProposalsBadge === "function") {
+    if (typeof updatePriceProposalsBadge === 'function') {
         updatePriceProposalsBadge();
     }
-    if (typeof updateCustomerApprovalsBadge === "function") {
+    if (typeof updateCustomerApprovalsBadge === 'function') {
         updateCustomerApprovalsBadge();
     }
 }
