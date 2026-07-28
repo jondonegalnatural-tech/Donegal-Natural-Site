@@ -331,8 +331,53 @@ function getSalesmanOrderTotals(salesman) {
     return { yearly, monthly };
 }
 
+let currentSalesmanOrdersId = null;
+
+function openSalesmanOrdersModal() {
+    const detailModal = document.getElementById('salesman-modal');
+    const salesmanId = detailModal?.dataset?.salesmanId;
+    const salesman = salesmanId
+        ? salesmen.find(s => String(s.id) === String(salesmanId))
+        : null;
+
+    if (!salesman) {
+        alert('No salesman selected.');
+        return;
+    }
+
+    currentSalesmanOrdersId = salesman.id;
+
+    const titleEl = document.getElementById('salesman-orders-title');
+    const displayName = salesman.name
+        || [salesman.firstName, salesman.lastName].filter(Boolean).join(' ')
+        || 'Salesman';
+    if (titleEl) titleEl.textContent = `Orders — ${displayName}`;
+
+    const fill = () => {
+        renderSalesmanOrdersList(salesman);
+        const modal = document.getElementById('salesman-orders-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+        }
+    };
+
+    if (typeof loadOrders === 'function' && (!allOrders || allOrders.length === 0)) {
+        loadOrders().then(fill);
+    } else {
+        fill();
+    }
+}
+
+function hideSalesmanOrdersModal() {
+    const modal = document.getElementById('salesman-orders-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+}
+
 function renderSalesmanOrdersList(salesman) {
-    const container = document.getElementById('modal-salesman-orders');
+    const container = document.getElementById('salesman-orders-list');
     if (!container) return;
 
     const fullName = (
@@ -367,7 +412,7 @@ function renderSalesmanOrdersList(salesman) {
     }
 
     container.innerHTML = matched.map(order => {
-        const id = order.id || order.order_id || '—';
+        const id = order.id || order.order_id || '';
         const shortId = String(id).length > 8 ? String(id).slice(0, 8) : id;
         const customer = order.customer || order.customer_name || '—';
         const status = order.status || '—';
@@ -383,20 +428,36 @@ function renderSalesmanOrdersList(salesman) {
             total += qty * unit;
         });
 
+        const safeId = String(id).replace(/'/g, "\\'");
+
         return `
-            <div class="bg-white border border-[#d4b78f] rounded-lg px-3 py-2 text-sm">
+            <button type="button"
+                    onclick="openSalesmanOrderInvoice('${safeId}')"
+                    class="w-full text-left bg-[#f8f4eb] border border-[#d4b78f] rounded-xl px-4 py-3 hover:bg-[#f0e6d9] transition">
                 <div class="flex justify-between gap-2">
                     <span class="font-semibold brand-green">#${shortId}</span>
-                    <span class="text-[#6B4423]">${dateText}</span>
+                    <span class="text-sm text-[#6B4423]">${dateText}</span>
                 </div>
-                <div class="flex justify-between gap-2 mt-1">
+                <div class="flex justify-between gap-2 mt-1 text-sm">
                     <span class="truncate">${customer}</span>
                     <span class="font-semibold whitespace-nowrap">$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <p class="text-xs text-[#6B4423] mt-1">${status}</p>
-            </div>
+            </button>
         `;
     }).join('');
+}
+
+function openSalesmanOrderInvoice(orderId) {
+    if (typeof showOrderDetails === 'function') {
+        showOrderDetails(orderId);
+        return;
+    }
+    if (typeof openShipInvoiceModal === 'function') {
+        openShipInvoiceModal(orderId);
+        return;
+    }
+    alert('Order detail view is not available yet for #' + orderId);
 }
 
 function renderSalesmen() {
