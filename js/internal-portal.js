@@ -462,6 +462,140 @@ function renderSalesmanOrdersList(salesman) {
     }).join('');
 }
 
+function hideOrderInvoiceModal() {
+    const modal = document.getElementById('order-invoice-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+}
+
+function openOrderInvoiceModal(orderId) {
+    const order = (allOrders || []).find(o => String(o.id) === String(orderId));
+    if (!order) {
+        alert('Order not found.');
+        return;
+    }
+
+    // Match customer for addresses (if loaded)
+    const customerName = (order.customer || order.customer_name || '').trim().toLowerCase();
+    const customer = (allCustomers || []).find(c =>
+        (c.name || '').trim().toLowerCase() === customerName
+    ) || null;
+
+    // Invoice number + date
+    const invNum = document.getElementById('inv-number');
+    if (invNum) invNum.textContent = String(order.id || '—');
+
+    const invDate = document.getElementById('inv-date');
+    if (invDate) {
+        const d = new Date(order.submittedAt || order.submitted_at || order.date || 0);
+        invDate.textContent = isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
+    }
+
+    // Status badge
+    const invStatus = document.getElementById('inv-status');
+    if (invStatus) {
+        const status = (order.status || '—').toString();
+        invStatus.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    }
+
+    // BILL TO
+    const billEl = document.getElementById('inv-bill-to');
+    if (billEl) {
+        const lines = [];
+        if (order.customer) lines.push(order.customer);
+        if (order.customerCompany) lines.push(order.customerCompany);
+        if (customer?.phone) lines.push(customer.phone);
+        else if (order.customerEmail) lines.push(order.customerEmail);
+        const billing = customer?.billingAddress || customer?.shippingAddress || '';
+        if (billing) lines.push(billing);
+        billEl.innerHTML = lines.length
+            ? lines.map(l => `<p>${l}</p>`).join('')
+            : '—';
+    }
+
+    // SHIP TO
+    const shipEl = document.getElementById('inv-ship-to');
+    if (shipEl) {
+        const lines = [];
+        if (order.customer) lines.push(order.customer);
+        if (order.customerCompany) lines.push(order.customerCompany);
+        const shipping = customer?.shippingAddress || customer?.billingAddress || '';
+        if (shipping) lines.push(shipping);
+        shipEl.innerHTML = lines.length
+            ? lines.map(l => `<p>${l}</p>`).join('')
+            : '—';
+    }
+
+    // Line items
+    const tbody = document.getElementById('inv-items-body');
+    let subtotal = 0;
+
+    if (tbody) {
+        const items = order.items || [];
+        if (!items.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="p-4 text-center text-[#6B4423]">No line items</td>
+                </tr>`;
+        } else {
+            tbody.innerHTML = items.map(item => {
+                const qty = parseInt(item.quantity, 10) || 0;
+                const unit = typeof getOrderItemUnitPrice === 'function'
+                    ? getOrderItemUnitPrice(item)
+                    : (parseFloat(item.unitPrice) || 0);
+                const hasPrice = unit > 0;
+                const lineTotal = qty * unit;
+                if (hasPrice) subtotal += lineTotal;
+
+                const desc = [
+                    item.product || item.name || '—',
+                    item.caseSize ? `· ${item.caseSize}` : ''
+                ].filter(Boolean).join(' ');
+
+                const unitText = hasPrice
+                    ? ('$' + unit.toFixed(2))
+                    : (item.isMarketPrice ? 'Market' : '—');
+                const totalText = hasPrice
+                    ? ('$' + lineTotal.toFixed(2))
+                    : '—';
+
+                return `
+                    <tr class="border-t border-[#d4b78f]">
+                        <td class="p-3 text-left font-semibold">${qty}</td>
+                        <td class="p-3 text-left">${desc}</td>
+                        <td class="p-3 text-right">${unitText}</td>
+                        <td class="p-3 text-right font-semibold">${totalText}</td>
+                    </tr>`;
+            }).join('');
+        }
+    }
+
+    // Notes
+    const notesEl = document.getElementById('inv-notes');
+    if (notesEl) {
+        notesEl.textContent = (order.notes || '').trim() || '—';
+    }
+
+    // Totals
+    const shipping = Number(order.shippingCost != null ? order.shippingCost : 0) || 0;
+    const total = subtotal + shipping;
+
+    const subEl = document.getElementById('inv-subtotal');
+    const shipCostEl = document.getElementById('inv-shipping');
+    const totEl = document.getElementById('inv-total');
+    if (subEl) subEl.textContent = '$' + subtotal.toFixed(2);
+    if (shipCostEl) shipCostEl.textContent = '$' + shipping.toFixed(2);
+    if (totEl) totEl.textContent = '$' + total.toFixed(2);
+
+    // Ensure customers are available for addresses on next open if missing
+    if ((!allCustomers || allCustomers.length === 0) && typeof loadCustomers === 'function') {
+        loadCustomers();
+    }
+
+    const modal = document.getElementById('order-invoice-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+
 function openSalesmanOrderInvoice(orderId) {
     if (typeof showOrderDetails === 'function') {
         showOrderDetails(orderId);
@@ -2080,20 +2214,11 @@ function refreshOrders() {
 }
 
 function showOrderDetails(orderId) {
-    const order = allOrders.find(o => o.id === orderId);
-    if (!order) {
-        alert("Order not found.");
+    if (typeof openOrderInvoiceModal === 'function') {
+        openOrderInvoiceModal(orderId);
         return;
     }
-    let itemsList = order.items ? order.items.map(i => `• ${i.product} x${i.quantity}`).join('\n') : 'No items';
-    let details = `Order #${order.id}\n\n`;
-    details += `Salesman: ${order.salesman || 'N/A'}\n`;
-    details += `Customer: ${order.customer || 'N/A'}\n`;
-    details += `Status: ${order.status || 'Submitted'}\n`;
-    details += `Date: ${new Date(order.submittedAt).toLocaleString()}\n\n`;
-    details += `Items:\n${itemsList}\n\n`;
-    details += `Notes: ${order.notes || 'None'}\n`;
-    alert(details);
+    alert('Order invoice view is not available yet for #' + orderId);
 }
 
 async function updateOrderStatus(orderId, newStatus) {
