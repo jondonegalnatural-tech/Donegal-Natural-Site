@@ -32,6 +32,7 @@ body { background: #f8f1e9; }
 </style>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 </head>
 <body class="min-h-screen">
 
@@ -718,12 +719,27 @@ body { background: #f8f1e9; }
             </div>
             <!-- ========== END SALES REPORTS ========== -->
 
-                        <!-- ========== WEEKLY ITEM SALES MATRIX ========== -->
+            <!-- ========== WEEKLY ITEM SALES MATRIX ========== -->
             <div id="weekly-matrix-section" class="mb-8">
                 <h2 class="text-xl font-bold brand-green mb-4 flex items-center gap-2">
                     <i class="fas fa-table"></i> <span>Weekly Item Sales Matrix</span>
                 </h2>
                 <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
+
+                    <!-- View Switcher: Table | Trends -->
+                    <div class="flex gap-2 mb-5">
+                        <button id="matrix-view-table" onclick="setMatrixView('table')"
+                                class="px-5 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]">
+                            Table
+                        </button>
+                        <button id="matrix-view-trends" onclick="setMatrixView('trends')"
+                                class="px-5 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">
+                            Trends
+                        </button>
+                    </div>
+
+                    <!-- ========== TABLE VIEW (existing matrix – unchanged) ========== -->
+                    <div id="matrix-table-view">
                     <!-- Metric Toggle Buttons -->
                     <div class="mb-4 flex flex-wrap gap-2 items-center">
                         <span class="text-sm font-semibold text-[#6B4423] mr-2">Show:</span>
@@ -766,6 +782,91 @@ body { background: #f8f1e9; }
 
                     <!-- Matrix Container -->
                     <div id="weekly-matrix-container" class="overflow-x-auto"></div>
+                    </div>
+                    <!-- ========== END TABLE VIEW ========== -->
+
+                    <!-- ========== TRENDS VIEW ========== -->
+                    <div id="matrix-trends-view" class="hidden">
+
+                        <!-- Mode Tabs -->
+                        <div class="flex gap-2 mb-4">
+                            <button id="trends-mode-multi" onclick="setTrendsMode('multi')"
+                                    class="px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]">
+                                Multi-Year Trend
+                            </button>
+                            <button id="trends-mode-mtd" onclick="setTrendsMode('mtd')"
+                                    class="px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">
+                                MTD vs LY MTD
+                            </button>
+                        </div>
+
+                        <!-- Controls Row -->
+                        <div class="flex flex-wrap gap-3 items-center mb-5">
+                            <!-- Metric -->
+                            <div class="flex gap-1">
+                                <button id="trends-metric-units" onclick="setTrendsMetric('units')"
+                                        class="px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]">
+                                    Units
+                                </button>
+                                <button id="trends-metric-sales" onclick="setTrendsMetric('sales')"
+                                        class="px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">
+                                    Sales $
+                                </button>
+                            </div>
+
+                            <!-- Categories -->
+                            <select id="trends-category" onchange="renderTrendsChart()"
+                                    class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm">
+                                <option value="all">All Categories</option>
+                            </select>
+
+                            <!-- Lines mode (Phase 1 = Combined only) -->
+                            <div class="flex items-center gap-2 text-sm text-[#6B4423]">
+                                <span class="font-semibold">Lines:</span>
+                                <span class="px-3 py-1 rounded-lg bg-[#f8f4eb] border border-[#d4b78f]">Combined total</span>
+                            </div>
+
+                            <!-- Years -->
+                            <div class="flex items-center gap-3 text-sm">
+                                <label class="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="checkbox" id="trends-year-0" checked onchange="renderTrendsChart()" class="accent-[#1E4D2B]">
+                                    <span id="trends-year-0-label">2024</span>
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="checkbox" id="trends-year-1" checked onchange="renderTrendsChart()" class="accent-[#1E4D2B]">
+                                    <span id="trends-year-1-label">2025</span>
+                                </label>
+                                <label class="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="checkbox" id="trends-year-2" checked onchange="renderTrendsChart()" class="accent-[#1E4D2B]">
+                                    <span id="trends-year-2-label">2026</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Chart Canvas -->
+                        <div class="relative w-full" style="height: 380px;">
+                            <canvas id="trends-chart"></canvas>
+                        </div>
+
+                        <!-- Summary Cards -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
+                            <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-4 text-center">
+                                <p class="text-xs text-[#6B4423] font-semibold">This Year Total</p>
+                                <p id="trends-summary-ytd" class="text-xl font-bold brand-green mt-1">—</p>
+                            </div>
+                            <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-4 text-center">
+                                <p class="text-xs text-[#6B4423] font-semibold">vs Last Year</p>
+                                <p id="trends-summary-vsly" class="text-xl font-bold brand-green mt-1">—</p>
+                            </div>
+                            <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-4 text-center">
+                                <p class="text-xs text-[#6B4423] font-semibold">Top Category</p>
+                                <p id="trends-summary-topcat" class="text-xl font-bold brand-green mt-1">—</p>
+                            </div>
+                        </div>
+
+                    </div>
+                    <!-- ========== END TRENDS VIEW ========== -->
+
                 </div>
             </div>
             <!-- ========== END WEEKLY ITEM SALES MATRIX ========== -->
