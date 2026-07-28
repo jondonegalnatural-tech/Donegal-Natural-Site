@@ -1387,7 +1387,8 @@ function setTrendsMetric(metric) {
 
 function initTrendsYears() {
     const currentYear = new Date().getFullYear();
-    const years = [currentYear - 2, currentYear - 1, currentYear];
+    // Forward-looking: current year + next two years
+    const years = [currentYear, currentYear + 1, currentYear + 2];
 
     years.forEach((year, idx) => {
         const label = document.getElementById('trends-year-' + idx + '-label');
