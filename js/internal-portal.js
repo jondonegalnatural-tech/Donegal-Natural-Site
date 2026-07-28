@@ -15,6 +15,7 @@ let currentMatrixMetric = 'units';
 let currentMatrixView = 'table';          // 'table' | 'trends'
 let currentTrendsMode = 'multi';          // 'multi' | 'mtd' (mtd later)
 let currentTrendsMetric = 'units';        // 'units' | 'sales'
+let currentTrendsLineMode = 'combined';   // 'combined' | 'per'
 let trendsChartInstance = null;
 let currentInsightsFilter = 'all';
 let allCustomers = [];
@@ -1356,17 +1357,18 @@ function setTrendsMode(mode) {
     currentTrendsMode = mode;
     const btnMulti = document.getElementById('trends-mode-multi');
     const btnMtd = document.getElementById('trends-mode-mtd');
+    const yearControls = document.getElementById('trends-year-0')?.closest('.flex.items-center.gap-3');
 
     if (mode === 'multi') {
         if (btnMulti) btnMulti.className = 'px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]';
         if (btnMtd) btnMtd.className = 'px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]';
+        if (yearControls) yearControls.classList.remove('hidden');
         renderTrendsChart();
     } else {
-        // Phase 3 – MTD vs LY MTD (placeholder for now)
         if (btnMtd) btnMtd.className = 'px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]';
         if (btnMulti) btnMulti.className = 'px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]';
-        alert('MTD vs Last Year MTD is coming in Phase 3. Multi-Year Trend is available now.');
-        setTrendsMode('multi');
+        if (yearControls) yearControls.classList.add('hidden');
+        renderTrendsChart();
     }
 }
 
