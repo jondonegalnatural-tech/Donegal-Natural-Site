@@ -6662,8 +6662,6 @@ async function loadVendorPurchases(vendorId) {
     }
 }
 
-function showVendorDetail(vendorId) {
-
 async function showVendorDetail(vendorId) {
     const vendor = vendors.find(v => String(v.id) === String(vendorId));
     if (!vendor) {
