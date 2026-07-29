@@ -15,7 +15,6 @@ let currentMatrixMetric = 'units';
 let currentMatrixView = 'table';          // 'table' | 'trends'
 let currentTrendsMode = 'multi';          // 'multi' | 'mtd' (mtd later)
 let currentTrendsMetric = 'units';        // 'units' | 'sales'
-let currentTrendsLineMode = 'combined';   // 'combined' | 'per'
 let trendsChartInstance = null;
 let currentInsightsFilter = 'all';
 let allCustomers = [];
@@ -1401,24 +1400,91 @@ function initTrendsYears() {
 }
 
 function populateTrendsCategoryDropdown() {
-    const select = document.getElementById('trends-category');
-    if (!select || typeof PRODUCT_CATALOG === 'undefined') return;
+    const dropdown = document.getElementById('trends-category-dropdown');
+    if (!dropdown) return;
 
-    const categories = [...new Set(PRODUCT_CATALOG.map(p => p.category))].sort();
-    const current = select.value || 'all';
+    const categories = [...new Set((PRODUCT_CATALOG || []).map(p => p.category).filter(Boolean))].sort();
 
-    select.innerHTML = '<option value="all">All Categories</option>';
+    let html = `
+        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#f8f4eb] cursor-pointer text-sm">
+            <input type="checkbox" id="trends-cat-all" checked onchange="onTrendsCategoryChange('all')" class="accent-[#1E4D2B]">
+            <span class="font-semibold">All Categories</span>
+        </label>
+        <div class="border-t border-[#e8d9b8] my-1"></div>
+    `;
+
     categories.forEach(cat => {
-        const opt = document.createElement('option');
-        opt.value = cat;
-        opt.textContent = cat;
-        select.appendChild(opt);
+        const safeId = 'trends-cat-' + cat.replace(/[^a-zA-Z0-9]/g, '_');
+        html += `
+            <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#f8f4eb] cursor-pointer text-sm">
+                <input type="checkbox" id="${safeId}" data-category="${cat}" onchange="onTrendsCategoryChange()" class="accent-[#1E4D2B]">
+                <span>${cat}</span>
+            </label>
+        `;
     });
-    select.value = current;
+
+    dropdown.innerHTML = html;
 }
 
-function getMonthlyTrendData(selectedYears, categoryFilter, metric) {
-    // Returns { year: { 0: val, 1: val, ... 11: val } }
+function toggleTrendsCategoryDropdown() {
+    const dd = document.getElementById('trends-category-dropdown');
+    if (!dd) return;
+    dd.classList.toggle('hidden');
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    const btn = document.getElementById('trends-category-btn');
+    const dd = document.getElementById('trends-category-dropdown');
+    if (!btn || !dd) return;
+    if (!btn.contains(e.target) && !dd.contains(e.target)) {
+        dd.classList.add('hidden');
+    }
+});
+
+function onTrendsCategoryChange(which) {
+    const allCb = document.getElementById('trends-cat-all');
+    const categoryCbs = document.querySelectorAll('#trends-category-dropdown input[data-category]');
+
+    if (which === 'all') {
+        const isChecked = allCb?.checked;
+        categoryCbs.forEach(cb => { cb.checked = false; });
+        if (allCb) allCb.checked = !!isChecked;
+    } else {
+        if (allCb) allCb.checked = false;
+    }
+
+    updateTrendsCategoryLabel();
+    renderTrendsChart();
+}
+
+function getSelectedTrendsCategories() {
+    const allCb = document.getElementById('trends-cat-all');
+    if (allCb && allCb.checked) return ['all'];
+
+    const selected = [];
+    document.querySelectorAll('#trends-category-dropdown input[data-category]:checked').forEach(cb => {
+        selected.push(cb.dataset.category);
+    });
+    return selected.length ? selected : ['all'];
+}
+
+function updateTrendsCategoryLabel() {
+    const label = document.getElementById('trends-category-label');
+    if (!label) return;
+
+    const selected = getSelectedTrendsCategories();
+    if (selected.includes('all') || selected.length === 0) {
+        label.textContent = 'All Categories';
+    } else if (selected.length === 1) {
+        label.textContent = selected[0];
+    } else {
+        label.textContent = selected.length + ' categories';
+    }
+}
+
+function getMonthlyTrendData(selectedYears, categories, metric) {
+    // categories is an array: ['all'] or ['Bully Sticks', 'Jerky', ...]
     const result = {};
     selectedYears.forEach(y => {
         result[y] = {};
@@ -1427,10 +1493,14 @@ function getMonthlyTrendData(selectedYears, categoryFilter, metric) {
 
     if (!allOrders || allOrders.length === 0) return result;
 
+    const isAll = !categories || categories.includes('all') || categories.length === 0;
+
     const productNamesInCategory = new Set();
-    if (categoryFilter && categoryFilter !== 'all' && typeof PRODUCT_CATALOG !== 'undefined') {
+    if (!isAll && typeof PRODUCT_CATALOG !== 'undefined') {
         PRODUCT_CATALOG.forEach(p => {
-            if (p.category === categoryFilter) productNamesInCategory.add(p.name);
+            if (categories.includes(p.category)) {
+                productNamesInCategory.add(p.name);
+            }
         });
     }
 
@@ -1439,7 +1509,7 @@ function getMonthlyTrendData(selectedYears, categoryFilter, metric) {
         if (isNaN(orderDate.getTime())) return;
 
         const year = orderDate.getFullYear();
-        const month = orderDate.getMonth(); // 0-11
+        const month = orderDate.getMonth();
 
         if (!selectedYears.includes(year)) return;
 
@@ -1447,9 +1517,8 @@ function getMonthlyTrendData(selectedYears, categoryFilter, metric) {
             const name = item.product || item.name || '';
             if (!name) return;
 
-            if (categoryFilter && categoryFilter !== 'all') {
+            if (!isAll) {
                 if (!productNamesInCategory.has(name)) {
-                    // fuzzy match fallback
                     let matched = false;
                     productNamesInCategory.forEach(pn => {
                         if (name.toLowerCase().includes(pn.toLowerCase()) || pn.toLowerCase().includes(name.toLowerCase())) {
@@ -1481,7 +1550,16 @@ function renderTrendsChart() {
     const canvas = document.getElementById('trends-chart');
     if (!canvas || typeof Chart === 'undefined') return;
 
-    // Collect selected years
+    const selectedCategories = getSelectedTrendsCategories();
+    const metric = currentTrendsMetric || 'units';
+
+    // ========== MTD vs LY MTD MODE ==========
+    if (currentTrendsMode === 'mtd') {
+        renderMtdComparisonChart(canvas, selectedCategories, metric);
+        return;
+    }
+
+    // ========== MULTI-YEAR MODE ==========
     const selectedYears = [];
     for (let i = 0; i < 3; i++) {
         const cb = document.getElementById('trends-year-' + i);
@@ -1491,41 +1569,70 @@ function renderTrendsChart() {
         }
     }
     if (selectedYears.length === 0) {
-        // force at least current year
-        const currentYear = new Date().getFullYear();
-        selectedYears.push(currentYear);
+        selectedYears.push(new Date().getFullYear());
     }
     selectedYears.sort((a, b) => a - b);
 
-    const category = document.getElementById('trends-category')?.value || 'all';
-    const metric = currentTrendsMetric || 'units';
-    const monthlyData = getMonthlyTrendData(selectedYears, category, metric);
-
     const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    // Brand palette
     const colors = [
-        { border: '#1E4D2B', bg: 'rgba(30, 77, 43, 0.15)' },
-        { border: '#6B4423', bg: 'rgba(107, 68, 35, 0.15)' },
-        { border: '#c9a227', bg: 'rgba(201, 162, 39, 0.15)' }
+        { border: '#1E4D2B', bg: 'rgba(30, 77, 43, 0.12)' },
+        { border: '#6B4423', bg: 'rgba(107, 68, 35, 0.12)' },
+        { border: '#c9a227', bg: 'rgba(201, 162, 39, 0.12)' },
+        { border: '#2a6f4e', bg: 'rgba(42, 111, 78, 0.12)' },
+        { border: '#8b5a2b', bg: 'rgba(139, 90, 43, 0.12)' },
+        { border: '#4a7c59', bg: 'rgba(74, 124, 89, 0.12)' },
+        { border: '#a67c52', bg: 'rgba(166, 124, 82, 0.12)' },
+        { border: '#3d5c45', bg: 'rgba(61, 92, 69, 0.12)' }
     ];
 
-    const datasets = selectedYears.map((year, idx) => {
-        const data = [];
-        for (let m = 0; m < 12; m++) data.push(Math.round((monthlyData[year] || {})[m] || 0));
-        const c = colors[idx % colors.length];
-        return {
-            label: String(year),
-            data: data,
-            borderColor: c.border,
-            backgroundColor: c.bg,
-            borderWidth: 2.5,
-            tension: 0.3,
-            fill: true,
-            pointRadius: 3,
-            pointHoverRadius: 5
-        };
-    });
+    let datasets = [];
+    const isAll = selectedCategories.includes('all');
+
+    if (!isAll && selectedCategories.length > 0) {
+        // One line per selected category (focus on current year or latest selected year)
+        const focusYear = selectedYears.includes(new Date().getFullYear())
+            ? new Date().getFullYear()
+            : selectedYears[selectedYears.length - 1];
+
+        selectedCategories.forEach((cat, idx) => {
+            const monthlyData = getMonthlyTrendData([focusYear], [cat], metric);
+            const data = [];
+            for (let m = 0; m < 12; m++) {
+                data.push(Math.round((monthlyData[focusYear] || {})[m] || 0));
+            }
+            const c = colors[idx % colors.length];
+            datasets.push({
+                label: cat,
+                data: data,
+                borderColor: c.border,
+                backgroundColor: c.bg,
+                borderWidth: 2.5,
+                tension: 0.3,
+                fill: false,
+                pointRadius: 3,
+                pointHoverRadius: 5
+            });
+        });
+    } else {
+        // All Categories → one line per year
+        const monthlyData = getMonthlyTrendData(selectedYears, ['all'], metric);
+        datasets = selectedYears.map((year, idx) => {
+            const data = [];
+            for (let m = 0; m < 12; m++) data.push(Math.round((monthlyData[year] || {})[m] || 0));
+            const c = colors[idx % colors.length];
+            return {
+                label: String(year),
+                data: data,
+                borderColor: c.border,
+                backgroundColor: c.bg,
+                borderWidth: 2.5,
+                tension: 0.3,
+                fill: true,
+                pointRadius: 3,
+                pointHoverRadius: 5
+            };
+        });
+    }
 
     if (trendsChartInstance) {
         trendsChartInstance.destroy();
@@ -1534,10 +1641,7 @@ function renderTrendsChart() {
 
     trendsChartInstance = new Chart(canvas, {
         type: 'line',
-        data: {
-            labels: monthLabels,
-            datasets: datasets
-        },
+        data: { labels: monthLabels, datasets: datasets },
         options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -1545,25 +1649,20 @@ function renderTrendsChart() {
             plugins: {
                 legend: {
                     position: 'bottom',
-                    labels: { color: '#6B4423', font: { weight: '600' } }
+                    labels: { color: '#6B4423', font: { weight: '600' }, boxWidth: 12 }
                 },
                 tooltip: {
                     callbacks: {
                         label: function(ctx) {
                             const v = ctx.parsed.y || 0;
-                            if (metric === 'sales') {
-                                return ctx.dataset.label + ': $' + v.toLocaleString();
-                            }
+                            if (metric === 'sales') return ctx.dataset.label + ': $' + v.toLocaleString();
                             return ctx.dataset.label + ': ' + v.toLocaleString() + ' units';
                         }
                     }
                 }
             },
             scales: {
-                x: {
-                    ticks: { color: '#6B4423' },
-                    grid: { color: 'rgba(107, 68, 35, 0.08)' }
-                },
+                x: { ticks: { color: '#6B4423' }, grid: { color: 'rgba(107, 68, 35, 0.08)' } },
                 y: {
                     beginAtZero: true,
                     ticks: {
@@ -1583,7 +1682,163 @@ function renderTrendsChart() {
     });
 
     // Summary cards
-    updateTrendsSummary(selectedYears, monthlyData, metric, category);
+    const monthlyForSummary = getMonthlyTrendData(selectedYears, selectedCategories, metric);
+    updateTrendsSummary(selectedYears, monthlyForSummary, metric, selectedCategories);
+}
+
+function renderMtdComparisonChart(canvas, categories, metric) {
+    const isAll = !categories || categories.includes('all') || categories.length === 0;
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const currentDay = now.getDate();
+
+    let mtdValue = 0;
+    let lyMtdValue = 0;
+
+    const productNamesInCategory = new Set();
+    if (!isAll && typeof PRODUCT_CATALOG !== 'undefined') {
+        PRODUCT_CATALOG.forEach(p => {
+            if (categories.includes(p.category)) {
+                productNamesInCategory.add(p.name);
+            }
+        });
+    }
+
+    (allOrders || []).forEach(order => {
+        const orderDate = new Date(order.submittedAt || order.submitted_at || order.date || 0);
+        if (isNaN(orderDate.getTime())) return;
+
+        const y = orderDate.getFullYear();
+        const m = orderDate.getMonth();
+        const d = orderDate.getDate();
+
+        const isCurrentMtd = (y === currentYear && m === currentMonth && d <= currentDay);
+        const isLyMtd = (y === currentYear - 1 && m === currentMonth && d <= currentDay);
+
+        if (!isCurrentMtd && !isLyMtd) return;
+
+        (order.items || []).forEach(item => {
+            const name = item.product || item.name || '';
+            if (!name) return;
+
+            if (!isAll) {
+                if (!productNamesInCategory.has(name)) {
+                    let matched = false;
+                    productNamesInCategory.forEach(pn => {
+                        if (name.toLowerCase().includes(pn.toLowerCase()) || pn.toLowerCase().includes(name.toLowerCase())) {
+                            matched = true;
+                        }
+                    });
+                    if (!matched) return;
+                }
+            }
+
+            const qty = parseInt(item.quantity, 10) || 0;
+            if (qty <= 0) return;
+
+            let add = qty;
+            if (metric === 'sales') {
+                const unit = typeof getOrderItemUnitPrice === 'function'
+                    ? getOrderItemUnitPrice(item)
+                    : (parseFloat(item.unitPrice) || 0);
+                add = qty * unit;
+            }
+
+            if (isCurrentMtd) mtdValue += add;
+            if (isLyMtd) lyMtdValue += add;
+        });
+    });
+
+    mtdValue = Math.round(mtdValue);
+    lyMtdValue = Math.round(lyMtdValue);
+
+    if (trendsChartInstance) {
+        trendsChartInstance.destroy();
+        trendsChartInstance = null;
+    }
+
+    trendsChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: ['This Month (MTD)', 'Last Year MTD'],
+            datasets: [{
+                label: metric === 'sales' ? 'Sales $' : 'Units',
+                data: [mtdValue, lyMtdValue],
+                backgroundColor: ['rgba(30, 77, 43, 0.75)', 'rgba(107, 68, 35, 0.65)'],
+                borderColor: ['#1E4D2B', '#6B4423'],
+                borderWidth: 2,
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const v = ctx.parsed.y || 0;
+                            if (metric === 'sales') return '$' + v.toLocaleString();
+                            return v.toLocaleString() + ' units';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { ticks: { color: '#6B4423', font: { weight: '600' } }, grid: { display: false } },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: '#6B4423',
+                        callback: function(value) {
+                            if (metric === 'sales') {
+                                if (value >= 1000) return '$' + (value / 1000).toFixed(0) + 'k';
+                                return '$' + value;
+                            }
+                            return value;
+                        }
+                    },
+                    grid: { color: 'rgba(107, 68, 35, 0.08)' }
+                }
+            }
+        }
+    });
+
+    // Summary cards for MTD mode
+    const ytdEl = document.getElementById('trends-summary-ytd');
+    const vsEl = document.getElementById('trends-summary-vsly');
+    const topEl = document.getElementById('trends-summary-topcat');
+
+    if (ytdEl) {
+        ytdEl.textContent = metric === 'sales'
+            ? '$' + mtdValue.toLocaleString()
+            : mtdValue.toLocaleString() + ' units';
+    }
+
+    if (vsEl) {
+        if (lyMtdValue === 0) {
+            vsEl.textContent = '—';
+            vsEl.className = 'text-xl font-bold brand-green mt-1';
+        } else {
+            const pct = ((mtdValue - lyMtdValue) / lyMtdValue) * 100;
+            const sign = pct >= 0 ? '+' : '';
+            vsEl.textContent = sign + pct.toFixed(1) + '%';
+            vsEl.className = 'text-xl font-bold mt-1 ' + (pct >= 0 ? 'text-green-700' : 'text-red-600');
+        }
+    }
+
+    if (topEl) {
+        if (isAll) {
+            topEl.textContent = 'All Categories';
+        } else if (categories.length === 1) {
+            topEl.textContent = categories[0];
+        } else {
+            topEl.textContent = categories.length + ' categories';
+        }
+    }
 }
 
 function updateTrendsSummary(selectedYears, monthlyData, metric, category) {
