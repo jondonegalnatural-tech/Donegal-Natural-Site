@@ -1035,7 +1035,11 @@ function renderWeeklyMatrix() {
     const container = document.getElementById('weekly-matrix-container');
     if (!container) return;
 
-    populateCategoryDropdown();
+    // Only build the checkbox list once (rebuilding would wipe the user's selection)
+    const matrixDd = document.getElementById('matrix-category-dropdown');
+    if (matrixDd && matrixDd.children.length === 0) {
+        populateCategoryDropdown();
+    }
 
     const weeks = getFourWeekWindow();
     currentMatrixWeeks = weeks;
@@ -1852,7 +1856,7 @@ function renderTrendsChart() {
 
     // Summary cards
     const monthlyForSummary = getMonthlyTrendData(selectedYears, selectedCategories, metric);
-    updateTrendsSummary(selectedYears, monthlyData, metric, selectedCategories);
+    updateTrendsSummary(selectedYears, monthlyForSummary, metric, selectedCategories);
 }
 
 function renderMtdComparisonChart(canvas, categories, metric) {
