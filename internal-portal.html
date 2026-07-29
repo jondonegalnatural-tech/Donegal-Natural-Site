@@ -770,9 +770,20 @@ body { background: #f8f1e9; }
                     <div class="mb-4 flex flex-wrap gap-3 items-center justify-between">
                         <div class="flex flex-wrap gap-3 items-center">
                             <input type="text" id="matrix-search" placeholder="Search products..." class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-64" oninput="renderWeeklyMatrix()">
-                            <select id="matrix-category" class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm" onchange="renderWeeklyMatrix()">
-                                <option value="all">All Categories</option>
-                            </select>
+                                                        <div class="relative flex items-center gap-2">
+                                <div class="relative">
+                                    <button type="button" id="matrix-category-btn"
+                                            onclick="toggleMatrixCategoryDropdown()"
+                                            class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm bg-white min-w-[180px] text-left flex items-center justify-between gap-2">
+                                        <span id="matrix-category-label">All Categories</span>
+                                        <span class="text-xs">▾</span>
+                                    </button>
+                                    <div id="matrix-category-dropdown"
+                                         class="hidden absolute left-0 top-full mt-1 z-50 bg-white border-2 border-[#6B4423] rounded-xl shadow-lg py-2 min-w-[220px] max-h-64 overflow-y-auto">
+                                        <!-- checkboxes populated by JS -->
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <div class="flex gap-2">
                             <button onclick="moveMatrixWeeks(-4)" class="px-4 py-2 border-2 border-[#6B4423] rounded-xl text-sm hover:bg-[#f8f4eb]">← Previous 4 Weeks</button>

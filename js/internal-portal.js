@@ -1042,10 +1042,11 @@ function renderWeeklyMatrix() {
     currentMatrixStartDate = weeks[0].start;
 
     const searchTerm = (document.getElementById('matrix-search')?.value || '').toLowerCase().trim();
-    const selectedCategory = document.getElementById('matrix-category')?.value || 'all';
+    const selectedCategories = getSelectedMatrixCategories();
+    const isAllCategories = selectedCategories.includes('all');
 
     let filteredCatalog = PRODUCT_CATALOG.filter(product => {
-        const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
+        const matchesCategory = isAllCategories || selectedCategories.includes(product.category);
         const matchesSearch = searchTerm === '' || product.name.toLowerCase().includes(searchTerm);
         return matchesCategory && matchesSearch;
     });
@@ -1272,17 +1273,124 @@ function getMetricLabel(metric) {
 }
 
 function populateCategoryDropdown() {
-    const select = document.getElementById('matrix-category');
-    if (!select) return;
+    const dropdown = document.getElementById('matrix-category-dropdown');
+    if (!dropdown) return;
 
-    const categories = [...new Set(PRODUCT_CATALOG.map(p => p.category))];
-    select.innerHTML = '<option value="all">All Categories</option>';
+    const categories = [...new Set((PRODUCT_CATALOG || []).map(p => p.category).filter(Boolean))].sort();
+
+    let html = `
+        <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#f8f4eb] cursor-pointer text-sm">
+            <input type="checkbox" id="matrix-cat-all" checked onchange="onMatrixCategoryChange('all')" class="accent-[#1E4D2B]">
+            <span class="font-semibold">All Categories</span>
+        </label>
+        <div class="border-t border-[#e8d9b8] my-1"></div>
+    `;
+
     categories.forEach(cat => {
-        const option = document.createElement('option');
-        option.value = cat;
-        option.textContent = cat;
-        select.appendChild(option);
+        const safeId = 'matrix-cat-' + cat.replace(/[^a-zA-Z0-9]/g, '_');
+        html += `
+            <label class="flex items-center gap-2 px-3 py-1.5 hover:bg-[#f8f4eb] cursor-pointer text-sm">
+                <input type="checkbox" id="${safeId}" data-category="${cat}" onchange="onMatrixCategoryChange()" class="accent-[#1E4D2B]">
+                <span>${cat}</span>
+            </label>
+        `;
     });
+
+    dropdown.innerHTML = html;
+}
+
+function toggleMatrixCategoryDropdown() {
+    const dd = document.getElementById('matrix-category-dropdown');
+    if (!dd) return;
+    dd.classList.toggle('hidden');
+}
+
+function onMatrixCategoryChange(which) {
+    const allCb = document.getElementById('matrix-cat-all');
+    const categoryCbs = document.querySelectorAll('#matrix-category-dropdown input[data-category]');
+
+    if (which === 'all') {
+        const isChecked = allCb?.checked;
+        categoryCbs.forEach(cb => { cb.checked = false; });
+        if (allCb) allCb.checked = !!isChecked;
+    } else {
+        if (allCb) allCb.checked = false;
+    }
+
+    updateMatrixCategoryLabel();
+    renderWeeklyMatrix();
+}
+
+function getSelectedMatrixCategories() {
+    const allCb = document.getElementById('matrix-cat-all');
+    if (allCb && allCb.checked) return ['all'];
+
+    const selected = [];
+    document.querySelectorAll('#matrix-category-dropdown input[data-category]:checked').forEach(cb => {
+        selected.push(cb.dataset.category);
+    });
+    return selected.length ? selected : ['all'];
+}
+
+function updateMatrixCategoryLabel() {
+    const label = document.getElementById('matrix-category-label');
+    if (!label) return;
+
+    const selected = getSelectedMatrixCategories();
+    if (selected.includes('all') || selected.length === 0) {
+        label.textContent = 'All Categories';
+    } else if (selected.length === 1) {
+        label.textContent = selected[0];
+    } else {
+        label.textContent = selected.length + ' categories';
+    }
+}
+
+function toggleMatrixCategoryDropdown() {
+    const dd = document.getElementById('matrix-category-dropdown');
+    if (!dd) return;
+    dd.classList.toggle('hidden');
+}
+
+function onMatrixCategoryChange(which) {
+    const allCb = document.getElementById('matrix-cat-all');
+    const categoryCbs = document.querySelectorAll('#matrix-category-dropdown input[data-category]');
+
+    if (which === 'all') {
+        const isChecked = allCb?.checked;
+        categoryCbs.forEach(cb => { cb.checked = false; });
+        if (allCb) allCb.checked = !!isChecked;
+    } else {
+        if (allCb) allCb.checked = false;
+    }
+
+    updateMatrixCategoryLabel();
+    renderWeeklyMatrix();
+}
+
+function getSelectedMatrixCategories() {
+    const allCb = document.getElementById('matrix-cat-all');
+    if (allCb && allCb.checked) return ['all'];
+
+    const selected = [];
+    document.querySelectorAll('#matrix-category-dropdown input[data-category]:checked').forEach(cb => {
+        selected.push(cb.dataset.category);
+    });
+    return selected.length ? selected : ['all'];
+}
+
+function updateMatrixCategoryLabel() {
+    const label = document.getElementById('matrix-category-label');
+    if (!label) return;
+
+    const selected = getSelectedMatrixCategories();
+    if (selected.includes('all') || selected.length === 0) {
+        label.textContent = 'All Categories';
+    } else if (selected.length === 1) {
+        label.textContent = selected[0];
+    } else {
+        label.textContent = selected.length + ' categories';
+    }
 }
 
 function exportMatrixToCSV() {
@@ -1425,6 +1533,67 @@ function populateTrendsCategoryDropdown() {
 
     dropdown.innerHTML = html;
 }
+
+function toggleTrendsCategoryDropdown() {
+    const dd = document.getElementById('trends-category-dropdown');
+    if (!dd) return;
+    dd.classList.toggle('hidden');
+}
+
+function onTrendsCategoryChange(which) {
+    const allCb = document.getElementById('trends-cat-all');
+    const categoryCbs = document.querySelectorAll('#trends-category-dropdown input[data-category]');
+
+    if (which === 'all') {
+        const isChecked = allCb?.checked;
+        categoryCbs.forEach(cb => { cb.checked = false; });
+        if (allCb) allCb.checked = !!isChecked;
+    } else {
+        if (allCb) allCb.checked = false;
+    }
+
+    updateTrendsCategoryLabel();
+    renderTrendsChart();
+}
+
+function getSelectedTrendsCategories() {
+    const allCb = document.getElementById('trends-cat-all');
+    if (allCb && allCb.checked) return ['all'];
+
+    const selected = [];
+    document.querySelectorAll('#trends-category-dropdown input[data-category]:checked').forEach(cb => {
+        selected.push(cb.dataset.category);
+    });
+    return selected.length ? selected : ['all'];
+}
+
+function updateTrendsCategoryLabel() {
+    const label = document.getElementById('trends-category-label');
+    if (!label) return;
+
+    const selected = getSelectedTrendsCategories();
+    if (selected.includes('all') || selected.length === 0) {
+        label.textContent = 'All Categories';
+    } else if (selected.length === 1) {
+        label.textContent = selected[0];
+    } else {
+        label.textContent = selected.length + ' categories';
+    }
+}
+
+document.addEventListener('click', function(e) {
+    const matrixBtn = document.getElementById('matrix-category-btn');
+    const matrixDd = document.getElementById('matrix-category-dropdown');
+    if (matrixBtn && matrixDd && !matrixBtn.contains(e.target) && !matrixDd.contains(e.target)) {
+        matrixDd.classList.add('hidden');
+    }
+
+    const trendsBtn = document.getElementById('trends-category-btn');
+    const trendsDd = document.getElementById('trends-category-dropdown');
+    if (trendsBtn && trendsDd && !trendsBtn.contains(e.target) && !trendsDd.contains(e.target)) {
+        trendsDd.classList.add('hidden');
+    }
+});
 
 function toggleTrendsCategoryDropdown() {
     const dd = document.getElementById('trends-category-dropdown');
@@ -1683,7 +1852,7 @@ function renderTrendsChart() {
 
     // Summary cards
     const monthlyForSummary = getMonthlyTrendData(selectedYears, selectedCategories, metric);
-    updateTrendsSummary(selectedYears, monthlyForSummary, metric, selectedCategories);
+    updateTrendsSummary(selectedYears, monthlyData, metric, selectedCategories);
 }
 
 function renderMtdComparisonChart(canvas, categories, metric) {
@@ -1879,7 +2048,13 @@ function updateTrendsSummary(selectedYears, monthlyData, metric, category) {
     }
 
     if (topEl) {
-        topEl.textContent = (category && category !== 'all') ? category : 'All Categories';
+        if (!category || category === 'all' || (Array.isArray(category) && (category.includes('all') || category.length === 0))) {
+            topEl.textContent = 'All Categories';
+        } else if (Array.isArray(category)) {
+            topEl.textContent = category.length === 1 ? category[0] : category.length + ' categories';
+        } else {
+            topEl.textContent = category;
+        }
     }
 }
 
