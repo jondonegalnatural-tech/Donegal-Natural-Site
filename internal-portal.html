@@ -825,7 +825,23 @@ body { background: #f8f1e9; }
                                 </button>
                             </div>
 
-                            <!-- Categories -->
+                                                        <!-- Categories multi-select -->
+                            <div class="relative flex items-center gap-2">
+                                <label class="text-sm font-semibold text-[#6B4423]">Categories:</label>
+                                <div class="relative">
+                                    <button type="button" id="trends-category-btn"
+                                            onclick="toggleTrendsCategoryDropdown()"
+                                            class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm bg-white min-w-[180px] text-left flex items-center justify-between gap-2">
+                                        <span id="trends-category-label">All Categories</span>
+                                        <span class="text-xs">▾</span>
+                                    </button>
+                                    <div id="trends-category-dropdown"
+                                         class="hidden absolute left-0 top-full mt-1 z-50 bg-white border-2 border-[#6B4423] rounded-xl shadow-lg py-2 min-w-[220px] max-h-64 overflow-y-auto">
+                                        <!-- checkboxes populated by JS -->
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- Years -->
                             <div class="flex items-center gap-3 text-sm">
                                 <label class="flex items-center gap-1.5 cursor-pointer">
