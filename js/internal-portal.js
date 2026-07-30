@@ -2166,10 +2166,16 @@ function renderOrdersTable() {
         if (statusLower === 'pending' || statusLower === 'submitted' || statusLower === '') {
             if (hasMarketPrice) {
                 statusHTML = `
-                    <button onclick="openMarketPriceModal('${safeId}'); event.stopImmediatePropagation()"
-                            class="text-xs px-3 py-1 rounded bg-orange-500 text-white hover:bg-orange-600">
-                        Set Market Prices
-                    </button>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="openMarketPriceModal('${safeId}'); event.stopImmediatePropagation()"
+                                class="text-xs px-3 py-1 rounded bg-orange-500 text-white hover:bg-orange-600">
+                            Set Market Prices
+                        </button>
+                        <button onclick="denyOrder('${safeId}'); event.stopImmediatePropagation()"
+                                class="text-xs px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700">
+                            Deny
+                        </button>
+                    </div>
                 `;
             } else {
                 statusHTML = `
@@ -3032,12 +3038,15 @@ function renderOrderProductSearch() {
     resultsEl.innerHTML = matches.map(p => {
         const caseSize = p.caseSize || '—';
         const safeName = p.name.replace(/'/g, "\\'");
+        const priceText = p.isMarketPrice
+            ? 'Market'
+            : (p.unitPrice != null ? ('$' + Number(p.unitPrice).toFixed(2)) : '—');
         return `
             <button type="button"
                     onclick="selectOrderProduct('${safeName}')"
                     class="w-full text-left px-4 py-2 text-sm hover:bg-[#f8f4eb] border-b border-[#f0e6d9] last:border-0">
                 <span class="font-medium text-[#1E4D2B]">${p.name}</span>
-                <span class="block text-xs text-[#6B4423] mt-0.5">Case size: ${caseSize} · Qty is in units</span>
+                <span class="block text-xs text-[#6B4423] mt-0.5">${caseSize} · ${priceText}</span>
             </button>
         `;
     }).join('');
@@ -3080,11 +3089,19 @@ function renderNewOrderSelectedList() {
             : null;
         const caseSize = catalogItem?.caseSize || '—';
 
+        const priceText = catalogItem
+            ? (catalogItem.isMarketPrice
+                ? 'Market'
+                : (catalogItem.unitPrice != null
+                    ? ('$' + Number(catalogItem.unitPrice).toFixed(2))
+                    : '—'))
+            : '—';
+
         return `
             <div class="flex flex-wrap items-center gap-3 bg-white border border-[#6B4423] rounded-xl px-3 py-2">
                 <div class="flex-1 min-w-[140px]">
                     <span class="text-sm font-medium text-[#1E4D2B]">${p.name}</span>
-                    <span class="block text-xs text-[#6B4423]">Case: ${caseSize} · Enter units</span>
+                    <span class="block text-xs text-[#6B4423]">${caseSize} · ${priceText}</span>
                 </div>
                 <label class="text-xs text-[#6B4423]">Units</label>
                 <input type="number" min="1" value="${p.quantity}"
@@ -5343,6 +5360,8 @@ async function confirmInquiryApproval() {
 }
 
 async function denyInquiry(id, element) {
+    if (!id) return;
+
     const reason = prompt('Reason for denying this inquiry:');
     if (reason === null) return;
     if (!reason.trim()) {
@@ -5359,18 +5378,26 @@ async function denyInquiry(id, element) {
         const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
         const deniedBy = user.fullName || user.name || user.email || 'Admin';
 
-        // Only use columns that exist in the live schema
-        const { error } = await supabaseClient
+        const { data, error } = await supabaseClient
             .from('wholesale_inquiries')
             .update({
                 status: 'denied',
                 notes: 'Denied by ' + deniedBy + ': ' + reason.trim()
             })
-            .eq('id', id);
+            .eq('id', id)
+            .select('id, status');
 
         if (error) throw error;
 
+        if (!data || data.length === 0) {
+            throw new Error('No inquiry was updated. Check that the row still exists.');
+        }
+
+        // Force a full refresh of lists + stats
+        await loadInquiries();
         await renderInquiries();
+        if (typeof updateInquiryStats === 'function') updateInquiryStats();
+
         alert('Inquiry denied.');
     } catch (err) {
         console.error('Deny error:', err);
@@ -8976,9 +9003,6 @@ if (typeof updatePriceProposalsBadge === 'function') {
     setTimeout(updatePriceProposalsBadge, 500);
 }
 
-if (typeof refreshAchApprovalsBadge === 'function') {
-    setTimeout(refreshAchApprovalsBadge, 500);
-}
 if (typeof loadUser === 'function') {
     loadUser();
 }
