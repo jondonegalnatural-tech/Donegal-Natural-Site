@@ -2967,27 +2967,30 @@ async function submitPasswordChange() {
         const { error: authError } = await supabaseClient.auth.updateUser({ password: p1 });
         if (authError) throw authError;
 
-        // Clear must_change_password on profile — must succeed or we stop
+        // Best-effort: try to clear profiles.must_change_password
+        // RLS is currently blocking this — do not throw
         if (user.id) {
             const { error: profileError } = await supabaseClient
                 .from('profiles')
                 .update({ must_change_password: false })
                 .eq('id', user.id);
-
             if (profileError) {
-                throw profileError; // surface the real error instead of silently failing
+                console.warn('profiles.must_change_password update blocked:', profileError.message);
             }
         }
 
-        // Secondary flag on customers table (safety net)
+        // Durable flag on customers table (this is what stops the modal on next login)
         if (email) {
-            await supabaseClient
+            const { error: custError } = await supabaseClient
                 .from('customers')
                 .update({ password_changed: true })
                 .ilike('email', email);
+            if (custError) {
+                console.warn('customers.password_changed update failed:', custError.message);
+            }
         }
 
-        // Only clear local flag after the database write succeeded
+        // Clear local flag so this session continues
         user.mustChangePassword = false;
         localStorage.setItem('currentUser', JSON.stringify(user));
 

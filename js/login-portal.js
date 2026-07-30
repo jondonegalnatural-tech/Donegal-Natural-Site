@@ -56,15 +56,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
+            // Decide whether password change is still required
+            let mustChange = !!profile.must_change_password;
+
+            // Safety net: if customer already set permanent password,
+            // do not force the modal again (profiles update is blocked by RLS)
+            if (mustChange && profile.role === 'customer') {
+                try {
+                    const { data: cust } = await supabaseClient
+                        .from('customers')
+                        .select('password_changed')
+                        .ilike('email', profile.email)
+                        .maybeSingle();
+                    if (cust && cust.password_changed === true) {
+                        mustChange = false;
+                    }
+                } catch (e) {
+                    console.warn('password_changed check failed:', e);
+                }
+            }
+
             // Save session in the shape the rest of the app expects
-                        localStorage.setItem('currentUser', JSON.stringify({
+            localStorage.setItem('currentUser', JSON.stringify({
                 id: profile.id,
                 username: profile.email,
                 fullName: profile.full_name || profile.email,
                 role: profile.role,
                 company: profile.company || '',
                 email: profile.email,
-                mustChangePassword: !!profile.must_change_password,
+                mustChangePassword: mustChange,
                 loginTime: new Date().toISOString(),
                 supabase: true
             }));
