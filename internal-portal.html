@@ -2580,10 +2580,13 @@ body { background: #f8f1e9; }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/internal-portal.js"></script>
 <script>
-/* Self-contained mobile menu – works even if external JS has issues */
+/* Single mobile menu controller for internal portal */
 (function () {
     function toggleMenu(e) {
-        if (e) { e.preventDefault(); e.stopPropagation(); }
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         var sidebar = document.querySelector('.sidebar');
         var overlay = document.getElementById('mobile-sidebar-overlay');
         if (!sidebar) return;
@@ -2603,22 +2606,26 @@ body { background: #f8f1e9; }
     }
     function bind() {
         var btn = document.getElementById('mobile-menu-btn');
-        if (btn && !btn.dataset.inlineBound) {
-            btn.dataset.inlineBound = '1';
-            btn.addEventListener('click', toggleMenu, true);
+        if (btn && !btn.dataset.menuBound) {
+            btn.dataset.menuBound = '1';
+            btn.addEventListener('click', toggleMenu);
         }
         var overlay = document.getElementById('mobile-sidebar-overlay');
-        if (overlay && !overlay.dataset.inlineBound) {
-            overlay.dataset.inlineBound = '1';
-            overlay.addEventListener('click', closeMenu, true);
+        if (overlay && !overlay.dataset.menuBound) {
+            overlay.dataset.menuBound = '1';
+            overlay.addEventListener('click', closeMenu);
         }
+        document.querySelectorAll('.sidebar .nav-link').forEach(function (link) {
+            link.addEventListener('click', function () {
+                if (window.innerWidth < 768) closeMenu();
+            });
+        });
     }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', bind);
     } else {
         bind();
     }
-    // Also expose for any other code
     window.toggleMobileSidebar = toggleMenu;
     window.closeMobileSidebar = closeMenu;
 })();
