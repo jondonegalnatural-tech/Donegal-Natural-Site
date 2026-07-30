@@ -67,6 +67,9 @@ body { background: #f8f1e9; }
     .main-content-area {
         padding: 1rem !important;
     }
+    [data-card-id="sales-matrix"] {
+        grid-column: span 1 !important;
+    }
 }
 
 @media (min-width: 768px) {
@@ -511,9 +514,9 @@ body { background: #f8f1e9; }
 
                                 <!-- ==================== SALESMEN ==================== -->
         <div id="salesmen" class="content-section" style="display: none;">
-            <div class="flex items-center justify-between mb-8">
-                <h1 class="text-3xl font-bold brand-green">Salesmen</h1>
-                <div class="flex gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-6 md:mb-8">
+                <h1 class="text-2xl md:text-3xl font-bold brand-green">Salesmen</h1>
+                <div class="flex flex-wrap gap-2">
                     <button onclick="showAddSalesmanModal()"
                             class="btn-brand px-4 py-2 text-sm rounded-xl flex items-center gap-2">
                         <i class="fas fa-plus"></i>
@@ -535,15 +538,15 @@ body { background: #f8f1e9; }
 
                         <!-- ==================== ORDERS ==================== -->
         <div id="orders" class="content-section" style="display: none;">
-            <div class="flex items-center justify-between mb-8">
-                <h1 class="text-3xl font-bold brand-green">Received Orders</h1>
-                                <div class="flex gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-6 md:mb-8">
+                <h1 class="text-2xl md:text-3xl font-bold brand-green">Received Orders</h1>
+                <div class="flex flex-wrap gap-2">
                     <button onclick="showAddOrderModal()"
                             class="btn-brand px-4 py-2 text-sm rounded-xl flex items-center gap-2">
                         <i class="fas fa-plus"></i>
                         <span>Add Order</span>
                     </button>
-                    <button onclick="showSection('dashboard')" 
+                    <button onclick="showSection('dashboard')"
                             class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
                         <i class="fas fa-arrow-left"></i>
                         <span>Dashboard</span>
@@ -612,18 +615,16 @@ body { background: #f8f1e9; }
 
                         <!-- ==================== CUSTOMER INQUIRIES ==================== -->
         <div id="inquiries" class="content-section" style="display: none;">
-            <div class="flex items-center justify-between mb-8">
+            <div class="flex flex-wrap items-start justify-between gap-3 mb-6 md:mb-8">
                 <div>
-                    <h1 class="text-3xl font-bold brand-green">Customer Inquiries</h1>
+                    <h1 class="text-2xl md:text-3xl font-bold brand-green">Customer Inquiries</h1>
                     <p class="text-[#6B4423]">Manage new customer requests</p>
                 </div>
-                <div class="flex gap-3">
-                    <button onclick="showSection('dashboard')" 
-                            class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
-                        <i class="fas fa-arrow-left"></i>
-                        <span>Dashboard</span>
-                    </button>
-                </div>
+                <button onclick="showSection('dashboard')"
+                        class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>Dashboard</span>
+                </button>
             </div>
 
             <!-- Stats -->
@@ -659,12 +660,12 @@ body { background: #f8f1e9; }
 
                 <!-- ==================== INVENTORY ==================== -->
         <div id="inventory" class="content-section" style="display: none;">
-            <div class="flex items-center justify-between mb-8">
+            <div class="flex flex-wrap items-start justify-between gap-3 mb-6 md:mb-8">
                 <div>
-                    <h1 class="text-3xl font-bold brand-green">Inventory</h1>
+                    <h1 class="text-2xl md:text-3xl font-bold brand-green">Inventory</h1>
                     <p class="text-[#6B4423]">Track stock levels, receive purchase orders, and view projections</p>
                 </div>
-                <button onclick="showSection('dashboard')" 
+                <button onclick="showSection('dashboard')"
                         class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
                     <i class="fas fa-arrow-left"></i>
                     <span>Dashboard</span>
@@ -700,23 +701,24 @@ body { background: #f8f1e9; }
 
                         <!-- ==================== CUSTOMERS ==================== -->
         <div id="customers" class="content-section" style="display: none;">
-            <div class="flex items-center justify-between mb-8">
+            <div class="flex flex-wrap items-start justify-between gap-3 mb-6 md:mb-8">
                 <div>
-                    <h1 class="text-3xl font-bold brand-green">Customers</h1>
+                    <h1 class="text-2xl md:text-3xl font-bold brand-green">Customers</h1>
                     <p class="text-[#6B4423]">Manage and track your customer base</p>
                 </div>
-                    <div class="flex gap-3">
+                <div class="flex flex-wrap gap-2">
                     <button onclick="showAddCustomerModal()"
                             class="btn-brand px-4 py-2 text-sm rounded-xl flex items-center gap-2">
                         <i class="fas fa-plus"></i>
                         <span>Add Customer</span>
                     </button>
-                    <button onclick="addTestCustomer()" 
+                    <button onclick="addTestCustomer()"
                             class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
                         <i class="fas fa-plus"></i>
-                        <span>Add Test Customer</span>
+                        <span class="hidden sm:inline">Add Test Customer</span>
+                        <span class="sm:hidden">Test</span>
                     </button>
-                    <button onclick="showSection('dashboard')" 
+                    <button onclick="showSection('dashboard')"
                             class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
                         <i class="fas fa-arrow-left"></i>
                         <span>Dashboard</span>
@@ -748,12 +750,12 @@ body { background: #f8f1e9; }
 
                                 <!-- ==================== REPORTS ==================== -->
         <div id="reports" class="content-section" style="display: none;">
-                        <div class="flex items-center justify-between mb-8">
+            <div class="flex flex-wrap items-start justify-between gap-3 mb-6 md:mb-8">
                 <div>
-                    <h1 class="text-3xl font-bold brand-green">Reports</h1>
+                    <h1 class="text-2xl md:text-3xl font-bold brand-green">Reports</h1>
                     <p class="text-[#6B4423]">Sales performance, customer insights, and more</p>
                 </div>
-                <button onclick="showSection('dashboard')" 
+                <button onclick="showSection('dashboard')"
                         class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
                     <i class="fas fa-arrow-left"></i>
                     <span>Dashboard</span>
@@ -1068,21 +1070,21 @@ body { background: #f8f1e9; }
 
                         <!-- ==================== VENDORS ==================== -->
         <div id="vendors" class="content-section" style="display: none;">
-            <div class="flex items-center justify-between mb-8">
+            <div class="flex flex-wrap items-start justify-between gap-3 mb-6 md:mb-8">
                 <div>
-                    <h1 class="text-3xl font-bold brand-green">Vendors</h1>
+                    <h1 class="text-2xl md:text-3xl font-bold brand-green">Vendors</h1>
                     <p class="text-[#6B4423]">Manage suppliers, purchase history, and costs</p>
                 </div>
-                <div class="flex gap-3">
-                    <button onclick="openProductCostsModal()" 
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="openProductCostsModal()"
                             class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
                         <i class="fas fa-dollar-sign mr-2"></i> Cost of Goods
                     </button>
-                    <button onclick="typeof showAddVendorModal === 'function' && showAddVendorModal()" 
+                    <button onclick="typeof showAddVendorModal === 'function' && showAddVendorModal()"
                             class="btn-brand px-4 py-2 rounded-xl text-sm font-semibold">
                         <i class="fas fa-plus mr-2"></i> Add Vendor
                     </button>
-                    <button onclick="showSection('dashboard')" 
+                    <button onclick="showSection('dashboard')"
                             class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
                         <i class="fas fa-arrow-left"></i>
                         <span>Dashboard</span>
@@ -1098,12 +1100,12 @@ body { background: #f8f1e9; }
 
                         <!-- ==================== LEGAL / FORMS ==================== -->
         <div id="legal-forms" class="content-section" style="display: none;">
-                        <div class="flex items-center justify-between mb-8">
+            <div class="flex flex-wrap items-start justify-between gap-3 mb-6 md:mb-8">
                 <div>
-                    <h1 class="text-3xl font-bold brand-green">Legal / Forms</h1>
+                    <h1 class="text-2xl md:text-3xl font-bold brand-green">Legal / Forms</h1>
                     <p class="text-[#6B4423]">Placeholder checklist of documents we should collect and store</p>
                 </div>
-                <button onclick="showSection('dashboard')" 
+                <button onclick="showSection('dashboard')"
                         class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
                     <i class="fas fa-arrow-left"></i>
                     <span>Dashboard</span>
