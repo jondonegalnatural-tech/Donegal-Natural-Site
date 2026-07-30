@@ -970,7 +970,14 @@ const PRODUCT_CATALOG = [
 
 
 // ================== USER & AUTHENTICATION ==================
+let _mobileMenuLastToggle = 0;
+
 function toggleMobileSidebar() {
+    // Ignore second fire within 350ms (iOS touchend + click)
+    const now = Date.now();
+    if (now - _mobileMenuLastToggle < 350) return;
+    _mobileMenuLastToggle = now;
+
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.getElementById('mobile-sidebar-overlay');
     if (!sidebar) {
@@ -993,28 +1000,28 @@ function closeMobileSidebar() {
     document.body.style.overflow = '';
 }
 
-// Always available globally
 window.toggleMobileSidebar = toggleMobileSidebar;
 window.closeMobileSidebar = closeMobileSidebar;
 
-// Robust binding for mobile (click + touchend, capture phase)
+// Single binding only — click is enough on modern iOS after touch
 (function bindMobileMenuBtn() {
-    function handler(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleMobileSidebar();
-    }
     function attach() {
         const btn = document.getElementById('mobile-menu-btn');
-        if (!btn) return;
-        btn.addEventListener('click', handler, { capture: true, passive: false });
-        btn.addEventListener('touchend', handler, { capture: true, passive: false });
+        if (!btn || btn.dataset.bound === '1') return;
+        btn.dataset.bound = '1';
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleMobileSidebar();
+        }, { capture: true, passive: false });
     }
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', attach);
     } else {
         attach();
     }
+    // Backup after full load in case DOM was late
+    window.addEventListener('load', attach);
 })();
 
 // Close drawer when a nav link is tapped on mobile
@@ -1024,7 +1031,6 @@ document.addEventListener('click', function (e) {
         closeMobileSidebar();
     }
 });
-
 function logout() {
     if (confirm("Are you sure you want to logout?")) {
         localStorage.removeItem("currentUser");
