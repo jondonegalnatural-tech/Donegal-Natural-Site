@@ -164,6 +164,7 @@ async function refreshCustomerInsights() {
 }
 
 function showSection(section) {
+    if (typeof closeMobileSidebar === 'function') closeMobileSidebar();
     if (section === 'salesmen' && typeof renderSalesmen === 'function') {
         renderSalesmen();
     }
@@ -972,13 +973,48 @@ const PRODUCT_CATALOG = [
 function toggleMobileSidebar() {
     const sidebar = document.querySelector('.sidebar');
     const overlay = document.getElementById('mobile-sidebar-overlay');
-    if (!sidebar) return;
+    if (!sidebar) {
+        console.warn('toggleMobileSidebar: .sidebar not found');
+        return;
+    }
     const isOpen = sidebar.classList.toggle('mobile-open');
     if (overlay) {
         if (isOpen) overlay.classList.add('open');
         else overlay.classList.remove('open');
     }
+    document.body.style.overflow = isOpen ? 'hidden' : '';
 }
+
+function closeMobileSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('mobile-sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('mobile-open');
+    if (overlay) overlay.classList.remove('open');
+    document.body.style.overflow = '';
+}
+
+// Make sure they are always available globally
+window.toggleMobileSidebar = toggleMobileSidebar;
+window.closeMobileSidebar = closeMobileSidebar;
+
+// Backup click/touch binding (in case inline onclick is blocked on mobile)
+(function bindMobileMenuBtn() {
+    const btn = document.getElementById('mobile-menu-btn');
+    if (!btn) return;
+    btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleMobileSidebar();
+    }, { passive: false });
+})();
+
+// Close drawer when a nav link is tapped on mobile
+document.addEventListener('click', function (e) {
+    const link = e.target.closest && e.target.closest('.nav-link');
+    if (link && window.innerWidth < 768) {
+        closeMobileSidebar();
+    }
+});
 
 function closeMobileSidebar() {
     const sidebar = document.querySelector('.sidebar');
