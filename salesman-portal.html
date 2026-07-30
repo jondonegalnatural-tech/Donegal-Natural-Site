@@ -520,6 +520,120 @@
     </div>
 </div>
 
+<!-- ================== ORDER INVOICE MODAL (read-only) ================== -->
+<div id="order-invoice-modal"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4"
+     onclick="hideOrderInvoiceModal()">
+    <div onclick="event.stopImmediatePropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto p-6 md:p-8">
+
+        <!-- Header: INVOICE + Logo -->
+        <div class="flex items-start justify-between gap-4 mb-6">
+            <div>
+                <h2 class="text-3xl font-bold tracking-wide text-[#1E4D2B]">INVOICE</h2>
+                <div class="mt-3 text-sm text-[#6B4423] leading-relaxed">
+                    <p class="font-semibold text-[#1E4D2B]">Donegal Natural Dog Treats</p>
+                    <p>258 W Front St</p>
+                    <p>Marietta, PA 17547</p>
+                    <p>(800) 223-0017</p>
+                </div>
+            </div>
+            <div class="flex flex-col items-end gap-2">
+                <img src="media/logo.png" alt="Donegal Natural" class="h-36 w-auto md:h-40">
+                <button type="button" onclick="hideOrderInvoiceModal()"
+                        class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+            </div>
+        </div>
+
+        <!-- Invoice No + Date -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <div class="bg-[#1E4D2B] text-[#d4b78f] px-4 py-3 rounded-xl border-2 border-[#1E4D2B]">
+                <p class="text-xs uppercase tracking-wide opacity-90">Invoice No.</p>
+                <p id="inv-number" class="font-mono font-semibold text-sm break-all">—</p>
+            </div>
+            <div class="bg-[#1E4D2B] text-[#d4b78f] px-4 py-3 rounded-xl border-2 border-[#1E4D2B]">
+                <p class="text-xs uppercase tracking-wide opacity-90">Date</p>
+                <p id="inv-date" class="font-semibold">—</p>
+            </div>
+        </div>
+
+        <!-- Bill To / Ship To -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div class="border border-[#d4b78f] rounded-xl overflow-hidden">
+                <div class="bg-[#1E4D2B] text-[#d4b78f] px-3 py-2 text-sm font-semibold">BILL TO</div>
+                <div id="inv-bill-to" class="p-3 text-sm text-[#6B4423] space-y-0.5 leading-relaxed">—</div>
+            </div>
+            <div class="border border-[#d4b78f] rounded-xl overflow-hidden">
+                <div class="bg-[#1E4D2B] text-[#d4b78f] px-3 py-2 text-sm font-semibold">SHIP TO</div>
+                <div id="inv-ship-to" class="p-3 text-sm text-[#6B4423] space-y-0.5 leading-relaxed">—</div>
+            </div>
+        </div>
+
+        <!-- Status badge -->
+        <div class="mb-3">
+            <span id="inv-status" class="inline-block px-3 py-1 text-xs font-semibold rounded-full bg-[#f8f4eb] text-[#6B4423]">—</span>
+        </div>
+
+        <!-- Line items table -->
+        <div class="overflow-x-auto mb-6 border border-[#d4b78f] rounded-xl">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                        <th class="p-3 text-left w-16">QTY</th>
+                        <th class="p-3 text-left">DESCRIPTION</th>
+                        <th class="p-3 text-right w-28">UNIT COST</th>
+                        <th class="p-3 text-right w-28">TOTAL</th>
+                    </tr>
+                </thead>
+                <tbody id="inv-items-body">
+                    <tr>
+                        <td colspan="4" class="p-4 text-center text-[#6B4423]">No line items</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Notes + Totals -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="border border-[#d4b78f] rounded-xl overflow-hidden">
+                <div class="bg-[#1E4D2B] text-[#d4b78f] px-3 py-2 text-sm font-semibold">Notes</div>
+                <div id="inv-notes" class="p-3 text-sm text-[#6B4423] min-h-[72px] whitespace-pre-wrap">—</div>
+            </div>
+            <div class="space-y-2 text-sm self-end">
+                <div class="flex justify-between">
+                    <span class="text-[#6B4423]">SUBTOTAL</span>
+                    <span id="inv-subtotal" class="font-semibold">$0.00</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-[#6B4423]">SHIPPING</span>
+                    <span id="inv-shipping" class="font-semibold">$0.00</span>
+                </div>
+                <div id="inv-credit-row" class="hidden flex justify-between">
+                    <span class="text-[#6B4423]">CREDIT</span>
+                    <span id="inv-credit" class="font-semibold text-red-700">−$0.00</span>
+                </div>
+                <div class="flex justify-between text-lg font-bold brand-green border-t border-[#d4b78f] pt-2">
+                    <span>TOTAL</span>
+                    <span id="inv-total">$0.00</span>
+                </div>
+            </div>
+        </div>
+
+        <p class="text-center text-sm text-[#6B4423] mt-2 font-medium">Terms of payment: 10 days</p>
+        <p class="text-center text-sm italic text-[#6B4423] mb-6">
+            Please allow 7 to 10 business days for your order to be shipped. It has been a pleasure doing business with you. Thank you.
+        </p>
+
+        <div class="flex justify-end">
+            <button type="button" onclick="hideOrderInvoiceModal()"
+                    class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+<!-- ================== END ORDER INVOICE MODAL ================== -->
+
         <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/salesman-portal.js"></script>
 </body>

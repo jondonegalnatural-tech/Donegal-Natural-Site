@@ -486,6 +486,7 @@ async function renderCustomers() {
             return;
         }
 
+        window._salesmanCustomers = data || [];
         grid.innerHTML = '';
 
         data.forEach(c => {
@@ -1557,6 +1558,7 @@ async function renderMyOrders() {
         }
 
         const orders = data || [];
+        window._salesmanOrders = orders;
 
         // Populate the customer filter dropdown (unique names only)
         const filterEl = document.getElementById("order-history-customer-filter");
@@ -1706,15 +1708,18 @@ function createOrderCard(order, showSalesman = false) {
         `;
     }).join("");
 
-    const shipping = parseFloat(order.shippingCost) || 0;
+    const shipping = parseFloat(order.shipping_cost ?? order.shippingCost) || 0;
     const finalTotal = productSubtotal + shipping;
 
     const normalCommission = normalSubtotal * (standardRate / 100);
     const marketCommissionAmt = marketSubtotal * (marketRate / 100);
     const totalCommission = normalCommission + marketCommissionAmt;
 
+     const safeId = String(order.id || '').replace(/'/g, "\\'");
     return `
-        <div style="background:#fff; border:2px solid #6B4423; border-radius:12px; padding:1rem; margin-bottom:1rem;">
+        <div style="background:#fff; border:2px solid #6B4423; border-radius:12px; padding:1rem; margin-bottom:1rem; cursor:pointer;"
+             onclick="openSalesmanOrderInvoice('${safeId}')"
+             title="Click to view invoice">
             <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:0.75rem;">
                 <div>
                     <strong style="color:#1E4D2B; font-size:1.05rem;">${order.customer_name || order.customer || "Customer"}</strong>
@@ -1758,6 +1763,127 @@ function createOrderCard(order, showSalesman = false) {
             </div>
         </div>
     `;
+}
+
+function hideOrderInvoiceModal() {
+    const modal = document.getElementById('order-invoice-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function openSalesmanOrderInvoice(orderId) {
+    const id = String(orderId || '');
+    const orders = window._salesmanOrders || [];
+    const order = orders.find(o => String(o.id) === id);
+    if (!order) {
+        alert('Order not found.');
+        return;
+    }
+
+    // Customer lookup for addresses (email first, then name)
+    let customer = null;
+    const customers = window._salesmanCustomers || [];
+    if (customers.length) {
+        customer = customers.find(c =>
+            (c.email && order.customer_email && c.email.toLowerCase() === order.customer_email.toLowerCase()) ||
+            (c.name && order.customer_name && c.name.toLowerCase() === order.customer_name.toLowerCase())
+        ) || null;
+    }
+
+    // Header
+    const invNumber = document.getElementById('inv-number');
+    const invDate = document.getElementById('inv-date');
+    const invStatus = document.getElementById('inv-status');
+    if (invNumber) invNumber.textContent = order.id || '—';
+    if (invDate) {
+        const d = new Date(order.submitted_at || order.submittedAt || Date.now());
+        invDate.textContent = isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
+    }
+    if (invStatus) invStatus.textContent = (order.status || 'Submitted').toString();
+
+    // BILL TO / SHIP TO
+    const billEl = document.getElementById('inv-bill-to');
+    const shipEl = document.getElementById('inv-ship-to');
+    const name = order.customer_name || order.customer || customer?.name || '—';
+    const company = order.customer_company || customer?.company || '';
+    const email = order.customer_email || customer?.email || '';
+    const phone = customer?.phone || '';
+    const billingAddr = customer?.billing_address || customer?.billingAddress || customer?.shipping_address || customer?.shippingAddress || '';
+    const shippingAddr = customer?.shipping_address || customer?.shippingAddress || billingAddr || '';
+
+    const billLines = [name, company, phone, email, billingAddr].filter(Boolean);
+    const shipLines = [name, company, phone, email, shippingAddr].filter(Boolean);
+    if (billEl) billEl.innerHTML = billLines.map(l => `<p>${l}</p>`).join('') || '—';
+    if (shipEl) shipEl.innerHTML = shipLines.map(l => `<p>${l}</p>`).join('') || '—';
+
+    // Line items
+    const tbody = document.getElementById('inv-items-body');
+    let productSubtotal = 0;
+    if (tbody) {
+        const items = order.items || [];
+        if (items.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-[#6B4423]">No line items</td></tr>`;
+        } else {
+            tbody.innerHTML = items.map(item => {
+                const qty = parseInt(item.quantity, 10) || 0;
+                const unit = parseFloat(item.unitPrice);
+                const hasPrice = !isNaN(unit) && unit > 0;
+                const lineTotal = hasPrice ? unit * qty : 0;
+                if (hasPrice) productSubtotal += lineTotal;
+                const unitLabel = hasPrice ? '$' + unit.toFixed(2) : (item.displayPrice || 'Market Price');
+                const totalLabel = hasPrice ? '$' + lineTotal.toFixed(2) : (item.displayPrice || '—');
+                return `
+                    <tr class="border-b border-[#eee]">
+                        <td class="p-3 align-top">${qty}</td>
+                        <td class="p-3 align-top">${item.product || item.name || 'Item'}</td>
+                        <td class="p-3 text-right align-top">${unitLabel}</td>
+                        <td class="p-3 text-right align-top font-semibold">${totalLabel}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    }
+
+    // Notes (hide system text)
+    const notesEl = document.getElementById('inv-notes');
+    if (notesEl) {
+        let notes = (order.notes || '').trim();
+        const systemPhrases = [
+            'Submitted via Salesman Portal',
+            'Created via Add Order',
+            'Submitted via Wholesale Portal'
+        ];
+        if (systemPhrases.some(p => notes === p || notes.startsWith(p))) {
+            notes = '';
+        }
+        notesEl.textContent = notes || '—';
+    }
+
+    // Totals
+    const shipping = parseFloat(order.shipping_cost ?? order.shippingCost) || 0;
+    const credit = parseFloat(order.credit) || 0;
+    const finalTotal = Math.max(0, productSubtotal + shipping - credit);
+
+    const subEl = document.getElementById('inv-subtotal');
+    const shipCostEl = document.getElementById('inv-shipping');
+    const creditRow = document.getElementById('inv-credit-row');
+    const creditEl = document.getElementById('inv-credit');
+    const totalEl = document.getElementById('inv-total');
+
+    if (subEl) subEl.textContent = '$' + productSubtotal.toFixed(2);
+    if (shipCostEl) shipCostEl.textContent = shipping > 0 ? '$' + shipping.toFixed(2) : '$0.00';
+    if (creditRow && creditEl) {
+        if (credit > 0) {
+            creditRow.classList.remove('hidden');
+            creditEl.textContent = '−$' + credit.toFixed(2);
+        } else {
+            creditRow.classList.add('hidden');
+        }
+    }
+    if (totalEl) totalEl.textContent = '$' + finalTotal.toFixed(2);
+
+    // Show modal
+    const modal = document.getElementById('order-invoice-modal');
+    if (modal) modal.classList.remove('hidden');
 }
 
 function updateOrderStatus(orderId, newStatus) {
