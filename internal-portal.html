@@ -796,12 +796,12 @@ body { background: #f8f1e9; }
                     <div id="matrix-table-view">
                     <!-- Metric Toggle Buttons -->
                     <div class="mb-4 flex flex-wrap gap-2 items-center">
-                        <span class="text-sm font-semibold text-[#6B4423] mr-2">Show:</span>
-                        <button id="metric-units" onclick="setMatrixMetric('units')" class="metric-btn px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]">Units</button>
-                        <button id="metric-sales" onclick="setMatrixMetric('sales')" class="metric-btn px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">Sales $</button>
-                        <button id="metric-change" onclick="setMatrixMetric('change')" class="metric-btn px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">% Change</button>
-                        <button id="metric-potential" onclick="setMatrixMetric('potential')" class="metric-btn px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">Potential GP</button>
-                        <button id="metric-actual" onclick="setMatrixMetric('actual')" class="metric-btn px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">Actual GP</button>
+                        <span class="text-sm font-semibold text-[#6B4423] mr-1">Show:</span>
+                        <button id="metric-units" onclick="setMatrixMetric('units')" class="metric-btn px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs md:text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]">Units</button>
+                        <button id="metric-sales" onclick="setMatrixMetric('sales')" class="metric-btn px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs md:text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">Sales $</button>
+                        <button id="metric-change" onclick="setMatrixMetric('change')" class="metric-btn px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs md:text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">% Change</button>
+                        <button id="metric-potential" onclick="setMatrixMetric('potential')" class="metric-btn px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs md:text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">Potential GP</button>
+                        <button id="metric-actual" onclick="setMatrixMetric('actual')" class="metric-btn px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs md:text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">Actual GP</button>
                     </div>
 
                     <!-- % Change Disclaimer -->
@@ -821,27 +821,27 @@ body { background: #f8f1e9; }
                     </div>
 
                     <!-- Matrix Controls -->
-                    <div class="mb-4 flex flex-wrap gap-3 items-center justify-between">
-                        <div class="flex flex-wrap gap-3 items-center">
-                            <input type="text" id="matrix-search" placeholder="Search products..." class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-64" oninput="renderWeeklyMatrix()">
-                                                        <div class="relative flex items-center gap-2">
-                                <div class="relative">
-                                    <button type="button" id="matrix-category-btn"
-                                            onclick="toggleMatrixCategoryDropdown()"
-                                            class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm bg-white min-w-[180px] text-left flex items-center justify-between gap-2">
-                                        <span id="matrix-category-label">All Categories</span>
-                                        <span class="text-xs">▾</span>
-                                    </button>
-                                    <div id="matrix-category-dropdown"
-                                         class="hidden absolute left-0 top-full mt-1 z-50 bg-white border-2 border-[#6B4423] rounded-xl shadow-lg py-2 min-w-[220px] max-h-64 overflow-y-auto">
-                                        <!-- checkboxes populated by JS -->
-                                    </div>
+                    <div class="mb-4 flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-center justify-between">
+                        <div class="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 items-stretch sm:items-center w-full sm:w-auto">
+                            <input type="text" id="matrix-search" placeholder="Search products..."
+                                   class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-full sm:w-64"
+                                   oninput="renderWeeklyMatrix()">
+                            <div class="relative">
+                                <button type="button" id="matrix-category-btn"
+                                        onclick="toggleMatrixCategoryDropdown()"
+                                        class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm bg-white w-full sm:min-w-[180px] text-left flex items-center justify-between gap-2">
+                                    <span id="matrix-category-label">All Categories</span>
+                                    <span class="text-xs">▾</span>
+                                </button>
+                                <div id="matrix-category-dropdown"
+                                     class="hidden absolute left-0 top-full mt-1 z-50 bg-white border-2 border-[#6B4423] rounded-xl shadow-lg py-2 min-w-[220px] max-h-64 overflow-y-auto">
+                                    <!-- checkboxes populated by JS -->
                                 </div>
                             </div>
                         </div>
-                        <div class="flex gap-2">
-                            <button onclick="moveMatrixWeeks(-4)" class="px-4 py-2 border-2 border-[#6B4423] rounded-xl text-sm hover:bg-[#f8f4eb]">← Previous 4 Weeks</button>
-                            <button onclick="moveMatrixWeeks(4)" class="px-4 py-2 border-2 border-[#6B4423] rounded-xl text-sm hover:bg-[#f8f4eb]">Next 4 Weeks →</button>
+                        <div class="flex flex-wrap gap-2">
+                            <button onclick="moveMatrixWeeks(-4)" class="flex-1 sm:flex-none px-3 py-2 border-2 border-[#6B4423] rounded-xl text-xs sm:text-sm hover:bg-[#f8f4eb]">← Prev 4 Weeks</button>
+                            <button onclick="moveMatrixWeeks(4)" class="flex-1 sm:flex-none px-3 py-2 border-2 border-[#6B4423] rounded-xl text-xs sm:text-sm hover:bg-[#f8f4eb]">Next 4 Weeks →</button>
                         </div>
                     </div>
 
@@ -866,26 +866,26 @@ body { background: #f8f1e9; }
                         </div>
 
                         <!-- Controls Row -->
-                        <div class="flex flex-wrap gap-3 items-center mb-5">
+                        <div class="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-center mb-5">
                             <!-- Metric -->
                             <div class="flex gap-1">
                                 <button id="trends-metric-units" onclick="setTrendsMetric('units')"
-                                        class="px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]">
+                                        class="px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs md:text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]">
                                     Units
                                 </button>
                                 <button id="trends-metric-sales" onclick="setTrendsMetric('sales')"
-                                        class="px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">
+                                        class="px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs md:text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">
                                     Sales $
                                 </button>
                             </div>
 
-                                                        <!-- Categories multi-select -->
-                            <div class="relative flex items-center gap-2">
+                            <!-- Categories multi-select -->
+                            <div class="relative flex flex-wrap items-center gap-2">
                                 <label class="text-sm font-semibold text-[#6B4423]">Categories:</label>
-                                <div class="relative">
+                                <div class="relative flex-1 sm:flex-none">
                                     <button type="button" id="trends-category-btn"
                                             onclick="toggleTrendsCategoryDropdown()"
-                                            class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm bg-white min-w-[180px] text-left flex items-center justify-between gap-2">
+                                            class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm bg-white w-full sm:min-w-[180px] text-left flex items-center justify-between gap-2">
                                         <span id="trends-category-label">All Categories</span>
                                         <span class="text-xs">▾</span>
                                     </button>
@@ -897,7 +897,7 @@ body { background: #f8f1e9; }
                             </div>
 
                             <!-- Years -->
-                            <div class="flex items-center gap-3 text-sm">
+                            <div class="flex flex-wrap items-center gap-3 text-sm">
                                 <label class="flex items-center gap-1.5 cursor-pointer">
                                     <input type="checkbox" id="trends-year-0" checked onchange="renderTrendsChart()" class="accent-[#1E4D2B]">
                                     <span id="trends-year-0-label">2026</span>
@@ -914,7 +914,7 @@ body { background: #f8f1e9; }
                         </div>
 
                         <!-- Chart Canvas -->
-                        <div class="relative w-full" style="height: 380px;">
+                        <div class="relative w-full h-[260px] sm:h-[320px] md:h-[380px]">
                             <canvas id="trends-chart"></canvas>
                         </div>
 
@@ -1100,12 +1100,12 @@ body { background: #f8f1e9; }
 
                         <!-- ==================== LEGAL / FORMS ==================== -->
         <div id="legal-forms" class="content-section" style="display: none;">
-            <div class="flex flex-wrap items-start justify-between gap-3 mb-6 md:mb-8">
+                        <div class="flex items-center justify-between mb-8">
                 <div>
-                    <h1 class="text-2xl md:text-3xl font-bold brand-green">Legal / Forms</h1>
+                    <h1 class="text-3xl font-bold brand-green">Legal / Forms</h1>
                     <p class="text-[#6B4423]">Placeholder checklist of documents we should collect and store</p>
                 </div>
-                <button onclick="showSection('dashboard')"
+                <button onclick="showSection('dashboard')" 
                         class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
                     <i class="fas fa-arrow-left"></i>
                     <span>Dashboard</span>
