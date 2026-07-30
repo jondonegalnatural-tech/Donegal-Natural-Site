@@ -969,6 +969,32 @@ const PRODUCT_CATALOG = [
 
 
 // ================== USER & AUTHENTICATION ==================
+function toggleMobileSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('mobile-sidebar-overlay');
+    if (!sidebar) return;
+    const isOpen = sidebar.classList.toggle('mobile-open');
+    if (overlay) {
+        if (isOpen) overlay.classList.add('open');
+        else overlay.classList.remove('open');
+    }
+}
+
+function closeMobileSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('mobile-sidebar-overlay');
+    if (sidebar) sidebar.classList.remove('mobile-open');
+    if (overlay) overlay.classList.remove('open');
+}
+
+// Close mobile drawer when a nav link is clicked
+document.addEventListener('click', function (e) {
+    const link = e.target.closest && e.target.closest('.nav-link');
+    if (link && window.innerWidth < 768) {
+        closeMobileSidebar();
+    }
+});
+
 function logout() {
     if (confirm("Are you sure you want to logout?")) {
         localStorage.removeItem("currentUser");
