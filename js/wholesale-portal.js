@@ -2967,15 +2967,19 @@ async function submitPasswordChange() {
         const { error: authError } = await supabaseClient.auth.updateUser({ password: p1 });
         if (authError) throw authError;
 
-        // Clear must_change_password on profile (if RLS allows)
+        // Clear must_change_password on profile — must succeed or we stop
         if (user.id) {
-            await supabaseClient
+            const { error: profileError } = await supabaseClient
                 .from('profiles')
                 .update({ must_change_password: false })
                 .eq('id', user.id);
+
+            if (profileError) {
+                throw profileError; // surface the real error instead of silently failing
+            }
         }
 
-        // Mark customer as password_changed
+        // Secondary flag on customers table (safety net)
         if (email) {
             await supabaseClient
                 .from('customers')
@@ -2983,6 +2987,7 @@ async function submitPasswordChange() {
                 .ilike('email', email);
         }
 
+        // Only clear local flag after the database write succeeded
         user.mustChangePassword = false;
         localStorage.setItem('currentUser', JSON.stringify(user));
 
