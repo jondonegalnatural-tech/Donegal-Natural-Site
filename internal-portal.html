@@ -173,32 +173,34 @@ body { background: #f8f1e9; }
 
                     <!-- ==================== DASHBOARD ==================== -->
         <div id="dashboard" class="content-section">
-            <div class="flex items-center justify-between mb-8">
-                <div class="flex items-center gap-4">
-                    <h1 class="text-3xl font-bold brand-green">Dashboard Home</h1>
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-6 md:mb-8">
+                <div class="flex flex-wrap items-center gap-3">
+                    <h1 class="text-2xl md:text-3xl font-bold brand-green">Dashboard Home</h1>
                     <button onclick="window.location.href='salesman-portal.html'"
-                            class="btn-brand px-5 py-2 rounded-xl text-sm font-semibold">
+                            class="btn-brand px-4 md:px-5 py-2 rounded-xl text-sm font-semibold">
                         <i class="fas fa-user-tie mr-2"></i>
                         Salesman View
                     </button>
                 </div>
-                <button type="button"
-        id="ach-approvals-btn"
-        onclick="showAchApprovalsPanel()"
-        class="px-5 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] hover:bg-[#f8f4eb] relative">
-    <i class="fas fa-university mr-2"></i>
-    ACH Approvals
-    <span id="ach-approvals-badge"
-          class="hidden absolute -top-2 -right-2 min-w-[20px] h-5 px-1 flex items-center justify-center text-xs font-bold bg-orange-500 text-white rounded-full">
-        0
-                    </span>
-                </button>
-                <button id="customize-dashboard-btn"
-                        onclick="toggleDashboardCustomize()"
-                        class="btn-brand px-5 py-2 rounded-xl text-sm font-semibold">
-                    <i class="fas fa-sliders-h mr-2"></i>
-                    <span id="customize-dashboard-label">Customize Dashboard</span>
-                </button>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button type="button"
+                            id="ach-approvals-btn"
+                            onclick="showAchApprovalsPanel()"
+                            class="px-4 md:px-5 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] hover:bg-[#f8f4eb] relative">
+                        <i class="fas fa-university mr-2"></i>
+                        ACH Approvals
+                        <span id="ach-approvals-badge"
+                              class="hidden absolute -top-2 -right-2 min-w-[20px] h-5 px-1 flex items-center justify-center text-xs font-bold bg-orange-500 text-white rounded-full">
+                            0
+                        </span>
+                    </button>
+                    <button id="customize-dashboard-btn"
+                            onclick="toggleDashboardCustomize()"
+                            class="btn-brand px-4 md:px-5 py-2 rounded-xl text-sm font-semibold">
+                        <i class="fas fa-sliders-h mr-2"></i>
+                        <span id="customize-dashboard-label">Customize</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Dashboard Cards -->
@@ -276,13 +278,6 @@ body { background: #f8f1e9; }
                         <p id="dash-pending-value" class="text-lg font-bold brand-green">$0</p>
                     </div>
 
-                    <div id="dash-orders-alert" onclick="showAgingOrders(); event.stopPropagation();"
-                         class="hidden bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-center cursor-pointer hover:bg-red-100 transition">
-                        <p class="text-xs text-red-600 font-semibold">
-                            <i class="fas fa-exclamation-triangle mr-1"></i>
-                            <span id="dash-aging-text">Orders aging over 10 days</span>
-                        </p>
-                    </div>
                     <div id="dash-orders-alert" onclick="showAgingOrders(); event.stopPropagation();"
                          class="hidden bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-center cursor-pointer hover:bg-red-100 transition">
                         <p class="text-xs text-red-600 font-semibold">
@@ -2453,7 +2448,7 @@ body { background: #f8f1e9; }
                 </div>
             </div>
             <div class="flex flex-col items-end gap-2">
-            <img src="media/logo.png" alt="Donegal Natural" class="h-36 w-auto md:h-40">
+                            <img src="media/logo.png" alt="Donegal Natural" class="h-20 sm:h-28 md:h-36 w-auto">
                 <button type="button" onclick="hideOrderInvoiceModal()"
                         class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
             </div>
