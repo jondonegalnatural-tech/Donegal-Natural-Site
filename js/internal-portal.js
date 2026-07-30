@@ -479,8 +479,16 @@ function openOrderInvoiceModal(orderId) {
         return;
     }
 
-    // Match customer for addresses (if loaded)
-    const customerName = (order.customer || order.customer_name || '')
+        // Prefer live customer record for addresses (email first, then name)
+    const customerName = (order.customer || order.customer_name || '').trim().toLowerCase();
+    const customerEmail = (order.customerEmail || order.customer_email || '').trim().toLowerCase();
+    const customer = (allCustomers || []).find(c => {
+        const cEmail = (c.email || '').trim().toLowerCase();
+        const cName = (c.name || '').trim().toLowerCase();
+        if (customerEmail && cEmail && customerEmail === cEmail) return true;
+        if (customerName && cName && cName === customerName) return true;
+        return false;
+    }) || null;
 
     // Invoice number + date
     const invNum = document.getElementById('inv-number');
