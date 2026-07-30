@@ -54,25 +54,27 @@ body { background: #f8f1e9; }
         pointer-events: auto !important;
         -webkit-tap-highlight-color: transparent;
         touch-action: manipulation;
+        cursor: pointer;
     }
 
+    /* Keep sidebar out of flex flow and fully off-screen when closed */
     .sidebar {
         position: fixed !important;
         top: 0 !important;
-        left: 0 !important;
+        left: -16rem !important;          /* was transform – this is more reliable on iOS */
         height: 100vh !important;
         width: 16rem !important;
         z-index: 70 !important;
-        transform: translateX(-100%) !important;
-        transition: transform 0.25s ease !important;
+        transform: none !important;       /* kill any leftover transform */
+        transition: left 0.25s ease !important;
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch;
-        pointer-events: none;   /* critical: closed sidebar cannot steal taps */
+        pointer-events: none;
     }
 
     .sidebar.mobile-open {
-        transform: translateX(0) !important;
-        pointer-events: auto;   /* only open sidebar accepts taps */
+        left: 0 !important;
+        pointer-events: auto;
     }
 
     .sidebar .nav-text {
@@ -83,8 +85,17 @@ body { background: #f8f1e9; }
         width: 16rem !important;
     }
 
+    /* Full-width content on mobile – no green strip */
     .main-content-area {
         padding: 1rem !important;
+        width: 100% !important;
+        margin-left: 0 !important;
+        max-width: 100% !important;
+    }
+
+    /* Parent flex row should not reserve space for fixed sidebar */
+    body > div.flex.w-full {
+        display: block !important;
     }
 
     [data-card-id="sales-matrix"] {
@@ -2568,5 +2579,49 @@ body { background: #f8f1e9; }
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/internal-portal.js"></script>
+<script>
+/* Self-contained mobile menu – works even if external JS has issues */
+(function () {
+    function toggleMenu(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        var sidebar = document.querySelector('.sidebar');
+        var overlay = document.getElementById('mobile-sidebar-overlay');
+        if (!sidebar) return;
+        var open = sidebar.classList.toggle('mobile-open');
+        if (overlay) {
+            if (open) overlay.classList.add('open');
+            else overlay.classList.remove('open');
+        }
+        document.body.style.overflow = open ? 'hidden' : '';
+    }
+    function closeMenu() {
+        var sidebar = document.querySelector('.sidebar');
+        var overlay = document.getElementById('mobile-sidebar-overlay');
+        if (sidebar) sidebar.classList.remove('mobile-open');
+        if (overlay) overlay.classList.remove('open');
+        document.body.style.overflow = '';
+    }
+    function bind() {
+        var btn = document.getElementById('mobile-menu-btn');
+        if (btn && !btn.dataset.inlineBound) {
+            btn.dataset.inlineBound = '1';
+            btn.addEventListener('click', toggleMenu, true);
+        }
+        var overlay = document.getElementById('mobile-sidebar-overlay');
+        if (overlay && !overlay.dataset.inlineBound) {
+            overlay.dataset.inlineBound = '1';
+            overlay.addEventListener('click', closeMenu, true);
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bind);
+    } else {
+        bind();
+    }
+    // Also expose for any other code
+    window.toggleMobileSidebar = toggleMenu;
+    window.closeMobileSidebar = closeMenu;
+})();
+</script>
 </body>
 </html>
