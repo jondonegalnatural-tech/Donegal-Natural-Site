@@ -3476,8 +3476,8 @@ function printSelectedOrders() {
         return;
     }
 
-    const selectedIds = Array.from(checked).map(cb => parseInt(cb.value, 10));
-    const ordersToPrint = allOrders.filter(o => selectedIds.includes(o.id));
+    const selectedIds = Array.from(checked).map(cb => String(cb.value));
+    const ordersToPrint = allOrders.filter(o => selectedIds.includes(String(o.id)));
 
     if (ordersToPrint.length === 0) {
         alert('No matching orders found.');
@@ -6916,7 +6916,7 @@ function createOrderRow(order) {
         }
 
         statusHTML += `
-            <span onclick="updateOrderStatus(${order.id}, '${status}', this)" 
+                        <span onclick=\"updateOrderStatus('${String(order.id).replace(/'/g, "\\'")}', '${status}', this)\"  
                   class="px-2.5 py-0.5 text-xs font-semibold rounded-full cursor-pointer transition ${colorClass}">
                 ${statusLabels[status]}
             </span>
@@ -7028,7 +7028,7 @@ function filterOrdersByCustomer(customerName) {
 
     customerOrders.forEach(order => {
         const itemCount = order.items ? order.items.length : 0;
-        html += `<tr onclick="showOrderDetails(${order.id})" class="border-t border-[#6B4423] cursor-pointer hover:bg-[#f8f4eb]">
+                html += `<tr onclick=\"showOrderDetails('${String(order.id).replace(/'/g, "\\'")}')\" class=\"border-t border-[#6B4423] cursor-pointer hover:bg-[#f8f4eb]\">
             <td class="p-3 font-mono">#${order.id}</td>
             <td class="p-3">${order.status || 'Submitted'}</td>
             <td class="p-3 text-sm">${new Date(order.submittedAt).toLocaleDateString()}</td>
