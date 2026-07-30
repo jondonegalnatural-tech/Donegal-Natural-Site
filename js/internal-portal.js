@@ -993,37 +993,31 @@ function closeMobileSidebar() {
     document.body.style.overflow = '';
 }
 
-// Make sure they are always available globally
+// Always available globally
 window.toggleMobileSidebar = toggleMobileSidebar;
 window.closeMobileSidebar = closeMobileSidebar;
 
-// Backup click/touch binding (in case inline onclick is blocked on mobile)
+// Robust binding for mobile (click + touchend, capture phase)
 (function bindMobileMenuBtn() {
-    const btn = document.getElementById('mobile-menu-btn');
-    if (!btn) return;
-    btn.addEventListener('click', function (e) {
+    function handler(e) {
         e.preventDefault();
         e.stopPropagation();
         toggleMobileSidebar();
-    }, { passive: false });
+    }
+    function attach() {
+        const btn = document.getElementById('mobile-menu-btn');
+        if (!btn) return;
+        btn.addEventListener('click', handler, { capture: true, passive: false });
+        btn.addEventListener('touchend', handler, { capture: true, passive: false });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', attach);
+    } else {
+        attach();
+    }
 })();
 
 // Close drawer when a nav link is tapped on mobile
-document.addEventListener('click', function (e) {
-    const link = e.target.closest && e.target.closest('.nav-link');
-    if (link && window.innerWidth < 768) {
-        closeMobileSidebar();
-    }
-});
-
-function closeMobileSidebar() {
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.getElementById('mobile-sidebar-overlay');
-    if (sidebar) sidebar.classList.remove('mobile-open');
-    if (overlay) overlay.classList.remove('open');
-}
-
-// Close mobile drawer when a nav link is clicked
 document.addEventListener('click', function (e) {
     const link = e.target.closest && e.target.closest('.nav-link');
     if (link && window.innerWidth < 768) {

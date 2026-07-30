@@ -43,6 +43,19 @@ body { background: #f8f1e9; }
 }
 
 @media (max-width: 767px) {
+    nav.sticky {
+        z-index: 90 !important;
+        position: sticky !important;
+    }
+
+    #mobile-menu-btn {
+        position: relative;
+        z-index: 100 !important;
+        pointer-events: auto !important;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
+
     .sidebar {
         position: fixed !important;
         top: 0 !important;
@@ -54,27 +67,28 @@ body { background: #f8f1e9; }
         transition: transform 0.25s ease !important;
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch;
+        pointer-events: none;   /* critical: closed sidebar cannot steal taps */
     }
+
     .sidebar.mobile-open {
         transform: translateX(0) !important;
+        pointer-events: auto;   /* only open sidebar accepts taps */
     }
+
     .sidebar .nav-text {
         opacity: 1 !important;
     }
+
     .sidebar:hover {
         width: 16rem !important;
     }
+
     .main-content-area {
         padding: 1rem !important;
     }
+
     [data-card-id="sales-matrix"] {
         grid-column: span 1 !important;
-    }
-    #mobile-menu-btn {
-        position: relative;
-        z-index: 80;
-        pointer-events: auto;
-        -webkit-tap-highlight-color: transparent;
     }
 }
 
