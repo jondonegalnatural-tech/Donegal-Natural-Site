@@ -1770,7 +1770,7 @@ function hideOrderInvoiceModal() {
     if (modal) modal.classList.add('hidden');
 }
 
-function openSalesmanOrderInvoice(orderId) {
+async function openSalesmanOrderInvoice(orderId) {
     const id = String(orderId || '');
     const orders = window._salesmanOrders || [];
     const order = orders.find(o => String(o.id) === id);
@@ -1787,6 +1787,42 @@ function openSalesmanOrderInvoice(orderId) {
             (c.email && order.customer_email && c.email.toLowerCase() === order.customer_email.toLowerCase()) ||
             (c.name && order.customer_name && c.name.toLowerCase() === order.customer_name.toLowerCase())
         ) || null;
+    }
+
+    // Lazy load from Supabase if Order History was opened before Customers tab
+    if (!customer && typeof supabaseClient !== 'undefined') {
+        try {
+            const email = (order.customer_email || '').trim();
+            const name = (order.customer_name || order.customer || '').trim();
+
+            if (email) {
+                const { data } = await supabaseClient
+                    .from('customers')
+                    .select('*')
+                    .ilike('email', email)
+                    .limit(1)
+                    .maybeSingle();
+                if (data) customer = data;
+            }
+
+            if (!customer && name) {
+                const { data } = await supabaseClient
+                    .from('customers')
+                    .select('*')
+                    .ilike('name', name)
+                    .limit(1)
+                    .maybeSingle();
+                if (data) customer = data;
+            }
+
+            if (customer) {
+                window._salesmanCustomers = window._salesmanCustomers || [];
+                const already = window._salesmanCustomers.some(c => String(c.id) === String(customer.id));
+                if (!already) window._salesmanCustomers.push(customer);
+            }
+        } catch (err) {
+            console.warn('Invoice customer lookup failed:', err);
+        }
     }
 
     // Header
