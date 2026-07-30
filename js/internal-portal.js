@@ -1309,100 +1309,6 @@ function populateCategoryDropdown() {
     dropdown.innerHTML = html;
 }
 
-function toggleMatrixCategoryDropdown() {
-    const dd = document.getElementById('matrix-category-dropdown');
-    if (!dd) return;
-    dd.classList.toggle('hidden');
-}
-
-function onMatrixCategoryChange(which) {
-    const allCb = document.getElementById('matrix-cat-all');
-    const categoryCbs = document.querySelectorAll('#matrix-category-dropdown input[data-category]');
-
-    if (which === 'all') {
-        const isChecked = allCb?.checked;
-        categoryCbs.forEach(cb => { cb.checked = false; });
-        if (allCb) allCb.checked = !!isChecked;
-    } else {
-        if (allCb) allCb.checked = false;
-    }
-
-    updateMatrixCategoryLabel();
-    renderWeeklyMatrix();
-}
-
-function getSelectedMatrixCategories() {
-    const allCb = document.getElementById('matrix-cat-all');
-    if (allCb && allCb.checked) return ['all'];
-
-    const selected = [];
-    document.querySelectorAll('#matrix-category-dropdown input[data-category]:checked').forEach(cb => {
-        selected.push(cb.dataset.category);
-    });
-    return selected.length ? selected : ['all'];
-}
-
-function updateMatrixCategoryLabel() {
-    const label = document.getElementById('matrix-category-label');
-    if (!label) return;
-
-    const selected = getSelectedMatrixCategories();
-    if (selected.includes('all') || selected.length === 0) {
-        label.textContent = 'All Categories';
-    } else if (selected.length === 1) {
-        label.textContent = selected[0];
-    } else {
-        label.textContent = selected.length + ' categories';
-    }
-}
-
-function toggleMatrixCategoryDropdown() {
-    const dd = document.getElementById('matrix-category-dropdown');
-    if (!dd) return;
-    dd.classList.toggle('hidden');
-}
-
-function onMatrixCategoryChange(which) {
-    const allCb = document.getElementById('matrix-cat-all');
-    const categoryCbs = document.querySelectorAll('#matrix-category-dropdown input[data-category]');
-
-    if (which === 'all') {
-        const isChecked = allCb?.checked;
-        categoryCbs.forEach(cb => { cb.checked = false; });
-        if (allCb) allCb.checked = !!isChecked;
-    } else {
-        if (allCb) allCb.checked = false;
-    }
-
-    updateMatrixCategoryLabel();
-    renderWeeklyMatrix();
-}
-
-function getSelectedMatrixCategories() {
-    const allCb = document.getElementById('matrix-cat-all');
-    if (allCb && allCb.checked) return ['all'];
-
-    const selected = [];
-    document.querySelectorAll('#matrix-category-dropdown input[data-category]:checked').forEach(cb => {
-        selected.push(cb.dataset.category);
-    });
-    return selected.length ? selected : ['all'];
-}
-
-function updateMatrixCategoryLabel() {
-    const label = document.getElementById('matrix-category-label');
-    if (!label) return;
-
-    const selected = getSelectedMatrixCategories();
-    if (selected.includes('all') || selected.length === 0) {
-        label.textContent = 'All Categories';
-    } else if (selected.length === 1) {
-        label.textContent = selected[0];
-    } else {
-        label.textContent = selected.length + ' categories';
-    }
-}
-
 function exportMatrixToCSV() {
     const table = document.querySelector('#weekly-matrix-container table');
     if (!table) return alert("No data to export.");
@@ -1604,63 +1510,6 @@ document.addEventListener('click', function(e) {
         trendsDd.classList.add('hidden');
     }
 });
-
-function toggleTrendsCategoryDropdown() {
-    const dd = document.getElementById('trends-category-dropdown');
-    if (!dd) return;
-    dd.classList.toggle('hidden');
-}
-
-// Close dropdown when clicking outside
-document.addEventListener('click', function(e) {
-    const btn = document.getElementById('trends-category-btn');
-    const dd = document.getElementById('trends-category-dropdown');
-    if (!btn || !dd) return;
-    if (!btn.contains(e.target) && !dd.contains(e.target)) {
-        dd.classList.add('hidden');
-    }
-});
-
-function onTrendsCategoryChange(which) {
-    const allCb = document.getElementById('trends-cat-all');
-    const categoryCbs = document.querySelectorAll('#trends-category-dropdown input[data-category]');
-
-    if (which === 'all') {
-        const isChecked = allCb?.checked;
-        categoryCbs.forEach(cb => { cb.checked = false; });
-        if (allCb) allCb.checked = !!isChecked;
-    } else {
-        if (allCb) allCb.checked = false;
-    }
-
-    updateTrendsCategoryLabel();
-    renderTrendsChart();
-}
-
-function getSelectedTrendsCategories() {
-    const allCb = document.getElementById('trends-cat-all');
-    if (allCb && allCb.checked) return ['all'];
-
-    const selected = [];
-    document.querySelectorAll('#trends-category-dropdown input[data-category]:checked').forEach(cb => {
-        selected.push(cb.dataset.category);
-    });
-    return selected.length ? selected : ['all'];
-}
-
-function updateTrendsCategoryLabel() {
-    const label = document.getElementById('trends-category-label');
-    if (!label) return;
-
-    const selected = getSelectedTrendsCategories();
-    if (selected.includes('all') || selected.length === 0) {
-        label.textContent = 'All Categories';
-    } else if (selected.length === 1) {
-        label.textContent = selected[0];
-    } else {
-        label.textContent = selected.length + ' categories';
-    }
-}
 
 function getMonthlyTrendData(selectedYears, categories, metric) {
     // categories is an array: ['all'] or ['Bully Sticks', 'Jerky', ...]
@@ -3098,11 +2947,6 @@ function addTestOrder() {
     alert("Test order added successfully!");
 }
 
-function hideAddOrderModal() {
-    const modal = document.getElementById('add-order-modal');
-    if (modal) modal.classList.add('hidden');
-}
-
 let newOrderSelectedProducts = []; // { name, quantity }
 
 async function showAddOrderModal() {
@@ -3905,10 +3749,6 @@ function showEditCustomerModal() {
     modal.style.display = 'flex';
 }
 
-function hideEditCustomerModal() {
-    const modal = document.getElementById('edit-customer-modal');
-    if (modal) modal.style.display = 'none';
-}
 
 async function saveEditedCustomer(e) {
     e.preventDefault();
@@ -5821,25 +5661,6 @@ function renderCurrentInventoryList() {
     });
 }
 
-function updateDashboardLowStock() {
-    ensureInventoryInitialized();
-
-    let lowStockCount = 0;
-
-    Object.keys(inventory).forEach(name => {
-        const qty = inventory[name] || 0;
-        // Count anything under 50 cases (including 0)
-        if (qty < 50) {
-            lowStockCount++;
-        }
-    });
-
-    const lowStockEl = document.getElementById('dash-low-stock-count');
-    if (lowStockEl) {
-        lowStockEl.textContent = lowStockCount;
-    }
-}
-
 // Placeholder functions for later steps
 function showInventoryReceiving() {
     const container = document.getElementById('inventory-content');
@@ -6788,40 +6609,6 @@ window.onload = function() {
     }
 };
 
-// ================== ADDITIONAL HELPER FUNCTIONS ==================
-function renderOrdersSummary() {
-    const totalEl = document.getElementById('total-orders-count');
-    const pendingEl = document.getElementById('pending-orders-count');
-    const monthlyOrdersEl = document.getElementById('monthly-orders-count');
-    const monthlySalesEl = document.getElementById('monthly-sales-count');
-
-    if (!totalEl || !pendingEl) return;
-
-    totalEl.textContent = allOrders.length;
-
-    const pending = allOrders.filter(o => (o.status || "").toLowerCase() === 'submitted').length;
-    pendingEl.textContent = pending;
-
-    const now = new Date();
-    const thisMonthOrders = allOrders.filter(o => {
-        const orderDate = new Date(o.submittedAt);
-        return orderDate.getMonth() === now.getMonth() && orderDate.getFullYear() === now.getFullYear();
-    });
-
-    if (monthlyOrdersEl) monthlyOrdersEl.textContent = thisMonthOrders.length;
-
-    let monthlyTotal = 0;
-    thisMonthOrders.forEach(order => {
-        if (order.items) {
-            order.items.forEach(item => {
-                monthlyTotal += (item.quantity || 1) * 50;
-            });
-        }
-    });
-
-    if (monthlySalesEl) monthlySalesEl.textContent = '$' + monthlyTotal.toLocaleString();
-}
-
 function filterOrdersByStatus(status) {
     const container = document.getElementById('orders-table');
     const empty = document.getElementById('orders-empty');
@@ -7369,30 +7156,6 @@ function renderVendors() {
 
         list.appendChild(card);
     });
-}
-
-function showAddVendorModal() {
-    const modal = document.getElementById('add-vendor-modal');
-    if (!modal) {
-        alert('Add Vendor modal not found in HTML.');
-        return;
-    }
-
-    // Clear fields
-    const nameEl = document.getElementById('new-vendor-name');
-    const contactEl = document.getElementById('new-vendor-contact');
-    const phoneEl = document.getElementById('new-vendor-phone');
-    const emailEl = document.getElementById('new-vendor-email');
-    const notesEl = document.getElementById('new-vendor-notes');
-
-    if (nameEl) nameEl.value = '';
-    if (contactEl) contactEl.value = '';
-    if (phoneEl) phoneEl.value = '';
-    if (emailEl) emailEl.value = '';
-    if (notesEl) notesEl.value = '';
-
-    modal.classList.remove('hidden');
-    if (nameEl) nameEl.focus();
 }
 
 function hideAddVendorModal() {
