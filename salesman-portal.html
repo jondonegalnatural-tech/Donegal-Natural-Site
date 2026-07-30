@@ -31,76 +31,97 @@
             border: 2px solid #6B4423;
             border-radius: 10px;
         }
+
+        /* ========== SALESMAN MOBILE ========== */
+        @media (max-width: 767px) {
+            .salesman-tabs {
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch;
+                padding-bottom: 0.35rem;
+                gap: 0.4rem !important;
+            }
+            .salesman-tabs .tab-btn {
+                flex-shrink: 0;
+                white-space: nowrap;
+                font-size: 0.8rem;
+                padding: 0.45rem 0.85rem;
+            }
+            .section-card {
+                padding: 1rem;
+            }
+        }
+        /* ========== END SALESMAN MOBILE ========== */
     </style>
 </head>
 <body class="min-h-screen">
 
     <!-- Top Navigation -->
     <nav class="bg-white border-b-2 border-[#6B4423]">
-        <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <img src="media/logo.png" alt="Donegal Natural" class="h-12 w-auto">
-                <div>
-                    <span class="text-2xl font-bold brand-green">Donegal Natural Dog Treats</span>
-                    <span class="text-sm block -mt-1 brand-brown">Salesman & Saleswoman Portal</span>
+        <div class="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2 md:gap-3 min-w-0">
+                <img src="media/logo.png" alt="Donegal Natural" class="h-9 md:h-12 w-auto flex-shrink-0">
+                <div class="min-w-0">
+                    <span class="text-lg md:text-2xl font-bold brand-green block truncate">Donegal Natural Dog Treats</span>
+                    <span class="text-xs md:text-sm block -mt-0.5 brand-brown">Sales Portal</span>
                 </div>
             </div>
 
-            <div class="flex items-center gap-4" id="user-info" style="display: none;">
-    <div class="text-right">
-        <div id="user-name" class="font-semibold brand-green"></div>
-        <div id="welcome-territories" class="text-xs brand-brown"></div>
-    </div>
-    <button id="admin-view-btn"
-        onclick="window.location.href='internal-portal.html'"
-        class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold"
-        style="display: none;">
-    Admin View
-    </button>
-    <button onclick="logout()"
-            class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
-        Logout
-    </button>
-</div>
+            <div class="flex items-center gap-2 md:gap-4" id="user-info" style="display: none;">
+                <div class="text-right hidden sm:block">
+                    <div id="user-name" class="font-semibold brand-green text-sm md:text-base"></div>
+                    <div id="welcome-territories" class="text-xs brand-brown"></div>
+                </div>
+                <button id="admin-view-btn"
+                        onclick="window.location.href='internal-portal.html'"
+                        class="px-3 md:px-4 py-2 text-xs md:text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold"
+                        style="display: none;">
+                    Admin View
+                </button>
+                <button onclick="logout()"
+                        class="px-3 md:px-4 py-2 text-xs md:text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                    Logout
+                </button>
+            </div>
         </div>
     </nav>
 
     <!-- PORTAL VIEW -->
     <div id="portal-view" style="display: none;">
-        <div class="max-w-7xl mx-auto px-6 py-8">
+        <div class="max-w-7xl mx-auto px-4 md:px-6 py-5 md:py-8">
 
             <!-- Welcome Header -->
-            <div class="mb-8">
-                <h1 class="text-3xl font-bold brand-green">Welcome back, <span id="welcome-name"></span></h1>
-                <p class="brand-brown">Sales & Admin Portal • Donegal Natural</p>
+            <div class="mb-5 md:mb-8">
+                <h1 class="text-2xl md:text-3xl font-bold brand-green">Welcome back, <span id="welcome-name"></span></h1>
+                <p class="text-sm md:text-base brand-brown">Sales & Admin Portal • Donegal Natural</p>
             </div>
 
             <!-- Tabs -->
-    <div class="flex flex-wrap gap-2 mb-6">
-    <button data-tab="initial-sheet" id="initial-sheet-tab"
-            class="tab-btn px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold"
-            style="display: none;">
-        Initial Pricing Sheet
-    </button>
-    <button data-tab="customers" class="tab-btn active px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold">
-        Active Customers
-    </button>
-    <button data-tab="proposals" class="tab-btn px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold">
-        Price Change Proposal
-    </button>
-    <button data-tab="order-history" class="tab-btn px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold">
-        Order History
-    </button>
-    <button data-tab="customer-info" class="tab-btn px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold">
-        Submit New Customer
-    </button>
-    <button data-tab="account" class="tab-btn px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold">
-        Account
-    </button>
-    <button data-tab="admin" id="admin-tab" class="tab-btn px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold" style="display: none;">
-        Admin Dashboard
-    </button>
-</div>
+            <div class="salesman-tabs flex flex-wrap gap-2 mb-5 md:mb-6">
+                <button data-tab="initial-sheet" id="initial-sheet-tab"
+                        class="tab-btn px-4 md:px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold"
+                        style="display: none;">
+                    Initial Pricing Sheet
+                </button>
+                <button data-tab="customers" class="tab-btn active px-4 md:px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold">
+                    Active Customers
+                </button>
+                <button data-tab="proposals" class="tab-btn px-4 md:px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold">
+                    Price Change Proposal
+                </button>
+                <button data-tab="order-history" class="tab-btn px-4 md:px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold">
+                    Order History
+                </button>
+                <button data-tab="customer-info" class="tab-btn px-4 md:px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold">
+                    Submit New Customer
+                </button>
+                <button data-tab="account" class="tab-btn px-4 md:px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold">
+                    Account
+                </button>
+                <button data-tab="admin" id="admin-tab" class="tab-btn px-4 md:px-5 py-2 rounded-xl border-2 border-[#6B4423] font-semibold" style="display: none;">
+                    Admin Dashboard
+                </button>
+            </div>
 
             <!-- TAB CONTENTS -->
 
@@ -162,12 +183,12 @@
             <!-- Order History Tab -->
 <div id="tab-order-history" class="tab-content" style="display: none;">
     <div class="section-card">
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h2 class="text-xl font-bold brand-green">Order History</h2>
-            <div class="flex items-center gap-2">
+        <div class="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-between gap-3 mb-4">
+            <h2 class="text-lg md:text-xl font-bold brand-green">Order History</h2>
+            <div class="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
                 <label class="text-sm font-semibold text-[#6B4423]">Filter by customer</label>
                 <select id="order-history-customer-filter"
-                        class="form-input px-3 py-2 text-sm min-w-[180px]"
+                        class="form-input px-3 py-2 text-sm w-full sm:min-w-[180px]"
                         onchange="renderMyOrders()">
                     <option value="">All customers (recent first)</option>
                 </select>
@@ -252,10 +273,10 @@
 
         <!-- Price Sheet -->
         <div class="section-card">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold brand-green">My Price Sheet</h2>
+            <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+                <h2 class="text-lg md:text-xl font-bold brand-green">My Price Sheet</h2>
                 <button type="button" onclick="exportPriceSheetPdf()"
-                        class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
+                        class="px-3 md:px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
                     Export PDF
                 </button>
             </div>
@@ -271,21 +292,21 @@
 <!-- Initial Pricing Sheet Tab -->
 <div id="tab-initial-sheet" class="tab-content" style="display: none;">
     <div class="section-card">
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div class="flex flex-col sm:flex-row flex-wrap items-start sm:items-center justify-between gap-3 mb-4">
             <div>
-                <h2 class="text-xl font-bold brand-green">Initial Pricing Sheet</h2>
+                <h2 class="text-lg md:text-xl font-bold brand-green">Initial Pricing Sheet</h2>
                 <p class="text-sm text-[#6B4423]">
                     Review catalog prices, adjust if needed, select items, then submit for admin approval.
                     Prices below catalog will be flagged.
                 </p>
             </div>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
                 <button type="button" onclick="selectAllInitialSheet(true)"
-                        class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl font-semibold">
+                        class="px-3 md:px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl font-semibold">
                     Select All
                 </button>
                 <button type="button" onclick="selectAllInitialSheet(false)"
-                        class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl font-semibold">
+                        class="px-3 md:px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl font-semibold">
                     Deselect All
                 </button>
             </div>
@@ -329,7 +350,7 @@
 
     <!-- Place Order Modal -->
 <div id="place-order-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-    <div class="bg-white rounded-2xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto border-2 border-[#6B4423]">
+    <div class="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto border-2 border-[#6B4423]">
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-2xl font-bold brand-green">Place Order</h2>
             <button onclick="hidePlaceOrderModal()" class="text-2xl leading-none">&times;</button>
@@ -525,7 +546,7 @@
      class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4"
      onclick="hideOrderInvoiceModal()">
     <div onclick="event.stopImmediatePropagation()"
-         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto p-6 md:p-8">
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 md:p-8">
 
         <!-- Header: INVOICE + Logo -->
         <div class="flex items-start justify-between gap-4 mb-6">
@@ -539,7 +560,7 @@
                 </div>
             </div>
             <div class="flex flex-col items-end gap-2">
-                <img src="media/logo.png" alt="Donegal Natural" class="h-36 w-auto md:h-40">
+                <img src="media/logo.png" alt="Donegal Natural" class="h-20 sm:h-28 md:h-36 w-auto">
                 <button type="button" onclick="hideOrderInvoiceModal()"
                         class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
             </div>
