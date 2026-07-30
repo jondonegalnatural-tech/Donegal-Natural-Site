@@ -2549,6 +2549,8 @@ async function loadOrderHistory() {
             return ['shipped', 'delivered'].includes(status);
         });
 
+        updateOrderHistoryBadge(completed.length);
+
         if (completed.length === 0) {
             container.innerHTML = `
                 <h2 class="text-2xl font-bold brand-green mb-6">Order History</h2>
@@ -2633,6 +2635,47 @@ async function loadOrderHistory() {
             <h2 class="text-2xl font-bold brand-green mb-6">Order History</h2>
             <p class="text-sm text-red-600">Could not load order history.</p>
         `;
+    }
+}
+
+function updateOrderHistoryBadge(count) {
+    const n = Number(count) || 0;
+    const ids = ['order-history-badge', 'order-history-badge-mobile'];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (n > 0) {
+            el.textContent = String(n);
+            el.classList.remove('hidden');
+        } else {
+            el.textContent = '';
+            el.classList.add('hidden');
+        }
+    });
+}
+
+async function refreshOrderHistoryBadge() {
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        if (!user || !user.email) {
+            updateOrderHistoryBadge(0);
+            return;
+        }
+        const email = (user.email || '').toLowerCase().trim();
+        const { data, error } = await supabaseClient
+            .from('orders')
+            .select('id, status')
+            .eq('source', 'wholesale')
+            .eq('customer_email', email);
+        if (error) throw error;
+        const completed = (data || []).filter(o => {
+            const s = (o.status || '').toLowerCase();
+            return s === 'shipped' || s === 'delivered';
+        });
+        updateOrderHistoryBadge(completed.length);
+    } catch (err) {
+        console.error('refreshOrderHistoryBadge error:', err);
+        updateOrderHistoryBadge(0);
     }
 }
 
@@ -2873,6 +2916,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateQuoteSidebar();
     setupSearch();
     displayWelcome();
+    refreshOrderHistoryBadge();
 
     const sidebarLinks = document.querySelectorAll('.sidebar-link');
     sidebarLinks.forEach(link => {
