@@ -480,10 +480,7 @@ function openOrderInvoiceModal(orderId) {
     }
 
     // Match customer for addresses (if loaded)
-    const customerName = (order.customer || order.customer_name || '').trim().toLowerCase();
-    const customer = (allCustomers || []).find(c =>
-        (c.name || '').trim().toLowerCase() === customerName
-    ) || null;
+    const customerName = (order.customer || order.customer_name || '')
 
     // Invoice number + date
     const invNum = document.getElementById('inv-number');
@@ -580,7 +577,7 @@ function openOrderInvoiceModal(orderId) {
         const raw = (order.notes || '').trim();
         const isSystem =
             !raw ||
-            /^created via add order$/i.test(raw);
+            /^(created via add order|submitted via salesman portal)$/i.test(raw);
         notesEl.textContent = isSystem ? '' : raw;
     }
 
@@ -619,15 +616,16 @@ function openOrderInvoiceModal(orderId) {
 }
 
 function openSalesmanOrderInvoice(orderId) {
+    // Always open the read-only invoice — never the editable Ship modal
+    if (typeof openOrderInvoiceModal === 'function') {
+        openOrderInvoiceModal(orderId);
+        return;
+    }
     if (typeof showOrderDetails === 'function') {
         showOrderDetails(orderId);
         return;
     }
-    if (typeof openShipInvoiceModal === 'function') {
-        openShipInvoiceModal(orderId);
-        return;
-    }
-    alert('Order detail view is not available yet for #' + orderId);
+    alert('Order invoice view is not available yet for #' + orderId);
 }
 
 async function loadSalesmen() {
