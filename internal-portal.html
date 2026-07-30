@@ -574,26 +574,26 @@ body { background: #f8f1e9; }
             </div>
 
             <!-- Order Status Summary Cards -->
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-                <div onclick="filterOrders('pending')" class="bg-white border-2 border-[#6B4423] rounded-2xl p-5 text-center cursor-pointer hover:bg-[#f8f4eb] transition">
-                    <p class="text-sm text-[#6B4423] font-semibold">Pending</p>
-                    <p id="orders-pending-count" class="text-3xl font-bold text-orange-600 mt-1">0</p>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4 mb-6">
+                <div onclick="filterOrders('pending')" class="bg-white border-2 border-[#6B4423] rounded-xl md:rounded-2xl p-2.5 md:p-5 text-center cursor-pointer hover:bg-[#f8f4eb] transition">
+                    <p class="text-xs md:text-sm text-[#6B4423] font-semibold">Pending</p>
+                    <p id="orders-pending-count" class="text-xl md:text-3xl font-bold text-orange-600 mt-0.5 md:mt-1">0</p>
                 </div>
-                <div onclick="filterOrders('received')" class="bg-white border-2 border-[#6B4423] rounded-2xl p-5 text-center cursor-pointer hover:bg-[#f8f4eb] transition">
-                    <p class="text-sm text-[#6B4423] font-semibold">Received</p>
-                    <p id="orders-received-count" class="text-3xl font-bold text-green-600 mt-1">0</p>
+                <div onclick="filterOrders('received')" class="bg-white border-2 border-[#6B4423] rounded-xl md:rounded-2xl p-2.5 md:p-5 text-center cursor-pointer hover:bg-[#f8f4eb] transition">
+                    <p class="text-xs md:text-sm text-[#6B4423] font-semibold">Received</p>
+                    <p id="orders-received-count" class="text-xl md:text-3xl font-bold text-green-600 mt-0.5 md:mt-1">0</p>
                 </div>
-                <div onclick="filterOrders('processing')" class="bg-white border-2 border-[#6B4423] rounded-2xl p-5 text-center cursor-pointer hover:bg-[#f8f4eb] transition">
-                    <p class="text-sm text-[#6B4423] font-semibold">Processing</p>
-                    <p id="orders-processing-count" class="text-3xl font-bold text-blue-600 mt-1">0</p>
+                <div onclick="filterOrders('processing')" class="bg-white border-2 border-[#6B4423] rounded-xl md:rounded-2xl p-2.5 md:p-5 text-center cursor-pointer hover:bg-[#f8f4eb] transition">
+                    <p class="text-xs md:text-sm text-[#6B4423] font-semibold">Processing</p>
+                    <p id="orders-processing-count" class="text-xl md:text-3xl font-bold text-blue-600 mt-0.5 md:mt-1">0</p>
                 </div>
-                <div onclick="filterOrders('shipped')" class="bg-white border-2 border-[#6B4423] rounded-2xl p-5 text-center cursor-pointer hover:bg-[#f8f4eb] transition">
-                    <p class="text-sm text-[#6B4423] font-semibold">Shipped</p>
-                    <p id="orders-shipped-count" class="text-3xl font-bold text-purple-600 mt-1">0</p>
+                <div onclick="filterOrders('shipped')" class="bg-white border-2 border-[#6B4423] rounded-xl md:rounded-2xl p-2.5 md:p-5 text-center cursor-pointer hover:bg-[#f8f4eb] transition">
+                    <p class="text-xs md:text-sm text-[#6B4423] font-semibold">Shipped</p>
+                    <p id="orders-shipped-count" class="text-xl md:text-3xl font-bold text-purple-600 mt-0.5 md:mt-1">0</p>
                 </div>
-                <div onclick="filterOrders('delivered')" class="bg-white border-2 border-[#6B4423] rounded-2xl p-5 text-center cursor-pointer hover:bg-[#f8f4eb] transition">
-                    <p class="text-sm text-[#6B4423] font-semibold">Delivered</p>
-                    <p id="orders-delivered-count" class="text-3xl font-bold text-orange-500 mt-1">0</p>
+                <div onclick="filterOrders('delivered')" class="bg-white border-2 border-[#6B4423] rounded-xl md:rounded-2xl p-2.5 md:p-5 text-center cursor-pointer hover:bg-[#f8f4eb] transition">
+                    <p class="text-xs md:text-sm text-[#6B4423] font-semibold">Delivered</p>
+                    <p id="orders-delivered-count" class="text-xl md:text-3xl font-bold text-orange-500 mt-0.5 md:mt-1">0</p>
                 </div>
             </div>
 
@@ -730,12 +730,6 @@ body { background: #f8f1e9; }
                             class="btn-brand px-4 py-2 text-sm rounded-xl flex items-center gap-2">
                         <i class="fas fa-plus"></i>
                         <span>Add Customer</span>
-                    </button>
-                    <button onclick="addTestCustomer()"
-                            class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
-                        <i class="fas fa-plus"></i>
-                        <span class="hidden sm:inline">Add Test Customer</span>
-                        <span class="sm:hidden">Test</span>
                     </button>
                     <button onclick="showSection('dashboard')"
                             class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
@@ -2346,27 +2340,6 @@ body { background: #f8f1e9; }
         <div id="customer-change-requests-list"></div>
     </div>
 </div>
-
-<!-- ACH Approvals Modal -->
-<div id="ach-approvals-modal"
-     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-     onclick="hideAchApprovalsPanel()">
-    <div onclick="event.stopPropagation()"
-         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold brand-green">ACH Payment Approvals</h2>
-            <button type="button" onclick="hideAchApprovalsPanel()"
-                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
-        </div>
-        <p class="text-sm text-[#6B4423] mb-4">
-            Customers who requested ACH. Approve only accounts you want to allow ACH for.
-        </p>
-        <div id="ach-approvals-list">
-            <p class="text-sm text-[#6B4423]">Loading…</p>
-        </div>
-    </div>
-</div>
-
 
 <!-- ================== SHIP INVOICE MODAL ================== -->
 <div id="ship-invoice-modal"
