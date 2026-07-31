@@ -641,7 +641,7 @@ async function loadSalesmen() {
     try {
         const { data, error } = await supabaseClient
             .from('salesmen')
-            .select('*')
+            .select('id, first_name, last_name, email, territory, commission, market_commission, price_sheet_status, yearly_sales, monthly_sales, active, notes')
             .order('last_name', { ascending: true });
 
         if (error) throw error;
@@ -1925,7 +1925,7 @@ async function loadOrders() {
     try {
         const { data, error } = await supabaseClient
             .from('orders')
-            .select('*')
+            .select('id, source, status, submitted_at, customer_name, customer_email, customer_company, salesman_name, salesman_email, notes, shipping_cost, credit, items')
             .order('submitted_at', { ascending: false });
 
         if (error) {
@@ -3443,7 +3443,7 @@ async function loadCustomers() {
     try {
         const { data, error } = await supabaseClient
             .from('customers')
-            .select('*')
+            .select('id, name, company, email, phone, shipping_address, billing_address, notes, status, source, submitted_by, submitted_by_email, salesman_email, territory, created_at, payment_method, payment_method_status')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -4928,7 +4928,7 @@ async function loadInquiries() {
     try {
         const { data, error } = await supabaseClient
             .from('wholesale_inquiries')
-            .select('*')
+            .select('id, owner_name, company_name, email, phone, nature_of_business, nature_other, monthly_amount, region, notes, status, source, created_at, assigned_salesman_id')
             .order('created_at', { ascending: false });
 
         if (error) throw error;
@@ -6841,10 +6841,9 @@ function filterOrdersByCustomer(customerName) {
 async function updateDashboardSalesmen() {
     try {
         const { data, error } = await supabaseClient
-            .from('salesmen')
-            .select('*')
-            .eq('active', true)
-            .order('yearly_sales', { ascending: false });
+                        .from('salesmen')
+            .select('id, first_name, last_name, email, territory, commission, market_commission, price_sheet_status, yearly_sales, monthly_sales, active, notes')
+            .order('last_name', { ascending: true });
 
         if (error) {
             console.error('Error loading salesmen for dashboard:', error);
