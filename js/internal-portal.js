@@ -32,6 +32,12 @@ function isDataFresh(loadedAt) {
     return loadedAt > 0 && (Date.now() - loadedAt) < DATA_TTL_MS;
 }
 
+function showTableLoading(containerId, message) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = `<p class="text-center text-[#6B4423] py-10"><i class="fas fa-spinner fa-spin mr-2"></i>${message || 'Loading…'}</p>`;
+}
+
 // ================== SHARED HELPER FUNCTIONS ==================
 // Functions used by more than one section will be placed here.
 // (We will move shared helpers into this section as we reorganize.)
@@ -1530,6 +1536,12 @@ function onMatrixCategoryChange(which) {
     }
 }
 
+function toggleMatrixCategoryDropdown() {
+    const dd = document.getElementById('matrix-category-dropdown');
+    if (!dd) return;
+    dd.classList.toggle('hidden');
+}
+
 function getSelectedTrendsCategories() {
     const allCb = document.getElementById('trends-cat-all');
     if (allCb && allCb.checked) return ['all'];
@@ -1978,6 +1990,7 @@ function updateTrendsSummary(selectedYears, monthlyData, metric, category) {
 // ================== ORDERS ==================
 // --- Orders Helpers ---
 async function loadOrders() {
+    showTableLoading('orders-table', 'Loading orders…');
     try {
         const { data, error } = await supabaseClient
             .from('orders')
@@ -3496,6 +3509,7 @@ function printSelectedOrders() {
 // ================== CUSTOMERS ==================
 // --- Customers Helpers ---
 async function loadCustomers() {
+    showTableLoading('customer-list', 'Loading customers…');
     try {
         const { data, error } = await supabaseClient
             .from('customers')
@@ -7105,6 +7119,7 @@ function updateDashboardSales() {
 let vendors = [];
 
 async function loadVendors() {
+    showTableLoading('vendors-list', 'Loading vendors…');
     try {
         // Fetch vendors, purchases, and items in parallel
         const [vendorsRes, purchasesRes, itemsRes] = await Promise.all([
