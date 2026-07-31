@@ -1489,6 +1489,47 @@ function onTrendsCategoryChange(which) {
     renderTrendsChart();
 }
 
+function getSelectedMatrixCategories() {
+    const allCb = document.getElementById('matrix-cat-all');
+    if (allCb && allCb.checked) return ['all'];
+
+    const selected = [];
+    document.querySelectorAll('#matrix-category-dropdown input[data-category]:checked').forEach(cb => {
+        selected.push(cb.dataset.category);
+    });
+    return selected.length ? selected : ['all'];
+}
+
+function onMatrixCategoryChange(which) {
+    const allCb = document.getElementById('matrix-cat-all');
+    const categoryCbs = document.querySelectorAll('#matrix-category-dropdown input[data-category]');
+
+    if (which === 'all') {
+        const isChecked = allCb?.checked;
+        categoryCbs.forEach(cb => { cb.checked = false; });
+        if (allCb) allCb.checked = !!isChecked;
+    } else {
+        if (allCb) allCb.checked = false;
+    }
+
+    // Update the dropdown label if the element exists
+    const label = document.getElementById('matrix-category-label');
+    if (label) {
+        const selected = getSelectedMatrixCategories();
+        if (selected.includes('all') || selected.length === 0) {
+            label.textContent = 'All Categories';
+        } else if (selected.length === 1) {
+            label.textContent = selected[0];
+        } else {
+            label.textContent = selected.length + ' categories';
+        }
+    }
+
+    if (typeof renderWeeklyMatrix === 'function') {
+        renderWeeklyMatrix();
+    }
+}
+
 function getSelectedTrendsCategories() {
     const allCb = document.getElementById('trends-cat-all');
     if (allCb && allCb.checked) return ['all'];
@@ -3283,7 +3324,6 @@ async function updateDashboardVendors() {
                 name: v.name,
                 active: v.active !== false
             }));
-            vendors = vendorRows;
         }
     } catch (err) {
         console.warn('updateDashboardVendors: vendors load failed', err);
@@ -5521,8 +5561,12 @@ function saveInventory() {
 
 async function showInventorySection() {
     showSection('inventory');
-    await loadInventory();
-    showCurrentInventory();
+    if (isDataFresh(inventoryLoadedAt) && inventory && Object.keys(inventory).length > 0) {
+        showCurrentInventory();
+    } else {
+        await loadInventory();
+        showCurrentInventory();
+    }
 }
 
 // Make sure every product in the catalog has an inventory entry
