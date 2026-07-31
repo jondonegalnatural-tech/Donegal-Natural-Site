@@ -21,6 +21,16 @@ let allCustomers = [];
 let allOrders = [];
 let currentFilter = 'all';
 let salesmen = [];
+const DATA_TTL_MS = 45000; // 45 seconds
+let ordersLoadedAt = 0;
+let customersLoadedAt = 0;
+let inquiriesLoadedAt = 0;
+let vendorsLoadedAt = 0;
+let inventoryLoadedAt = 0;
+
+function isDataFresh(loadedAt) {
+    return loadedAt > 0 && (Date.now() - loadedAt) < DATA_TTL_MS;
+}
 
 // ================== SHARED HELPER FUNCTIONS ==================
 // Functions used by more than one section will be placed here.
@@ -183,7 +193,10 @@ function showSection(section) {
         // === Orders ===
     if (section === 'orders') {
         currentFilter = 'all';          // always start on All Orders
-        if (typeof loadOrders === 'function') {
+        if (isDataFresh(ordersLoadedAt) && allOrders && allOrders.length >= 0) {
+            if (typeof updateOrderStatusCards === 'function') updateOrderStatusCards();
+            if (typeof renderOrdersTable === 'function') renderOrdersTable();
+        } else if (typeof loadOrders === 'function') {
             loadOrders();
         } else if (typeof renderOrdersTable === 'function') {
             renderOrdersTable();
@@ -199,8 +212,10 @@ function showSection(section) {
 
     // === Customers ===
         if (section === 'customers') {
-        if (typeof loadCustomers === 'function') {
-            loadCustomers();   // loads from Supabase and then calls renderCustomers
+        if (isDataFresh(customersLoadedAt) && allCustomers && allCustomers.length >= 0) {
+            if (typeof renderCustomers === 'function') renderCustomers();
+        } else if (typeof loadCustomers === 'function') {
+            loadCustomers();
         }
         setTimeout(() => {
             if (typeof initCustomerMap === 'function') initCustomerMap();
@@ -1948,6 +1963,7 @@ async function loadOrders() {
                 credit: o.credit != null ? Number(o.credit) : 0,
                 items: o.items || []
             }));
+            ordersLoadedAt = Date.now();
         }
     } catch (err) {
         console.error(err);
@@ -3476,6 +3492,7 @@ async function loadCustomers() {
         allCustomers = [];
     }
 
+    customersLoadedAt = Date.now();
     renderCustomers();
 }
 
@@ -4933,6 +4950,7 @@ async function loadInquiries() {
 
         if (error) throw error;
         inquiries = data || [];
+        inquiriesLoadedAt = Date.now();
     } catch (err) {
         console.error('Error loading inquiries:', err);
         inquiries = [];
@@ -5470,6 +5488,7 @@ async function loadInventory() {
         }
 
         console.log('Inventory loaded from Supabase:', Object.keys(inventory).length);
+        inventoryLoadedAt = Date.now();
     } catch (err) {
         console.error('loadInventory error:', err);
         inventory = {};
@@ -7104,6 +7123,7 @@ async function loadVendors() {
         });
 
         console.log('Vendors loaded from Supabase:', vendors.length);
+        vendorsLoadedAt = Date.now();
     } catch (err) {
         console.error('loadVendors error:', err);
         vendors = [];
@@ -8945,9 +8965,11 @@ function checkLegalPassword() {
 
 async function showVendorsSection() {
     showSection('vendors');
-    await loadVendors();
-    if (typeof renderVendors === 'function') {
-        renderVendors();
+    if (isDataFresh(vendorsLoadedAt) && vendors) {
+        if (typeof renderVendors === 'function') renderVendors();
+    } else {
+        await loadVendors();
+        if (typeof renderVendors === 'function') renderVendors();
     }
     if (typeof updateDashboardVendors === 'function') {
         updateDashboardVendors();
