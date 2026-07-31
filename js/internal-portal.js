@@ -3304,12 +3304,7 @@ async function updateDashboardVendors() {
     }
 }
 
-// Optional: make it rotate every 4 seconds
-setInterval(() => {
-    if (document.getElementById('dashboard')?.style.display !== 'none') {
-        updateDashboardVendors();
-    }
-}, 4000);
+// Vendor dashboard counts refresh on section enter + after mutations (no polling)
 
 function toggleSelectAllOrders(checkbox) {
     const checkboxes = document.querySelectorAll('.order-checkbox');
@@ -6587,55 +6582,40 @@ function initDashboardDragAndDrop() {
 }
 
 // ================== INITIALIZATION ==================
-window.onload = function() {
+window.onload = async function() {
     loadUser();
 
-    // Show dashboard by default
     const dashboard = document.getElementById('dashboard');
     if (dashboard) dashboard.style.display = 'block';
 
-    // Load orders first
-    if (typeof loadOrders === 'function') {
-        loadOrders();
-    }
-
-    // Then update dashboard numbers
-    if (typeof updateDashboardSales === 'function') {
-        updateDashboardSales();
-    }
-        if (typeof updatePendingPOIndicators === 'function') {
-        updatePendingPOIndicators();
-    }
-    
-    // Other initial renders
-    if (typeof renderInquiries === 'function') renderInquiries();
-    if (typeof updateInquiryStats === 'function') updateInquiryStats();
-    if (typeof updateDashboardPendingCount === 'function') updateDashboardPendingCount();
-        if (typeof updateDashboardVendors === 'function') {
-        updateDashboardVendors();
-    }
-    if (typeof updateDashboardSalesmen === 'function') {
-        updateDashboardSalesmen();
-    }
-    if (typeof updateDashboardProfitMargin === 'function') {
-        updateDashboardProfitMargin();
-    }
-    if (typeof loadInventory === 'function')  {
-        loadInventory().then(() => {
-            if (typeof updateDashboardLowStock === 'function') updateDashboardLowStock();
-        });
-    } else if (typeof updateDashboardLowStock === 'function') {
-        updateDashboardLowStock();
-    }
     if (typeof initDashboardDragAndDrop === 'function') {
         initDashboardDragAndDrop();
     }
-    if (typeof updateDashboardOrders === 'function') {
-        updateDashboardOrders();
+
+    // Parallel independent loads for faster first paint
+    const loads = [];
+    if (typeof loadOrders === 'function') loads.push(loadOrders());
+    if (typeof loadInventory === 'function') loads.push(loadInventory());
+    if (typeof loadInquiries === 'function') loads.push(loadInquiries());
+    if (typeof loadVendors === 'function') loads.push(loadVendors());
+
+    try {
+        await Promise.all(loads);
+    } catch (err) {
+        console.warn('Dashboard parallel load warning:', err);
     }
-    if (typeof updateDashboardSalesMatrix === 'function') {
-        updateDashboardSalesMatrix();
-    }
+
+    // Pure UI updates from in-memory data (after loads settle)
+    if (typeof updateDashboardSales === 'function') updateDashboardSales();
+    if (typeof updateDashboardOrders === 'function') updateDashboardOrders();
+    if (typeof updateDashboardPendingCount === 'function') updateDashboardPendingCount();
+    if (typeof updateDashboardLowStock === 'function') updateDashboardLowStock();
+    if (typeof updatePendingPOIndicators === 'function') updatePendingPOIndicators();
+    if (typeof updateDashboardVendors === 'function') updateDashboardVendors();
+    if (typeof updateDashboardSalesmen === 'function') updateDashboardSalesmen();
+    if (typeof updateDashboardProfitMargin === 'function') updateDashboardProfitMargin();
+    if (typeof updateDashboardSalesMatrix === 'function') updateDashboardSalesMatrix();
+    if (typeof updateInquiryStats === 'function') updateInquiryStats();
 };
 
 function filterOrdersByStatus(status) {
@@ -7064,28 +7044,20 @@ let vendors = [];
 
 async function loadVendors() {
     try {
-        // 1. Fetch all vendors
-        const { data: vendorRows, error: vErr } = await supabaseClient
-            .from('vendors')
-            .select('*')
-            .order('name');
+        // Fetch vendors, purchases, and items in parallel
+        const [vendorsRes, purchasesRes, itemsRes] = await Promise.all([
+            supabaseClient.from('vendors').select('*').order('name'),
+            supabaseClient.from('vendor_purchases').select('*').order('created_at', { ascending: false }),
+            supabaseClient.from('vendor_purchase_items').select('*')
+        ]);
 
-        if (vErr) throw vErr;
+        if (vendorsRes.error) throw vendorsRes.error;
+        if (purchasesRes.error) throw purchasesRes.error;
+        if (itemsRes.error) throw itemsRes.error;
 
-        // 2. Fetch all purchases
-        const { data: purchaseRows, error: pErr } = await supabaseClient
-            .from('vendor_purchases')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-        if (pErr) throw pErr;
-
-        // 3. Fetch all items
-        const { data: itemRows, error: iErr } = await supabaseClient
-            .from('vendor_purchase_items')
-            .select('*');
-
-        if (iErr) throw iErr;
+        const vendorRows = vendorsRes.data;
+        const purchaseRows = purchasesRes.data;
+        const itemRows = itemsRes.data;
 
         // 4. Nest them into the exact shape the existing UI expects
         vendors = (vendorRows || []).map(v => {
