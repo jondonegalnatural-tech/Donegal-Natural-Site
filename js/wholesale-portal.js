@@ -2717,24 +2717,24 @@ async function payInvoice(orderId) {
     modal.id = 'stripe-payment-modal';
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[999]';
     modal.innerHTML = `
-        <div class="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-lg mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold brand-green">Pay Invoice</h3>
                 <button onclick="document.getElementById('stripe-payment-modal').remove()" 
-                        class="text-2xl text-[#6B4423] hover:text-red-600">&times;</button>
+                        class="text-2xl text-[#6B4423] hover:text-red-600 leading-none">&times;</button>
             </div>
 
             <p class="text-sm text-[#6B4423] mb-1">Invoice #${order.id.slice(0, 8)}…</p>
-            <p class="text-2xl font-bold brand-green mb-6">$${total.toFixed(2)}</p>
+            <p class="text-2xl font-bold brand-green mb-5">$${total.toFixed(2)}</p>
 
-            <div id="payment-element" class="mb-4">
-                <!-- Stripe Payment Element will mount here -->
+            <div id="payment-element" class="mb-6 min-h-[260px]">
+                <!-- Stripe Payment Element mounts here -->
             </div>
 
             <div id="payment-message" class="text-sm text-red-600 mb-3 hidden"></div>
 
             <button id="stripe-pay-button"
-                    class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">
+                    class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3.5 rounded-xl">
                 Pay Now
             </button>
         </div>
