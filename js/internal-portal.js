@@ -2614,6 +2614,13 @@ function renderShipInvoiceItems() {
                 ? 'Market'
                 : (item.displayPrice || '—'));
 
+        const qty = parseInt(item.quantity, 10) || 0;
+        const unit = hasRealPrice ? Number(item.unitPrice) : 0;
+        const lineTotal = qty * unit;
+        const lineTotalLabel = hasRealPrice
+            ? ('$' + lineTotal.toFixed(2))
+            : '—';
+
         return `
             <div class="flex flex-wrap items-center gap-2 border border-[#d4b78f] rounded-xl px-3 py-2 bg-[#f8f4eb]">
                 <div class="flex-1 min-w-[160px]">
@@ -2623,6 +2630,10 @@ function renderShipInvoiceItems() {
                 <input type="number" min="1" step="1" value="${item.quantity}"
                        onchange="updateShipInvoiceQty(${index}, this.value)"
                        class="w-20 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm">
+                <div class="text-right min-w-[70px]">
+                    <p class="text-xs text-[#6B4423]">Line Total</p>
+                    <p class="font-semibold text-sm brand-green">${lineTotalLabel}</p>
+                </div>
                 <button type="button" onclick="removeShipInvoiceItem(${index})"
                         class="px-3 py-1 text-xs bg-red-600 text-white rounded-lg">
                     Remove
@@ -5551,18 +5562,34 @@ async function loadInventory() {
 
 async function upsertInventoryQuantity(productName, quantity) {
     try {
-        const { error } = await supabaseClient
+        // Prefer UPDATE (works under most RLS policies)
+        const { data, error: updateError } = await supabaseClient
             .from('inventory')
-            .upsert(
-                {
-                    product_name: productName,
-                    quantity: quantity,
-                    updated_at: new Date().toISOString()
-                },
-                { onConflict: 'product_name' }
-            );
+            .update({
+                quantity: quantity,
+                updated_at: new Date().toISOString()
+            })
+            .eq('product_name', productName)
+            .select('product_name');
 
-        if (error) throw error;
+        if (updateError) throw updateError;
+
+        // If a row was updated, we're done
+        if (data && data.length > 0) return;
+
+        // No existing row — try insert (may still be blocked by RLS)
+        const { error: insertError } = await supabaseClient
+            .from('inventory')
+            .insert({
+                product_name: productName,
+                quantity: quantity,
+                updated_at: new Date().toISOString()
+            });
+
+        if (insertError) {
+            // Soft-fail so shipping still succeeds
+            console.warn('Could not insert inventory row for', productName, insertError.message);
+        }
     } catch (err) {
         console.error('upsertInventoryQuantity error:', err);
         throw err;
