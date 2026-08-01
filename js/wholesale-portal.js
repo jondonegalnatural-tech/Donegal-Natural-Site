@@ -2688,30 +2688,50 @@ async function payInvoice(orderId) {
     modal.id = 'stripe-payment-modal';
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[999]';
     modal.innerHTML = `
-        <div class="bg-white rounded-2xl p-6 w-full max-w-2xl mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-4">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-4xl mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
                 <h3 class="text-xl font-bold brand-green">Pay Invoice</h3>
                 <button onclick="document.getElementById('stripe-payment-modal').remove()" 
                         class="text-2xl text-[#6B4423] hover:text-red-600 leading-none">&times;</button>
             </div>
 
-            <p class="text-sm text-[#6B4423] mb-1">Invoice #${orderId.slice(0, 8)}…</p>
-            <p id="payment-total" class="text-2xl font-bold brand-green mb-5">Loading…</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Left column: Invoice summary -->
+                <div class="flex flex-col">
+                    <p class="text-sm text-[#6B4423] mb-1">Invoice #${orderId.slice(0, 8)}…</p>
+                    <p id="payment-total" class="text-4xl font-bold brand-green mb-6">Loading…</p>
 
-            <div id="payment-element" class="mb-6 min-h-[260px] flex items-center justify-center">
-                <div class="text-center text-[#6B4423]">
-                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                    <p class="text-sm">Preparing secure payment form…</p>
+                    <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-5 text-sm text-[#6B4423] mt-auto">
+                        <p class="font-semibold text-[#1E4D2B] mb-2 flex items-center gap-2">
+                            <i class="fas fa-lock"></i> Secure Payment
+                        </p>
+                        <p class="leading-relaxed">
+                            Your payment is processed securely by Stripe. 
+                            We never store your card or bank details on our servers.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Right column: Stripe Payment Element -->
+                <div>
+                    <div id="payment-element" class="mb-5 min-h-[320px]">
+                        <div class="flex items-center justify-center h-full text-[#6B4423]">
+                            <div class="text-center">
+                                <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                                <p class="text-sm">Preparing secure payment form…</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="payment-message" class="text-sm text-red-600 mb-3 hidden"></div>
+
+                    <button id="stripe-pay-button"
+                            class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3.5 rounded-xl opacity-50 cursor-not-allowed"
+                            disabled>
+                        Pay Now
+                    </button>
                 </div>
             </div>
-
-            <div id="payment-message" class="text-sm text-red-600 mb-3 hidden"></div>
-
-            <button id="stripe-pay-button"
-                    class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3.5 rounded-xl opacity-50 cursor-not-allowed"
-                    disabled>
-                Pay Now
-            </button>
         </div>
     `;
     document.body.appendChild(modal);
