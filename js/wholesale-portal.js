@@ -2679,9 +2679,125 @@ async function refreshOrderHistoryBadge() {
     }
 }
 
-function payInvoice(orderId) {
-    // Placeholder – payment flow (Check / ACH) will be built later
-    alert('Payment options for Invoice #' + orderId + ' will be available soon.\n\nCheck and ACH payment will be added at the end of this build.');
+async function payInvoice(orderId) {
+    // Remove any existing payment modal
+    document.getElementById('stripe-payment-modal')?.remove();
+
+    // Get the current user / customer info
+    const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    if (!user) {
+        alert('Please log in again.');
+        return;
+    }
+
+    // Find the order from the list we already loaded (or fetch it)
+    const { data: order, error } = await supabaseClient
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .single();
+
+    if (error || !order) {
+        alert('Could not load order details.');
+        return;
+    }
+
+    // Calculate total
+    let subtotal = 0;
+    (order.items || []).forEach(item => {
+        const price = parseFloat(item.unitPrice) || 0;
+        const qty = parseInt(item.quantity, 10) || 0;
+        subtotal += price * qty;
+    });
+    const shipping = parseFloat(order.shipping_cost) || 0;
+    const total = subtotal + shipping;
+
+    // Create the modal
+    const modal = document.createElement('div');
+    modal.id = 'stripe-payment-modal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[999]';
+    modal.innerHTML = `
+        <div class="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold brand-green">Pay Invoice</h3>
+                <button onclick="document.getElementById('stripe-payment-modal').remove()" 
+                        class="text-2xl text-[#6B4423] hover:text-red-600">&times;</button>
+            </div>
+
+            <p class="text-sm text-[#6B4423] mb-1">Invoice #${order.id.slice(0, 8)}…</p>
+            <p class="text-2xl font-bold brand-green mb-6">$${total.toFixed(2)}</p>
+
+            <div id="payment-element" class="mb-4">
+                <!-- Stripe Payment Element will mount here -->
+            </div>
+
+            <div id="payment-message" class="text-sm text-red-600 mb-3 hidden"></div>
+
+            <button id="stripe-pay-button"
+                    class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">
+                Pay Now
+            </button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    // ========== STRIPE SETUP ==========
+    // Replace this with your real Publishable key
+    const STRIPE_PUBLISHABLE_KEY = 'pk_test_51TzhpXJj3sEFPuyY4JerITMKZD0XzUl0raiOGJiokimP471fJ23AAKQjCs0t4CSwWf4QvQKfaeZxBuAj8532S4FR00RVgGli27';
+
+    const stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
+    let elements;
+
+    try {
+        // Call the Edge Function we created earlier
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/create-payment-intent`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+                email: order.customer_email || user.email,
+                orderId: order.id,
+                amount: total,
+                customerName: order.customer_name || user.fullName,
+                companyName: order.customer_company || user.company
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+            document.getElementById('payment-message').textContent = data.error;
+            document.getElementById('payment-message').classList.remove('hidden');
+            return;
+        }
+
+        // Mount the Payment Element
+        elements = stripe.elements({ clientSecret: data.clientSecret });
+        const paymentElement = elements.create('payment');
+        paymentElement.mount('#payment-element');
+
+        // Handle Pay button
+        document.getElementById('stripe-pay-button').addEventListener('click', async () => {
+            const { error } = await stripe.confirmPayment({
+                elements,
+                confirmParams: {
+                    return_url: window.location.href
+                }
+            });
+
+            if (error) {
+                document.getElementById('payment-message').textContent = error.message;
+                document.getElementById('payment-message').classList.remove('hidden');
+            }
+        });
+
+    } catch (err) {
+        console.error(err);
+        document.getElementById('payment-message').textContent = 'Could not load payment form. Please try again.';
+        document.getElementById('payment-message').classList.remove('hidden');
+    }
 }
 // ================== ACCOUNT INFO DISPLAY ==================//
 function showAccountInfo() {
