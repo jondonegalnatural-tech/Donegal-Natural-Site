@@ -2698,16 +2698,31 @@ async function payInvoice(orderId) {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <!-- Left column: Invoice summary -->
                 <div class="flex flex-col">
-                    <p class="text-sm text-[#6B4423] mb-1">Invoice #${orderId.slice(0, 8)}…</p>
-                    <p id="payment-total" class="text-4xl font-bold brand-green mb-6">Loading…</p>
+                    <p class="text-sm text-[#6B4423] mb-1">Invoice</p>
+                    <p id="payment-order-id" class="text-xs text-[#6B4423] font-mono mb-2 break-all">Loading…</p>
+                    <p id="payment-total" class="text-4xl font-bold brand-green mb-5">Loading…</p>
 
-                    <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-5 text-sm text-[#6B4423] mt-auto">
-                        <p class="font-semibold text-[#1E4D2B] mb-2 flex items-center gap-2">
+                    <div id="payment-line-items" class="flex-1 overflow-y-auto max-h-64 border border-[#d4b78f] rounded-xl p-3 mb-4 text-sm space-y-2">
+                        <div class="text-center text-[#6B4423] py-6">
+                            <i class="fas fa-spinner fa-spin"></i> Loading items…
+                        </div>
+                    </div>
+
+                    <div id="payment-totals" class="text-sm space-y-1 mb-4">
+                        <!-- filled by JS -->
+                    </div>
+
+                    <button id="view-full-invoice-btn"
+                            class="w-full border-2 border-[#6B4423] text-[#6B4423] font-semibold py-2.5 rounded-xl hover:bg-[#f8f4eb] transition mb-3">
+                        View Full Invoice
+                    </button>
+
+                    <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-4 text-sm text-[#6B4423]">
+                        <p class="font-semibold text-[#1E4D2B] mb-1 flex items-center gap-2">
                             <i class="fas fa-lock"></i> Secure Payment
                         </p>
-                        <p class="leading-relaxed">
-                            Your payment is processed securely by Stripe. 
-                            We never store your card or bank details on our servers.
+                        <p class="leading-relaxed text-xs">
+                            Processed securely by Stripe. We never store your card or bank details.
                         </p>
                     </div>
                 </div>
@@ -2737,6 +2752,9 @@ async function payInvoice(orderId) {
     document.body.appendChild(modal);
 
     // ========== Load everything in the background ==========
+    document.body.appendChild(modal);
+
+    // ========== Load everything in the background ==========
     try {
         const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
         if (!user) {
@@ -2754,7 +2772,7 @@ async function payInvoice(orderId) {
             throw new Error('Could not load order details.');
         }
 
-        // Calculate total
+        // Calculate totals
         let subtotal = 0;
         (order.items || []).forEach(item => {
             const price = parseFloat(item.unitPrice) || 0;
@@ -2764,10 +2782,55 @@ async function payInvoice(orderId) {
         const shipping = parseFloat(order.shipping_cost) || 0;
         const total = subtotal + shipping;
 
-        // Update the total in the modal
+        // Fill left column
+        document.getElementById('payment-order-id').textContent = order.id;
         document.getElementById('payment-total').textContent = `$${total.toFixed(2)}`;
 
-        // Create PaymentIntent
+        // Line items
+        const lineItemsContainer = document.getElementById('payment-line-items');
+        if ((order.items || []).length === 0) {
+            lineItemsContainer.innerHTML = `<p class="text-center text-[#6B4423] py-4">No items found.</p>`;
+        } else {
+            lineItemsContainer.innerHTML = (order.items || []).map(item => {
+                const price = parseFloat(item.unitPrice) || 0;
+                const qty = parseInt(item.quantity, 10) || 0;
+                const lineTotal = price * qty;
+                return `
+                    <div class="flex justify-between gap-3 border-b border-[#e8d9c2] pb-2 last:border-0">
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium text-[#1E4D2B] truncate">${item.product || item.name || 'Item'}</p>
+                            <p class="text-xs text-[#6B4423]">Qty: ${qty}</p>
+                        </div>
+                        <div class="text-right font-semibold text-[#1E4D2B] whitespace-nowrap">
+                            $${lineTotal.toFixed(2)}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Totals
+        document.getElementById('payment-totals').innerHTML = `
+            <div class="flex justify-between">
+                <span class="text-[#6B4423]">Subtotal</span>
+                <span>$${subtotal.toFixed(2)}</span>
+            </div>
+            <div class="flex justify-between">
+                <span class="text-[#6B4423]">Shipping</span>
+                <span>${shipping > 0 ? '$' + shipping.toFixed(2) : '—'}</span>
+            </div>
+            <div class="flex justify-between font-bold text-base brand-green pt-2 border-t border-[#d4b78f] mt-2">
+                <span>Total</span>
+                <span>$${total.toFixed(2)}</span>
+            </div>
+        `;
+
+        // View Full Invoice button
+        document.getElementById('view-full-invoice-btn').onclick = () => {
+            showBrandedInvoice(order);
+        };
+
+        // ========== Stripe setup ==========
         const STRIPE_PUBLISHABLE_KEY = 'pk_test_51TzhpXJj3sEFPuyY4JerITMKZD0XzUl0raiOGJiokimP471fJ23AAKQjCs0t4CSwWf4QvQKfaeZxBuAj8532S4FR00RVgGli27';
         const stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
 
@@ -2796,7 +2859,6 @@ async function payInvoice(orderId) {
         const elements = stripe.elements({ clientSecret: data.clientSecret });
         const paymentElement = elements.create('payment');
         
-        // Clear the loading spinner and mount
         document.getElementById('payment-element').innerHTML = '';
         paymentElement.mount('#payment-element');
 
@@ -2826,7 +2888,6 @@ async function payInvoice(orderId) {
                 return;
             }
 
-            // Payment succeeded
             if (paymentIntent && paymentIntent.status === 'succeeded') {
                 try {
                     const { error: updateError } = await supabaseClient
@@ -2871,6 +2932,7 @@ async function payInvoice(orderId) {
         `;
     }
 }
+
 // ================== ACCOUNT INFO DISPLAY ==================//
 function showAccountInfo() {
     const container = document.getElementById('account-details');
@@ -3191,6 +3253,118 @@ async function submitPasswordChange() {
             errEl.classList.remove('hidden');
         }
     }
+}
+
+function showBrandedInvoice(order) {
+    // Remove any existing invoice modal
+    document.getElementById('branded-invoice-modal')?.remove();
+
+    let subtotal = 0;
+    (order.items || []).forEach(item => {
+        const price = parseFloat(item.unitPrice) || 0;
+        const qty = parseInt(item.quantity, 10) || 0;
+        subtotal += price * qty;
+    });
+    const shipping = parseFloat(order.shipping_cost) || 0;
+    const credit = parseFloat(order.credit) || 0;
+    const total = subtotal + shipping - credit;
+
+    const modal = document.createElement('div');
+    modal.id = 'branded-invoice-modal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000] p-4';
+    modal.innerHTML = `
+        <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+            <!-- Header -->
+            <div class="bg-[#1E4D2B] text-[#d4b78f] p-6 rounded-t-2xl flex justify-between items-start">
+                <div>
+                    <h2 class="text-2xl font-bold">Invoice</h2>
+                    <p class="text-sm opacity-90 mt-1">Donegal Natural Dog Treats</p>
+                </div>
+                <button onclick="document.getElementById('branded-invoice-modal').remove()" 
+                        class="text-2xl hover:text-white leading-none">&times;</button>
+            </div>
+
+            <div class="p-6 space-y-6">
+                <!-- Invoice meta -->
+                <div class="flex flex-wrap justify-between gap-4 text-sm">
+                    <div>
+                        <p class="text-[#6B4423] font-semibold">Invoice #</p>
+                        <p class="font-mono text-xs break-all">${order.id}</p>
+                    </div>
+                    <div>
+                        <p class="text-[#6B4423] font-semibold">Date</p>
+                        <p>${new Date(order.submitted_at || order.created_at || Date.now()).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                        <p class="text-[#6B4423] font-semibold">Status</p>
+                        <p class="capitalize">${order.status || '—'}</p>
+                    </div>
+                </div>
+
+                <!-- Bill To -->
+                <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-4">
+                    <p class="text-xs font-semibold text-[#6B4423] mb-1">BILL TO</p>
+                    <p class="font-semibold text-[#1E4D2B]">${order.customer_name || '—'}</p>
+                    <p class="text-sm text-[#6B4423]">${order.customer_company || ''}</p>
+                    <p class="text-sm text-[#6B4423]">${order.customer_email || ''}</p>
+                </div>
+
+                <!-- Line items -->
+                <div>
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b-2 border-[#6B4423] text-left">
+                                <th class="py-2 font-semibold text-[#1E4D2B]">Item</th>
+                                <th class="py-2 font-semibold text-[#1E4D2B] text-center">Qty</th>
+                                <th class="py-2 font-semibold text-[#1E4D2B] text-right">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${(order.items || []).map(item => {
+                                const price = parseFloat(item.unitPrice) || 0;
+                                const qty = parseInt(item.quantity, 10) || 0;
+                                const lineTotal = price * qty;
+                                return `
+                                    <tr class="border-b border-[#e8d9c2]">
+                                        <td class="py-3 text-[#1E4D2B]">${item.product || item.name || 'Item'}</td>
+                                        <td class="py-3 text-center text-[#6B4423]">${qty}</td>
+                                        <td class="py-3 text-right font-medium">$${lineTotal.toFixed(2)}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Totals -->
+                <div class="border-t-2 border-[#6B4423] pt-4 space-y-1 text-sm max-w-xs ml-auto">
+                    <div class="flex justify-between">
+                        <span class="text-[#6B4423]">Subtotal</span>
+                        <span>$${subtotal.toFixed(2)}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-[#6B4423]">Shipping</span>
+                        <span>${shipping > 0 ? '$' + shipping.toFixed(2) : '—'}</span>
+                    </div>
+                    ${credit > 0 ? `
+                    <div class="flex justify-between text-green-700">
+                        <span>Credit</span>
+                        <span>-$${credit.toFixed(2)}</span>
+                    </div>` : ''}
+                    <div class="flex justify-between font-bold text-lg brand-green pt-2 border-t border-[#d4b78f] mt-2">
+                        <span>Total Due</span>
+                        <span>$${total.toFixed(2)}</span>
+                    </div>
+                </div>
+
+                <div class="text-center text-xs text-[#6B4423] pt-4 border-t border-[#e8d9c2]">
+                    Thank you for your business · Terms: Net 10 days
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
 }
 
 async function submitOnboarding() {
