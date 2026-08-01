@@ -2683,73 +2683,74 @@ async function payInvoice(orderId) {
     // Remove any existing payment modal
     document.getElementById('stripe-payment-modal')?.remove();
 
-    // Get the current user / customer info
-    const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
-    if (!user) {
-        alert('Please log in again.');
-        return;
-    }
-
-    // Find the order from the list we already loaded (or fetch it)
-    const { data: order, error } = await supabaseClient
-        .from('orders')
-        .select('*')
-        .eq('id', orderId)
-        .single();
-
-    if (error || !order) {
-        alert('Could not load order details.');
-        return;
-    }
-
-    // Calculate total
-    let subtotal = 0;
-    (order.items || []).forEach(item => {
-        const price = parseFloat(item.unitPrice) || 0;
-        const qty = parseInt(item.quantity, 10) || 0;
-        subtotal += price * qty;
-    });
-    const shipping = parseFloat(order.shipping_cost) || 0;
-    const total = subtotal + shipping;
-
-    // Create the modal
+    // Create the modal immediately (so it feels instant)
     const modal = document.createElement('div');
     modal.id = 'stripe-payment-modal';
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[999]';
     modal.innerHTML = `
-        <div class="bg-white rounded-2xl p-6 w-full max-w-lg mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
+        <div class="bg-white rounded-2xl p-6 w-full max-w-2xl mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold brand-green">Pay Invoice</h3>
                 <button onclick="document.getElementById('stripe-payment-modal').remove()" 
                         class="text-2xl text-[#6B4423] hover:text-red-600 leading-none">&times;</button>
             </div>
 
-            <p class="text-sm text-[#6B4423] mb-1">Invoice #${order.id.slice(0, 8)}…</p>
-            <p class="text-2xl font-bold brand-green mb-5">$${total.toFixed(2)}</p>
+            <p class="text-sm text-[#6B4423] mb-1">Invoice #${orderId.slice(0, 8)}…</p>
+            <p id="payment-total" class="text-2xl font-bold brand-green mb-5">Loading…</p>
 
-            <div id="payment-element" class="mb-6 min-h-[260px]">
-                <!-- Stripe Payment Element mounts here -->
+            <div id="payment-element" class="mb-6 min-h-[260px] flex items-center justify-center">
+                <div class="text-center text-[#6B4423]">
+                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                    <p class="text-sm">Preparing secure payment form…</p>
+                </div>
             </div>
 
             <div id="payment-message" class="text-sm text-red-600 mb-3 hidden"></div>
 
             <button id="stripe-pay-button"
-                    class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3.5 rounded-xl">
+                    class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3.5 rounded-xl opacity-50 cursor-not-allowed"
+                    disabled>
                 Pay Now
             </button>
         </div>
     `;
     document.body.appendChild(modal);
 
-    // ========== STRIPE SETUP ==========
-    // Replace this with your real Publishable key
-    const STRIPE_PUBLISHABLE_KEY = 'pk_test_51TzhpXJj3sEFPuyY4JerITMKZD0XzUl0raiOGJiokimP471fJ23AAKQjCs0t4CSwWf4QvQKfaeZxBuAj8532S4FR00RVgGli27';
-
-    const stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
-    let elements;
-
+    // ========== Load everything in the background ==========
     try {
-        // Call the Edge Function we created earlier
+        const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        if (!user) {
+            throw new Error('Please log in again.');
+        }
+
+        // Fetch the order
+        const { data: order, error } = await supabaseClient
+            .from('orders')
+            .select('*')
+            .eq('id', orderId)
+            .single();
+
+        if (error || !order) {
+            throw new Error('Could not load order details.');
+        }
+
+        // Calculate total
+        let subtotal = 0;
+        (order.items || []).forEach(item => {
+            const price = parseFloat(item.unitPrice) || 0;
+            const qty = parseInt(item.quantity, 10) || 0;
+            subtotal += price * qty;
+        });
+        const shipping = parseFloat(order.shipping_cost) || 0;
+        const total = subtotal + shipping;
+
+        // Update the total in the modal
+        document.getElementById('payment-total').textContent = `$${total.toFixed(2)}`;
+
+        // Create PaymentIntent
+        const STRIPE_PUBLISHABLE_KEY = 'pk_test_51TzhpXJj3sEFPuyY4JerITMKZD0XzUl0raiOGJiokimP471fJ23AAKQjCs0t4CSwWf4QvQKfaeZxBuAj8532S4FR00RVgGli27';
+        const stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
+
         const response = await fetch(`${SUPABASE_URL}/functions/v1/create-payment-intent`, {
             method: 'POST',
             headers: {
@@ -2768,23 +2769,28 @@ async function payInvoice(orderId) {
         const data = await response.json();
 
         if (data.error) {
-            document.getElementById('payment-message').textContent = data.error;
-            document.getElementById('payment-message').classList.remove('hidden');
-            return;
+            throw new Error(data.error);
         }
 
         // Mount the Payment Element
-        elements = stripe.elements({ clientSecret: data.clientSecret });
+        const elements = stripe.elements({ clientSecret: data.clientSecret });
         const paymentElement = elements.create('payment');
+        
+        // Clear the loading spinner and mount
+        document.getElementById('payment-element').innerHTML = '';
         paymentElement.mount('#payment-element');
 
+        // Enable the Pay button
+        const payBtn = document.getElementById('stripe-pay-button');
+        payBtn.disabled = false;
+        payBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+
         // Handle Pay button
-        document.getElementById('stripe-pay-button').addEventListener('click', async () => {
-            const payBtn = document.getElementById('stripe-pay-button');
+        payBtn.addEventListener('click', async () => {
             payBtn.disabled = true;
             payBtn.textContent = 'Processing…';
 
-            const { error, paymentIntent } = await stripe.confirmPayment({
+            const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
                 elements,
                 redirect: 'if_required',
                 confirmParams: {
@@ -2792,8 +2798,8 @@ async function payInvoice(orderId) {
                 }
             });
 
-            if (error) {
-                document.getElementById('payment-message').textContent = error.message;
+            if (confirmError) {
+                document.getElementById('payment-message').textContent = confirmError.message;
                 document.getElementById('payment-message').classList.remove('hidden');
                 payBtn.disabled = false;
                 payBtn.textContent = 'Pay Now';
@@ -2836,8 +2842,13 @@ async function payInvoice(orderId) {
 
     } catch (err) {
         console.error(err);
-        document.getElementById('payment-message').textContent = 'Could not load payment form. Please try again.';
+        document.getElementById('payment-message').textContent = err.message || 'Could not load payment form. Please try again.';
         document.getElementById('payment-message').classList.remove('hidden');
+        document.getElementById('payment-element').innerHTML = `
+            <div class="text-center text-red-600 text-sm py-8">
+                Failed to load payment form.
+            </div>
+        `;
     }
 }
 // ================== ACCOUNT INFO DISPLAY ==================//
