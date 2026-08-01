@@ -2546,7 +2546,8 @@ async function loadOrderHistory() {
 
         const completed = (data || []).filter(order => {
             const status = (order.status || '').toLowerCase();
-            return ['shipped', 'delivered'].includes(status);
+            const paymentStatus = (order.payment_status || '').toLowerCase();
+            return ['shipped', 'delivered', 'processing'].includes(status) || paymentStatus === 'paid';
         });
 
         updateOrderHistoryBadge(completed.length);
@@ -2578,10 +2579,19 @@ async function loadOrderHistory() {
             const shipping = parseFloat(order.shipping_cost) || 0;
             const finalTotal = subtotal + shipping;
 
-            const badgeClass = status === 'shipped'
-                ? 'bg-purple-100 text-purple-800'
-                : 'bg-green-100 text-green-700';
-            const badgeText = status === 'shipped' ? 'Shipped' : 'Delivered';
+            let badgeClass = 'bg-gray-100 text-gray-700';
+            let badgeText = status || 'Unknown';
+
+            if (status === 'shipped') {
+                badgeClass = 'bg-purple-100 text-purple-800';
+                badgeText = 'Shipped';
+            } else if (status === 'delivered') {
+                badgeClass = 'bg-green-100 text-green-700';
+                badgeText = 'Delivered';
+            } else if (status === 'processing' || (order.payment_status || '').toLowerCase() === 'paid') {
+                badgeClass = 'bg-blue-100 text-blue-800';
+                badgeText = 'Paid';
+            }
 
             html += `
                 <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mb-4">
