@@ -2780,8 +2780,13 @@ async function payInvoice(orderId) {
 
         // Handle Pay button
         document.getElementById('stripe-pay-button').addEventListener('click', async () => {
-            const { error } = await stripe.confirmPayment({
+            const payBtn = document.getElementById('stripe-pay-button');
+            payBtn.disabled = true;
+            payBtn.textContent = 'Processing…';
+
+            const { error, paymentIntent } = await stripe.confirmPayment({
                 elements,
+                redirect: 'if_required',
                 confirmParams: {
                     return_url: window.location.href
                 }
@@ -2790,6 +2795,42 @@ async function payInvoice(orderId) {
             if (error) {
                 document.getElementById('payment-message').textContent = error.message;
                 document.getElementById('payment-message').classList.remove('hidden');
+                payBtn.disabled = false;
+                payBtn.textContent = 'Pay Now';
+                return;
+            }
+
+            // Payment succeeded
+            if (paymentIntent && paymentIntent.status === 'succeeded') {
+                try {
+                    const { error: updateError } = await supabaseClient
+                        .from('orders')
+                        .update({
+                            status: 'processing',
+                            payment_status: 'paid',
+                            paid_at: new Date().toISOString(),
+                            stripe_payment_intent_id: paymentIntent.id
+                        })
+                        .eq('id', orderId);
+
+                    if (updateError) throw updateError;
+
+                    document.getElementById('payment-message').classList.add('hidden');
+                    payBtn.textContent = 'Paid ✓';
+                    payBtn.classList.remove('bg-[#1E4D2B]', 'hover:bg-[#254a2f]');
+                    payBtn.classList.add('bg-green-600');
+
+                    setTimeout(() => {
+                        document.getElementById('stripe-payment-modal')?.remove();
+                        loadOrderHistory();
+                    }, 1200);
+
+                } catch (err) {
+                    console.error('Failed to update order after payment:', err);
+                    document.getElementById('payment-message').textContent =
+                        'Payment succeeded but we could not update the order status. Please contact us.';
+                    document.getElementById('payment-message').classList.remove('hidden');
+                }
             }
         });
 
