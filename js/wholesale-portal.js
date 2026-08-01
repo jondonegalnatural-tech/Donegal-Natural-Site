@@ -2698,8 +2698,16 @@ async function payInvoice(orderId) {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <!-- Left column: Invoice summary -->
                 <div class="flex flex-col">
-                    <p class="text-sm text-[#6B4423] mb-1">Invoice</p>
-                    <p id="payment-order-id" class="text-xs text-[#6B4423] font-mono mb-2 break-all">Loading…</p>
+                    <div class="flex items-start justify-between gap-3 mb-1">
+                        <div>
+                            <p class="text-sm text-[#6B4423]">Invoice</p>
+                            <p id="payment-order-id" class="text-xs text-[#6B4423] font-mono break-all">Loading…</p>
+                        </div>
+                        <button id="view-full-invoice-btn"
+                                class="text-sm border border-[#6B4423] text-[#6B4423] font-semibold px-3 py-1.5 rounded-lg hover:bg-[#f8f4eb] transition whitespace-nowrap">
+                            View Full Invoice
+                        </button>
+                    </div>
                     <p id="payment-total" class="text-4xl font-bold brand-green mb-5">Loading…</p>
 
                     <div id="payment-line-items" class="flex-1 overflow-y-auto max-h-64 border border-[#d4b78f] rounded-xl p-3 mb-4 text-sm space-y-2">
@@ -2711,11 +2719,6 @@ async function payInvoice(orderId) {
                     <div id="payment-totals" class="text-sm space-y-1 mb-4">
                         <!-- filled by JS -->
                     </div>
-
-                    <button id="view-full-invoice-btn"
-                            class="w-full border-2 border-[#6B4423] text-[#6B4423] font-semibold py-2.5 rounded-xl hover:bg-[#f8f4eb] transition mb-3">
-                        View Full Invoice
-                    </button>
 
                     <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-4 text-sm text-[#6B4423]">
                         <p class="font-semibold text-[#1E4D2B] mb-1 flex items-center gap-2">
@@ -3276,9 +3279,12 @@ function showBrandedInvoice(order) {
         <div class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
             <!-- Header -->
             <div class="bg-[#1E4D2B] text-[#d4b78f] p-6 rounded-t-2xl flex justify-between items-start">
-                <div>
-                    <h2 class="text-2xl font-bold">Invoice</h2>
-                    <p class="text-sm opacity-90 mt-1">Donegal Natural Dog Treats</p>
+                <div class="flex items-center gap-3">
+                    <img src="media/logo.png" alt="Donegal Natural" class="h-12 w-auto bg-white rounded-lg p-1">
+                    <div>
+                        <h2 class="text-2xl font-bold">Invoice</h2>
+                        <p class="text-sm opacity-90">Donegal Natural Dog Treats</p>
+                    </div>
                 </div>
                 <button onclick="document.getElementById('branded-invoice-modal').remove()" 
                         class="text-2xl hover:text-white leading-none">&times;</button>
