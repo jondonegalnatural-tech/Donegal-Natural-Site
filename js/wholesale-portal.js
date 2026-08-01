@@ -2708,17 +2708,17 @@ async function payInvoice(orderId) {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <!-- Left column: Invoice summary -->
                 <div class="flex flex-col">
-                    <div class="flex items-start justify-between gap-3 mb-1">
-                        <div>
-                            <p class="text-sm text-[#6B4423]">Invoice</p>
-                            <p id="payment-order-id" class="text-xs text-[#6B4423] font-mono break-all">Loading…</p>
-                        </div>
+                    <div class="mb-1">
+                        <p class="text-sm text-[#6B4423]">Invoice</p>
+                        <p id="payment-order-id" class="text-xs text-[#6B4423] font-mono break-all">Loading…</p>
+                    </div>
+                    <div class="flex items-center justify-between gap-4 mb-5">
+                        <p id="payment-total" class="text-4xl font-bold brand-green">Loading…</p>
                         <button id="view-full-invoice-btn"
                                 class="text-sm border border-[#6B4423] text-[#6B4423] font-semibold px-3 py-1.5 rounded-lg hover:bg-[#f8f4eb] transition whitespace-nowrap">
                             View Full Invoice
                         </button>
                     </div>
-                    <p id="payment-total" class="text-4xl font-bold brand-green mb-5">Loading…</p>
 
                     <div id="payment-line-items" class="flex-1 overflow-y-auto max-h-64 border border-[#d4b78f] rounded-xl p-3 mb-4 text-sm space-y-2">
                         <div class="text-center text-[#6B4423] py-6">
