@@ -188,7 +188,7 @@ async function loadAchBankLog() {
     try {
        const { data, error } = await supabaseClient
             .from('orders')
-            .select('id, payment_status, payment_method_type, payment_initiated_at, paid_at, items, shipping_cost, credit, customer_name, company_name, created_at')
+            .select('id, payment_status, payment_method_type, payment_initiated_at, paid_at, items, shipping_cost, credit, customer_name, customer_company, submitted_at')
             .or('payment_method_type.eq.us_bank_account,payment_method_type.eq.customer_balance')
             .order('paid_at', { ascending: false, nullsFirst: false })
             .limit(100);
@@ -249,9 +249,9 @@ async function loadAchBankLog() {
                         ${rows.map(o => `
                             <tr class="border-b border-[#d4b78f]">
                                 <td class="p-3 font-mono text-xs">${o.id}</td>
-                                <td class="p-3">${o.company_name || o.customer_name || '—'}</td>
+                                <td class="p-3">${o.customer_company || o.customer_name || '—'}</td>
                                 <td class="p-3 text-right font-semibold">${money(calcTotal(o))}</td>
-                                <td class="p-3">${fmt(o.payment_initiated_at || o.created_at)}</td>
+                                <td class="p-3">${fmt(o.payment_initiated_at || o.submitted_at)}</td>
                                 <td class="p-3">${fmt(o.paid_at)}</td>
                                 <td class="p-3">
                                     <span class="px-2 py-1 rounded-full text-xs font-semibold ${
