@@ -2575,6 +2575,13 @@ async function denyOrder(orderId) {
 
         if (error) throw error;
 
+        const deniedOrder = allOrders.find(o => String(o.id) === String(orderId));
+        await sendOrderStatusEmail({
+            type: 'denied',
+            order: deniedOrder,
+            denialReason: ''
+        });
+
         await loadOrders();
     } catch (err) {
         console.error(err);
@@ -2883,6 +2890,43 @@ const shipping = parseFloat(document.getElementById('ship-inv-shipping')?.value)
     if (totEl) totEl.textContent = '$' + total.toFixed(2);
 }
 
+async function sendOrderStatusEmail({ type, order, denialReason }) {
+    if (!order) return;
+    const toEmail = (order.customerEmail || order.customer_email || '').trim();
+    if (!toEmail) {
+        console.warn('No customer email for order status email', order.id);
+        return;
+    }
+
+    try {
+        const res = await fetch(
+            SUPABASE_URL + '/functions/v1/send-order-status-email',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                    'apikey': SUPABASE_ANON_KEY
+                },
+                body: JSON.stringify({
+                    type: type,
+                    toEmail: toEmail,
+                    customerName: order.customer || order.customer_name || '',
+                    companyName: order.customerCompany || order.customer_company || '',
+                    orderId: order.id,
+                    denialReason: denialReason || ''
+                })
+            }
+        );
+        if (!res.ok) {
+            const text = await res.text();
+            console.error('Order status email failed:', res.status, text);
+        }
+    } catch (err) {
+        console.error('Order status email error:', err);
+    }
+}
+
 async function confirmShipInvoice() {
     if (!shipInvoiceOrder) return;
 
@@ -2941,7 +2985,17 @@ const shipping = parseFloat(document.getElementById('ship-inv-shipping')?.value)
 
         hideShipInvoiceModal();
         await loadOrders();
-        alert('Order shipped. Invoice saved.');
+
+        // Notify customer
+        await sendOrderStatusEmail({
+            type: 'shipped',
+            order: {
+                ...shipInvoiceOrder,
+                customerEmail: shipInvoiceOrder.customerEmail || shipInvoiceOrder.customer_email
+            }
+        });
+
+        alert('Order shipped. Invoice saved. Customer notified by email (if address on file).');
     } catch (err) {
         console.error(err);
         alert('Could not ship order.\n' + (err.message || ''));
