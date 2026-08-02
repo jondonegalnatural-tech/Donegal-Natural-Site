@@ -274,6 +274,49 @@ async function loadAchBankLog() {
     }
 }
 
+async function updateDashboardAchCounts() {
+    const pendingEl = document.getElementById('dash-pending-ach');
+    const clearedEl = document.getElementById('dash-cleared-7d');
+    if (!pendingEl && !clearedEl) return;
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('orders')
+            .select('id, payment_status, paid_at, payment_method_type')
+            .or('payment_method_type.eq.us_bank_account,payment_method_type.eq.customer_balance')
+            .limit(500);
+
+        if (error) throw error;
+
+        const rows = data || [];
+        const now = Date.now();
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+        let pending = 0;
+        let cleared7d = 0;
+
+        rows.forEach(o => {
+            const status = (o.payment_status || '').toLowerCase();
+            const isPaid = status === 'paid';
+            if (!isPaid) {
+                pending++;
+            } else if (o.paid_at) {
+                const paidMs = new Date(o.paid_at).getTime();
+                if (!isNaN(paidMs) && (now - paidMs) <= sevenDaysMs) {
+                    cleared7d++;
+                }
+            }
+        });
+
+        if (pendingEl) pendingEl.textContent = pending;
+        if (clearedEl) clearedEl.textContent = cleared7d;
+    } catch (err) {
+        console.error('updateDashboardAchCounts error:', err);
+        if (pendingEl) pendingEl.textContent = '—';
+        if (clearedEl) clearedEl.textContent = '—';
+    }
+}
+
 function showFinancialsSub(which) {
     // Hide all Financials sub-panels
     document.querySelectorAll('.financials-sub').forEach(el => el.classList.add('hidden'));
@@ -413,6 +456,9 @@ function showSection(section) {
     if (typeof loadInventory === 'function') {
     loadInventory().then(() => {
         if (typeof updateDashboardLowStock === 'function') updateDashboardLowStock();
+    if (typeof updateDashboardAchCounts === 'function') {
+        updateDashboardAchCounts();
+    }
     });
 } else if (typeof updateDashboardLowStock === 'function') {
     updateDashboardLowStock();
@@ -6920,6 +6966,7 @@ window.onload = async function() {
     if (typeof updateDashboardSalesmen === 'function') updateDashboardSalesmen();
     if (typeof updateDashboardProfitMargin === 'function') updateDashboardProfitMargin();
     if (typeof updateDashboardSalesMatrix === 'function') updateDashboardSalesMatrix();
+    if (typeof updateDashboardAchCounts === 'function') updateDashboardAchCounts();
     if (typeof updateInquiryStats === 'function') updateInquiryStats();
 };
 
