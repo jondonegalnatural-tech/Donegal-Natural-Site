@@ -186,9 +186,9 @@ async function loadAchBankLog() {
     container.innerHTML = `<p class="text-[#6B4423]">Loading ACH / bank payments…</p>`;
 
     try {
-        const { data, error } = await supabaseClient
+       const { data, error } = await supabaseClient
             .from('orders')
-            .select('id, payment_status, payment_method_type, payment_initiated_at, paid_at, total, customer_name, company_name, created_at')
+            .select('id, payment_status, payment_method_type, payment_initiated_at, paid_at, items, shipping_cost, credit, customer_name, company_name, created_at')
             .or('payment_method_type.eq.us_bank_account,payment_method_type.eq.customer_balance')
             .order('paid_at', { ascending: false, nullsFirst: false })
             .limit(100);
@@ -220,6 +220,18 @@ async function loadAchBankLog() {
             return '$' + v.toFixed(2);
         };
 
+        const calcTotal = (o) => {
+            let sub = 0;
+            (o.items || []).forEach(item => {
+                const qty = Number(item.quantity) || 0;
+                const price = Number(item.unitPrice ?? item.unit_price ?? item.price) || 0;
+                sub += qty * price;
+            });
+            const shipping = Number(o.shipping_cost) || 0;
+            const credit = Number(o.credit) || 0;
+            return sub + shipping - credit;
+        };
+
         container.innerHTML = `
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
@@ -238,7 +250,7 @@ async function loadAchBankLog() {
                             <tr class="border-b border-[#d4b78f]">
                                 <td class="p-3 font-mono text-xs">${o.id}</td>
                                 <td class="p-3">${o.company_name || o.customer_name || '—'}</td>
-                                <td class="p-3 text-right font-semibold">${money(o.total)}</td>
+                                <td class="p-3 text-right font-semibold">${money(calcTotal(o))}</td>
                                 <td class="p-3">${fmt(o.payment_initiated_at || o.created_at)}</td>
                                 <td class="p-3">${fmt(o.paid_at)}</td>
                                 <td class="p-3">
