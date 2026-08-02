@@ -196,7 +196,7 @@ body { background: #f8f1e9; }
         0
     </span>
 </a>
-            <a href="#" onclick="showSection('financials')" class="nav-link flex items-center px-4 py-3">
+            <a href="#" onclick="showSection('financials'); setTimeout(function(){ showFinancialsSub('ach-log'); }, 50)" class="nav-link flex items-center px-4 py-3">
                 <i class="fas fa-dollar-sign w-6 text-center"></i>
                 <span class="ml-3 nav-text">Financials</span>
             </a>
@@ -841,6 +841,21 @@ body { background: #f8f1e9; }
                     <div id="ach-bank-log-table" class="text-sm text-[#6B4423]">
                         Coming next…
                     </div>
+                </div>
+            </div>
+
+            <div id="financials-sales" class="financials-sub hidden">
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
+                    <h2 class="text-xl font-bold brand-green mb-2">Sales Reports</h2>
+                    <p class="text-sm text-[#6B4423]">Sales reports content will go here. If you already moved it earlier, paste it inside this box.</p>
+                    <div id="sales-reports-content"></div>
+                </div>
+            </div>
+
+            <div id="financials-profit" class="financials-sub hidden">
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
+                    <h2 class="text-xl font-bold brand-green mb-2">Profit Margin Analysis</h2>
+                    <p class="text-sm text-[#6B4423]">If your profit margin block still exists elsewhere on the page, we will move it here next.</p>
                 </div>
             </div>
 
