@@ -2630,10 +2630,16 @@ async function loadOrderHistory() {
                         </div>
                     </div>
 
+                    ${(order.payment_status || '').toLowerCase() === 'paid' ? `
+                    <div class="w-full bg-green-100 text-green-800 font-semibold py-3 rounded-xl text-center">
+                        Paid ✓
+                    </div>
+                    ` : `
                     <button onclick="payInvoice('${order.id}')"
                             class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">
                         Pay Invoice
                     </button>
+                    `}
                 </div>
             `;
         });
