@@ -2983,16 +2983,21 @@ const shipping = parseFloat(document.getElementById('ship-inv-shipping')?.value)
             });
         }
 
+        // Capture order before modal clears it
+        const shippedOrderSnapshot = {
+            id: shipInvoiceOrder.id,
+            customer: shipInvoiceOrder.customer || shipInvoiceOrder.customer_name || '',
+            customerEmail: shipInvoiceOrder.customerEmail || shipInvoiceOrder.customer_email || '',
+            customerCompany: shipInvoiceOrder.customerCompany || shipInvoiceOrder.customer_company || ''
+        };
+
         hideShipInvoiceModal();
         await loadOrders();
 
-        // Notify customer
+        // Notify customer (use snapshot — modal clears shipInvoiceOrder)
         await sendOrderStatusEmail({
             type: 'shipped',
-            order: {
-                ...shipInvoiceOrder,
-                customerEmail: shipInvoiceOrder.customerEmail || shipInvoiceOrder.customer_email
-            }
+            order: shippedOrderSnapshot
         });
 
         alert('Order shipped. Invoice saved. Customer notified by email (if address on file).');
