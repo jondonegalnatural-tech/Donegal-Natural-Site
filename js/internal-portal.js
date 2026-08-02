@@ -6551,6 +6551,8 @@ function dashboardCardClick(event, target) {
 
     if (target === 'orders') {
         showSection('orders');
+    } else if (target === 'financials') {
+        showSection('financials');
     } else if (target === 'reports') {
         showSection('reports');
     } else if (target === 'salesmen') {
