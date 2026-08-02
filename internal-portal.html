@@ -833,7 +833,7 @@ body { background: #f8f1e9; }
                 </button>
             </div>
 
-            <!-- ACH / Bank Log (default) -->
+            <!-- ACH / Bank Log (default visible) -->
             <div id="financials-ach-log" class="financials-sub">
                 <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
                     <h2 class="text-xl font-bold brand-green mb-2">ACH / Bank Transfer Log</h2>
@@ -844,34 +844,18 @@ body { background: #f8f1e9; }
                 </div>
             </div>
 
+            <!-- Sales Reports -->
             <div id="financials-sales" class="financials-sub hidden">
                 <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
-                    <h2 class="text-xl font-bold brand-green mb-2">Sales Reports</h2>
-                    <p class="text-sm text-[#6B4423]">Sales reports content will go here. If you already moved it earlier, paste it inside this box.</p>
+                    <h2 class="text-xl font-bold brand-green mb-4 flex items-center gap-2">
+                        <i class="fas fa-chart-line"></i> <span>Sales Reports</span>
+                    </h2>
                     <div id="sales-reports-content"></div>
                 </div>
             </div>
 
+            <!-- Profit Margin -->
             <div id="financials-profit" class="financials-sub hidden">
-                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
-                    <h2 class="text-xl font-bold brand-green mb-2">Profit Margin Analysis</h2>
-                    <p class="text-sm text-[#6B4423]">If your profit margin block still exists elsewhere on the page, we will move it here next.</p>
-                </div>
-            </div>
-
-            <!-- ========== SALES REPORTS ========== -->
-            <div class="mb-8">
-                <h2 class="text-xl font-bold brand-green mb-4 flex items-center gap-2">
-                    <i class="fas fa-chart-line"></i> <span>Sales Reports</span>
-                </h2>
-                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
-                    <div id="sales-reports-content"></div>
-                </div>
-            </div>
-            <!-- ========== END SALES REPORTS ========== -->
-
-            <!-- Profit (placeholder) -->
-            <!-- ========== PROFIT MARGIN ANALYSIS ========== -->
                 <div id="profit-margin-section" class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
                     <div class="mb-5">
                         <h3 class="text-xl font-bold brand-green flex items-center gap-2">
@@ -880,7 +864,6 @@ body { background: #f8f1e9; }
                         <p class="text-sm text-[#6B4423]">Average margin and top performers</p>
                     </div>
 
-                    <!-- Summary Cards (compact) -->
                     <div class="grid grid-cols-3 gap-3 mb-6">
                         <div onclick="setMarginFilter('all')" class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-3 text-center cursor-pointer hover:shadow-md transition">
                             <p class="text-xs font-semibold text-[#6B4423]">All Products</p>
@@ -899,23 +882,20 @@ body { background: #f8f1e9; }
                         </div>
                     </div>
 
-                    <!-- Top Performers -->
                     <div class="mb-5">
                         <h4 class="font-bold brand-green text-sm mb-2">Top Performers (Top 20%)</h4>
                         <div id="pm-top-performers" class="space-y-1.5 text-sm max-h-48 overflow-y-auto"></div>
                     </div>
 
-                    <!-- Search -->
                     <div class="mb-3">
                         <input type="text" id="pm-search" placeholder="Search products..."
                                class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm w-full"
                                oninput="renderProfitMarginSearch()">
                     </div>
 
-                    <!-- Search Results (empty by default) -->
                     <div id="pm-search-results" class="space-y-2"></div>
                 </div>
-                <!-- ========== END PROFIT MARGIN ANALYSIS ========== -->
+            </div>
         </div>
         <!-- ==================== END FINANCIALS ==================== -->
 
