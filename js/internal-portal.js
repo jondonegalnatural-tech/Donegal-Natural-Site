@@ -179,6 +179,23 @@ async function refreshCustomerInsights() {
     }).join('');
 }
 
+function showFinancialsSub(which) {
+    document.querySelectorAll('.financials-sub').forEach(el => el.classList.add('hidden'));
+    const target = document.getElementById('financials-' + which);
+    if (target) target.classList.remove('hidden');
+
+    // Update button styles
+    document.querySelectorAll('#financials .flex.flex-wrap.gap-2 button').forEach(btn => {
+        btn.classList.remove('bg-[#1E4D2B]', 'text-[#d4b78f]');
+        btn.classList.add('bg-white', 'text-[#6B4423]');
+    });
+    // Highlight the clicked one if possible
+    if (typeof event !== 'undefined' && event?.currentTarget) {
+        event.currentTarget.classList.remove('bg-white', 'text-[#6B4423]');
+        event.currentTarget.classList.add('bg-[#1E4D2B]', 'text-[#d4b78f]');
+    }
+}
+
 function showSection(section) {
     if (typeof closeMobileSidebar === 'function') closeMobileSidebar();
     if (section === 'salesmen' && typeof renderSalesmen === 'function') {
