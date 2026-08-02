@@ -2680,7 +2680,9 @@ async function refreshOrderHistoryBadge() {
         if (error) throw error;
         const completed = (data || []).filter(o => {
             const s = (o.status || '').toLowerCase();
-            return s === 'shipped' || s === 'delivered';
+            const p = (o.payment_status || '').toLowerCase();
+            // Show badge for invoices that still need payment
+            return p !== 'paid' && (['shipped', 'delivered', 'processing'].includes(s) || !s);
         });
         updateOrderHistoryBadge(completed.length);
     } catch (err) {
