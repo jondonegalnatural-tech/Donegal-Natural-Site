@@ -180,23 +180,34 @@ async function refreshCustomerInsights() {
 }
 
 function showFinancialsSub(which) {
+    // Hide all Financials sub-panels
     document.querySelectorAll('.financials-sub').forEach(el => el.classList.add('hidden'));
+
+    // Show the selected one
     const target = document.getElementById('financials-' + which);
     if (target) target.classList.remove('hidden');
 
-    // Reset all sub-nav buttons
+    // Update sub-nav button styles
     document.querySelectorAll('#financials .flex.flex-wrap.gap-2 > button').forEach(btn => {
         btn.classList.remove('bg-[#1E4D2B]', 'text-[#d4b78f]');
         btn.classList.add('bg-white', 'text-[#6B4423]', 'hover:bg-[#f8f4eb]');
-    });
-
-    // Highlight the active button by matching onclick
-    document.querySelectorAll('#financials .flex.flex-wrap.gap-2 > button').forEach(btn => {
         if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes("'" + which + "'")) {
             btn.classList.remove('bg-white', 'text-[#6B4423]', 'hover:bg-[#f8f4eb]');
             btn.classList.add('bg-[#1E4D2B]', 'text-[#d4b78f]');
         }
     });
+
+    // Load data for the selected sub-panel
+    if (which === 'sales') {
+        if (typeof updateReportsSalesSummary === 'function') {
+            setTimeout(() => updateReportsSalesSummary(), 50);
+        }
+    }
+    if (which === 'profit') {
+        if (typeof renderProfitMarginSection === 'function') {
+            setTimeout(() => renderProfitMarginSection(), 50);
+        }
+    }
 }
 
 function showSection(section) {
@@ -246,6 +257,13 @@ function showSection(section) {
         setTimeout(() => {
             if (typeof initCustomerMap === 'function') initCustomerMap();
         }, 400);
+    }
+
+// === Financials ===
+    if (section === 'financials') {
+        setTimeout(() => {
+            if (typeof showFinancialsSub === 'function') showFinancialsSub('ach-log');
+        }, 40);
     }
 
     // === Reports ===
@@ -6556,6 +6574,7 @@ function dashboardCardClick(event, target) {
         showSection('orders');
     } else if (target === 'financials') {
         showSection('financials');
+        setTimeout(() => showFinancialsSub('ach-log'), 50);
     } else if (target === 'reports') {
         showSection('reports');
     } else if (target === 'salesmen') {
