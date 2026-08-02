@@ -184,16 +184,19 @@ function showFinancialsSub(which) {
     const target = document.getElementById('financials-' + which);
     if (target) target.classList.remove('hidden');
 
-    // Update button styles
-    document.querySelectorAll('#financials .flex.flex-wrap.gap-2 button').forEach(btn => {
+    // Reset all sub-nav buttons
+    document.querySelectorAll('#financials .flex.flex-wrap.gap-2 > button').forEach(btn => {
         btn.classList.remove('bg-[#1E4D2B]', 'text-[#d4b78f]');
-        btn.classList.add('bg-white', 'text-[#6B4423]');
+        btn.classList.add('bg-white', 'text-[#6B4423]', 'hover:bg-[#f8f4eb]');
     });
-    // Highlight the clicked one if possible
-    if (typeof event !== 'undefined' && event?.currentTarget) {
-        event.currentTarget.classList.remove('bg-white', 'text-[#6B4423]');
-        event.currentTarget.classList.add('bg-[#1E4D2B]', 'text-[#d4b78f]');
-    }
+
+    // Highlight the active button by matching onclick
+    document.querySelectorAll('#financials .flex.flex-wrap.gap-2 > button').forEach(btn => {
+        if (btn.getAttribute('onclick') && btn.getAttribute('onclick').includes("'" + which + "'")) {
+            btn.classList.remove('bg-white', 'text-[#6B4423]', 'hover:bg-[#f8f4eb]');
+            btn.classList.add('bg-[#1E4D2B]', 'text-[#d4b78f]');
+        }
+    });
 }
 
 function showSection(section) {
@@ -6564,8 +6567,9 @@ function dashboardCardClick(event, target) {
             showSection('vendors');
         }
     } else if (target === 'profit') {
-        showSection('reports');
+        showSection('financials');
         setTimeout(() => {
+            showFinancialsSub('profit');
             const el = document.getElementById('profit-margin-section');
             if (el) el.scrollIntoView({ behavior: 'smooth' });
         }, 200);
