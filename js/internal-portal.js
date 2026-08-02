@@ -179,6 +179,89 @@ async function refreshCustomerInsights() {
     }).join('');
 }
 
+async function loadAchBankLog() {
+    const container = document.getElementById('ach-bank-log-table');
+    if (!container) return;
+
+    container.innerHTML = `<p class="text-[#6B4423]">Loading ACH / bank payments…</p>`;
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('orders')
+            .select('id, payment_status, payment_method_type, payment_initiated_at, paid_at, total, customer_name, company_name, created_at')
+            .or('payment_method_type.eq.us_bank_account,payment_method_type.eq.customer_balance')
+            .order('paid_at', { ascending: false, nullsFirst: false })
+            .limit(100);
+
+        if (error) throw error;
+
+        const rows = data || [];
+
+        if (rows.length === 0) {
+            container.innerHTML = `
+                <p class="text-[#6B4423]">No ACH / bank transfer payments recorded yet.</p>
+                <p class="text-xs text-[#6B4423] mt-2">New bank payments will appear here after they clear.</p>
+            `;
+            return;
+        }
+
+        const fmt = (iso) => {
+            if (!iso) return '—';
+            try {
+                return new Date(iso).toLocaleString();
+            } catch {
+                return iso;
+            }
+        };
+
+        const money = (n) => {
+            const v = Number(n);
+            if (Number.isNaN(v)) return '—';
+            return '$' + v.toFixed(2);
+        };
+
+        container.innerHTML = `
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                            <th class="p-3 text-left">Invoice #</th>
+                            <th class="p-3 text-left">Customer</th>
+                            <th class="p-3 text-right">Amount</th>
+                            <th class="p-3 text-left">Initiated</th>
+                            <th class="p-3 text-left">Cleared (Paid)</th>
+                            <th class="p-3 text-left">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows.map(o => `
+                            <tr class="border-b border-[#d4b78f]">
+                                <td class="p-3 font-mono text-xs">${o.id}</td>
+                                <td class="p-3">${o.company_name || o.customer_name || '—'}</td>
+                                <td class="p-3 text-right font-semibold">${money(o.total)}</td>
+                                <td class="p-3">${fmt(o.payment_initiated_at || o.created_at)}</td>
+                                <td class="p-3">${fmt(o.paid_at)}</td>
+                                <td class="p-3">
+                                    <span class="px-2 py-1 rounded-full text-xs font-semibold ${
+                                        (o.payment_status || '').toLowerCase() === 'paid'
+                                            ? 'bg-green-100 text-green-800'
+                                            : 'bg-blue-100 text-blue-800'
+                                    }">
+                                        ${(o.payment_status || 'pending').toUpperCase()}
+                                    </span>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    } catch (err) {
+        console.error('loadAchBankLog error:', err);
+        container.innerHTML = `<p class="text-red-600">Failed to load ACH log: ${err.message || err}</p>`;
+    }
+}
+
 function showFinancialsSub(which) {
     // Hide all Financials sub-panels
     document.querySelectorAll('.financials-sub').forEach(el => el.classList.add('hidden'));
@@ -198,6 +281,11 @@ function showFinancialsSub(which) {
     });
 
     // Load data for the selected sub-panel
+        if (which === 'ach-log') {
+        if (typeof loadAchBankLog === 'function') {
+            setTimeout(() => loadAchBankLog(), 50);
+        }
+    }
     if (which === 'sales') {
         if (typeof updateReportsSalesSummary === 'function') {
             setTimeout(() => updateReportsSalesSummary(), 50);
