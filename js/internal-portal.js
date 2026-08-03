@@ -226,7 +226,7 @@ async function loadAchBankLog() {
     try {
         const { data, error } = await supabaseClient
             .from('orders')
-            .select('id, payment_status, payment_method_type, payment_initiated_at, paid_at, items, shipping_cost, credit, customer_name, customer_company, submitted_at')
+            .select('id, payment_status, payment_method_type, payment_initiated_at, paid_at, amount_paid, refund_amount, stripe_payment_intent_id, items, shipping_cost, credit, customer_name, customer_company, submitted_at')
             .or('payment_method_type.eq.us_bank_account,payment_method_type.eq.customer_balance')
             .order('payment_initiated_at', { ascending: false, nullsFirst: false })
             .limit(1000);
@@ -279,7 +279,9 @@ function renderBankLogTable() {
         if (!byMonth[m]) {
             byMonth[m] = { pendingCount: 0, pendingAmt: 0, clearedCount: 0, clearedAmt: 0, rows: [] };
         }
-        const amount = calcOrderAmount(o);
+        const calcAmt = calcOrderAmount(o);
+        const paidAmt = Number(o.amount_paid);
+        const amount = (!Number.isNaN(paidAmt) && paidAmt > 0) ? paidAmt : calcAmt;
         const isPaid = (o.payment_status || '').toLowerCase() === 'paid';
 
         byMonth[m].rows.push(o);
@@ -288,7 +290,7 @@ function renderBankLogTable() {
             byMonth[m].clearedAmt += amount;
         } else {
             byMonth[m].pendingCount += 1;
-            byMonth[m].pendingAmt += amount;
+            byMonth[m].pendingAmt += calcAmt;
         }
     });
 
@@ -355,7 +357,7 @@ function renderBankLogTable() {
             // Detail header
             html += `
                 <tr class="bg-[#f8f1e9]">
-                    <td colspan="6" class="p-0">
+                    <td colspan="8" class="p-0">
                         <div class="overflow-x-auto px-2 py-2">
                             <table class="w-full text-xs">
                                 <thead>
@@ -363,8 +365,10 @@ function renderBankLogTable() {
                                         <th class="p-2 text-left">Customer</th>
                                         <th class="p-2 text-left">Invoice #</th>
                                         <th class="p-2 text-left">Date Initiated</th>
+                                        <th class="p-2 text-center">Status</th>
                                         <th class="p-2 text-right">Pending $</th>
                                         <th class="p-2 text-right">Cleared $</th>
+                                        <th class="p-2 text-right">Refunded $</th>
                                         <th class="p-2 text-left">Date Cleared</th>
                                     </tr>
                                 </thead>
@@ -382,18 +386,32 @@ function renderBankLogTable() {
             });
 
             detailRows.forEach(o => {
-                const amount = calcOrderAmount(o);
+                const calcAmt = calcOrderAmount(o);
+                const paidAmt = Number(o.amount_paid);
+                const clearedAmt = (!Number.isNaN(paidAmt) && paidAmt > 0) ? paidAmt : calcAmt;
+                const refundAmt = Number(o.refund_amount) || 0;
                 const isPaid = (o.payment_status || '').toLowerCase() === 'paid';
                 const customer = o.customer_company || o.customer_name || '—';
                 const inv = String(o.id || '').slice(0, 8);
+
+                let statusBadge;
+                if (refundAmt > 0) {
+                    statusBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">Refunded</span>`;
+                } else if (isPaid) {
+                    statusBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">Cleared</span>`;
+                } else {
+                    statusBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Pending</span>`;
+                }
 
                 html += `
                     <tr class="border-t border-[#e8d9b8]">
                         <td class="p-2">${customer}</td>
                         <td class="p-2 font-mono">${inv}</td>
                         <td class="p-2">${fmtDate(o.payment_initiated_at || o.submitted_at)}</td>
-                        <td class="p-2 text-right ${!isPaid ? 'text-blue-700 font-semibold' : 'text-gray-400'}">${isPaid ? '$0.00' : fmtMoney(amount)}</td>
-                        <td class="p-2 text-right ${isPaid ? 'text-green-700 font-semibold' : 'text-gray-400'}">${isPaid ? fmtMoney(amount) : '—'}</td>
+                        <td class="p-2 text-center">${statusBadge}</td>
+                        <td class="p-2 text-right ${!isPaid ? 'text-blue-700 font-semibold' : 'text-gray-400'}">${isPaid ? '$0.00' : fmtMoney(calcAmt)}</td>
+                        <td class="p-2 text-right ${isPaid ? 'text-green-700 font-semibold' : 'text-gray-400'}">${isPaid ? fmtMoney(clearedAmt) : '—'}</td>
+                        <td class="p-2 text-right ${refundAmt > 0 ? 'text-orange-700 font-semibold' : 'text-gray-400'}">${refundAmt > 0 ? fmtMoney(refundAmt) : '—'}</td>
                         <td class="p-2">${isPaid ? fmtDate(o.paid_at) : '—'}</td>
                     </tr>
                 `;
