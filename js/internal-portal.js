@@ -202,6 +202,20 @@ function fmtMoney(n) {
     return '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+/** Approximate Stripe US fee for deposit estimate (standard pricing). */
+function estimateStripeFee(gross, methodType) {
+    const amt = Number(gross) || 0;
+    if (amt <= 0) return 0;
+    const m = (methodType || '').toLowerCase();
+    if (m === 'us_bank_account' || m === 'ach_debit') {
+        return Math.min(amt * 0.008, 5);
+    }
+    if (m === 'customer_balance') {
+        return Math.min(amt * 0.008, 5);
+    }
+    return amt * 0.029 + 0.30;
+}
+
 function fmtDate(iso) {
     if (!iso) return '—';
     try {
@@ -357,7 +371,7 @@ function renderBankLogTable() {
             // Detail header
             html += `
                 <tr class="bg-[#f8f1e9]">
-                    <td colspan="10" class="p-0">
+                    <td colspan="11" class="p-0">
                         <div class="overflow-x-auto px-2 py-2">
                             <table class="w-full text-xs">
                                 <thead>
@@ -369,6 +383,7 @@ function renderBankLogTable() {
                                         <th class="p-2 text-center">Status</th>
                                         <th class="p-2 text-right">Pending $</th>
                                         <th class="p-2 text-right">Cleared $</th>
+                                        <th class="p-2 text-right">Deposited $</th>
                                         <th class="p-2 text-right">Refunded $</th>
                                         <th class="p-2 text-left">Date Cleared</th>
                                         <th class="p-2 text-center">Refund</th>
@@ -411,6 +426,15 @@ function renderBankLogTable() {
                 }
                 const piId = (o.stripe_payment_intent_id || '').trim();
                 const fullyRefunded = isPaid && refundAmt > 0 && clearedAmt > 0 && refundAmt >= clearedAmt;
+                                // Deposited $ ≈ amount_paid minus estimated Stripe fee (standard US rates)
+                let depositDisplay = '—';
+                let depositClass = 'text-gray-400';
+                if (isPaid) {
+                    const fee = estimateStripeFee(clearedAmt, o.payment_method_type);
+                    const depositAmt = Math.max(0, clearedAmt - fee);
+                    depositDisplay = fmtMoney(depositAmt);
+                    depositClass = depositAmt > 0 ? 'text-[#1E4D2B] font-semibold' : 'text-gray-400';
+                }
                 const canRefund = isPaid && piId && !fullyRefunded;
                 // Stripe Dashboard (use /test/payments/ while in test mode)
                 const refundBtn = canRefund
@@ -439,6 +463,7 @@ function renderBankLogTable() {
                         <td class="p-2 text-right ${isPaid ? 'text-green-700 font-semibold' : 'text-gray-400'}">${isPaid ? fmtMoney(clearedAmt) : '—'}</td>
                         <td class="p-2 text-right ${refundAmt > 0 ? 'text-orange-700 font-semibold' : 'text-gray-400'}">${refundAmt > 0 ? fmtMoney(refundAmt) : '—'}</td>
                         <td class="p-2">${isPaid ? fmtDate(o.paid_at) : '—'}</td>
+                        <td class="p-2 text-right ${depositClass}">${depositDisplay}</td>
                         <td class="p-2 text-center">${refundBtn}</td>
                     </tr>
                 `;
