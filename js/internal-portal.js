@@ -179,11 +179,18 @@ async function refreshCustomerInsights() {
     }).join('');
 }
 
-async function loadAchBankLog() {
+async function loadAchBankLog(filter) {
+    // filter: undefined | 'pending' | 'cleared15'
     const container = document.getElementById('ach-bank-log-table');
     if (!container) return;
 
-    container.innerHTML = `<p class="text-[#6B4423]">Loading ACH / bank payments…</p>`;
+    const filterLabel = filter === 'pending'
+        ? ' (Pending — last 15 days)'
+        : filter === 'cleared15'
+            ? ' (Cleared — last 15 days)'
+            : '';
+
+    container.innerHTML = `<p class="text-[#6B4423]">Loading ACH / bank payments${filterLabel}…</p>`;
 
     try {
        const { data, error } = await supabaseClient
@@ -195,7 +202,28 @@ async function loadAchBankLog() {
 
         if (error) throw error;
 
-        const rows = data || [];
+        let rows = data || [];
+        const nowMs = Date.now();
+        const fifteenDaysMs = 15 * 24 * 60 * 60 * 1000;
+
+        if (filter === 'pending') {
+            rows = rows.filter(o => {
+                const status = (o.payment_status || '').toLowerCase();
+                if (status === 'paid') return false;
+                const initiatedMs = new Date(
+                    o.payment_initiated_at || o.submitted_at || 0
+                ).getTime();
+                if (!initiatedMs || isNaN(initiatedMs)) return true;
+                return (nowMs - initiatedMs) <= fifteenDaysMs;
+            });
+        } else if (filter === 'cleared15') {
+            rows = rows.filter(o => {
+                const status = (o.payment_status || '').toLowerCase();
+                if (status !== 'paid' || !o.paid_at) return false;
+                const paidMs = new Date(o.paid_at).getTime();
+                return !isNaN(paidMs) && (nowMs - paidMs) <= fifteenDaysMs;
+            });
+        }
 
         if (rows.length === 0) {
             container.innerHTML = `
@@ -276,45 +304,118 @@ async function loadAchBankLog() {
 
 async function updateDashboardAchCounts() {
     const pendingEl = document.getElementById('dash-pending-ach');
-    const clearedEl = document.getElementById('dash-cleared-7d');
+    const clearedEl = document.getElementById('dash-cleared-15d')
+        || document.getElementById('dash-cleared-7d');
+    const ytdEl = document.getElementById('dash-fin-ytd-sales');
+    const mtdEl = document.getElementById('dash-fin-mtd-sales');
+
+    // ---- YTD / MTD sales from allOrders (same logic as Sales Overview) ----
+    if (ytdEl || mtdEl) {
+        let ytdTotal = 0;
+        let mtdTotal = 0;
+        const now = new Date();
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        (allOrders || []).forEach(order => {
+            if (!order.items || !Array.isArray(order.items)) return;
+            const orderDate = new Date(
+                order.submittedAt || order.submitted_at || order.date || now
+            );
+            if (isNaN(orderDate.getTime())) return;
+
+            let orderTotal = 0;
+            order.items.forEach(item => {
+                const qty = parseInt(item.quantity, 10) || 0;
+                const unit = typeof getOrderItemUnitPrice === 'function'
+                    ? getOrderItemUnitPrice(item)
+                    : (parseFloat(item.unitPrice) || 0);
+                orderTotal += qty * unit;
+            });
+
+            if (orderDate >= startOfYear) ytdTotal += orderTotal;
+            if (orderDate >= startOfMonth) mtdTotal += orderTotal;
+        });
+
+        if (ytdEl) ytdEl.textContent = '$' + Math.round(ytdTotal).toLocaleString();
+        if (mtdEl) mtdEl.textContent = '$' + Math.round(mtdTotal).toLocaleString();
+    }
+
     if (!pendingEl && !clearedEl) return;
 
     try {
         const { data, error } = await supabaseClient
             .from('orders')
-            .select('id, payment_status, paid_at, payment_method_type')
+            .select('id, payment_status, paid_at, payment_initiated_at, submitted_at, payment_method_type, items, shipping_cost, credit')
             .or('payment_method_type.eq.us_bank_account,payment_method_type.eq.customer_balance')
             .limit(500);
 
         if (error) throw error;
 
         const rows = data || [];
-        const now = Date.now();
-        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        const nowMs = Date.now();
+        const fifteenDaysMs = 15 * 24 * 60 * 60 * 1000;
 
-        let pending = 0;
-        let cleared7d = 0;
+        const calcTotal = (o) => {
+            let sub = 0;
+            (o.items || []).forEach(item => {
+                const qty = Number(item.quantity) || 0;
+                const price = Number(item.unitPrice ?? item.unit_price ?? item.price) || 0;
+                sub += qty * price;
+            });
+            const shipping = Number(o.shipping_cost) || 0;
+            const credit = Number(o.credit) || 0;
+            return sub + shipping - credit;
+        };
+
+        let pendingAmount = 0;
+        let cleared15Amount = 0;
 
         rows.forEach(o => {
             const status = (o.payment_status || '').toLowerCase();
             const isPaid = status === 'paid';
+            const amount = calcTotal(o);
+
             if (!isPaid) {
-                pending++;
+                // Pending: initiated in last 15 days (or no initiated date → still count)
+                const initiatedMs = new Date(
+                    o.payment_initiated_at || o.submitted_at || 0
+                ).getTime();
+                if (!initiatedMs || isNaN(initiatedMs) || (nowMs - initiatedMs) <= fifteenDaysMs) {
+                    pendingAmount += amount;
+                }
             } else if (o.paid_at) {
                 const paidMs = new Date(o.paid_at).getTime();
-                if (!isNaN(paidMs) && (now - paidMs) <= sevenDaysMs) {
-                    cleared7d++;
+                if (!isNaN(paidMs) && (nowMs - paidMs) <= fifteenDaysMs) {
+                    cleared15Amount += amount;
                 }
             }
         });
 
-        if (pendingEl) pendingEl.textContent = pending;
-        if (clearedEl) clearedEl.textContent = cleared7d;
+        const fmtMoney = (n) =>
+            '$' + Math.round(n).toLocaleString(undefined, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            });
+
+        if (pendingEl) pendingEl.textContent = fmtMoney(pendingAmount);
+        if (clearedEl) clearedEl.textContent = fmtMoney(cleared15Amount);
     } catch (err) {
         console.error('updateDashboardAchCounts error:', err);
         if (pendingEl) pendingEl.textContent = '—';
         if (clearedEl) clearedEl.textContent = '—';
     }
+}
+
+function openAchLogFiltered(filter) {
+    // filter: 'pending' | 'cleared15'
+    if (typeof showSection === 'function') showSection('financials');
+    setTimeout(() => {
+        if (typeof showFinancialsSub === 'function') showFinancialsSub('ach-log');
+        setTimeout(() => {
+            if (typeof loadAchBankLog === 'function') loadAchBankLog(filter);
+        }, 80);
+    }, 50);
 }
 
 function showFinancialsSub(which) {
