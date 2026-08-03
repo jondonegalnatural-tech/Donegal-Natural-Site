@@ -179,127 +179,252 @@ async function refreshCustomerInsights() {
     }).join('');
 }
 
-async function loadAchBankLog(filter) {
-    // filter: undefined | 'pending' | 'cleared15'
+// ================== BANK LOG (monthly + drill-down) ==================
+let bankLogYear = new Date().getFullYear();
+let bankLogRows = [];          // raw ACH/bank orders
+let bankLogExpandedMonth = null; // e.g. '2026-7' or null
+
+function calcOrderAmount(o) {
+    let sub = 0;
+    (o.items || []).forEach(item => {
+        const qty = Number(item.quantity) || 0;
+        const price = Number(item.unitPrice ?? item.unit_price ?? item.price) || 0;
+        sub += qty * price;
+    });
+    const shipping = Number(o.shipping_cost) || 0;
+    const credit = Number(o.credit) || 0;
+    return sub + shipping - credit;
+}
+
+function fmtMoney(n) {
+    const v = Number(n);
+    if (Number.isNaN(v)) return '—';
+    return '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtDate(iso) {
+    if (!iso) return '—';
+    try {
+        return new Date(iso).toLocaleDateString();
+    } catch {
+        return iso;
+    }
+}
+
+function changeBankLogYear(delta) {
+    bankLogYear += delta;
+    bankLogExpandedMonth = null;
+    renderBankLogTable();
+}
+
+async function loadAchBankLog() {
     const container = document.getElementById('ach-bank-log-table');
     if (!container) return;
 
-    const filterLabel = filter === 'pending'
-        ? ' (Pending — last 15 days)'
-        : filter === 'cleared15'
-            ? ' (Cleared — last 15 days)'
-            : '';
-
-    container.innerHTML = `<p class="text-[#6B4423]">Loading ACH / bank payments${filterLabel}…</p>`;
+    container.innerHTML = `<p class="text-[#6B4423]"><i class="fas fa-spinner fa-spin mr-2"></i>Loading bank log…</p>`;
 
     try {
-       const { data, error } = await supabaseClient
+        const { data, error } = await supabaseClient
             .from('orders')
             .select('id, payment_status, payment_method_type, payment_initiated_at, paid_at, items, shipping_cost, credit, customer_name, customer_company, submitted_at')
             .or('payment_method_type.eq.us_bank_account,payment_method_type.eq.customer_balance')
-            .order('paid_at', { ascending: false, nullsFirst: false })
-            .limit(100);
+            .order('payment_initiated_at', { ascending: false, nullsFirst: false })
+            .limit(1000);
 
         if (error) throw error;
 
-        let rows = data || [];
-        const nowMs = Date.now();
-        const fifteenDaysMs = 15 * 24 * 60 * 60 * 1000;
+        bankLogRows = data || [];
+        bankLogExpandedMonth = null;
 
-        if (filter === 'pending') {
-            rows = rows.filter(o => {
-                const status = (o.payment_status || '').toLowerCase();
-                if (status === 'paid') return false;
-                const initiatedMs = new Date(
-                    o.payment_initiated_at || o.submitted_at || 0
-                ).getTime();
-                if (!initiatedMs || isNaN(initiatedMs)) return true;
-                return (nowMs - initiatedMs) <= fifteenDaysMs;
-            });
-        } else if (filter === 'cleared15') {
-            rows = rows.filter(o => {
-                const status = (o.payment_status || '').toLowerCase();
-                if (status !== 'paid' || !o.paid_at) return false;
-                const paidMs = new Date(o.paid_at).getTime();
-                return !isNaN(paidMs) && (nowMs - paidMs) <= fifteenDaysMs;
-            });
+        // Default year to current year (or latest year that has data)
+        const years = new Set();
+        bankLogRows.forEach(o => {
+            const d = new Date(o.payment_initiated_at || o.submitted_at || o.paid_at || 0);
+            if (!isNaN(d.getTime())) years.add(d.getFullYear());
+        });
+        if (years.size > 0 && !years.has(bankLogYear)) {
+            bankLogYear = Math.max(...years);
         }
 
-        if (rows.length === 0) {
-            container.innerHTML = `
-                <p class="text-[#6B4423]">No ACH / bank transfer payments recorded yet.</p>
-                <p class="text-xs text-[#6B4423] mt-2">New bank payments will appear here after they clear.</p>
-            `;
-            return;
-        }
-
-        const fmt = (iso) => {
-            if (!iso) return '—';
-            try {
-                return new Date(iso).toLocaleString();
-            } catch {
-                return iso;
-            }
-        };
-
-        const money = (n) => {
-            const v = Number(n);
-            if (Number.isNaN(v)) return '—';
-            return '$' + v.toFixed(2);
-        };
-
-        const calcTotal = (o) => {
-            let sub = 0;
-            (o.items || []).forEach(item => {
-                const qty = Number(item.quantity) || 0;
-                const price = Number(item.unitPrice ?? item.unit_price ?? item.price) || 0;
-                sub += qty * price;
-            });
-            const shipping = Number(o.shipping_cost) || 0;
-            const credit = Number(o.credit) || 0;
-            return sub + shipping - credit;
-        };
-
-        container.innerHTML = `
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="bg-[#1E4D2B] text-[#d4b78f]">
-                            <th class="p-3 text-left">Invoice #</th>
-                            <th class="p-3 text-left">Customer</th>
-                            <th class="p-3 text-right">Amount</th>
-                            <th class="p-3 text-left">Initiated</th>
-                            <th class="p-3 text-left">Cleared (Paid)</th>
-                            <th class="p-3 text-left">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rows.map(o => `
-                            <tr class="border-b border-[#d4b78f]">
-                                <td class="p-3 font-mono text-xs">${o.id}</td>
-                                <td class="p-3">${o.customer_company || o.customer_name || '—'}</td>
-                                <td class="p-3 text-right font-semibold">${money(calcTotal(o))}</td>
-                                <td class="p-3">${fmt(o.payment_initiated_at || o.submitted_at)}</td>
-                                <td class="p-3">${fmt(o.paid_at)}</td>
-                                <td class="p-3">
-                                    <span class="px-2 py-1 rounded-full text-xs font-semibold ${
-                                        (o.payment_status || '').toLowerCase() === 'paid'
-                                            ? 'bg-green-100 text-green-800'
-                                            : 'bg-blue-100 text-blue-800'
-                                    }">
-                                        ${(o.payment_status || 'pending').toUpperCase()}
-                                    </span>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
+        renderBankLogTable();
     } catch (err) {
         console.error('loadAchBankLog error:', err);
-        container.innerHTML = `<p class="text-red-600">Failed to load ACH log: ${err.message || err}</p>`;
+        container.innerHTML = `<p class="text-red-600">Failed to load bank log: ${err.message || err}</p>`;
     }
+}
+
+function renderBankLogTable() {
+    const container = document.getElementById('ach-bank-log-table');
+    if (!container) return;
+
+    const yearLabel = document.getElementById('bank-log-year-label');
+    if (yearLabel) yearLabel.textContent = String(bankLogYear);
+
+    // Group rows by year-month for the selected year
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const byMonth = {}; // key: 0-11 → { pendingCount, pendingAmt, clearedCount, clearedAmt, rows: [] }
+
+    const yearsWithData = new Set();
+
+    bankLogRows.forEach(o => {
+        const initiated = o.payment_initiated_at || o.submitted_at;
+        const d = new Date(initiated || o.paid_at || 0);
+        if (isNaN(d.getTime())) return;
+
+        const y = d.getFullYear();
+        yearsWithData.add(y);
+        if (y !== bankLogYear) return;
+
+        const m = d.getMonth();
+        if (!byMonth[m]) {
+            byMonth[m] = { pendingCount: 0, pendingAmt: 0, clearedCount: 0, clearedAmt: 0, rows: [] };
+        }
+        const amount = calcOrderAmount(o);
+        const isPaid = (o.payment_status || '').toLowerCase() === 'paid';
+
+        byMonth[m].rows.push(o);
+        if (isPaid) {
+            byMonth[m].clearedCount += 1;
+            byMonth[m].clearedAmt += amount;
+        } else {
+            byMonth[m].pendingCount += 1;
+            byMonth[m].pendingAmt += amount;
+        }
+    });
+
+    // Year nav buttons
+    const prevBtn = document.getElementById('bank-log-prev-year');
+    const nextBtn = document.getElementById('bank-log-next-year');
+    if (prevBtn) {
+        const hasPrev = [...yearsWithData].some(y => y < bankLogYear);
+        prevBtn.classList.toggle('hidden', !hasPrev);
+    }
+    if (nextBtn) {
+        const hasNext = [...yearsWithData].some(y => y > bankLogYear);
+        nextBtn.classList.toggle('hidden', !hasNext);
+    }
+
+    const monthsPresent = Object.keys(byMonth).map(Number).sort((a, b) => b - a); // newest first
+
+    if (monthsPresent.length === 0) {
+        container.innerHTML = `
+            <p class="text-[#6B4423]">No bank / ACH payments recorded for ${bankLogYear}.</p>
+            <p class="text-xs text-[#6B4423] mt-2">New bank payments will appear here after they are initiated.</p>
+        `;
+        return;
+    }
+
+    let html = `
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                        <th class="p-3 text-left">Month</th>
+                        <th class="p-3 text-center">Pending #</th>
+                        <th class="p-3 text-right">Pending $</th>
+                        <th class="p-3 text-center">Cleared #</th>
+                        <th class="p-3 text-right">Cleared $</th>
+                        <th class="p-3 text-right">Total $</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    monthsPresent.forEach(m => {
+        const bucket = byMonth[m];
+        const totalAmt = bucket.pendingAmt + bucket.clearedAmt;
+        const key = bankLogYear + '-' + m;
+        const isExpanded = bankLogExpandedMonth === key;
+
+        html += `
+            <tr class="border-b border-[#d4b78f] hover:bg-[#f8f4eb] cursor-pointer"
+                onclick="toggleBankLogMonth('${key}')">
+                <td class="p-3 font-semibold brand-green">
+                    <i class="fas fa-chevron-${isExpanded ? 'down' : 'right'} text-xs mr-2"></i>
+                    ${monthNames[m]} ${bankLogYear}
+                </td>
+                <td class="p-3 text-center">${bucket.pendingCount}</td>
+                <td class="p-3 text-right ${bucket.pendingAmt > 0 ? 'text-blue-700 font-semibold' : ''}">${fmtMoney(bucket.pendingAmt)}</td>
+                <td class="p-3 text-center">${bucket.clearedCount}</td>
+                <td class="p-3 text-right ${bucket.clearedAmt > 0 ? 'text-green-700 font-semibold' : ''}">${fmtMoney(bucket.clearedAmt)}</td>
+                <td class="p-3 text-right font-bold">${fmtMoney(totalAmt)}</td>
+            </tr>
+        `;
+
+        if (isExpanded) {
+            // Detail header
+            html += `
+                <tr class="bg-[#f8f1e9]">
+                    <td colspan="6" class="p-0">
+                        <div class="overflow-x-auto px-2 py-2">
+                            <table class="w-full text-xs">
+                                <thead>
+                                    <tr class="text-[#6B4423]">
+                                        <th class="p-2 text-left">Customer</th>
+                                        <th class="p-2 text-left">Invoice #</th>
+                                        <th class="p-2 text-left">Date Initiated</th>
+                                        <th class="p-2 text-right">Pending $</th>
+                                        <th class="p-2 text-right">Cleared $</th>
+                                        <th class="p-2 text-left">Date Cleared</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+            `;
+
+            // Sort detail rows: pending first, then by initiated date desc
+            const detailRows = bucket.rows.slice().sort((a, b) => {
+                const aPaid = (a.payment_status || '').toLowerCase() === 'paid';
+                const bPaid = (b.payment_status || '').toLowerCase() === 'paid';
+                if (aPaid !== bPaid) return aPaid ? 1 : -1;
+                const da = new Date(a.payment_initiated_at || a.submitted_at || 0);
+                const db = new Date(b.payment_initiated_at || b.submitted_at || 0);
+                return db - da;
+            });
+
+            detailRows.forEach(o => {
+                const amount = calcOrderAmount(o);
+                const isPaid = (o.payment_status || '').toLowerCase() === 'paid';
+                const customer = o.customer_company || o.customer_name || '—';
+                const inv = String(o.id || '').slice(0, 8);
+
+                html += `
+                    <tr class="border-t border-[#e8d9b8]">
+                        <td class="p-2">${customer}</td>
+                        <td class="p-2 font-mono">${inv}</td>
+                        <td class="p-2">${fmtDate(o.payment_initiated_at || o.submitted_at)}</td>
+                        <td class="p-2 text-right ${!isPaid ? 'text-blue-700 font-semibold' : 'text-gray-400'}">${isPaid ? '$0.00' : fmtMoney(amount)}</td>
+                        <td class="p-2 text-right ${isPaid ? 'text-green-700 font-semibold' : 'text-gray-400'}">${isPaid ? fmtMoney(amount) : '—'}</td>
+                        <td class="p-2">${isPaid ? fmtDate(o.paid_at) : '—'}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+    });
+
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
+function toggleBankLogMonth(key) {
+    if (bankLogExpandedMonth === key) {
+        bankLogExpandedMonth = null;
+    } else {
+        bankLogExpandedMonth = key;
+    }
+    renderBankLogTable();
 }
 
 async function updateDashboardAchCounts() {

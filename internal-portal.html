@@ -463,19 +463,27 @@ body { background: #f8f1e9; }
                         </div>
                         <i class="fas fa-dollar-sign text-3xl text-[#6B4423]"></i>
                     </div>
-                    <div class="grid grid-cols-2 gap-3 text-center mb-3">
-                        <div class="bg-blue-50 rounded-xl py-2">
-                            <p class="text-xs text-blue-700 font-medium">Pending ACH</p>
-                            <p id="dash-pending-ach" class="text-lg font-bold text-blue-600">0</p>
+                    <div class="grid grid-cols-3 gap-2 text-center mb-2">
+                        <div class="bg-[#f8f4eb] rounded-xl py-2 px-1">
+                            <p class="text-xs text-[#6B4423] font-medium">YTD Sales</p>
+                            <p id="dash-fin-ytd" class="text-sm font-bold brand-green truncate">$0</p>
                         </div>
-                        <div class="bg-green-50 rounded-xl py-2">
-                            <p class="text-xs text-green-700 font-medium">Cleared (7d)</p>
-                            <p id="dash-cleared-7d" class="text-lg font-bold text-green-600">0</p>
+                        <div class="bg-[#f8f4eb] rounded-xl py-2 px-1">
+                            <p class="text-xs text-[#6B4423] font-medium">MTD Sales</p>
+                            <p id="dash-fin-mtd" class="text-sm font-bold brand-green truncate">$0</p>
                         </div>
+                        <div class="bg-[#f8f4eb] rounded-xl py-2 px-1">
+                            <p class="text-xs text-[#6B4423] font-medium">WTD Sales</p>
+                            <p id="dash-fin-wtd" class="text-sm font-bold brand-green truncate">$0</p>
+                        </div>
+                    </div>
+                    <div class="bg-blue-50 rounded-xl py-2 px-3 text-center mb-3">
+                        <p id="dash-pending-ach-label" class="text-xs text-blue-700 font-medium">Pending ACH</p>
+                        <p id="dash-pending-ach" class="text-sm font-bold text-blue-600 truncate">$0</p>
                     </div>
                     <div class="bg-[#f8f4eb] rounded-xl px-3 py-2 text-center">
                         <p class="text-xs text-[#6B4423] mb-1">Open Financials →</p>
-                        <p class="text-sm font-semibold brand-green">ACH log · Sales · Profit</p>
+                        <p class="text-sm font-semibold brand-green">Bank Log · Sales · Profit</p>
                     </div>
                 </div>
                 
@@ -821,7 +829,7 @@ body { background: #f8f1e9; }
             <div class="flex flex-wrap gap-2 mb-6">
                 <button type="button" onclick="showFinancialsSub('ach-log')"
                         class="px-4 py-2 text-sm font-semibold border-2 border-[#6B4423] rounded-xl bg-[#1E4D2B] text-[#d4b78f]">
-                    ACH / Bank Log
+                    Bank Logs
                 </button>
                 <button type="button" onclick="showFinancialsSub('sales')"
                         class="px-4 py-2 text-sm font-semibold border-2 border-[#6B4423] rounded-xl bg-white text-[#6B4423] hover:bg-[#f8f4eb]">
@@ -833,13 +841,30 @@ body { background: #f8f1e9; }
                 </button>
             </div>
 
-            <!-- ACH / Bank Log (default visible) -->
+            <!-- Bank Log (default visible) -->
             <div id="financials-ach-log" class="financials-sub">
                 <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
-                    <h2 class="text-xl font-bold brand-green mb-2">ACH / Bank Transfer Log</h2>
-                    <p class="text-sm text-[#6B4423] mb-4">Payments initiated and cleared via bank / ACH will appear here.</p>
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                        <div>
+                            <h2 class="text-xl font-bold brand-green">Bank Log</h2>
+                            <p class="text-sm text-[#6B4423]">ACH / bank transfers by month</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="bank-log-prev-year"
+                                    onclick="changeBankLogYear(-1)"
+                                    class="hidden px-3 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                                ← Previous Year
+                            </button>
+                            <span id="bank-log-year-label" class="text-lg font-bold brand-green px-2">2026</span>
+                            <button type="button" id="bank-log-next-year"
+                                    onclick="changeBankLogYear(1)"
+                                    class="hidden px-3 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                                Next Year →
+                            </button>
+                        </div>
+                    </div>
                     <div id="ach-bank-log-table" class="text-sm text-[#6B4423]">
-                        Coming next…
+                        Loading…
                     </div>
                 </div>
             </div>
