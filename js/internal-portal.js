@@ -428,60 +428,78 @@ function toggleBankLogMonth(key) {
 }
 
 async function updateDashboardAchCounts() {
+    const ytdEl = document.getElementById('dash-fin-ytd');
+    const mtdEl = document.getElementById('dash-fin-mtd');
+    const wtdEl = document.getElementById('dash-fin-wtd');
     const pendingEl = document.getElementById('dash-pending-ach');
-    const clearedEl = document.getElementById('dash-cleared-15d')
-        || document.getElementById('dash-cleared-7d');
-    const ytdEl = document.getElementById('dash-fin-ytd-sales');
-    const mtdEl = document.getElementById('dash-fin-mtd-sales');
+    const pendingLabel = document.getElementById('dash-pending-ach-label');
 
-    // ---- YTD / MTD sales from allOrders (same logic as Sales Overview) ----
-    if (ytdEl || mtdEl) {
-        let ytdTotal = 0;
-        let mtdTotal = 0;
-        const now = new Date();
-        const startOfYear = new Date(now.getFullYear(), 0, 1);
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    // ---- YTD / MTD / WTD sales from allOrders ----
+    let ytdTotal = 0;
+    let mtdTotal = 0;
+    let wtdTotal = 0;
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
 
-        (allOrders || []).forEach(order => {
-            if (!order.items || !Array.isArray(order.items)) return;
-            const orderDate = new Date(
-                order.submittedAt || order.submitted_at || order.date || now
-            );
-            if (isNaN(orderDate.getTime())) return;
+    (allOrders || []).forEach(order => {
+        if (!order.items || !Array.isArray(order.items)) return;
+        const orderDate = new Date(
+            order.submittedAt || order.submitted_at || order.date || now
+        );
+        if (isNaN(orderDate.getTime())) return;
 
-            let orderTotal = 0;
-            order.items.forEach(item => {
-                const qty = parseInt(item.quantity, 10) || 0;
-                const unit = typeof getOrderItemUnitPrice === 'function'
-                    ? getOrderItemUnitPrice(item)
-                    : (parseFloat(item.unitPrice) || 0);
-                orderTotal += qty * unit;
-            });
-
-            if (orderDate >= startOfYear) ytdTotal += orderTotal;
-            if (orderDate >= startOfMonth) mtdTotal += orderTotal;
+        let orderTotal = 0;
+        order.items.forEach(item => {
+            const qty = parseInt(item.quantity, 10) || 0;
+            const unit = typeof getOrderItemUnitPrice === 'function'
+                ? getOrderItemUnitPrice(item)
+                : (parseFloat(item.unitPrice) || 0);
+            orderTotal += qty * unit;
         });
 
-        if (ytdEl) ytdEl.textContent = '$' + Math.round(ytdTotal).toLocaleString();
-        if (mtdEl) mtdEl.textContent = '$' + Math.round(mtdTotal).toLocaleString();
+        if (orderDate >= startOfYear) ytdTotal += orderTotal;
+        if (orderDate >= startOfMonth) mtdTotal += orderTotal;
+        if (orderDate >= startOfWeek) wtdTotal += orderTotal;
+    });
+
+    const fmt = (n) => '$' + Math.round(n).toLocaleString();
+
+    if (ytdEl) ytdEl.textContent = fmt(ytdTotal);
+    if (mtdEl) mtdEl.textContent = fmt(mtdTotal);
+    if (wtdEl) wtdEl.textContent = fmt(wtdTotal);
+
+    // Month label for Pending ACH (e.g. "Pending ACH (Aug)")
+    if (pendingLabel) {
+        const mon = now.toLocaleString('en-US', { month: 'short' });
+        pendingLabel.textContent = 'Pending ACH (' + mon + ')';
     }
 
-    if (!pendingEl && !clearedEl) return;
+    if (!pendingEl) return;
 
+    // ---- Pending ACH $ for current calendar month ----
     try {
         const { data, error } = await supabaseClient
             .from('orders')
-            .select('id, payment_status, paid_at, payment_initiated_at, submitted_at, payment_method_type, items, shipping_cost, credit')
+            .select('id, payment_status, payment_initiated_at, submitted_at, payment_method_type, items, shipping_cost, credit')
             .or('payment_method_type.eq.us_bank_account,payment_method_type.eq.customer_balance')
             .limit(500);
 
         if (error) throw error;
 
         const rows = data || [];
-        const nowMs = Date.now();
-        const fifteenDaysMs = 15 * 24 * 60 * 60 * 1000;
+        let pendingAmount = 0;
 
-        const calcTotal = (o) => {
+        rows.forEach(o => {
+            const status = (o.payment_status || '').toLowerCase();
+            if (status === 'paid') return;
+
+            const initiated = new Date(o.payment_initiated_at || o.submitted_at || 0);
+            if (isNaN(initiated.getTime())) return;
+            if (initiated.getFullYear() !== now.getFullYear() || initiated.getMonth() !== now.getMonth()) return;
+
             let sub = 0;
             (o.items || []).forEach(item => {
                 const qty = Number(item.quantity) || 0;
@@ -490,45 +508,13 @@ async function updateDashboardAchCounts() {
             });
             const shipping = Number(o.shipping_cost) || 0;
             const credit = Number(o.credit) || 0;
-            return sub + shipping - credit;
-        };
-
-        let pendingAmount = 0;
-        let cleared15Amount = 0;
-
-        rows.forEach(o => {
-            const status = (o.payment_status || '').toLowerCase();
-            const isPaid = status === 'paid';
-            const amount = calcTotal(o);
-
-            if (!isPaid) {
-                // Pending: initiated in last 15 days (or no initiated date → still count)
-                const initiatedMs = new Date(
-                    o.payment_initiated_at || o.submitted_at || 0
-                ).getTime();
-                if (!initiatedMs || isNaN(initiatedMs) || (nowMs - initiatedMs) <= fifteenDaysMs) {
-                    pendingAmount += amount;
-                }
-            } else if (o.paid_at) {
-                const paidMs = new Date(o.paid_at).getTime();
-                if (!isNaN(paidMs) && (nowMs - paidMs) <= fifteenDaysMs) {
-                    cleared15Amount += amount;
-                }
-            }
+            pendingAmount += sub + shipping - credit;
         });
 
-        const fmtMoney = (n) =>
-            '$' + Math.round(n).toLocaleString(undefined, {
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0
-            });
-
-        if (pendingEl) pendingEl.textContent = fmtMoney(pendingAmount);
-        if (clearedEl) clearedEl.textContent = fmtMoney(cleared15Amount);
+        pendingEl.textContent = fmt(pendingAmount);
     } catch (err) {
         console.error('updateDashboardAchCounts error:', err);
         if (pendingEl) pendingEl.textContent = '—';
-        if (clearedEl) clearedEl.textContent = '—';
     }
 }
 
@@ -575,6 +561,11 @@ function showFinancialsSub(which) {
     if (which === 'profit') {
         if (typeof renderProfitMarginSection === 'function') {
             setTimeout(() => renderProfitMarginSection(), 50);
+        }
+    }
+    if (which === 'matrix') {
+        if (typeof renderWeeklyMatrix === 'function') {
+            setTimeout(() => renderWeeklyMatrix(), 50);
         }
     }
 }
@@ -637,32 +628,9 @@ function showSection(section) {
 
     // === Reports ===
     if (section === 'reports') {
-        if (typeof updateReportsSalesSummary === 'function') {
-            setTimeout(() => updateReportsSalesSummary(), 80);
-        }
-        if (typeof renderWeeklyMatrix === 'function') {
-            setTimeout(() => renderWeeklyMatrix(), 100);
-        }
         if (typeof refreshCustomerInsights === 'function') {
-            setTimeout(() => refreshCustomerInsights(), 120);
+            setTimeout(() => refreshCustomerInsights(), 80);
         }
-        if (typeof renderVendors === 'function') {
-        setTimeout(() => renderVendors(), 100);
-        }
-        if (typeof renderCostOfGoods === 'function') {
-        setTimeout(() => renderCostOfGoods(), 100);
-        }
-        if (typeof loadProductCosts === 'function') {
-            loadProductCosts().then(() => {
-                if (typeof renderProfitMarginSection === 'function') renderProfitMarginSection();
-                if (typeof updateDashboardProfitMargin === 'function') updateDashboardProfitMargin();
-            });
-        } else if (typeof renderProfitMarginSection === 'function') {
-            setTimeout(() => renderProfitMarginSection(), 150);
-        }
-        
-        
-       
     }
 
     // === Dashboard ===
@@ -6940,27 +6908,23 @@ function updateDashboardSalesMatrix() {
 function goToSalesMatrix(event) {
     if (event) event.stopPropagation();
 
-    showSection('reports');
-
+    showSection('financials');
     setTimeout(() => {
-        if (typeof renderWeeklyMatrix === 'function') {
-            renderWeeklyMatrix();
+        if (typeof showFinancialsSub === 'function') {
+            showFinancialsSub('matrix');
         }
-
-        const el = document.getElementById('weekly-matrix-section')
-            || document.getElementById('weekly-matrix-container');
-
-        if (!el) return;
-
-        // Scroll so the section top is below the sticky nav
-        const navOffset = 90;
-        const top = el.getBoundingClientRect().top + window.pageYOffset - navOffset;
-
-        window.scrollTo({
-            top: top,
-            behavior: 'smooth'
-        });
-    }, 350);
+        setTimeout(() => {
+            if (typeof renderWeeklyMatrix === 'function') {
+                renderWeeklyMatrix();
+            }
+            const el = document.getElementById('weekly-matrix-section')
+                || document.getElementById('weekly-matrix-container');
+            if (!el) return;
+            const navOffset = 90;
+            const top = el.getBoundingClientRect().top + window.pageYOffset - navOffset;
+            window.scrollTo({ top: top, behavior: 'smooth' });
+        }, 80);
+    }, 50);
 }
 
 // ================== DASHBOARD CUSTOMIZE (DRAG & DROP) ==================
@@ -7003,6 +6967,12 @@ function dashboardCardClick(event, target) {
 
     if (target === 'orders') {
         showSection('orders');
+    } else if (target === 'financials-sales') {
+        showSection('financials');
+        setTimeout(() => showFinancialsSub('sales'), 50);
+    } else if (target === 'financials-matrix') {
+        showSection('financials');
+        setTimeout(() => showFinancialsSub('matrix'), 50);
     } else if (target === 'financials') {
         showSection('financials');
         setTimeout(() => showFinancialsSub('ach-log'), 50);
