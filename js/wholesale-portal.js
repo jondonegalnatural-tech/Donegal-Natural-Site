@@ -2411,9 +2411,11 @@ async function loadMyQuotes() {
 
         if (error) throw error;
 
-        // My Quotes = anything not yet paid (includes ACH Processing)
+        // My Quotes = unpaid and not denied
         const active = (data || []).filter(order => {
-            return (order.payment_status || '').toLowerCase() !== 'paid';
+            const p = (order.payment_status || '').toLowerCase();
+            const s = (order.status || '').toLowerCase();
+            return p !== 'paid' && s !== 'denied';
         });
 
         if (active.length === 0) {
@@ -2571,9 +2573,11 @@ async function loadOrderHistory() {
 
         if (error) throw error;
 
-        // Order History = paid only (unpaid always stays in My Quotes)
+        // Order History = paid OR denied
         const completed = (data || []).filter(order => {
-            return (order.payment_status || '').toLowerCase() === 'paid';
+            const p = (order.payment_status || '').toLowerCase();
+            const s = (order.status || '').toLowerCase();
+            return p === 'paid' || s === 'denied';
         });
 
         if (completed.length === 0) {
@@ -2718,13 +2722,15 @@ async function refreshMyQuotesBadge() {
         const email = (user.email || '').toLowerCase().trim();
         const { data, error } = await supabaseClient
             .from('orders')
-            .select('id, payment_status')
+            .select('id, payment_status, status')
             .eq('source', 'wholesale')
             .eq('customer_email', email);
         if (error) throw error;
-        const unpaid = (data || []).filter(o =>
-            (o.payment_status || '').toLowerCase() !== 'paid'
-        );
+        const unpaid = (data || []).filter(o => {
+            const p = (o.payment_status || '').toLowerCase();
+            const s = (o.status || '').toLowerCase();
+            return p !== 'paid' && s !== 'denied';
+        });
         updateMyQuotesBadge(unpaid.length);
     } catch (err) {
         console.error('refreshMyQuotesBadge error:', err);
