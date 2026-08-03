@@ -415,7 +415,7 @@ function renderBankLogTable() {
                 // Stripe Dashboard (use /test/payments/ while in test mode)
                 const refundBtn = canRefund
                     ? `<a href="https://dashboard.stripe.com/payments/${piId}" target="_blank" rel="noopener"
-                            class="inline-block px-2.5 py-1 text-xs font-semibold rounded-lg border-2 border-[#6B4423] text-[#1E4D2B] hover:bg-[#f8f4eb] transition"
+                            class="inline-block px-2.5 py-1 text-xs font-semibold rounded-lg bg-red-600 text-black border border-red-700 hover:bg-red-500 transition"
                             onclick="event.stopPropagation();">Refund</a>`
                     : `<span class="text-gray-300">—</span>`;
 
