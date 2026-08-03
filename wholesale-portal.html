@@ -75,9 +75,11 @@
            class="sidebar-link flex items-center gap-2 px-3 py-2 text-sm font-medium brand-brown border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] active">
             <i class="fas fa-boxes"></i> Products
         </a>
-        <a href="#" data-target="section-quotes"
+                <a href="#" data-target="section-quotes"
            class="sidebar-link flex items-center gap-2 px-3 py-2 text-sm font-medium brand-brown border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
             <i class="fas fa-file-invoice-dollar"></i> Quotes
+            <span id="my-quotes-badge-mobile"
+                  class="hidden bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full"></span>
         </a>
         <a href="#" data-target="section-orders"
            class="sidebar-link flex items-center gap-2 px-3 py-2 text-sm font-medium brand-brown border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
@@ -103,10 +105,12 @@
                         <i class="fas fa-boxes w-5"></i>
                         <span>Browse Products</span>
                     </a>
-                    <a href="#" data-target="section-quotes"
+                                        <a href="#" data-target="section-quotes"
                        class="sidebar-link flex items-center gap-3 px-4 py-3 text-sm font-medium brand-brown hover:bg-[#f8f4eb]">
                         <i class="fas fa-file-invoice-dollar w-5"></i>
                         <span>My Quotes</span>
+                        <span id="my-quotes-badge"
+                              class="ml-auto hidden bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full"></span>
                     </a>
                     <a href="#" data-target="section-orders"
                        class="sidebar-link flex items-center gap-3 px-4 py-3 text-sm font-medium brand-brown hover:bg-[#f8f4eb]">
