@@ -461,9 +461,9 @@ function renderBankLogTable() {
                         <td class="p-2 text-center">${statusBadge}</td>
                         <td class="p-2 text-right ${!isPaid ? 'text-blue-700 font-semibold' : 'text-gray-400'}">${isPaid ? '$0.00' : fmtMoney(calcAmt)}</td>
                         <td class="p-2 text-right ${isPaid ? 'text-green-700 font-semibold' : 'text-gray-400'}">${isPaid ? fmtMoney(clearedAmt) : '—'}</td>
+                        <td class="p-2 text-right ${depositClass}">${depositDisplay}</td>
                         <td class="p-2 text-right ${refundAmt > 0 ? 'text-orange-700 font-semibold' : 'text-gray-400'}">${refundAmt > 0 ? fmtMoney(refundAmt) : '—'}</td>
                         <td class="p-2">${isPaid ? fmtDate(o.paid_at) : '—'}</td>
-                        <td class="p-2 text-right ${depositClass}">${depositDisplay}</td>
                         <td class="p-2 text-center">${refundBtn}</td>
                     </tr>
                 `;
