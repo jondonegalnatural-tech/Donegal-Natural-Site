@@ -2909,35 +2909,70 @@ async function payInvoice(orderId) {
                 return;
             }
 
-            if (paymentIntent && paymentIntent.status === 'succeeded') {
+                        // Card (succeeded) or ACH / bank (processing)
+            if (paymentIntent && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing')) {
+                const isAch = paymentIntent.status === 'processing';
+
                 try {
+                    const updatePayload = {
+                        stripe_payment_intent_id: paymentIntent.id
+                    };
+
+                    if (isAch) {
+                        // ACH is delayed — do NOT mark paid yet (webhook does that when it clears)
+                        updatePayload.payment_initiated_at = new Date().toISOString();
+                        updatePayload.payment_method_type = 'us_bank_account';
+                    } else {
+                        // Instant card / Link success
+                        updatePayload.status = 'processing';
+                        updatePayload.payment_status = 'paid';
+                        updatePayload.paid_at = new Date().toISOString();
+                    }
+
                     const { error: updateError } = await supabaseClient
                         .from('orders')
-                        .update({
-                            status: 'processing',
-                            payment_status: 'paid',
-                            paid_at: new Date().toISOString(),
-                            stripe_payment_intent_id: paymentIntent.id
-                        })
+                        .update(updatePayload)
                         .eq('id', orderId);
 
                     if (updateError) throw updateError;
 
-                    document.getElementById('payment-message').classList.add('hidden');
-                    payBtn.textContent = 'Paid ✓';
-                    payBtn.classList.remove('bg-[#1E4D2B]', 'hover:bg-[#254a2f]');
-                    payBtn.classList.add('bg-green-600');
+                    // Success UI
+                    const msgEl = document.getElementById('payment-message');
+                    msgEl.classList.remove('hidden', 'text-red-600');
+                    msgEl.classList.add('text-green-700');
 
-                    setTimeout(() => {
-                        document.getElementById('stripe-payment-modal')?.remove();
-                        loadOrderHistory();
-                    }, 1200);
+                    if (isAch) {
+                        msgEl.innerHTML = `
+                            <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-sm leading-relaxed">
+                                <p class="font-semibold text-green-800 mb-1">Bank payment submitted</p>
+                                <p>ACH payments typically clear in <strong>3–5 business days</strong>. We’ll email you once it clears and your order moves to Processing.</p>
+                            </div>
+                        `;
+                        payBtn.textContent = 'Submitted ✓';
+                        payBtn.classList.remove('bg-[#1E4D2B]', 'hover:bg-[#254a2f]', 'opacity-50', 'cursor-not-allowed');
+                        payBtn.classList.add('bg-green-600');
+                        payBtn.disabled = true;
+
+                        // Keep modal open so customer can read the message
+                        // (they close it themselves)
+                    } else {
+                        msgEl.classList.add('hidden');
+                        payBtn.textContent = 'Paid ✓';
+                        payBtn.classList.remove('bg-[#1E4D2B]', 'hover:bg-[#254a2f]');
+                        payBtn.classList.add('bg-green-600');
+
+                        setTimeout(() => {
+                            document.getElementById('stripe-payment-modal')?.remove();
+                            loadOrderHistory();
+                        }, 1200);
+                    }
 
                 } catch (err) {
                     console.error('Failed to update order after payment:', err);
                     document.getElementById('payment-message').textContent =
-                        'Payment succeeded but we could not update the order status. Please contact us.';
+                        'Payment was accepted but we could not update the order status. Please contact us.';
                     document.getElementById('payment-message').classList.remove('hidden');
+                    document.getElementById('payment-message').classList.add('text-red-600');
                 }
             }
         });
