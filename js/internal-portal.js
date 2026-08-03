@@ -3630,6 +3630,14 @@ function renderNewOrderSelectedList() {
             </div>
         `;
     }).join('');
+
+    // Auto-focus the Units input on the product just added
+    const qtyInputs = list.querySelectorAll('input[type="number"]');
+    if (qtyInputs.length > 0) {
+        const last = qtyInputs[qtyInputs.length - 1];
+        last.focus();
+        last.select();
+    }
 }
 
 function updateOrderProductQty(index, value) {
@@ -6909,7 +6917,7 @@ function goToSalesMatrix(event) {
     showSection('financials');
     setTimeout(() => {
         if (typeof showFinancialsSub === 'function') {
-            showFinancialsSub('matrix');
+            showFinancialsSub('sales');
         }
         setTimeout(() => {
             if (typeof renderWeeklyMatrix === 'function') {
@@ -6970,7 +6978,7 @@ function dashboardCardClick(event, target) {
         setTimeout(() => showFinancialsSub('sales'), 50);
     } else if (target === 'financials-matrix') {
         showSection('financials');
-        setTimeout(() => showFinancialsSub('matrix'), 50);
+        setTimeout(() => showFinancialsSub('sales'), 50);
     } else if (target === 'financials') {
         showSection('financials');
         setTimeout(() => showFinancialsSub('ach-log'), 50);

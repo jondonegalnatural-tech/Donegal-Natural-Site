@@ -859,7 +859,7 @@ function renderPlaceOrderItems() {
                 <input type="number"
                        min="1"
                        value="${item.quantity}"
-                       class="w-16 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm text-center"
+                       class="place-order-qty w-16 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm text-center"
                        onchange="updatePlaceOrderQty(${index}, this.value)">
                 <button onclick="removePlaceOrderItem(${index})"
                         class="text-red-600 text-sm px-2 py-1 hover:bg-red-50 rounded-lg">
@@ -868,6 +868,14 @@ function renderPlaceOrderItems() {
             </div>
         </div>
     `).join("");
+
+    // Focus the last quantity field so salesman can type immediately
+    const qtyInputs = container.querySelectorAll('input.place-order-qty');
+    if (qtyInputs.length) {
+        const last = qtyInputs[qtyInputs.length - 1];
+        last.focus();
+        last.select();
+    }
 }
 
 function updatePlaceOrderQty(index, value) {
