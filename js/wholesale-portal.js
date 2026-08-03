@@ -2630,16 +2630,30 @@ async function loadOrderHistory() {
                         </div>
                     </div>
 
-                    ${(order.payment_status || '').toLowerCase() === 'paid' ? `
-                    <div class="w-full bg-green-100 text-green-800 font-semibold py-3 rounded-xl text-center">
-                        Paid ✓
-                    </div>
-                    ` : `
-                    <button onclick="payInvoice('${order.id}')"
-                            class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">
-                        Pay Invoice
-                    </button>
-                    `}
+                    ${(() => {
+                        const pStatus = (order.payment_status || '').toLowerCase();
+                        const method = (order.payment_method_type || '').toLowerCase();
+                        const isAchPending = pStatus !== 'paid' && (method === 'us_bank_account' || method === 'customer_balance');
+
+                        if (pStatus === 'paid') {
+                            return `
+                            <div class="w-full bg-green-100 text-green-800 font-semibold py-3 rounded-xl text-center">
+                                Paid ✓
+                            </div>`;
+                        }
+                        if (isAchPending) {
+                            return `
+                            <div class="w-full bg-blue-50 border border-blue-200 text-blue-800 font-semibold py-3 rounded-xl text-center text-sm">
+                                ACH Processing<br>
+                                <span class="font-normal text-xs">Typically clears in 3–5 business days</span>
+                            </div>`;
+                        }
+                        return `
+                            <button onclick="payInvoice('${order.id}')"
+                                    class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">
+                                Pay Invoice
+                            </button>`;
+                    })()}
                 </div>
             `;
         });
@@ -2927,6 +2941,7 @@ async function payInvoice(orderId) {
                         updatePayload.status = 'processing';
                         updatePayload.payment_status = 'paid';
                         updatePayload.paid_at = new Date().toISOString();
+                        updatePayload.amount_paid = total; // freeze the amount that was actually charged
                     }
 
                     const { error: updateError } = await supabaseClient
