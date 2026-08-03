@@ -2426,12 +2426,14 @@ async function loadMyQuotes() {
             const s = (order.status || '').toLowerCase();
             return p !== 'paid' && s !== 'denied';
         });
+                window._myQuotesCache = active;
+                                     onclick="openMyQuoteInvoice('${quote.id}')"
 
         if (active.length === 0) {
             container.innerHTML = `
                 <h2 class="text-2xl font-bold brand-green mb-6">My Quote Requests</h2>
                 <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-8 text-center">
-                    <p class="text-[#6B4423]">You have no active quotes.</p>
+                    <p class="text-[#6B4423]">No open quotes. Submitted quotes stay here until they are paid or denied.</p>
                 </div>
             `;
             return;
@@ -2480,7 +2482,8 @@ async function loadMyQuotes() {
             }
 
             html += `
-                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mb-4">
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mb-4 cursor-pointer hover:shadow-md transition"
+                     onclick='showBrandedInvoice(${JSON.stringify(quote).replace(/'/g, "&#39;")})'>
                     <div class="flex justify-between items-start mb-3">
                         <div>
                             <p class="font-bold text-lg brand-green">Quote</p>
@@ -2531,7 +2534,7 @@ async function loadMyQuotes() {
                             </div>`;
                         }
                         return `
-                            <button onclick="payInvoice('${quote.id}')"
+                            <button onclick="event.stopPropagation(); payInvoice('${quote.id}')"
                                     class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">
                                 Pay Invoice
                             </button>`;
@@ -2589,17 +2592,29 @@ async function loadOrderHistory() {
             return p === 'paid' || s === 'denied';
         });
 
+        // Cache for search + click-to-invoice
+        window._orderHistoryCache = completed;
+
         if (completed.length === 0) {
             container.innerHTML = `
                 <h2 class="text-2xl font-bold brand-green mb-6">Order History</h2>
                 <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-8 text-center">
-                    <p class="text-[#6B4423]">No completed orders yet.</p>
+                    <p class="text-[#6B4423]">No paid or denied orders yet. Paid invoices and denied quotes appear here.</p>
                 </div>
             `;
             return;
         }
 
-        let html = `<h2 class="text-2xl font-bold brand-green mb-6">Order History</h2>`;
+        let html = `
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+                <h2 class="text-2xl font-bold brand-green">Order History</h2>
+                <input type="text" id="order-history-search"
+                       placeholder="Search invoice #, product, amount…"
+                       class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-full sm:w-72"
+                       oninput="filterOrderHistory()">
+            </div>
+            <div id="order-history-list">
+        `;
 
         completed.forEach(order => {
             const date = new Date(order.submitted_at).toLocaleDateString();
@@ -2634,7 +2649,8 @@ async function loadOrderHistory() {
             }
 
             html += `
-                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mb-4">
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mb-4 cursor-pointer hover:shadow-md transition"
+                     onclick="openOrderHistoryInvoice('${order.id}')">
                     <div class="flex justify-between items-start mb-3">
                         <div>
                             <p class="font-bold text-lg brand-green">Invoice</p>
@@ -2689,7 +2705,7 @@ async function loadOrderHistory() {
                             </div>`;
                         }
                         return `
-                            <button onclick="payInvoice('${order.id}')"
+                            <button onclick="event.stopPropagation(); payInvoice('${order.id}')"
                                     class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">
                                 Pay Invoice
                             </button>`;
@@ -2698,6 +2714,7 @@ async function loadOrderHistory() {
             `;
         });
 
+        html += `</div>`;
         container.innerHTML = html;
     } catch (err) {
         console.error(err);
@@ -2706,6 +2723,119 @@ async function loadOrderHistory() {
             <p class="text-sm text-red-600">Could not load order history.</p>
         `;
     }
+}
+
+function openOrderHistoryInvoice(orderId) {
+    const order = (window._orderHistoryCache || []).find(o => o.id === orderId);
+    if (!order) return;
+    showBrandedInvoice(order);
+}
+
+function openMyQuoteInvoice(orderId) {
+    const order = (window._myQuotesCache || []).find(o => o.id === orderId);
+    if (!order) return;
+    showBrandedInvoice(order);
+}
+
+function filterOrderHistory() {
+    const term = (document.getElementById('order-history-search')?.value || '').toLowerCase().trim();
+    const list = document.getElementById('order-history-list');
+    if (!list) return;
+
+    const all = window._orderHistoryCache || [];
+    const filtered = !term ? all : all.filter(order => {
+        const id = String(order.id || '').toLowerCase();
+        const itemsText = (order.items || []).map(i => (i.product || i.name || '')).join(' ').toLowerCase();
+        let sub = 0;
+        (order.items || []).forEach(item => {
+            const price = parseFloat(item.unitPrice) || 0;
+            const qty = parseInt(item.quantity, 10) || 0;
+            sub += price * qty;
+        });
+        const shipping = parseFloat(order.shipping_cost) || 0;
+        const totalStr = (sub + shipping).toFixed(2);
+        return id.includes(term) || itemsText.includes(term) || totalStr.includes(term);
+    });
+
+    if (filtered.length === 0) {
+        list.innerHTML = `<div class="bg-white border-2 border-[#6B4423] rounded-2xl p-8 text-center"><p class="text-[#6B4423]">No orders match your search.</p></div>`;
+        return;
+    }
+    renderOrderHistoryCards(filtered, list);
+}
+
+function renderOrderHistoryCards(orders, listEl) {
+    let html = '';
+    orders.forEach(order => {
+        const date = new Date(order.submitted_at).toLocaleDateString();
+        const status = (order.status || '').toLowerCase();
+        const items = order.items || [];
+        let subtotal = 0;
+        items.forEach(item => {
+            const price = parseFloat(item.unitPrice) || 0;
+            const qty = parseInt(item.quantity, 10) || 0;
+            subtotal += price * qty;
+        });
+        const shipping = parseFloat(order.shipping_cost) || 0;
+        const finalTotal = subtotal + shipping;
+
+        let badgeClass = 'bg-gray-100 text-gray-700';
+        let badgeText = status || 'Unknown';
+        if (status === 'denied') {
+            badgeClass = 'bg-red-100 text-red-700';
+            badgeText = 'Denied';
+        } else if (status === 'shipped') {
+            badgeClass = 'bg-purple-100 text-purple-800';
+            badgeText = 'Shipped';
+        } else if (status === 'delivered') {
+            badgeClass = 'bg-green-100 text-green-700';
+            badgeText = 'Delivered';
+        } else if (status === 'processing' || (order.payment_status || '').toLowerCase() === 'paid') {
+            badgeClass = 'bg-blue-100 text-blue-800';
+            badgeText = 'Paid';
+        }
+
+        const pStatus = (order.payment_status || '').toLowerCase();
+        const method = (order.payment_method_type || '').toLowerCase();
+        const isAchPending = pStatus !== 'paid' && (method === 'us_bank_account' || method === 'customer_balance');
+        let payBlock = '';
+        if (pStatus === 'paid') {
+            payBlock = `<div class="w-full bg-green-100 text-green-800 font-semibold py-3 rounded-xl text-center">Paid ✓</div>`;
+        } else if (isAchPending) {
+            payBlock = `<div class="w-full bg-blue-50 border border-blue-200 text-blue-800 font-semibold py-3 rounded-xl text-center text-sm">ACH Processing<br><span class="font-normal text-xs">Typically clears in 3–5 business days</span></div>`;
+        } else if (status !== 'denied') {
+            payBlock = `<button onclick="event.stopPropagation(); payInvoice('${order.id}')" class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">Pay Invoice</button>`;
+        }
+
+        html += `
+            <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mb-4 cursor-pointer hover:shadow-md transition"
+                 onclick="openOrderHistoryInvoice('${order.id}')">
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <p class="font-bold text-lg brand-green">Invoice</p>
+                        <p class="text-xs text-[#6B4423]">${order.id}</p>
+                        <p class="text-sm text-[#6B4423]">Order Date: ${date}</p>
+                    </div>
+                    <span class="px-3 py-1 text-xs font-semibold rounded-full ${badgeClass}">${badgeText}</span>
+                </div>
+                <ul class="text-sm space-y-1 mb-4">
+                    ${items.map(item => `
+                        <li class="flex justify-between">
+                            <span>• ${item.product} × ${item.quantity}</span>
+                            <span class="text-[#6B4423]">${item.displayPrice || ('$' + (parseFloat(item.unitPrice) || 0).toFixed(2))}</span>
+                        </li>
+                    `).join('')}
+                </ul>
+                <div class="border-t border-[#d4b78f] pt-3 space-y-1 text-sm mb-4">
+                    <div class="flex justify-between"><span class="text-[#6B4423]">Subtotal</span><span>$${subtotal.toFixed(2)}</span></div>
+                    <div class="flex justify-between"><span class="text-[#6B4423]">Shipping</span><span>${shipping > 0 ? '$' + shipping.toFixed(2) : 'TBD'}</span></div>
+                    <div class="flex justify-between font-bold text-lg brand-green pt-2"><span>Final Total</span><span>$${finalTotal.toFixed(2)}</span></div>
+                </div>
+                ${payBlock}
+            </div>
+        `;
+    });
+    listEl.innerHTML = html;
 }
 
 function updateMyQuotesBadge(count) {
