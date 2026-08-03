@@ -2105,7 +2105,7 @@ function showPackagedItemModal(name, price, cs, category, image = null, healthBe
 
             <div class="mb-4">
                 <label class="block text-sm font-medium mb-1">Quantity</label>
-                <input type="number" id="quote-quantity" value="1" min="1" 
+                <input type="number" id="quote-quantity" value="1" min="1" autofocus
                        class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2 text-lg">
             </div>
 
@@ -2123,6 +2123,15 @@ function showPackagedItemModal(name, price, cs, category, image = null, healthBe
     `;
 
     document.body.appendChild(modal);
+
+    // Focus quantity immediately (delayed so the modal is fully in the DOM)
+    setTimeout(() => {
+        const qtyInput = document.getElementById('quote-quantity');
+        if (qtyInput) {
+            qtyInput.focus();
+            qtyInput.select();
+        }
+    }, 50);
 }
 
 function closeAddToQuoteModal() {
