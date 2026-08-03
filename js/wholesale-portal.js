@@ -2411,9 +2411,9 @@ async function loadMyQuotes() {
 
         if (error) throw error;
 
+        // My Quotes = anything not yet paid (includes ACH Processing)
         const active = (data || []).filter(order => {
-            const status = (order.status || '').toLowerCase();
-            return !['shipped', 'delivered'].includes(status);
+            return (order.payment_status || '').toLowerCase() !== 'paid';
         });
 
         if (active.length === 0) {
@@ -2544,13 +2544,12 @@ async function loadOrderHistory() {
 
         if (error) throw error;
 
+        // Order History = paid, shipped, or delivered
         const completed = (data || []).filter(order => {
             const status = (order.status || '').toLowerCase();
             const paymentStatus = (order.payment_status || '').toLowerCase();
-            return ['shipped', 'delivered', 'processing'].includes(status) || paymentStatus === 'paid';
+            return paymentStatus === 'paid' || ['shipped', 'delivered'].includes(status);
         });
-
-        updateOrderHistoryBadge(completed.length);
 
         if (completed.length === 0) {
             container.innerHTML = `
@@ -2692,23 +2691,35 @@ async function refreshOrderHistoryBadge() {
             return;
         }
         const email = (user.email || '').toLowerCase().trim();
+        const lastViewed = localStorage.getItem('orderHistoryLastViewed');
+        const lastViewedMs = lastViewed ? new Date(lastViewed).getTime() : 0;
+
         const { data, error } = await supabaseClient
             .from('orders')
-            .select('id, status')
+            .select('id, status, payment_status, paid_at, submitted_at')
             .eq('source', 'wholesale')
             .eq('customer_email', email);
         if (error) throw error;
-        const completed = (data || []).filter(o => {
-            const s = (o.status || '').toLowerCase();
+
+        // Badge = paid orders newer than last time customer opened Order History
+        const newCompleted = (data || []).filter(o => {
             const p = (o.payment_status || '').toLowerCase();
-            // Show badge for invoices that still need payment
-            return p !== 'paid' && (['shipped', 'delivered', 'processing'].includes(s) || !s);
+            const s = (o.status || '').toLowerCase();
+            const isComplete = p === 'paid' || ['shipped', 'delivered'].includes(s);
+            if (!isComplete) return false;
+            const ts = new Date(o.paid_at || o.submitted_at || 0).getTime();
+            return ts > lastViewedMs;
         });
-        updateOrderHistoryBadge(completed.length);
+        updateOrderHistoryBadge(newCompleted.length);
     } catch (err) {
         console.error('refreshOrderHistoryBadge error:', err);
         updateOrderHistoryBadge(0);
     }
+}
+
+function markOrderHistoryViewed() {
+    localStorage.setItem('orderHistoryLastViewed', new Date().toISOString());
+    updateOrderHistoryBadge(0);
 }
 
 async function payInvoice(orderId) {
@@ -3253,7 +3264,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (targetSection) targetSection.style.display = 'block';
             if (targetId === 'section-account') showAccountInfo();
             if (targetId === 'section-quotes') loadMyQuotes();
-            if (targetId === 'section-orders') loadOrderHistory();
+            if (targetId === 'section-orders') {
+                markOrderHistoryViewed();
+                loadOrderHistory();
+            }
         });
     });
 
