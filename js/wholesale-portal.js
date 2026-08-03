@@ -2815,7 +2815,7 @@ async function payInvoice(orderId) {
         <div class="bg-white rounded-2xl p-6 w-full max-w-4xl mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-xl font-bold brand-green">Pay Invoice</h3>
-                <button onclick="document.getElementById('stripe-payment-modal').remove()" 
+                <button onclick="(function(){ const m=document.getElementById('stripe-payment-modal'); if(m && m.getAttribute('data-payment-success')==='1'){ window.location.reload(); } else { m?.remove(); } })()" 
                         class="text-2xl text-[#6B4423] hover:text-red-600 leading-none">&times;</button>
             </div>
 
@@ -3059,11 +3059,6 @@ async function payInvoice(orderId) {
                         payBtn.classList.remove('bg-[#1E4D2B]', 'hover:bg-[#254a2f]', 'opacity-50', 'cursor-not-allowed');
                         payBtn.classList.add('bg-green-600');
                         payBtn.disabled = true;
-
-                        // Brief pause so customer can read the message, then refresh
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 2500);
                     } else {
                         // Card / Link — funds clear almost immediately via webhook
                         msgEl.innerHTML = `
@@ -3076,12 +3071,10 @@ async function payInvoice(orderId) {
                         payBtn.classList.remove('bg-[#1E4D2B]', 'hover:bg-[#254a2f]', 'opacity-50', 'cursor-not-allowed');
                         payBtn.classList.add('bg-green-600');
                         payBtn.disabled = true;
-
-                        // Short pause so the webhook can write paid + amount_paid, then refresh
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 1500);
                     }
+
+                    // Flag so closing the modal reloads the page (lists update)
+                    document.getElementById('stripe-payment-modal')?.setAttribute('data-payment-success', '1');
 
                 } catch (err) {
                     console.error('Failed to update order after payment:', err);
