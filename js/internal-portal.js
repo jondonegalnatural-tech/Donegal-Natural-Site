@@ -227,7 +227,7 @@ async function loadAchBankLog() {
         const { data, error } = await supabaseClient
             .from('orders')
             .select('id, payment_status, payment_method_type, payment_initiated_at, paid_at, amount_paid, refund_amount, stripe_payment_intent_id, items, shipping_cost, credit, customer_name, customer_company, submitted_at')
-            .or('payment_method_type.eq.us_bank_account,payment_method_type.eq.customer_balance')
+            .or('payment_method_type.eq.us_bank_account,payment_method_type.eq.customer_balance,payment_method_type.eq.card,payment_status.eq.paid,payment_initiated_at.not.is.null')
             .order('payment_initiated_at', { ascending: false, nullsFirst: false })
             .limit(1000);
 
