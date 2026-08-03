@@ -2544,11 +2544,9 @@ async function loadOrderHistory() {
 
         if (error) throw error;
 
-        // Order History = paid, shipped, or delivered
+        // Order History = paid only (unpaid always stays in My Quotes)
         const completed = (data || []).filter(order => {
-            const status = (order.status || '').toLowerCase();
-            const paymentStatus = (order.payment_status || '').toLowerCase();
-            return paymentStatus === 'paid' || ['shipped', 'delivered'].includes(status);
+            return (order.payment_status || '').toLowerCase() === 'paid';
         });
 
         if (completed.length === 0) {
@@ -2701,12 +2699,10 @@ async function refreshOrderHistoryBadge() {
             .eq('customer_email', email);
         if (error) throw error;
 
-        // Badge = paid orders newer than last time customer opened Order History
+        // Badge = newly paid orders since last time customer opened Order History
         const newCompleted = (data || []).filter(o => {
             const p = (o.payment_status || '').toLowerCase();
-            const s = (o.status || '').toLowerCase();
-            const isComplete = p === 'paid' || ['shipped', 'delivered'].includes(s);
-            if (!isComplete) return false;
+            if (p !== 'paid') return false;
             const ts = new Date(o.paid_at || o.submitted_at || 0).getTime();
             return ts > lastViewedMs;
         });
