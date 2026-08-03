@@ -310,8 +310,8 @@ function renderBankLogTable() {
 
     if (monthsPresent.length === 0) {
         container.innerHTML = `
-            <p class="text-[#6B4423]">No bank / ACH payments recorded for ${bankLogYear}.</p>
-            <p class="text-xs text-[#6B4423] mt-2">New bank payments will appear here after they are initiated.</p>
+            <p class="text-[#6B4423]">No payments recorded for ${bankLogYear}.</p>
+            <p class="text-xs text-[#6B4423] mt-2">Card and ACH payments will appear here after they are initiated.</p>
         `;
         return;
     }
@@ -357,7 +357,7 @@ function renderBankLogTable() {
             // Detail header
             html += `
                 <tr class="bg-[#f8f1e9]">
-                    <td colspan="9" class="p-0">
+                    <td colspan="10" class="p-0">
                         <div class="overflow-x-auto px-2 py-2">
                             <table class="w-full text-xs">
                                 <thead>
@@ -371,6 +371,7 @@ function renderBankLogTable() {
                                         <th class="p-2 text-right">Cleared $</th>
                                         <th class="p-2 text-right">Refunded $</th>
                                         <th class="p-2 text-left">Date Cleared</th>
+                                        <th class="p-2 text-center">Refund</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -408,6 +409,15 @@ function renderBankLogTable() {
                 } else {
                     methodBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-500">—</span>`;
                 }
+                const piId = (o.stripe_payment_intent_id || '').trim();
+                const fullyRefunded = isPaid && refundAmt > 0 && clearedAmt > 0 && refundAmt >= clearedAmt;
+                const canRefund = isPaid && piId && !fullyRefunded;
+                // Stripe Dashboard (use /test/payments/ while in test mode)
+                const refundBtn = canRefund
+                    ? `<a href="https://dashboard.stripe.com/payments/${piId}" target="_blank" rel="noopener"
+                            class="inline-block px-2.5 py-1 text-xs font-semibold rounded-lg border-2 border-[#6B4423] text-[#1E4D2B] hover:bg-[#f8f4eb] transition"
+                            onclick="event.stopPropagation();">Refund</a>`
+                    : `<span class="text-gray-300">—</span>`;
 
                 let statusBadge;
                 if (refundAmt > 0) {
@@ -429,6 +439,7 @@ function renderBankLogTable() {
                         <td class="p-2 text-right ${isPaid ? 'text-green-700 font-semibold' : 'text-gray-400'}">${isPaid ? fmtMoney(clearedAmt) : '—'}</td>
                         <td class="p-2 text-right ${refundAmt > 0 ? 'text-orange-700 font-semibold' : 'text-gray-400'}">${refundAmt > 0 ? fmtMoney(refundAmt) : '—'}</td>
                         <td class="p-2">${isPaid ? fmtDate(o.paid_at) : '—'}</td>
+                        <td class="p-2 text-center">${refundBtn}</td>
                     </tr>
                 `;
             });
