@@ -2610,7 +2610,10 @@ async function loadOrderHistory() {
             let badgeClass = 'bg-gray-100 text-gray-700';
             let badgeText = status || 'Unknown';
 
-            if (status === 'shipped') {
+            if (status === 'denied') {
+                badgeClass = 'bg-red-100 text-red-700';
+                badgeText = 'Denied';
+            } else if (status === 'shipped') {
                 badgeClass = 'bg-purple-100 text-purple-800';
                 badgeText = 'Shipped';
             } else if (status === 'delivered') {
@@ -3048,18 +3051,20 @@ async function payInvoice(orderId) {
                         payBtn.classList.add('bg-green-600');
                         payBtn.disabled = true;
 
-                        // Keep modal open so customer can read the message
-                        // (they close it themselves)
+                        // Brief pause so customer can read the message, then refresh
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2500);
                     } else {
                         msgEl.classList.add('hidden');
                         payBtn.textContent = 'Paid ✓';
                         payBtn.classList.remove('bg-[#1E4D2B]', 'hover:bg-[#254a2f]');
                         payBtn.classList.add('bg-green-600');
 
+                        // Immediate refresh so the invoice leaves My Quotes
                         setTimeout(() => {
-                            document.getElementById('stripe-payment-modal')?.remove();
-                            loadOrderHistory();
-                        }, 1200);
+                            window.location.reload();
+                        }, 600);
                     }
 
                 } catch (err) {
