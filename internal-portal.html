@@ -483,7 +483,7 @@ body { background: #f8f1e9; }
                     </div>
                     <div class="bg-[#f8f4eb] rounded-xl px-3 py-2 text-center">
                         <p class="text-xs text-[#6B4423] mb-1">Open Financials →</p>
-                        <p class="text-sm font-semibold brand-green">Bank Log · Sales · Profit</p>
+                        <p class="text-sm font-semibold brand-green">Payment Log · Sales · Profit</p>
                     </div>
                 </div>
                 
@@ -829,7 +829,7 @@ body { background: #f8f1e9; }
             <div class="flex flex-wrap gap-2 mb-6">
                 <button type="button" onclick="showFinancialsSub('ach-log')"
                         class="px-4 py-2 text-sm font-semibold border-2 border-[#6B4423] rounded-xl bg-[#1E4D2B] text-[#d4b78f]">
-                    Bank Logs
+                    Payment Log
                 </button>
                 <button type="button" onclick="showFinancialsSub('sales')"
                         class="px-4 py-2 text-sm font-semibold border-2 border-[#6B4423] rounded-xl bg-white text-[#6B4423] hover:bg-[#f8f4eb]">
@@ -847,8 +847,8 @@ body { background: #f8f1e9; }
                 <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
                     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                         <div>
-                            <h2 class="text-xl font-bold brand-green">Bank Log</h2>
-                            <p class="text-sm text-[#6B4423]">ACH / bank payments by month. Click a month to expand details.</p>
+                            <h2 class="text-xl font-bold brand-green">Payment Log</h2>
+                            <p class="text-sm text-[#6B4423]">Card, ACH, and bank payments by month. Click a month to expand details.</p>
                         </div>
                         <div class="flex items-center gap-2">
                             <button type="button" id="bank-log-prev-year" onclick="changeBankLogYear(-1)"
@@ -1089,177 +1089,6 @@ body { background: #f8f1e9; }
                 </div>
             </div>
         </div>
-
-                    <!-- Sales Matrix -->
-            <div id="financials-matrix" class="financials-sub hidden">
-            <!-- ========== WEEKLY ITEM SALES MATRIX ========== -->
-            <div id="weekly-matrix-section" class="mb-8">
-                <h2 class="text-xl font-bold brand-green mb-4 flex items-center gap-2">
-                    <i class="fas fa-table"></i> <span>Weekly Item Sales Matrix</span>
-                </h2>
-                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
-
-                    <!-- View Switcher: Table | Trends -->
-                    <div class="flex gap-2 mb-5">
-                        <button id="matrix-view-table" onclick="setMatrixView('table')"
-                                class="px-5 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]">
-                            Table
-                        </button>
-                        <button id="matrix-view-trends" onclick="setMatrixView('trends')"
-                                class="px-5 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">
-                            Trends
-                        </button>
-                    </div>
-
-                    <!-- ========== TABLE VIEW ========== -->
-                    <div id="matrix-table-view">
-                    <!-- Metric Toggle Buttons -->
-                    <div class="mb-4 flex flex-wrap gap-2 items-center">
-                        <span class="text-sm font-semibold text-[#6B4423] mr-1">Show:</span>
-                        <button id="metric-units" onclick="setMatrixMetric('units')" class="metric-btn px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs md:text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]">Units</button>
-                        <button id="metric-sales" onclick="setMatrixMetric('sales')" class="metric-btn px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs md:text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">Sales $</button>
-                        <button id="metric-change" onclick="setMatrixMetric('change')" class="metric-btn px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs md:text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">% Change</button>
-                        <button id="metric-potential" onclick="setMatrixMetric('potential')" class="metric-btn px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs md:text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">Potential GP</button>
-                        <button id="metric-actual" onclick="setMatrixMetric('actual')" class="metric-btn px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs md:text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">Actual GP</button>
-                    </div>
-
-                    <!-- % Change Disclaimer -->
-                    <div id="change-disclaimer" class="hidden mb-3 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-xl text-sm text-yellow-800">
-                        <strong>Note:</strong> The <strong>% Change</strong> metric shows <strong>Week-to-Date</strong> performance compared to the <strong>same week from the previous year</strong>.
-                        A positive percentage means higher units sold than last year. This feature is being prepared for next year’s data.
-                    </div>
-
-                    <!-- Export Buttons -->
-                    <div class="flex gap-3 mb-4">
-                        <button onclick="exportMatrixToCSV()" class="px-4 py-2 border-2 border-[#6B4423] rounded-xl text-sm hover:bg-[#f8f4eb]">
-                            <i class="fas fa-file-csv mr-2"></i> Export to CSV
-                        </button>
-                        <button onclick="exportMatrixToExcel()" class="px-4 py-2 border-2 border-[#6B4423] rounded-xl text-sm hover:bg-[#f8f4eb]">
-                            <i class="fas fa-file-excel mr-2"></i> Export to Excel
-                        </button>
-                    </div>
-
-                    <!-- Matrix Controls -->
-                    <div class="mb-4 flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-center justify-between">
-                        <div class="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 items-stretch sm:items-center w-full sm:w-auto">
-                            <input type="text" id="matrix-search" placeholder="Search products..."
-                                   class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-full sm:w-64"
-                                   oninput="renderWeeklyMatrix()">
-                            <div class="relative">
-                                <button type="button" id="matrix-category-btn"
-                                        onclick="toggleMatrixCategoryDropdown()"
-                                        class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm bg-white w-full sm:min-w-[180px] text-left flex items-center justify-between gap-2">
-                                    <span id="matrix-category-label">All Categories</span>
-                                    <span class="text-xs">▾</span>
-                                </button>
-                                <div id="matrix-category-dropdown"
-                                     class="hidden absolute left-0 top-full mt-1 z-50 bg-white border-2 border-[#6B4423] rounded-xl shadow-lg py-2 min-w-[220px] max-h-64 overflow-y-auto">
-                                    <!-- checkboxes populated by JS -->
-                                </div>
-                            </div>
-                        </div>
-                        <div class="flex flex-wrap gap-2">
-                            <button onclick="moveMatrixWeeks(-4)" class="flex-1 sm:flex-none px-3 py-2 border-2 border-[#6B4423] rounded-xl text-xs sm:text-sm hover:bg-[#f8f4eb]">← Prev 4 Weeks</button>
-                            <button onclick="moveMatrixWeeks(4)" class="flex-1 sm:flex-none px-3 py-2 border-2 border-[#6B4423] rounded-xl text-xs sm:text-sm hover:bg-[#f8f4eb]">Next 4 Weeks →</button>
-                        </div>
-                    </div>
-
-                    <!-- Matrix Container -->
-                    <div id="weekly-matrix-container" class="overflow-x-auto"></div>
-                    </div>
-                    <!-- ========== END TABLE VIEW ========== -->
-
-                    <!-- ========== TRENDS VIEW ========== -->
-                    <div id="matrix-trends-view" class="hidden">
-
-                        <!-- Mode Tabs -->
-                        <div class="flex gap-2 mb-4">
-                            <button id="trends-mode-multi" onclick="setTrendsMode('multi')"
-                                    class="px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]">
-                                Multi-Year Trend
-                            </button>
-                            <button id="trends-mode-mtd" onclick="setTrendsMode('mtd')"
-                                    class="px-4 py-2 rounded-xl text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">
-                                MTD vs LY MTD
-                            </button>
-                        </div>
-
-                        <!-- Controls Row -->
-                        <div class="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-center mb-5">
-                            <!-- Metric -->
-                            <div class="flex gap-1">
-                                <button id="trends-metric-units" onclick="setTrendsMetric('units')"
-                                        class="px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs md:text-sm font-semibold border-2 border-[#6B4423] bg-[#1E4D2B] text-[#d4b78f]">
-                                    Units
-                                </button>
-                                <button id="trends-metric-sales" onclick="setTrendsMetric('sales')"
-                                        class="px-3 py-1.5 md:px-4 md:py-2 rounded-xl text-xs md:text-sm font-semibold border-2 border-[#6B4423] bg-white text-[#6B4423] hover:bg-[#f8f4eb]">
-                                    Sales $
-                                </button>
-                            </div>
-
-                            <!-- Categories multi-select -->
-                            <div class="relative flex flex-wrap items-center gap-2">
-                                <label class="text-sm font-semibold text-[#6B4423]">Categories:</label>
-                                <div class="relative flex-1 sm:flex-none">
-                                    <button type="button" id="trends-category-btn"
-                                            onclick="toggleTrendsCategoryDropdown()"
-                                            class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm bg-white w-full sm:min-w-[180px] text-left flex items-center justify-between gap-2">
-                                        <span id="trends-category-label">All Categories</span>
-                                        <span class="text-xs">▾</span>
-                                    </button>
-                                    <div id="trends-category-dropdown"
-                                         class="hidden absolute left-0 top-full mt-1 z-50 bg-white border-2 border-[#6B4423] rounded-xl shadow-lg py-2 min-w-[220px] max-h-64 overflow-y-auto">
-                                        <!-- checkboxes populated by JS -->
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Years -->
-                            <div class="flex flex-wrap items-center gap-3 text-sm">
-                                <label class="flex items-center gap-1.5 cursor-pointer">
-                                    <input type="checkbox" id="trends-year-0" checked onchange="renderTrendsChart()" class="accent-[#1E4D2B]">
-                                    <span id="trends-year-0-label">2026</span>
-                                </label>
-                                <label class="flex items-center gap-1.5 cursor-pointer">
-                                    <input type="checkbox" id="trends-year-1" checked onchange="renderTrendsChart()" class="accent-[#1E4D2B]">
-                                    <span id="trends-year-1-label">2027</span>
-                                </label>
-                                <label class="flex items-center gap-1.5 cursor-pointer">
-                                    <input type="checkbox" id="trends-year-2" onchange="renderTrendsChart()" class="accent-[#1E4D2B]">
-                                    <span id="trends-year-2-label">2028</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- Chart Canvas -->
-                        <div class="relative w-full h-[260px] sm:h-[320px] md:h-[380px]">
-                            <canvas id="trends-chart"></canvas>
-                        </div>
-
-                        <!-- Summary Cards -->
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-5">
-                            <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-4 text-center">
-                                <p class="text-xs text-[#6B4423] font-semibold">This Year Total</p>
-                                <p id="trends-summary-ytd" class="text-xl font-bold brand-green mt-1">—</p>
-                            </div>
-                            <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-4 text-center">
-                                <p class="text-xs text-[#6B4423] font-semibold">vs Last Year</p>
-                                <p id="trends-summary-vsly" class="text-xl font-bold brand-green mt-1">—</p>
-                            </div>
-                            <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-4 text-center">
-                                <p class="text-xs text-[#6B4423] font-semibold">Top Category</p>
-                                <p id="trends-summary-topcat" class="text-xl font-bold brand-green mt-1">—</p>
-                            </div>
-                        </div>
-
-                    </div>
-                    <!-- ========== END TRENDS VIEW ========== -->
-
-                </div>
-            </div>
-            <!-- ========== END WEEKLY ITEM SALES MATRIX ========== -->
-            </div>
         <!-- ==================== END FINANCIALS ==================== -->
 
                                 <!-- ==================== REPORTS ==================== -->
