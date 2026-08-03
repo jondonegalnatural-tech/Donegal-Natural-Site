@@ -2494,10 +2494,37 @@ async function loadMyQuotes() {
                         `).join('')}
                     </ul>
 
-                    <div class="border-t border-[#d4b78f] pt-3 flex justify-between items-center">
+                    <div class="border-t border-[#d4b78f] pt-3 flex justify-between items-center mb-3">
                         <span class="font-semibold brand-green">Quote Total</span>
                         <span class="text-xl font-bold brand-green">${totalDisplay}</span>
                     </div>
+
+                    ${(() => {
+                        const pStatus = (quote.payment_status || '').toLowerCase();
+                        const method = (quote.payment_method_type || '').toLowerCase();
+                        const isAchPending = pStatus !== 'paid' && (method === 'us_bank_account' || method === 'customer_balance');
+                        const isDenied = (quote.status || '').toLowerCase() === 'denied';
+
+                        if (isDenied) return '';
+                        if (pStatus === 'paid') {
+                            return `
+                            <div class="w-full bg-green-100 text-green-800 font-semibold py-3 rounded-xl text-center">
+                                Paid ✓
+                            </div>`;
+                        }
+                        if (isAchPending) {
+                            return `
+                            <div class="w-full bg-blue-50 border border-blue-200 text-blue-800 font-semibold py-3 rounded-xl text-center text-sm">
+                                ACH Processing<br>
+                                <span class="font-normal text-xs">Typically clears in 3–5 business days</span>
+                            </div>`;
+                        }
+                        return `
+                            <button onclick="payInvoice('${quote.id}')"
+                                    class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">
+                                Pay Invoice
+                            </button>`;
+                    })()}
                 </div>
             `;
         });
@@ -2662,6 +2689,46 @@ async function loadOrderHistory() {
             <h2 class="text-2xl font-bold brand-green mb-6">Order History</h2>
             <p class="text-sm text-red-600">Could not load order history.</p>
         `;
+    }
+}
+
+function updateMyQuotesBadge(count) {
+    const n = Number(count) || 0;
+    const ids = ['my-quotes-badge', 'my-quotes-badge-mobile'];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (n > 0) {
+            el.textContent = String(n);
+            el.classList.remove('hidden');
+        } else {
+            el.textContent = '';
+            el.classList.add('hidden');
+        }
+    });
+}
+
+async function refreshMyQuotesBadge() {
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        if (!user || !user.email) {
+            updateMyQuotesBadge(0);
+            return;
+        }
+        const email = (user.email || '').toLowerCase().trim();
+        const { data, error } = await supabaseClient
+            .from('orders')
+            .select('id, payment_status')
+            .eq('source', 'wholesale')
+            .eq('customer_email', email);
+        if (error) throw error;
+        const unpaid = (data || []).filter(o =>
+            (o.payment_status || '').toLowerCase() !== 'paid'
+        );
+        updateMyQuotesBadge(unpaid.length);
+    } catch (err) {
+        console.error('refreshMyQuotesBadge error:', err);
+        updateMyQuotesBadge(0);
     }
 }
 
@@ -3245,6 +3312,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupSearch();
     displayWelcome();
     refreshOrderHistoryBadge();
+    refreshMyQuotesBadge();
 
     const sidebarLinks = document.querySelectorAll('.sidebar-link');
     sidebarLinks.forEach(link => {
