@@ -357,7 +357,7 @@ function renderBankLogTable() {
             // Detail header
             html += `
                 <tr class="bg-[#f8f1e9]">
-                    <td colspan="8" class="p-0">
+                    <td colspan="9" class="p-0">
                         <div class="overflow-x-auto px-2 py-2">
                             <table class="w-full text-xs">
                                 <thead>
@@ -365,6 +365,7 @@ function renderBankLogTable() {
                                         <th class="p-2 text-left">Customer</th>
                                         <th class="p-2 text-left">Invoice #</th>
                                         <th class="p-2 text-left">Date Initiated</th>
+                                        <th class="p-2 text-center">Method</th>
                                         <th class="p-2 text-center">Status</th>
                                         <th class="p-2 text-right">Pending $</th>
                                         <th class="p-2 text-right">Cleared $</th>
@@ -394,6 +395,20 @@ function renderBankLogTable() {
                 const customer = o.customer_company || o.customer_name || '—';
                 const inv = String(o.id || '').slice(0, 8);
 
+                const method = (o.payment_method_type || '').toLowerCase();
+                let methodBadge;
+                if (method === 'us_bank_account') {
+                    methodBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">ACH</span>`;
+                } else if (method === 'customer_balance') {
+                    methodBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">Balance</span>`;
+                } else if (method === 'card') {
+                    methodBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-700">Card</span>`;
+                } else if (method) {
+                    methodBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">${method}</span>`;
+                } else {
+                    methodBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-500">—</span>`;
+                }
+
                 let statusBadge;
                 if (refundAmt > 0) {
                     statusBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">Refunded</span>`;
@@ -408,6 +423,7 @@ function renderBankLogTable() {
                         <td class="p-2">${customer}</td>
                         <td class="p-2 font-mono">${inv}</td>
                         <td class="p-2">${fmtDate(o.payment_initiated_at || o.submitted_at)}</td>
+                        <td class="p-2 text-center">${methodBadge}</td>
                         <td class="p-2 text-center">${statusBadge}</td>
                         <td class="p-2 text-right ${!isPaid ? 'text-blue-700 font-semibold' : 'text-gray-400'}">${isPaid ? '$0.00' : fmtMoney(calcAmt)}</td>
                         <td class="p-2 text-right ${isPaid ? 'text-green-700 font-semibold' : 'text-gray-400'}">${isPaid ? fmtMoney(clearedAmt) : '—'}</td>
