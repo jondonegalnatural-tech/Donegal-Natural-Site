@@ -557,15 +557,13 @@ function showFinancialsSub(which) {
         if (typeof updateReportsSalesSummary === 'function') {
             setTimeout(() => updateReportsSalesSummary(), 50);
         }
+        if (typeof renderWeeklyMatrix === 'function') {
+            setTimeout(() => renderWeeklyMatrix(), 80);
+        }
     }
     if (which === 'profit') {
         if (typeof renderProfitMarginSection === 'function') {
             setTimeout(() => renderProfitMarginSection(), 50);
-        }
-    }
-    if (which === 'matrix') {
-        if (typeof renderWeeklyMatrix === 'function') {
-            setTimeout(() => renderWeeklyMatrix(), 50);
         }
     }
 }
