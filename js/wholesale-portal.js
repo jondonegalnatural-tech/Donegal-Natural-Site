@@ -3024,16 +3024,16 @@ async function payInvoice(orderId) {
                         stripe_payment_intent_id: paymentIntent.id
                     };
 
+                    // BOTH card and ACH: only record initiation.
+                    // Webhook (payment_intent.succeeded) is the ONLY place that sets
+                    // payment_status = 'paid' and amount_paid (funds actually received).
+                    updatePayload.payment_initiated_at = new Date().toISOString();
+
                     if (isAch) {
-                        // ACH is delayed — do NOT mark paid yet (webhook does that when it clears)
-                        updatePayload.payment_initiated_at = new Date().toISOString();
                         updatePayload.payment_method_type = 'us_bank_account';
                     } else {
-                        // Instant card / Link success
-                        updatePayload.status = 'processing';
-                        updatePayload.payment_status = 'paid';
-                        updatePayload.paid_at = new Date().toISOString();
-                        updatePayload.amount_paid = total; // freeze the amount that was actually charged
+                        // card / Link / other instant methods
+                        updatePayload.payment_method_type = 'card';
                     }
 
                     const { error: updateError } = await supabaseClient
@@ -3065,15 +3065,22 @@ async function payInvoice(orderId) {
                             window.location.reload();
                         }, 2500);
                     } else {
-                        msgEl.classList.add('hidden');
-                        payBtn.textContent = 'Paid ✓';
-                        payBtn.classList.remove('bg-[#1E4D2B]', 'hover:bg-[#254a2f]');
+                        // Card / Link — funds clear almost immediately via webhook
+                        msgEl.innerHTML = `
+                            <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-sm leading-relaxed">
+                                <p class="font-semibold text-green-800 mb-1">Payment received</p>
+                                <p>Your payment is being confirmed. This page will refresh in a moment.</p>
+                            </div>
+                        `;
+                        payBtn.textContent = 'Submitted ✓';
+                        payBtn.classList.remove('bg-[#1E4D2B]', 'hover:bg-[#254a2f]', 'opacity-50', 'cursor-not-allowed');
                         payBtn.classList.add('bg-green-600');
+                        payBtn.disabled = true;
 
-                        // Immediate refresh so the invoice leaves My Quotes
+                        // Short pause so the webhook can write paid + amount_paid, then refresh
                         setTimeout(() => {
                             window.location.reload();
-                        }, 600);
+                        }, 1500);
                     }
 
                 } catch (err) {
