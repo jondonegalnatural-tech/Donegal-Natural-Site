@@ -2638,6 +2638,15 @@ body { background: #f8f1e9; }
             </div>
             <div class="flex items-center justify-between gap-4">
                 <div>
+                    <label class="text-sm text-[#6B4423]" for="ship-inv-shipping">Shipping ($)</label>
+                    <p id="ship-inv-shipping-note" class="text-xs text-[#6B4423]"></p>
+                </div>
+                <input type="number" id="ship-inv-shipping" min="0" step="0.01" value="0.00"
+                       oninput="recalcShipInvoiceTotals()"
+                       class="w-36 border-2 border-[#6B4423] rounded-xl px-3 py-2 text-right">
+            </div>
+            <div class="flex items-center justify-between gap-4">
+                <div>
                     <label class="text-sm text-[#6B4423]" for="ship-inv-tracking">UPS Tracking # <span class="font-normal">(optional)</span></label>
                     <p class="text-xs text-[#6B4423]">Paste the 1Z number from the label. Required later for auto-Delivered.</p>
                 </div>
