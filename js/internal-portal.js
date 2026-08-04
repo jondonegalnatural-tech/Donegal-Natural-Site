@@ -2642,6 +2642,18 @@ function updateOrderStatusCards() {
 }
 }
 
+function toggleOrderBOExpand(orderId, event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+    }
+    if (!window.expandedOrderBOs) window.expandedOrderBOs = {};
+    const key = String(orderId || '');
+    window.expandedOrderBOs[key] = !window.expandedOrderBOs[key];
+    if (typeof renderOrdersTable === 'function') renderOrdersTable();
+}
+
 function copyOrderId(orderId, event) {
     if (event) {
         event.preventDefault();
@@ -2836,7 +2848,27 @@ function renderOrdersTable() {
             `;
         }
 
-                html += `
+        // Fulfilled BOs for this order (used for badge + collapsible child)
+        const fulfilledBOs = (allBackOrders || []).filter(b =>
+            (b.status || '').toLowerCase() === 'fulfilled' &&
+            (String(b.original_order_id) === String(order.id) ||
+             String(b.invoice_number) === String(order.id))
+        );
+        const hasFulfilledBO = fulfilledBOs.length > 0;
+        if (!window.expandedOrderBOs) window.expandedOrderBOs = {};
+        const boExpanded = !!window.expandedOrderBOs[safeId];
+
+        const boBadgeHTML = hasFulfilledBO
+            ? `<button type="button"
+                       title="${boExpanded ? 'Hide' : 'Show'} fulfilled back order"
+                       onclick="toggleOrderBOExpand('${safeId}', event)"
+                       class="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-green-100 text-green-800 hover:bg-green-200">
+                   BO
+                   <i class="fas fa-chevron-${boExpanded ? 'up' : 'down'} text-[9px]"></i>
+               </button>`
+            : '';
+
+        html += `
             <tr class="border-t border-[#6B4423] hover:bg-[#f8f4eb]">
                 <td class="p-3 text-center" onclick="event.stopPropagation()">
                     <input type="checkbox" class="order-checkbox" value="${safeId}" onchange="updatePrintSelectedButton()">
@@ -2849,6 +2881,7 @@ function renderOrdersTable() {
                             class="ml-1 inline-flex items-center justify-center w-6 h-6 rounded text-[#6B4423] hover:bg-[#e8d9c2] hover:text-[#1E4D2B]">
                         <i class="fas fa-copy text-xs"></i>
                     </button>
+                    ${boBadgeHTML}
                 </td>
                 <td class="p-3">${order.salesman || 'N/A'}</td>
                 <td class="p-3">${order.customer || 'N/A'}</td>
@@ -2858,14 +2891,8 @@ function renderOrdersTable() {
             </tr>
         `;
 
-        // ===== Nested fulfilled back-order child row (visual only) =====
-        const fulfilledBOs = (allBackOrders || []).filter(b =>
-            (b.status || '').toLowerCase() === 'fulfilled' &&
-            (String(b.original_order_id) === String(order.id) ||
-             String(b.invoice_number) === String(order.id))
-        );
-
-        if (fulfilledBOs.length > 0) {
+        // Nested fulfilled BO child row — only when expanded
+        if (hasFulfilledBO && boExpanded) {
             let boTotal = 0;
             fulfilledBOs.forEach(b => {
                 const qty = parseInt(b.quantity, 10) || 0;
@@ -2877,7 +2904,7 @@ function renderOrdersTable() {
                 .map(b => b.fulfilled_at)
                 .filter(Boolean)
                 .sort()
-                .pop(); // most recent
+                .pop();
 
             const dateText = fulfilledDate
                 ? new Date(fulfilledDate).toLocaleDateString()
@@ -2904,7 +2931,6 @@ function renderOrdersTable() {
                 </tr>
             `;
         }
-        // ===== End nested BO row =====
     });
 
     html += `</tbody></table>`;
