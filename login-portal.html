@@ -74,6 +74,13 @@
                                class="form-input block w-full pl-10 pr-3 py-3"
                                placeholder="Enter your password">
                     </div>
+                    <div class="mt-2 text-right">
+                        <button type="button" id="forgot-password-btn"
+                                class="text-sm font-semibold underline hover:opacity-80"
+                                style="color:#1E4D2B;">
+                            Forgot password?
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Error Message -->
@@ -90,7 +97,65 @@
                 </button>
             </form>
         </div>
+        <!-- Forgot Password Modal (request email) -->
+        <div id="forgot-password-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(0,0,0,0.45);">
+            <div class="bg-white rounded-3xl p-6 w-full max-w-md login-card relative">
+                <button type="button" id="forgot-password-close"
+                        class="absolute top-4 right-4 text-[#6B4423] hover:text-[#1E4D2B]">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+                <h3 class="text-xl font-semibold mb-2" style="color:#1E4D2B;">Reset your password</h3>
+                <p class="text-sm mb-4" style="color:#6B4423;">
+                    Enter the email associated with your account. We’ll send a link to reset your password.
+                </p>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2" style="color:#6B4423;">Email</label>
+                        <input type="email" id="forgot-email"
+                               class="form-input block w-full px-3 py-3"
+                               placeholder="you@company.com">
+                    </div>
+                    <div id="forgot-message" class="hidden text-sm px-4 py-3 rounded-2xl"></div>
+                    <button type="button" id="forgot-send-btn"
+                            class="w-full btn-brand font-bold py-3 rounded-2xl">
+                        Send reset link
+                    </button>
+                </div>
+            </div>
+        </div>
 
+        <!-- Set New Password Modal (after clicking email link) -->
+        <div id="set-password-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(0,0,0,0.45);">
+            <div class="bg-white rounded-3xl p-6 w-full max-w-md login-card relative">
+                <h3 class="text-xl font-semibold mb-2" style="color:#1E4D2B;">Set a new password</h3>
+                <p class="text-sm mb-4" style="color:#6B4423;">
+                    Choose a new password for your account. You’ll be able to sign in with it right away.
+                </p>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2" style="color:#6B4423;">New password</label>
+                        <input type="password" id="new-password"
+                               class="form-input block w-full px-3 py-3"
+                               placeholder="At least 6 characters">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2" style="color:#6B4423;">Confirm password</label>
+                        <input type="password" id="confirm-password"
+                               class="form-input block w-full px-3 py-3"
+                               placeholder="Re-enter new password">
+                    </div>
+                    <div id="set-password-message" class="hidden text-sm px-4 py-3 rounded-2xl"></div>
+                    <button type="button" id="set-password-btn"
+                            class="w-full btn-brand font-bold py-3 rounded-2xl">
+                        Update password
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <p class="text-center text-xs mt-8" style="color:#6B4423;">
+            © 2026 Donegal Natural Dog Treats. All rights reserved.
+        </p>
         <p class="text-center text-xs mt-8" style="color:#6B4423;">
             © 2026 Donegal Natural Dog Treats. All rights reserved.
         </p>
