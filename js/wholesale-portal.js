@@ -2039,11 +2039,20 @@ function renderPortalProducts() {
                                 <td style="border:1px solid #6B4423; padding:0.5rem; font-weight:600; color:#1E4D2B;">
                     ${product.name}
                     ${(() => {
+                        let badges = '';
                         const qty = portalInventory[product.name];
-                        if (qty === undefined) return '';
-                        if (qty <= 0) return ' <span style="display:inline-block;margin-left:6px;padding:1px 6px;font-size:0.7rem;font-weight:700;border-radius:999px;background:#fee2e2;color:#b91c1c;">Out of Stock</span>';
-                        if (qty < 50) return ' <span style="display:inline-block;margin-left:6px;padding:1px 6px;font-size:0.7rem;font-weight:700;border-radius:999px;background:#ffedd5;color:#c2410c;">Low Stock</span>';
-                        return '';
+                        if (qty !== undefined) {
+                            if (qty <= 0) badges += ' <span style="display:inline-block;margin-left:6px;padding:1px 6px;font-size:0.7rem;font-weight:700;border-radius:999px;background:#fee2e2;color:#b91c1c;">Out of Stock</span>';
+                            else if (qty < 50) badges += ' <span style="display:inline-block;margin-left:6px;padding:1px 6px;font-size:0.7rem;font-weight:700;border-radius:999px;background:#ffedd5;color:#c2410c;">Low Stock</span>';
+                        }
+                        const hasPendingBO = (customerBackOrders || []).some(b =>
+                            (b.status || '').toLowerCase() === 'pending' &&
+                            (b.product_name || '') === product.name
+                        );
+                        if (hasPendingBO) {
+                            badges += ' <span style="display:inline-block;margin-left:6px;padding:1px 6px;font-size:0.7rem;font-weight:700;border-radius:999px;background:#ffedd5;color:#c2410c;" title="You have this item on back order">BO</span>';
+                        }
+                        return badges;
                     })()}
                 </td>
                 <td style="border:1px solid #6B4423; padding:0.5rem; color:#6B4423; text-align:center; width:90px;">
@@ -3910,6 +3919,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Normal portal init
     await loadPortalInventory();
+    await loadCustomerBackOrders();
     renderCategoryFilters();
     renderPortalProducts();
     updateQuoteSidebar();
@@ -3917,7 +3927,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     displayWelcome();
     refreshOrderHistoryBadge();
     refreshMyQuotesBadge();
-    loadCustomerBackOrders();
 
     const sidebarLinks = document.querySelectorAll('.sidebar-link');
     sidebarLinks.forEach(link => {
