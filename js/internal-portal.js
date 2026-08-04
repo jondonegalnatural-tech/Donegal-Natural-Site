@@ -2642,6 +2642,34 @@ function updateOrderStatusCards() {
 }
 }
 
+function copyOrderId(orderId, event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+    }
+    const fullId = String(orderId || '');
+    if (!fullId) return;
+
+    const done = () => {
+        // brief visual feedback if the clicked control is a button
+        const btn = event && event.currentTarget;
+        if (btn && btn.tagName === 'BUTTON') {
+            const prev = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check"></i>';
+            setTimeout(() => { btn.innerHTML = prev; }, 900);
+        }
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(fullId).then(done).catch(() => {
+            window.prompt('Copy order ID:', fullId);
+        });
+    } else {
+        window.prompt('Copy order ID:', fullId);
+    }
+}
+
 function renderOrdersTable() {
     const container = document.getElementById('orders-table');
     const empty = document.getElementById('orders-empty');
@@ -2813,7 +2841,15 @@ function renderOrdersTable() {
                 <td class="p-3 text-center" onclick="event.stopPropagation()">
                     <input type="checkbox" class="order-checkbox" value="${safeId}" onchange="updatePrintSelectedButton()">
                 </td>
-                <td class="p-3 font-mono cursor-pointer" onclick="showOrderDetails('${safeId}')">#${safeId.slice(0, 8)}</td>
+                <td class="p-3 font-mono">
+                    <span class="cursor-pointer hover:underline" onclick="showOrderDetails('${safeId}')">#${safeId.slice(0, 8)}</span>
+                    <button type="button"
+                            title="Copy full order ID"
+                            onclick="copyOrderId('${safeId}', event)"
+                            class="ml-1 inline-flex items-center justify-center w-6 h-6 rounded text-[#6B4423] hover:bg-[#e8d9c2] hover:text-[#1E4D2B]">
+                        <i class="fas fa-copy text-xs"></i>
+                    </button>
+                </td>
                 <td class="p-3">${order.salesman || 'N/A'}</td>
                 <td class="p-3">${order.customer || 'N/A'}</td>
                 <td class="p-3">${totalHTML}</td>
