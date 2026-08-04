@@ -2533,6 +2533,12 @@ async function loadMyQuotes() {
                                 <span class="font-normal text-xs">Typically clears in 3–5 business days</span>
                             </div>`;
                         }
+                                                if (!quote.invoice_ready_at) {
+                            return `
+                            <div class="w-full bg-[#f8f4eb] border border-[#d4b78f] text-[#6B4423] font-semibold py-3 rounded-xl text-center text-sm">
+                                Awaiting invoice from Donegal.
+                            </div>`;
+                        }
                         return `
                             <button onclick="event.stopPropagation(); payInvoice('${quote.id}')"
                                     class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">
@@ -2704,8 +2710,14 @@ async function loadOrderHistory() {
                                 <span class="font-normal text-xs">Typically clears in 3–5 business days</span>
                             </div>`;
                         }
+                        if (!quote.invoice_ready_at) {
+                            return `
+                            <div class="w-full bg-[#f8f4eb] border border-[#d4b78f] text-[#6B4423] font-semibold py-3 rounded-xl text-center text-sm">
+                                Awaiting invoice from Donegal.
+                            </div>`;
+                        }
                         return `
-                            <button onclick="event.stopPropagation(); payInvoice('${order.id}')"
+                            <button onclick="event.stopPropagation(); payInvoice('${quote.id}')"
                                     class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">
                                 Pay Invoice
                             </button>`;
@@ -2803,6 +2815,17 @@ function renderOrderHistoryCards(orders, listEl) {
             payBlock = `<div class="w-full bg-green-100 text-green-800 font-semibold py-3 rounded-xl text-center">Paid ✓</div>`;
         } else if (isAchPending) {
             payBlock = `<div class="w-full bg-blue-50 border border-blue-200 text-blue-800 font-semibold py-3 rounded-xl text-center text-sm">ACH Processing<br><span class="font-normal text-xs">Typically clears in 3–5 business days</span></div>`;
+                                if (!quote.invoice_ready_at) {
+                            return `
+                            <div class="w-full bg-[#f8f4eb] border border-[#d4b78f] text-[#6B4423] font-semibold py-3 rounded-xl text-center text-sm">
+                                Awaiting invoice from Donegal.
+                            </div>`;
+                        }
+                        return `
+                            <button onclick="event.stopPropagation(); payInvoice('${quote.id}')"
+                                    class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">
+                                Pay Invoice
+                            </button>`;
         } else if (status !== 'denied') {
             payBlock = `<button onclick="event.stopPropagation(); payInvoice('${order.id}')" class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">Pay Invoice</button>`;
         }
@@ -3027,6 +3050,9 @@ async function payInvoice(orderId) {
 
         if (error || !order) {
             throw new Error('Could not load order details.');
+        }
+        if (!order.invoice_ready_at) {
+            throw new Error('This invoice is not ready for payment yet. Awaiting invoice from Donegal.');
         }
 
         // Calculate totals
