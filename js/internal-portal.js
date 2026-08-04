@@ -1011,11 +1011,7 @@ function openOrderInvoiceModal(orderId) {
             : '—';
     }
 
-    // Line items
-    const tbody = document.getElementById('inv-items-body');
-    let subtotal = 0;
-
-        // Line items (original order + any fulfilled back-order items)
+    // Line items (original order + any fulfilled back-order items)
     const tbody = document.getElementById('inv-items-body');
     let subtotal = 0;
 
