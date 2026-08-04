@@ -2755,7 +2755,7 @@ function renderOrdersTable() {
             `;
         }
 
-        html += `
+                html += `
             <tr class="border-t border-[#6B4423] hover:bg-[#f8f4eb]">
                 <td class="p-3 text-center" onclick="event.stopPropagation()">
                     <input type="checkbox" class="order-checkbox" value="${safeId}" onchange="updatePrintSelectedButton()">
@@ -2768,6 +2768,54 @@ function renderOrdersTable() {
                 <td class="p-3 text-sm">${order.submittedAt ? new Date(order.submittedAt).toLocaleDateString() : '—'}</td>
             </tr>
         `;
+
+        // ===== Nested fulfilled back-order child row (visual only) =====
+        const fulfilledBOs = (allBackOrders || []).filter(b =>
+            (b.status || '').toLowerCase() === 'fulfilled' &&
+            (String(b.original_order_id) === String(order.id) ||
+             String(b.invoice_number) === String(order.id))
+        );
+
+        if (fulfilledBOs.length > 0) {
+            let boTotal = 0;
+            fulfilledBOs.forEach(b => {
+                const qty = parseInt(b.quantity, 10) || 0;
+                const unit = b.unit_price != null ? Number(b.unit_price) : 0;
+                boTotal += qty * unit;
+            });
+
+            const fulfilledDate = fulfilledBOs
+                .map(b => b.fulfilled_at)
+                .filter(Boolean)
+                .sort()
+                .pop(); // most recent
+
+            const dateText = fulfilledDate
+                ? new Date(fulfilledDate).toLocaleDateString()
+                : '—';
+
+            const boTotalHTML = boTotal > 0
+                ? `$${boTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : `${fulfilledBOs.length} item${fulfilledBOs.length > 1 ? 's' : ''}`;
+
+            html += `
+                <tr class="bg-[#f8f1e9] border-t border-[#e8d9b8]">
+                    <td class="p-3"></td>
+                    <td class="p-3 font-mono pl-6">
+                        #${safeId.slice(0, 8)}-BO
+                        <span class="ml-2 px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">BO Fulfilled</span>
+                    </td>
+                    <td class="p-3">${order.salesman || 'N/A'}</td>
+                    <td class="p-3">${order.customer || 'N/A'}</td>
+                    <td class="p-3">${boTotalHTML}</td>
+                    <td class="p-3">
+                        <span class="text-xs px-3 py-1 rounded bg-green-100 text-green-800 font-medium">BO Fulfilled</span>
+                    </td>
+                    <td class="p-3 text-sm">${dateText}</td>
+                </tr>
+            `;
+        }
+        // ===== End nested BO row =====
     });
 
     html += `</tbody></table>`;
