@@ -2516,29 +2516,40 @@ async function loadMyQuotes() {
                         const pStatus = (quote.payment_status || '').toLowerCase();
                         const method = (quote.payment_method_type || '').toLowerCase();
                         const isAchPending = pStatus !== 'paid' && (method === 'us_bank_account' || method === 'customer_balance');
-                        const isDenied = (quote.status || '').toLowerCase() === 'denied';
+                        const isDenied = status === 'denied';
+                        const canEdit = status === 'submitted' || status === 'pending' || status === '';
 
                         if (isDenied) return '';
+
+                        let editBtn = '';
+                        if (canEdit) {
+                            editBtn = `
+                            <button onclick="event.stopPropagation(); openEditQuoteModal('${quote.id}')"
+                                    class="w-full mb-2 border-2 border-[#6B4423] text-[#1E4D2B] font-semibold py-2.5 rounded-xl hover:bg-[#f8f4eb]">
+                                Edit / Add Items
+                            </button>`;
+                        }
+
                         if (pStatus === 'paid') {
-                            return `
+                            return editBtn + `
                             <div class="w-full bg-green-100 text-green-800 font-semibold py-3 rounded-xl text-center">
                                 Paid ✓
                             </div>`;
                         }
                         if (isAchPending) {
-                            return `
+                            return editBtn + `
                             <div class="w-full bg-blue-50 border border-blue-200 text-blue-800 font-semibold py-3 rounded-xl text-center text-sm">
                                 ACH Processing<br>
                                 <span class="font-normal text-xs">Typically clears in 3–5 business days</span>
                             </div>`;
                         }
-                                                if (!quote.invoice_ready_at) {
-                            return `
+                        if (!quote.invoice_ready_at) {
+                            return editBtn + `
                             <div class="w-full bg-[#f8f4eb] border border-[#d4b78f] text-[#6B4423] font-semibold py-3 rounded-xl text-center text-sm">
                                 Awaiting invoice from Donegal.
                             </div>`;
                         }
-                        return `
+                        return editBtn + `
                             <button onclick="event.stopPropagation(); payInvoice('${quote.id}')"
                                     class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">
                                 Pay Invoice
@@ -2947,6 +2958,269 @@ function markOrderHistoryViewed() {
     localStorage.setItem('orderHistoryLastViewed', new Date().toISOString());
     updateOrderHistoryBadge(0);
 }
+
+// ================== EDIT QUOTE (pending only) ==================
+let editQuoteOrder = null;
+let editQuoteItems = [];
+
+function openEditQuoteModal(orderId) {
+    const order = (window._myQuotesCache || []).find(o => String(o.id) === String(orderId));
+    if (!order) {
+        alert('Quote not found.');
+        return;
+    }
+
+    const status = (order.status || '').toLowerCase();
+    if (status !== 'submitted' && status !== 'pending' && status !== '') {
+        alert('This quote can no longer be edited. Once Accepted, please submit a new order.');
+        return;
+    }
+
+    editQuoteOrder = order;
+    editQuoteItems = (order.items || []).map(item => ({
+        product: item.product || item.name || '',
+        quantity: item.quantity || 1,
+        caseSize: item.caseSize || item.cs || '',
+        unitPrice: item.unitPrice != null ? item.unitPrice : null,
+        displayPrice: item.displayPrice || item.price || '',
+        isMarketPrice: !!item.isMarketPrice
+    }));
+
+    document.getElementById('edit-quote-modal')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'edit-quote-modal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[999] p-4';
+    modal.innerHTML = `
+        <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6"
+             onclick="event.stopPropagation()">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <h2 class="text-2xl font-bold brand-green">Edit Quote</h2>
+                    <p class="text-sm text-[#6B4423]">Add, remove, or change quantities. Only available while awaiting review.</p>
+                    <p class="text-xs text-[#6B4423] font-mono mt-1">${order.id}</p>
+                </div>
+                <button type="button" onclick="hideEditQuoteModal()"
+                        class="text-2xl text-[#6B4423] leading-none">&times;</button>
+            </div>
+
+            <div class="mb-4">
+                <h3 class="font-bold brand-green mb-2">Line Items</h3>
+                <div id="edit-quote-items" class="space-y-2"></div>
+            </div>
+
+            <div class="mb-4 relative">
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Add product</label>
+                <input type="text" id="edit-quote-product-search"
+                       oninput="renderEditQuoteProductSearch()"
+                       class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"
+                       placeholder="Search products…">
+                <div id="edit-quote-product-results"
+                     class="hidden absolute z-50 w-full bg-white border-2 border-[#6B4423] rounded-xl mt-1 max-h-56 overflow-auto shadow-lg"></div>
+            </div>
+
+            <div class="border-t border-[#d4b78f] pt-4 mb-6 flex justify-between text-sm">
+                <span class="text-[#6B4423]">Subtotal</span>
+                <span id="edit-quote-subtotal" class="font-semibold brand-green">$0.00</span>
+            </div>
+
+            <div class="flex justify-end gap-3">
+                <button type="button" onclick="hideEditQuoteModal()"
+                        class="px-5 py-2 border-2 border-[#6B4423] rounded-xl">
+                    Cancel
+                </button>
+                <button type="button" onclick="confirmEditQuote()"
+                        class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] font-bold rounded-xl">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    renderEditQuoteItems();
+    recalcEditQuoteTotals();
+}
+
+function hideEditQuoteModal() {
+    document.getElementById('edit-quote-modal')?.remove();
+    editQuoteOrder = null;
+    editQuoteItems = [];
+}
+
+function renderEditQuoteItems() {
+    const container = document.getElementById('edit-quote-items');
+    if (!container) return;
+
+    if (!editQuoteItems.length) {
+        container.innerHTML = `<p class="text-sm text-[#6B4423]">No line items.</p>`;
+        return;
+    }
+
+    container.innerHTML = editQuoteItems.map((item, index) => {
+        const hasRealPrice = item.unitPrice != null && !isNaN(Number(item.unitPrice)) && Number(item.unitPrice) > 0;
+        const priceLabel = hasRealPrice
+            ? ('$' + Number(item.unitPrice).toFixed(2))
+            : (item.isMarketPrice ? 'Market' : (item.displayPrice || '—'));
+        const qty = parseInt(item.quantity, 10) || 0;
+        const unit = hasRealPrice ? Number(item.unitPrice) : 0;
+        const lineTotalLabel = hasRealPrice ? ('$' + (qty * unit).toFixed(2)) : '—';
+
+        return `
+            <div class="flex flex-wrap items-center gap-2 border border-[#d4b78f] rounded-xl px-3 py-2 bg-[#f8f4eb]">
+                <div class="flex-1 min-w-[140px]">
+                    <p class="font-semibold text-sm brand-green">${item.product}</p>
+                    <p class="text-xs text-[#6B4423]">${priceLabel}${item.caseSize ? ' · ' + item.caseSize : ''}</p>
+                </div>
+                <input type="number" min="1" step="1" value="${item.quantity}"
+                       onchange="updateEditQuoteQty(${index}, this.value)"
+                       class="w-20 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm">
+                <div class="text-right min-w-[60px]">
+                    <p class="text-xs text-[#6B4423]">Line</p>
+                    <p class="font-semibold text-sm brand-green">${lineTotalLabel}</p>
+                </div>
+                <button type="button" onclick="removeEditQuoteItem(${index})"
+                        class="px-3 py-1 text-xs bg-red-600 text-white rounded-lg">
+                    Remove
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+function updateEditQuoteQty(index, value) {
+    const qty = parseInt(value, 10);
+    if (!editQuoteItems[index]) return;
+    editQuoteItems[index].quantity = (isNaN(qty) || qty < 1) ? 1 : qty;
+    renderEditQuoteItems();
+    recalcEditQuoteTotals();
+}
+
+function removeEditQuoteItem(index) {
+    editQuoteItems.splice(index, 1);
+    renderEditQuoteItems();
+    recalcEditQuoteTotals();
+}
+
+function renderEditQuoteProductSearch() {
+    const search = (document.getElementById('edit-quote-product-search')?.value || '').toLowerCase().trim();
+    const resultsEl = document.getElementById('edit-quote-product-results');
+    if (!resultsEl) return;
+
+    if (search.length < 1) {
+        resultsEl.innerHTML = '';
+        resultsEl.classList.add('hidden');
+        return;
+    }
+
+    const matches = (WHOLESALE_PRICES || []).filter(p =>
+        p.name.toLowerCase().includes(search) ||
+        (p.category || '').toLowerCase().includes(search)
+    ).slice(0, 20);
+
+    if (!matches.length) {
+        resultsEl.innerHTML = `<p class="px-4 py-3 text-sm text-[#6B4423]">No products found.</p>`;
+        resultsEl.classList.remove('hidden');
+        return;
+    }
+
+    resultsEl.innerHTML = matches.map(p => {
+        const safeName = p.name.replace(/'/g, "\\'");
+        return `
+            <button type="button"
+                    onclick="addEditQuoteProduct('${safeName}')"
+                    class="w-full text-left px-4 py-2 text-sm hover:bg-[#f8f4eb] border-b border-[#f0e6d9]">
+                <span class="font-medium text-[#1E4D2B]">${p.name}</span>
+                <span class="block text-xs text-[#6B4423]">${p.cs || ''} · ${p.price || ''}</span>
+            </button>
+        `;
+    }).join('');
+    resultsEl.classList.remove('hidden');
+}
+
+function addEditQuoteProduct(productName) {
+    const catalog = (WHOLESALE_PRICES || []).find(p => p.name === productName);
+    const isMarket = catalog && (catalog.price || '').toLowerCase().includes('market');
+    const numericPrice = isMarket
+        ? null
+        : parseFloat(String(catalog?.price || '').replace(/[^0-9.]/g, '')) || null;
+
+    const existing = editQuoteItems.find(i => i.product === productName);
+    if (existing) {
+        existing.quantity = (existing.quantity || 1) + 1;
+    } else {
+        editQuoteItems.push({
+            product: productName,
+            quantity: 1,
+            caseSize: catalog?.cs || '',
+            unitPrice: numericPrice,
+            displayPrice: catalog?.price || '',
+            isMarketPrice: !!isMarket
+        });
+    }
+
+    const searchEl = document.getElementById('edit-quote-product-search');
+    if (searchEl) searchEl.value = '';
+    const resultsEl = document.getElementById('edit-quote-product-results');
+    if (resultsEl) {
+        resultsEl.innerHTML = '';
+        resultsEl.classList.add('hidden');
+    }
+
+    renderEditQuoteItems();
+    recalcEditQuoteTotals();
+}
+
+function recalcEditQuoteTotals() {
+    let subtotal = 0;
+    (editQuoteItems || []).forEach(item => {
+        const unit = parseFloat(item.unitPrice);
+        if (isNaN(unit) || unit < 0) return;
+        subtotal += unit * (parseInt(item.quantity, 10) || 0);
+    });
+    const el = document.getElementById('edit-quote-subtotal');
+    if (el) el.textContent = '$' + subtotal.toFixed(2);
+}
+
+async function confirmEditQuote() {
+    if (!editQuoteOrder) return;
+
+    if (!editQuoteItems.length) {
+        alert('Quote must have at least one line item.');
+        return;
+    }
+
+    const status = (editQuoteOrder.status || '').toLowerCase();
+    if (status !== 'submitted' && status !== 'pending' && status !== '') {
+        alert('This quote can no longer be edited.');
+        return;
+    }
+
+    const itemsPayload = editQuoteItems.map(item => ({
+        product: item.product,
+        quantity: item.quantity || 1,
+        caseSize: item.caseSize || '',
+        unitPrice: item.unitPrice,
+        displayPrice: item.displayPrice || '',
+        isMarketPrice: !!item.isMarketPrice
+    }));
+
+    try {
+        const { error } = await supabaseClient
+            .from('orders')
+            .update({ items: itemsPayload })
+            .eq('id', editQuoteOrder.id);
+
+        if (error) throw error;
+
+        hideEditQuoteModal();
+        await loadMyQuotes();
+        alert('Quote updated.');
+    } catch (err) {
+        console.error(err);
+        alert('Could not update quote.\n' + (err.message || ''));
+    }
+}
+// ================== END EDIT QUOTE ==================
 
 async function payInvoice(orderId) {
     // Remove any existing payment modal
