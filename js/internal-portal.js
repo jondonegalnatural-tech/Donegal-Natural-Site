@@ -1055,11 +1055,28 @@ function openOrderInvoiceModal(orderId) {
         invDate.textContent = isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
     }
 
-    // Status badge
-    const invStatus = document.getElementById('inv-status');
-    if (invStatus) {
-        const status = (order.status || '—').toString();
-        invStatus.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    // UPS tracking (framework — link opens UPS.com)
+    const trackNum = (order.trackingNumber || order.tracking_number || '').trim();
+    let trackBadge = document.getElementById('inv-tracking-badge');
+    if (!trackBadge && invStatus && invStatus.parentElement) {
+        trackBadge = document.createElement('div');
+        trackBadge.id = 'inv-tracking-badge';
+        trackBadge.className = 'mt-2 text-sm';
+        invStatus.parentElement.appendChild(trackBadge);
+    }
+    if (trackBadge) {
+        if (trackNum) {
+            const safe = trackNum.replace(/"/g, '');
+            trackBadge.innerHTML = `
+                <span class="text-[#6B4423]">${order.carrier || 'UPS'} Tracking:</span>
+                <a href="https://www.ups.com/track?tracknum=${encodeURIComponent(safe)}"
+                   target="_blank" rel="noopener"
+                   class="ml-1 font-mono font-semibold text-[#1E4D2B] underline hover:text-[#254a2f]">
+                    ${safe}
+                </a>`;
+        } else {
+            trackBadge.innerHTML = '';
+        }
     }
 
     // BILL TO
@@ -2580,7 +2597,7 @@ async function loadOrders() {
     try {
         const { data, error } = await supabaseClient
             .from('orders')
-            .select('id, source, status, submitted_at, customer_name, customer_email, customer_company, salesman_name, salesman_email, notes, shipping_cost, credit, items')
+            .select('id, source, status, submitted_at, customer_name, customer_email, customer_company, salesman_name, salesman_email, notes, shipping_cost, credit, items, tracking_number, carrier, delivered_at')
             .order('submitted_at', { ascending: false });
 
         if (error) {
@@ -2601,7 +2618,10 @@ async function loadOrders() {
                 notes: o.notes,
                 shippingCost: o.shipping_cost,
                 credit: o.credit != null ? Number(o.credit) : 0,
-                items: o.items || []
+                items: o.items || [],
+                trackingNumber: o.tracking_number || null,
+                carrier: o.carrier || 'UPS',
+                deliveredAt: o.delivered_at || null
             }));
             ordersLoadedAt = Date.now();
         }
@@ -3631,10 +3651,9 @@ const shippingEl = document.getElementById('ship-inv-shipping');
         shippingEl.value = (isNaN(start) ? 0 : start).toFixed(2);
     }
 
-    const creditEl = document.getElementById('ship-inv-credit');
-    if (creditEl) {
-        const startCredit = order.credit != null ? Number(order.credit) : 0;
-        creditEl.value = (isNaN(startCredit) ? 0 : startCredit).toFixed(2);
+    const trackingEl = document.getElementById('ship-inv-tracking');
+    if (trackingEl) {
+        trackingEl.value = order.trackingNumber || order.tracking_number || '';
     }
 
     const searchEl = document.getElementById('ship-inv-product-search');
@@ -3936,7 +3955,9 @@ async function confirmShipInvoice() {
                 shipping_cost: shipping,
                 credit: credit,
                 items: itemsPayload,
-                invoice_ready_at: new Date().toISOString()
+                invoice_ready_at: new Date().toISOString(),
+                tracking_number: (document.getElementById('ship-inv-tracking')?.value || '').trim() || null,
+                carrier: 'UPS'
             })
             .eq('id', orderId);
 
