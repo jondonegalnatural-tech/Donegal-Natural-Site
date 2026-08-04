@@ -2696,7 +2696,7 @@ function renderOrdersTable() {
             } else {
                 statusHTML = `
                     <div class="flex gap-2">
-                        <button onclick="updateOrderStatus('${safeId}', 'received'); event.stopImmediatePropagation()"
+                        <button onclick="openApproveOrderModal('${safeId}'); event.stopImmediatePropagation()"
                                 class="text-xs px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700">
                             Approve
                         </button>
