@@ -2427,7 +2427,6 @@ async function loadMyQuotes() {
             return p !== 'paid' && s !== 'denied';
         });
                 window._myQuotesCache = active;
-                                     onclick="openMyQuoteInvoice('${quote.id}')"
 
         if (active.length === 0) {
             container.innerHTML = `
@@ -2533,14 +2532,14 @@ async function loadMyQuotes() {
                                 <span class="font-normal text-xs">Typically clears in 3–5 business days</span>
                             </div>`;
                         }
-                                                if (!quote.invoice_ready_at) {
+                                                if (!order.invoice_ready_at) {
                             return `
                             <div class="w-full bg-[#f8f4eb] border border-[#d4b78f] text-[#6B4423] font-semibold py-3 rounded-xl text-center text-sm">
                                 Awaiting invoice from Donegal.
                             </div>`;
                         }
                         return `
-                            <button onclick="event.stopPropagation(); payInvoice('${quote.id}')"
+                            <button onclick="event.stopPropagation(); payInvoice('${order.id}')"
                                     class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">
                                 Pay Invoice
                             </button>`;
@@ -2810,24 +2809,17 @@ function renderOrderHistoryCards(orders, listEl) {
         const pStatus = (order.payment_status || '').toLowerCase();
         const method = (order.payment_method_type || '').toLowerCase();
         const isAchPending = pStatus !== 'paid' && (method === 'us_bank_account' || method === 'customer_balance');
-        let payBlock = '';
+                let payBlock = '';
         if (pStatus === 'paid') {
             payBlock = `<div class="w-full bg-green-100 text-green-800 font-semibold py-3 rounded-xl text-center">Paid ✓</div>`;
         } else if (isAchPending) {
             payBlock = `<div class="w-full bg-blue-50 border border-blue-200 text-blue-800 font-semibold py-3 rounded-xl text-center text-sm">ACH Processing<br><span class="font-normal text-xs">Typically clears in 3–5 business days</span></div>`;
-                                if (!quote.invoice_ready_at) {
-                            return `
-                            <div class="w-full bg-[#f8f4eb] border border-[#d4b78f] text-[#6B4423] font-semibold py-3 rounded-xl text-center text-sm">
-                                Awaiting invoice from Donegal.
-                            </div>`;
-                        }
-                        return `
-                            <button onclick="event.stopPropagation(); payInvoice('${quote.id}')"
-                                    class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">
-                                Pay Invoice
-                            </button>`;
         } else if (status !== 'denied') {
-            payBlock = `<button onclick="event.stopPropagation(); payInvoice('${order.id}')" class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">Pay Invoice</button>`;
+            if (!order.invoice_ready_at) {
+                payBlock = `<div class="w-full bg-[#f8f4eb] border border-[#d4b78f] text-[#6B4423] font-semibold py-3 rounded-xl text-center text-sm">Awaiting invoice from Donegal.</div>`;
+            } else {
+                payBlock = `<button onclick="event.stopPropagation(); payInvoice('${order.id}')" class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">Pay Invoice</button>`;
+            }
         }
 
         html += `
