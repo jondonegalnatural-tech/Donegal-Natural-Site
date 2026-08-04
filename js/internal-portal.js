@@ -1015,15 +1015,22 @@ function openOrderInvoiceModal(orderId) {
     const tbody = document.getElementById('inv-items-body');
     let subtotal = 0;
 
+        // Line items (original order + any fulfilled back-order items)
+    const tbody = document.getElementById('inv-items-body');
+    let subtotal = 0;
+
     if (tbody) {
+        // Ensure back orders are loaded
+        if ((!allBackOrders || allBackOrders.length === 0) && typeof loadBackOrders === 'function') {
+            // fire-and-forget; we still render with whatever is already in memory
+            loadBackOrders();
+        }
+
         const items = order.items || [];
-        if (!items.length) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="4" class="p-4 text-center text-[#6B4423]">No line items</td>
-                </tr>`;
-        } else {
-            tbody.innerHTML = items.map(item => {
+        let rowsHtml = '';
+
+        if (items.length) {
+            rowsHtml += items.map(item => {
                 const qty = parseInt(item.quantity, 10) || 0;
                 const unit = typeof getOrderItemUnitPrice === 'function'
                     ? getOrderItemUnitPrice(item)
@@ -1052,6 +1059,56 @@ function openOrderInvoiceModal(orderId) {
                         <td class="p-3 text-right font-semibold">${totalText}</td>
                     </tr>`;
             }).join('');
+        }
+
+        // Append fulfilled back-order items for this original order
+        const fulfilledBOs = (allBackOrders || []).filter(b =>
+            (b.status || '').toLowerCase() === 'fulfilled' &&
+            (String(b.original_order_id) === String(order.id) ||
+             String(b.invoice_number) === String(order.id))
+        );
+
+        if (fulfilledBOs.length > 0) {
+            rowsHtml += `
+                <tr class="bg-[#f0f7f0]">
+                    <td colspan="4" class="p-2 text-center text-xs font-semibold text-green-800 uppercase tracking-wide">
+                        — Back Order Fulfillment —
+                    </td>
+                </tr>`;
+
+            rowsHtml += fulfilledBOs.map(b => {
+                const qty = parseInt(b.quantity, 10) || 0;
+                const unit = b.unit_price != null ? Number(b.unit_price) : 0;
+                const hasPrice = unit > 0;
+                const lineTotal = qty * unit;
+                if (hasPrice) subtotal += lineTotal;
+
+                const desc = [
+                    b.product_name || '—',
+                    b.case_size ? `· ${b.case_size}` : '',
+                    '<span class="ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-green-100 text-green-800">BO Fulfilled</span>'
+                ].filter(Boolean).join(' ');
+
+                const unitText = hasPrice ? ('$' + unit.toFixed(2)) : (b.display_price || '—');
+                const totalText = hasPrice ? ('$' + lineTotal.toFixed(2)) : '—';
+
+                return `
+                    <tr class="border-t border-[#c8e0c8] bg-[#f8fbf8]">
+                        <td class="p-3 text-left font-semibold">${qty}</td>
+                        <td class="p-3 text-left">${desc}</td>
+                        <td class="p-3 text-right">${unitText}</td>
+                        <td class="p-3 text-right font-semibold">${totalText}</td>
+                    </tr>`;
+            }).join('');
+        }
+
+        if (!rowsHtml) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="p-4 text-center text-[#6B4423]">No line items</td>
+                </tr>`;
+        } else {
+            tbody.innerHTML = rowsHtml;
         }
     }
 
