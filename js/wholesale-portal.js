@@ -16,6 +16,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 let currentCategoryFilter = 'All';
 let quoteItems = JSON.parse(localStorage.getItem('wholesaleQuote')) || [];
 let portalInventory = {}; // product_name → quantity
+let customerBackOrders = []; // pending + fulfilled for this customer
 
 
 // ================== MAIN CATEGORIES ==================
@@ -2608,8 +2609,12 @@ async function loadOrderHistory() {
             return p === 'paid' || s === 'denied';
         });
 
-        // Cache for search + click-to-invoice
+                // Cache for search + click-to-invoice
         window._orderHistoryCache = completed;
+                // Ensure back orders are available for nested fulfilled rows
+        if (!customerBackOrders || customerBackOrders.length === 0) {
+            await loadCustomerBackOrders();
+        }
 
         if (completed.length === 0) {
             container.innerHTML = `
@@ -2685,6 +2690,27 @@ async function loadOrderHistory() {
                                 <span class="text-[#6B4423]">${item.displayPrice || ('$' + (parseFloat(item.unitPrice) || 0).toFixed(2))}</span>
                             </li>
                         `).join('')}
+                        ${(() => {
+                            const fulfilledBOs = (customerBackOrders || []).filter(b =>
+                                (b.status || '').toLowerCase() === 'fulfilled' &&
+                                (String(b.original_order_id) === String(order.id) ||
+                                 String(b.invoice_number) === String(order.id))
+                            );
+                            if (!fulfilledBOs.length) return '';
+                            return `
+                                <li class="pt-2 mt-1 border-t border-[#e8d9c2]">
+                                    <p class="text-xs font-semibold text-green-800 mb-1">Back Order Fulfillment</p>
+                                    ${fulfilledBOs.map(b => `
+                                        <div class="flex justify-between text-green-800">
+                                            <span>• ${b.product_name || '—'} × ${b.quantity || 1}
+                                                <span class="ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-green-100 text-green-800">BO Fulfilled</span>
+                                            </span>
+                                            <span>${b.display_price || (b.unit_price != null ? ('$' + Number(b.unit_price).toFixed(2)) : '')}</span>
+                                        </div>
+                                    `).join('')}
+                                </li>
+                            `;
+                        })()}
                     </ul>
 
                     <div class="border-t border-[#d4b78f] pt-3 space-y-1 text-sm mb-4">
@@ -2746,6 +2772,94 @@ async function loadOrderHistory() {
         `;
     }
 }
+
+// ================== CUSTOMER BACK ORDERS ==================
+async function loadCustomerBackOrders() {
+    const container = document.getElementById('customer-back-orders');
+    const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    if (!user || !user.email) {
+        customerBackOrders = [];
+        if (container) {
+            container.innerHTML = `<p class="text-xs text-[#6B4423]">Sign in to see back orders.</p>`;
+        }
+        return;
+    }
+
+    const email = (user.email || '').toLowerCase().trim();
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('back_orders')
+            .select('*')
+            .ilike('customer_email', email)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        customerBackOrders = data || [];
+    } catch (err) {
+        console.error('loadCustomerBackOrders error:', err);
+        customerBackOrders = [];
+    }
+
+    renderCustomerBackOrdersSidebar();
+}
+
+function renderCustomerBackOrdersSidebar() {
+    const container = document.getElementById('customer-back-orders');
+    if (!container) return;
+
+    // Sidebar = pending only
+    const pending = (customerBackOrders || []).filter(b =>
+        (b.status || '').toLowerCase() === 'pending'
+    );
+
+    if (pending.length === 0) {
+        container.innerHTML = `<p class="text-xs text-[#6B4423]">No items currently on back order.</p>`;
+        return;
+    }
+
+    // Group by invoice
+    const groups = {};
+    pending.forEach(b => {
+        const key = String(b.invoice_number || b.original_order_id || b.id);
+        if (!groups[key]) {
+            groups[key] = {
+                invoice: b.invoice_number || String(b.original_order_id || ''),
+                items: []
+            };
+        }
+        groups[key].items.push(b);
+    });
+
+    let html = '';
+    Object.values(groups).forEach(g => {
+        const shortInv = String(g.invoice || '').slice(0, 8);
+        html += `
+            <div class="mb-3 last:mb-0">
+                <p class="text-xs font-semibold text-[#1E4D2B] mb-1">Invoice #${shortInv}</p>
+                <ul class="space-y-1">
+                    ${g.items.map(item => `
+                        <li class="text-xs leading-snug">
+                            <span class="font-medium">${item.product_name || '—'}</span>
+                            <span class="text-[#6B4423]"> × ${item.quantity || 1}</span>
+                            ${item.case_size ? `<span class="text-[#6B4423]"> · ${item.case_size}</span>` : ''}
+                        </li>
+                    `).join('')}
+                </ul>
+            </div>
+        `;
+    });
+
+    html += `
+        <p class="text-[10px] text-[#6B4423] mt-2 leading-snug border-t border-[#d4b78f] pt-2">
+            These items will ship once stock is available. Fulfilled back orders also appear under Order History.
+        </p>
+    `;
+    container.innerHTML = html;
+}
+// ================== END CUSTOMER BACK ORDERS ==================
+
+
 
 function openOrderHistoryInvoice(orderId) {
     const order = (window._orderHistoryCache || []).find(o => o.id === orderId);
@@ -2851,6 +2965,27 @@ function renderOrderHistoryCards(orders, listEl) {
                             <span class="text-[#6B4423]">${item.displayPrice || ('$' + (parseFloat(item.unitPrice) || 0).toFixed(2))}</span>
                         </li>
                     `).join('')}
+                    ${(() => {
+                        const fulfilledBOs = (customerBackOrders || []).filter(b =>
+                            (b.status || '').toLowerCase() === 'fulfilled' &&
+                            (String(b.original_order_id) === String(order.id) ||
+                             String(b.invoice_number) === String(order.id))
+                        );
+                        if (!fulfilledBOs.length) return '';
+                        return `
+                            <li class="pt-2 mt-1 border-t border-[#e8d9c2]">
+                                <p class="text-xs font-semibold text-green-800 mb-1">Back Order Fulfillment</p>
+                                ${fulfilledBOs.map(b => `
+                                    <div class="flex justify-between text-green-800">
+                                        <span>• ${b.product_name || '—'} × ${b.quantity || 1}
+                                            <span class="ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-green-100 text-green-800">BO Fulfilled</span>
+                                        </span>
+                                        <span>${b.display_price || (b.unit_price != null ? ('$' + Number(b.unit_price).toFixed(2)) : '')}</span>
+                                    </div>
+                                `).join('')}
+                            </li>
+                        `;
+                    })()}
                 </ul>
                 <div class="border-t border-[#d4b78f] pt-3 space-y-1 text-sm mb-4">
                     <div class="flex justify-between"><span class="text-[#6B4423]">Subtotal</span><span>$${subtotal.toFixed(2)}</span></div>
@@ -3755,6 +3890,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     displayWelcome();
     refreshOrderHistoryBadge();
     refreshMyQuotesBadge();
+    loadCustomerBackOrders();
 
     const sidebarLinks = document.querySelectorAll('.sidebar-link');
     sidebarLinks.forEach(link => {
