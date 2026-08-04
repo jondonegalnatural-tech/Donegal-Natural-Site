@@ -3243,7 +3243,7 @@ async function confirmShipInvoice() {
         return;
     }
 
-const shipping = parseFloat(document.getElementById('ship-inv-shipping')?.value);
+    const shipping = parseFloat(document.getElementById('ship-inv-shipping')?.value);
     if (isNaN(shipping) || shipping < 0) {
         alert('Enter a valid shipping amount (0 or higher).');
         return;
@@ -3273,11 +3273,12 @@ const shipping = parseFloat(document.getElementById('ship-inv-shipping')?.value)
     try {
         const { error } = await supabaseClient
             .from('orders')
-    .update({
+            .update({
                 status: 'shipped',
                 shipping_cost: shipping,
                 credit: credit,
-                items: itemsPayload
+                items: itemsPayload,
+                invoice_ready_at: new Date().toISOString()
             })
             .eq('id', orderId);
 
