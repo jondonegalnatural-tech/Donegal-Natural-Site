@@ -1752,7 +1752,11 @@ function createOrderCard(order, showSalesman = false) {
                 </div>
                 <div style="display:flex; justify-content:space-between;">
                     <span class="text-[#6B4423]">Shipping</span>
-                    <span>${shipping > 0 ? "$" + shipping.toFixed(2) : "TBD"}</span>
+                    <span>${shipping > 0
+                        ? ("$" + shipping.toFixed(2))
+                        : ((statusLower === "shipped" || statusLower === "delivered" || statusLower === "completed")
+                            ? "Free Shipping"
+                            : "TBD")}</span>
                 </div>
                 <div style="display:flex; justify-content:space-between; font-weight:700; color:#1E4D2B; margin-top:0.25rem;">
                     <span>Order Total</span>

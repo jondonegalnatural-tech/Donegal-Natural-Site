@@ -3480,9 +3480,10 @@ function applyAutoShippingRules() {
 
     // Back-order fulfillments: always free shipping (no additional charge)
     if (typeof shipInvoiceMode !== 'undefined' && shipInvoiceMode === 'backorder') {
-        shippingEl.value = '0.00';
+        shippingEl.type = 'text';
+        shippingEl.value = 'Free Shipping';
         shippingEl.readOnly = true;
-        shippingEl.classList.add('bg-gray-100');
+        shippingEl.classList.add('bg-gray-100', 'text-green-800', 'font-semibold');
         const noteEl = document.getElementById('ship-inv-shipping-note');
         if (noteEl) noteEl.textContent = 'Back order follow-up: free shipping (no additional charge)';
         return;
@@ -3497,11 +3498,15 @@ function applyAutoShippingRules() {
     if (result.free) {
         shippingEl.value = '0.00';
         shippingEl.readOnly = true;
-        shippingEl.classList.add('bg-gray-100');
+        shippingEl.classList.add('bg-gray-100', 'text-green-800', 'font-semibold');
+        // Visual label in the field (value stays 0.00 for save logic)
+        shippingEl.type = 'text';
+        shippingEl.value = 'Free Shipping';
         if (noteEl) noteEl.textContent = result.reason;
     } else {
         shippingEl.readOnly = false;
-        shippingEl.classList.remove('bg-gray-100');
+        shippingEl.type = 'number';
+        shippingEl.classList.remove('bg-gray-100', 'text-green-800', 'font-semibold');
         if (noteEl) {
             noteEl.textContent = result.reason
                 ? (result.reason + (result.threshold ? ' — enter shipping amount ($)' : ''))
@@ -3814,7 +3819,10 @@ async function confirmShipInvoice() {
         return;
     }
 
-    const shipping = parseFloat(document.getElementById('ship-inv-shipping')?.value);
+    const shippingRaw = (document.getElementById('ship-inv-shipping')?.value || '').toString().trim();
+    const shipping = (/free/i.test(shippingRaw) || shippingRaw === '')
+        ? 0
+        : parseFloat(shippingRaw);
     if (isNaN(shipping) || shipping < 0) {
         alert('Enter a valid shipping amount (0 or higher).');
         return;
@@ -8439,7 +8447,16 @@ function openBackOrderFulfillInvoice(groupKey, fulfilledItems) {
     const totEl = document.getElementById('inv-total');
 
     if (subEl) subEl.textContent = '$' + subtotal.toFixed(2);
-    if (shipCostEl) shipCostEl.textContent = '$' + shipping.toFixed(2);
+    if (shipCostEl) {
+        const st = (order.status || '').toString().toLowerCase();
+        if (shipping > 0) {
+            shipCostEl.textContent = '$' + shipping.toFixed(2);
+        } else if (st === 'shipped' || st === 'delivered' || st === 'completed') {
+            shipCostEl.textContent = 'Free Shipping';
+        } else {
+            shipCostEl.textContent = '$0.00';
+        }
+    }
     if (creditRow) creditRow.classList.add('hidden');
     if (totEl) totEl.textContent = '$' + total.toFixed(2);
 
