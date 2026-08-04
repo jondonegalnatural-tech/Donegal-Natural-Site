@@ -905,41 +905,120 @@ function renderSalesmanOrdersList(salesman) {
         return;
     }
 
-    container.innerHTML = matched.map(order => {
-        const id = order.id || order.order_id || '';
-        const shortId = String(id).length > 8 ? String(id).slice(0, 8) : id;
-        const customer = order.customer || order.customer_name || '—';
-        const status = order.status || '—';
-        const date = new Date(order.submittedAt || order.submitted_at || order.date || 0);
-        const dateText = isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
+    // Group by calendar year → month (January starts each year)
+    const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const byYear = {};
 
-        let total = 0;
-        (order.items || []).forEach(item => {
-            const qty = parseInt(item.quantity, 10) || 0;
-            const unit = typeof getOrderItemUnitPrice === 'function'
-                ? getOrderItemUnitPrice(item)
-                : (parseFloat(item.unitPrice) || 0);
-            total += qty * unit;
+    matched.forEach(order => {
+        const d = new Date(order.submittedAt || order.submitted_at || order.date || 0);
+        if (isNaN(d.getTime())) return;
+        const y = d.getFullYear();
+        const m = d.getMonth(); // 0 = January
+        if (!byYear[y]) byYear[y] = {};
+        if (!byYear[y][m]) byYear[y][m] = [];
+        byYear[y][m].push(order);
+    });
+
+    const years = Object.keys(byYear).map(Number).sort((a, b) => b - a); // newest year first
+
+    let html = '';
+    years.forEach(year => {
+        const months = Object.keys(byYear[year]).map(Number).sort((a, b) => b - a); // newest month first
+        let yearOrderCount = 0;
+        let yearTotal = 0;
+
+        months.forEach(m => {
+            (byYear[year][m] || []).forEach(order => {
+                yearOrderCount += 1;
+                (order.items || []).forEach(item => {
+                    const qty = parseInt(item.quantity, 10) || 0;
+                    const unit = typeof getOrderItemUnitPrice === 'function'
+                        ? getOrderItemUnitPrice(item)
+                        : (parseFloat(item.unitPrice) || 0);
+                    yearTotal += qty * unit;
+                });
+            });
         });
 
-        const safeId = String(id).replace(/'/g, "\\'");
-
-        return `
-            <button type="button"
-                    onclick="openSalesmanOrderInvoice('${safeId}')"
-                    class="w-full text-left bg-[#f8f4eb] border border-[#d4b78f] rounded-xl px-4 py-3 hover:bg-[#f0e6d9] transition">
-                <div class="flex justify-between gap-2">
-                    <span class="font-semibold brand-green">#${shortId}</span>
-                    <span class="text-sm text-[#6B4423]">${dateText}</span>
+        html += `
+            <div class="mb-5">
+                <div class="flex items-center justify-between mb-2 pb-1 border-b-2 border-[#1E4D2B]">
+                    <h4 class="text-base font-bold brand-green">${year}</h4>
+                    <span class="text-xs text-[#6B4423]">${yearOrderCount} order${yearOrderCount !== 1 ? 's' : ''} · $${yearTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
-                <div class="flex justify-between gap-2 mt-1 text-sm">
-                    <span class="truncate">${customer}</span>
-                    <span class="font-semibold whitespace-nowrap">$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                </div>
-                <p class="text-xs text-[#6B4423] mt-1">${status}</p>
-            </button>
         `;
-    }).join('');
+
+        months.forEach(m => {
+            const ordersInMonth = byYear[year][m] || [];
+            let monthTotal = 0;
+            ordersInMonth.forEach(order => {
+                (order.items || []).forEach(item => {
+                    const qty = parseInt(item.quantity, 10) || 0;
+                    const unit = typeof getOrderItemUnitPrice === 'function'
+                        ? getOrderItemUnitPrice(item)
+                        : (parseFloat(item.unitPrice) || 0);
+                    monthTotal += qty * unit;
+                });
+            });
+
+            html += `
+                <div class="mb-3">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <p class="text-sm font-semibold text-[#6B4423]">${monthNames[m]}</p>
+                        <span class="text-xs text-[#6B4423]">${ordersInMonth.length} · $${monthTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div class="space-y-2">
+            `;
+
+            ordersInMonth.forEach(order => {
+                const id = order.id || order.order_id || '';
+                const shortId = String(id).length > 8 ? String(id).slice(0, 8) : id;
+                const customer = order.customer || order.customer_name || '—';
+                const status = order.status || '—';
+                const date = new Date(order.submittedAt || order.submitted_at || order.date || 0);
+                const dateText = isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
+
+                let total = 0;
+                (order.items || []).forEach(item => {
+                    const qty = parseInt(item.quantity, 10) || 0;
+                    const unit = typeof getOrderItemUnitPrice === 'function'
+                        ? getOrderItemUnitPrice(item)
+                        : (parseFloat(item.unitPrice) || 0);
+                    total += qty * unit;
+                });
+
+                const safeId = String(id).replace(/'/g, "\\'");
+
+                html += `
+                    <button type="button"
+                            onclick="openSalesmanOrderInvoice('${safeId}')"
+                            class="w-full text-left bg-[#f8f4eb] border border-[#d4b78f] rounded-xl px-4 py-3 hover:bg-[#f0e6d9] transition">
+                        <div class="flex justify-between gap-2">
+                            <span class="font-semibold brand-green">#${shortId}</span>
+                            <span class="text-sm text-[#6B4423]">${dateText}</span>
+                        </div>
+                        <div class="flex justify-between gap-2 mt-1 text-sm">
+                            <span class="truncate">${customer}</span>
+                            <span class="font-semibold whitespace-nowrap">$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <p class="text-xs text-[#6B4423] mt-1">${status}</p>
+                    </button>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `</div>`;
+    });
+
+    container.innerHTML = html;
 }
 
 function hideOrderInvoiceModal() {
