@@ -2897,6 +2897,242 @@ async function denyOrder(orderId) {
     }
 }
 
+// ================== APPROVE ORDER MODAL ==================
+let approveOrderOrder = null;
+let approveOrderItems = [];
+
+function openApproveOrderModal(orderId) {
+    const order = allOrders.find(o => String(o.id) === String(orderId));
+    if (!order) {
+        alert('Order not found.');
+        return;
+    }
+
+    approveOrderOrder = order;
+    approveOrderItems = (order.items || []).map(item => ({
+        product: item.product || item.name || '',
+        quantity: item.quantity || 1,
+        caseSize: item.caseSize || '',
+        unitPrice: item.unitPrice != null ? item.unitPrice : null,
+        displayPrice: item.displayPrice || '',
+        isMarketPrice: !!item.isMarketPrice
+    }));
+
+    const customerEl = document.getElementById('approve-ord-customer');
+    const salesmanEl = document.getElementById('approve-ord-salesman');
+    const idEl = document.getElementById('approve-ord-id');
+    const subtitleEl = document.getElementById('approve-order-subtitle');
+
+    if (customerEl) customerEl.textContent = order.customer || '—';
+    if (salesmanEl) salesmanEl.textContent = order.salesman || '—';
+    if (idEl) idEl.textContent = String(order.id || '');
+    if (subtitleEl) subtitleEl.textContent = 'Review line items, then approve or edit';
+
+    const searchEl = document.getElementById('approve-ord-product-search');
+    if (searchEl) searchEl.value = '';
+    const resultsEl = document.getElementById('approve-ord-product-results');
+    if (resultsEl) {
+        resultsEl.innerHTML = '';
+        resultsEl.classList.add('hidden');
+    }
+
+    renderApproveOrderItems();
+    recalcApproveOrderTotals();
+
+    document.getElementById('approve-order-modal')?.classList.remove('hidden');
+}
+
+function hideApproveOrderModal() {
+    document.getElementById('approve-order-modal')?.classList.add('hidden');
+    approveOrderOrder = null;
+    approveOrderItems = [];
+}
+
+function renderApproveOrderItems() {
+    const container = document.getElementById('approve-ord-items');
+    if (!container) return;
+
+    if (!approveOrderItems.length) {
+        container.innerHTML = `<p class="text-sm text-[#6B4423]">No line items.</p>`;
+        return;
+    }
+
+    container.innerHTML = approveOrderItems.map((item, index) => {
+        const hasRealPrice = item.unitPrice != null && !isNaN(Number(item.unitPrice)) && Number(item.unitPrice) > 0;
+        const priceLabel = hasRealPrice
+            ? ('$' + Number(item.unitPrice).toFixed(2))
+            : (item.isMarketPrice
+                ? 'Market'
+                : (item.displayPrice || '—'));
+
+        const qty = parseInt(item.quantity, 10) || 0;
+        const unit = hasRealPrice ? Number(item.unitPrice) : 0;
+        const lineTotal = qty * unit;
+        const lineTotalLabel = hasRealPrice
+            ? ('$' + lineTotal.toFixed(2))
+            : '—';
+
+        return `
+            <div class="flex flex-wrap items-center gap-2 border border-[#d4b78f] rounded-xl px-3 py-2 bg-[#f8f4eb]">
+                <div class="flex-1 min-w-[160px]">
+                    <p class="font-semibold text-sm brand-green">${item.product}</p>
+                    <p class="text-xs text-[#6B4423]">${priceLabel}${item.caseSize ? ' · ' + item.caseSize : ''}</p>
+                </div>
+                <input type="number" min="1" step="1" value="${item.quantity}"
+                       onchange="updateApproveOrderQty(${index}, this.value)"
+                       class="w-20 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm">
+                <div class="text-right min-w-[70px]">
+                    <p class="text-xs text-[#6B4423]">Line Total</p>
+                    <p class="font-semibold text-sm brand-green">${lineTotalLabel}</p>
+                </div>
+                <button type="button" onclick="removeApproveOrderItem(${index})"
+                        class="px-3 py-1 text-xs bg-red-600 text-white rounded-lg">
+                    Remove
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+function updateApproveOrderQty(index, value) {
+    const qty = parseInt(value, 10);
+    if (!approveOrderItems[index]) return;
+    if (isNaN(qty) || qty < 1) {
+        approveOrderItems[index].quantity = 1;
+    } else {
+        approveOrderItems[index].quantity = qty;
+    }
+    renderApproveOrderItems();
+    recalcApproveOrderTotals();
+}
+
+function removeApproveOrderItem(index) {
+    approveOrderItems.splice(index, 1);
+    renderApproveOrderItems();
+    recalcApproveOrderTotals();
+}
+
+function renderApproveOrderProductSearch() {
+    const search = (document.getElementById('approve-ord-product-search')?.value || '').toLowerCase().trim();
+    const resultsEl = document.getElementById('approve-ord-product-results');
+    if (!resultsEl || typeof PRODUCT_CATALOG === 'undefined') return;
+
+    if (search.length < 1) {
+        resultsEl.innerHTML = '';
+        resultsEl.classList.add('hidden');
+        return;
+    }
+
+    const matches = PRODUCT_CATALOG.filter(p =>
+        p.name.toLowerCase().includes(search) ||
+        (p.category || '').toLowerCase().includes(search)
+    ).slice(0, 20);
+
+    if (!matches.length) {
+        resultsEl.innerHTML = `<p class="px-4 py-3 text-sm text-[#6B4423]">No products found.</p>`;
+        resultsEl.classList.remove('hidden');
+        return;
+    }
+
+    resultsEl.innerHTML = matches.map(p => {
+        const safeName = p.name.replace(/'/g, "\\'");
+        return `
+            <button type="button"
+                    onclick="addApproveOrderProduct('${safeName}')"
+                    class="w-full text-left px-4 py-2 text-sm hover:bg-[#f8f4eb] border-b border-[#f0e6d9]">
+                <span class="font-medium text-[#1E4D2B]">${p.name}</span>
+                <span class="block text-xs text-[#6B4423]">${p.caseSize || ''} · ${p.isMarketPrice ? 'Market' : ('$' + Number(p.unitPrice).toFixed(2))}</span>
+            </button>
+        `;
+    }).join('');
+    resultsEl.classList.remove('hidden');
+}
+
+function addApproveOrderProduct(productName) {
+    const catalog = (typeof PRODUCT_CATALOG !== 'undefined')
+        ? PRODUCT_CATALOG.find(p => p.name === productName)
+        : null;
+
+    const existing = approveOrderItems.find(i => i.product === productName);
+    if (existing) {
+        existing.quantity = (existing.quantity || 1) + 1;
+    } else {
+        approveOrderItems.push({
+            product: productName,
+            quantity: 1,
+            caseSize: catalog?.caseSize || '',
+            unitPrice: catalog && !catalog.isMarketPrice ? catalog.unitPrice : null,
+            displayPrice: catalog
+                ? (catalog.isMarketPrice ? 'Market Price' : ('$' + Number(catalog.unitPrice).toFixed(2)))
+                : '',
+            isMarketPrice: !!(catalog && catalog.isMarketPrice)
+        });
+    }
+
+    const searchEl = document.getElementById('approve-ord-product-search');
+    if (searchEl) searchEl.value = '';
+    const resultsEl = document.getElementById('approve-ord-product-results');
+    if (resultsEl) {
+        resultsEl.innerHTML = '';
+        resultsEl.classList.add('hidden');
+    }
+
+    renderApproveOrderItems();
+    recalcApproveOrderTotals();
+}
+
+function recalcApproveOrderTotals() {
+    let subtotal = 0;
+    (approveOrderItems || []).forEach(item => {
+        const unit = parseFloat(item.unitPrice);
+        if (isNaN(unit) || unit < 0) return;
+        subtotal += unit * (parseInt(item.quantity, 10) || 0);
+    });
+
+    const subEl = document.getElementById('approve-ord-subtotal');
+    if (subEl) subEl.textContent = '$' + subtotal.toFixed(2);
+}
+
+async function confirmApproveOrder() {
+    if (!approveOrderOrder) return;
+
+    if (!approveOrderItems.length) {
+        alert('Order must have at least one line item.');
+        return;
+    }
+
+    const orderId = approveOrderOrder.id;
+
+    const itemsPayload = approveOrderItems.map(item => ({
+        product: item.product,
+        quantity: item.quantity || 1,
+        caseSize: item.caseSize || '',
+        unitPrice: item.unitPrice,
+        displayPrice: item.displayPrice || '',
+        isMarketPrice: !!item.isMarketPrice
+    }));
+
+    try {
+        const { error } = await supabaseClient
+            .from('orders')
+            .update({
+                status: 'received',
+                items: itemsPayload
+            })
+            .eq('id', orderId);
+
+        if (error) throw error;
+
+        hideApproveOrderModal();
+        await loadOrders();
+        alert('Order approved.');
+    } catch (err) {
+        console.error(err);
+        alert('Could not approve order.\n' + (err.message || ''));
+    }
+}
+// ================== END APPROVE ORDER MODAL ==================
+
 // ================== SHIP INVOICE MODAL ==================
 const WEST_OF_MISSISSIPPI_STATES = [
     'WA', 'OR', 'CA', 'NV', 'ID', 'MT', 'WY', 'UT', 'AZ', 'NM', 'CO',
