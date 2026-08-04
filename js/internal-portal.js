@@ -3362,6 +3362,53 @@ const WEST_OF_MISSISSIPPI_STATES = [
     'ALASKA', 'HAWAII'
 ];
 
+const MID_ATLANTIC_650_STATES = [
+    'MD', 'NY', 'NJ', 'OH', 'WV',
+    'MARYLAND', 'NEW YORK', 'NEW JERSEY', 'OHIO', 'WEST VIRGINIA'
+];
+
+function isMidAtlantic650Location(text) {
+    const t = (text || '').toUpperCase();
+    return MID_ATLANTIC_650_STATES.some(state => {
+        if (state.length === 2) {
+            return (
+                t.includes(', ' + state) ||
+                t.includes(' ' + state + ' ') ||
+                t.endsWith(' ' + state) ||
+                t.includes(' ' + state + ',')
+            );
+        }
+        return t.includes(state);
+    });
+}
+
+function evaluateFreeShipping(subtotal, locationText) {
+    const sub = Number(subtotal) || 0;
+    if (isPennsylvaniaLocation(locationText)) {
+        if (sub >= 250) {
+            return { free: true, reason: 'Free shipping: $250+ in Pennsylvania' };
+        }
+        return { free: false, reason: 'Free shipping at $250+ in Pennsylvania', threshold: 250 };
+    }
+    if (isMidAtlantic650Location(locationText)) {
+        if (sub >= 650) {
+            return { free: true, reason: 'Free shipping: $650+ (MD / NY / NJ / OH / WV)' };
+        }
+        return { free: false, reason: 'Free shipping at $650+ for MD/NY/NJ/OH/WV', threshold: 650 };
+    }
+    if (isWestOfMississippiLocation(locationText)) {
+        if (sub >= 2000) {
+            return { free: true, reason: 'Free shipping: $2,000+ west of the Mississippi' };
+        }
+        return { free: false, reason: 'Free shipping at $2,000+ west of the Mississippi', threshold: 2000 };
+    }
+    // Other east of Mississippi
+    if (sub >= 1200) {
+        return { free: true, reason: 'Free shipping: $1,200+ east of the Mississippi' };
+    }
+    return { free: false, reason: 'Free shipping at $1,200+ east of the Mississippi', threshold: 1200 };
+}
+
 function getShipInvoiceLocationText(order) {
     if (!order) return '';
     const parts = [
@@ -3372,6 +3419,23 @@ function getShipInvoiceLocationText(order) {
         order.shipping_address,
         order.notes
     ];
+
+    // Prefer live customer record for shipping/billing/territory
+    try {
+        const customerName = (order.customer || order.customer_name || '').trim().toLowerCase();
+        const customerEmail = (order.customerEmail || order.customer_email || '').trim().toLowerCase();
+        const customer = (allCustomers || []).find(c => {
+            const cEmail = (c.email || '').trim().toLowerCase();
+            const cName = (c.name || '').trim().toLowerCase();
+            if (customerEmail && cEmail && customerEmail === cEmail) return true;
+            if (customerName && cName && cName === customerName) return true;
+            return false;
+        }) || null;
+        if (customer) {
+            parts.push(customer.shippingAddress, customer.billingAddress, customer.territory, customer.shipping_address, customer.billing_address);
+        }
+    } catch (e) { /* ignore */ }
+
     return parts.filter(Boolean).join(' ').toUpperCase();
 }
 
@@ -3416,29 +3480,23 @@ function applyAutoShippingRules() {
 
     const subtotal = getShipInvoiceSubtotal();
     const locationText = getShipInvoiceLocationText(shipInvoiceOrder);
-
-    let free = false;
-    let reason = '';
-
-    if (subtotal >= 2000 && isWestOfMississippiLocation(locationText)) {
-        free = true;
-        reason = 'Free shipping: $2,000+ west of the Mississippi';
-    } else if (subtotal >= 200 && isPennsylvaniaLocation(locationText)) {
-        free = true;
-        reason = 'Free shipping: $200+ in Pennsylvania';
-    }
+    const result = evaluateFreeShipping(subtotal, locationText);
 
     const noteEl = document.getElementById('ship-inv-shipping-note');
 
-    if (free) {
+    if (result.free) {
         shippingEl.value = '0.00';
         shippingEl.readOnly = true;
         shippingEl.classList.add('bg-gray-100');
-        if (noteEl) noteEl.textContent = reason;
+        if (noteEl) noteEl.textContent = result.reason;
     } else {
         shippingEl.readOnly = false;
         shippingEl.classList.remove('bg-gray-100');
-        if (noteEl) noteEl.textContent = 'Enter shipping amount ($)';
+        if (noteEl) {
+            noteEl.textContent = result.reason
+                ? (result.reason + (result.threshold ? ' — enter shipping amount ($)' : ''))
+                : 'Enter shipping amount ($)';
+        }
         const current = parseFloat(shippingEl.value);
         shippingEl.value = (!isNaN(current) && current >= 0)
             ? current.toFixed(2)

@@ -18,6 +18,162 @@ let quoteItems = JSON.parse(localStorage.getItem('wholesaleQuote')) || [];
 let portalInventory = {}; // product_name → quantity
 let customerBackOrders = []; // pending + fulfilled for this customer
 
+// ================== FREE SHIPPING HELPERS (customer portal) ==================
+const WEST_OF_MISSISSIPPI_STATES = [
+    'WA', 'OR', 'CA', 'NV', 'ID', 'MT', 'WY', 'UT', 'AZ', 'NM', 'CO',
+    'ND', 'SD', 'NE', 'KS', 'OK', 'TX', 'MN', 'IA', 'MO', 'AR', 'LA',
+    'AK', 'HI',
+    'WASHINGTON', 'OREGON', 'CALIFORNIA', 'NEVADA', 'IDAHO', 'MONTANA',
+    'WYOMING', 'UTAH', 'ARIZONA', 'NEW MEXICO', 'COLORADO',
+    'NORTH DAKOTA', 'SOUTH DAKOTA', 'NEBRASKA', 'KANSAS', 'OKLAHOMA', 'TEXAS',
+    'MINNESOTA', 'IOWA', 'MISSOURI', 'ARKANSAS', 'LOUISIANA',
+    'ALASKA', 'HAWAII'
+];
+
+const MID_ATLANTIC_650_STATES = [
+    'MD', 'NY', 'NJ', 'OH', 'WV',
+    'MARYLAND', 'NEW YORK', 'NEW JERSEY', 'OHIO', 'WEST VIRGINIA'
+];
+
+function isPennsylvaniaLocation(text) {
+    const t = (text || '').toUpperCase();
+    return (
+        t.includes('PENNSYLVANIA') ||
+        t.includes(', PA') ||
+        t.includes(' PA ') ||
+        t.endsWith(' PA') ||
+        t.includes(' PA,')
+    );
+}
+
+function isWestOfMississippiLocation(text) {
+    const t = (text || '').toUpperCase();
+    return WEST_OF_MISSISSIPPI_STATES.some(state => {
+        if (state.length === 2) {
+            return (
+                t.includes(', ' + state) ||
+                t.includes(' ' + state + ' ') ||
+                t.endsWith(' ' + state)
+            );
+        }
+        return t.includes(state);
+    });
+}
+
+function isMidAtlantic650Location(text) {
+    const t = (text || '').toUpperCase();
+    return MID_ATLANTIC_650_STATES.some(state => {
+        if (state.length === 2) {
+            return (
+                t.includes(', ' + state) ||
+                t.includes(' ' + state + ' ') ||
+                t.endsWith(' ' + state)
+            );
+        }
+        return t.includes(state);
+    });
+}
+
+/**
+ * Priority: PA ($250) → MD/NY/NJ/OH/WV ($650) → west ($2,000) → other east ($1,200)
+ * Returns { free, threshold, remaining, reason }
+ */
+function evaluateFreeShipping(subtotal, locationText) {
+    const amount = Number(subtotal) || 0;
+    const loc = locationText || '';
+
+    if (isPennsylvaniaLocation(loc)) {
+        const threshold = 250;
+        const free = amount >= threshold;
+        return {
+            free,
+            threshold,
+            remaining: Math.max(0, threshold - amount),
+            reason: free
+                ? 'Free shipping: $250+ in Pennsylvania'
+                : 'Pennsylvania threshold: $250.00'
+        };
+    }
+
+    if (isMidAtlantic650Location(loc)) {
+        const threshold = 650;
+        const free = amount >= threshold;
+        return {
+            free,
+            threshold,
+            remaining: Math.max(0, threshold - amount),
+            reason: free
+                ? 'Free shipping: $650+ (MD / NY / NJ / OH / WV)'
+                : 'MD / NY / NJ / OH / WV threshold: $650.00'
+        };
+    }
+
+    if (isWestOfMississippiLocation(loc)) {
+        const threshold = 2000;
+        const free = amount >= threshold;
+        return {
+            free,
+            threshold,
+            remaining: Math.max(0, threshold - amount),
+            reason: free
+                ? 'Free shipping: $2,000+ west of the Mississippi'
+                : 'West of Mississippi threshold: $2,000.00'
+        };
+    }
+
+    // Default: other east of Mississippi
+    const threshold = 1200;
+    const free = amount >= threshold;
+    return {
+        free,
+        threshold,
+        remaining: Math.max(0, threshold - amount),
+        reason: free
+            ? 'Free shipping: $1,200+ east of the Mississippi'
+            : 'East of Mississippi threshold: $1,200.00'
+    };
+}
+
+function getCustomerLocationText() {
+    const c = window._currentCustomer;
+    if (!c) return '';
+    return [
+        c.shipping_address,
+        c.billing_address,
+        c.territory,
+        c.shippingAddress,
+        c.billingAddress
+    ].filter(Boolean).join(' ').toUpperCase();
+}
+
+function updateShippingPolicyCard() {
+    const el = document.getElementById('customer-shipping-policy-text');
+    if (!el) return;
+
+    const loc = getCustomerLocationText();
+    if (!loc) {
+        el.innerHTML =
+            'Add a shipping address to see your free-shipping threshold. ' +
+            'PA <strong>$250+</strong> · MD/NY/NJ/OH/WV <strong>$650+</strong> · ' +
+            'other East <strong>$1,200+</strong> · West <strong>$2,000+</strong>.';
+        return;
+    }
+
+    if (isPennsylvaniaLocation(loc)) {
+        el.innerHTML =
+            'Your location: <strong>Pennsylvania</strong>. Free shipping on orders of <strong>$250.00+</strong>.';
+    } else if (isMidAtlantic650Location(loc)) {
+        el.innerHTML =
+            'Your region: <strong>MD / NY / NJ / OH / WV</strong>. Free shipping on orders of <strong>$650.00+</strong>.';
+    } else if (isWestOfMississippiLocation(loc)) {
+        el.innerHTML =
+            'Your region: <strong>west of the Mississippi</strong>. Free shipping on orders of <strong>$2,000.00+</strong>.';
+    } else {
+        el.innerHTML =
+            'Your region: <strong>east of the Mississippi</strong>. Free shipping on orders of <strong>$1,200.00+</strong>.';
+    }
+}
+// ================== END FREE SHIPPING HELPERS ==================
 
 // ================== MAIN CATEGORIES ==================
 const MAIN_CATEGORIES = [
@@ -2250,6 +2406,25 @@ function updateQuoteSidebar() {
         `;
     }
 
+    // Free shipping status for this customer + current quote subtotal
+    const locText = getCustomerLocationText();
+    if (locText && pricedTotal > 0) {
+        const fs = evaluateFreeShipping(pricedTotal, locText);
+        if (fs.free) {
+            summaryHTML += `
+                <div class="mb-3 px-3 py-2 rounded-xl bg-green-50 border border-green-200 text-green-800 text-xs font-semibold">
+                    ✓ Free shipping unlocked — ${fs.reason}
+                </div>
+            `;
+        } else if (fs.threshold) {
+            summaryHTML += `
+                <div class="mb-3 px-3 py-2 rounded-xl bg-[#f8f4eb] border border-[#d4b78f] text-[#6B4423] text-xs">
+                    $${fs.remaining.toFixed(2)} more for free shipping (${fs.reason})
+                </div>
+            `;
+        }
+    }
+
     summaryHTML += `
         <p class="text-xs text-[#6B4423] italic mb-3">
             Final total will be sent with your invoice.
@@ -3922,6 +4097,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadCustomerBackOrders();
     renderCategoryFilters();
     renderPortalProducts();
+    if (typeof updateShippingPolicyCard === 'function') updateShippingPolicyCard();
     updateQuoteSidebar();
     setupSearch();
     displayWelcome();
