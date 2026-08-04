@@ -4062,6 +4062,29 @@ function showBrandedInvoice(order) {
                                     </tr>
                                 `;
                             }).join('')}
+                            ${(() => {
+                                const fulfilledBOs = (customerBackOrders || []).filter(b =>
+                                    (b.status || '').toLowerCase() === 'fulfilled' &&
+                                    (String(b.original_order_id) === String(order.id) ||
+                                     String(b.invoice_number) === String(order.id))
+                                );
+                                if (!fulfilledBOs.length) return '';
+                                return fulfilledBOs.map(b => {
+                                    const price = parseFloat(b.unit_price) || 0;
+                                    const qty = parseInt(b.quantity, 10) || 0;
+                                    const lineTotal = price * qty;
+                                    return `
+                                        <tr class="border-b border-[#e8d9c2] bg-green-50">
+                                            <td class="py-3 text-green-800">
+                                                ${b.product_name || '—'}
+                                                <span class="ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-green-100 text-green-800">BO Fulfilled</span>
+                                            </td>
+                                            <td class="py-3 text-center text-green-800">${qty}</td>
+                                            <td class="py-3 text-right font-medium text-green-800">$${lineTotal.toFixed(2)}</td>
+                                        </tr>
+                                    `;
+                                }).join('');
+                            })()}
                         </tbody>
                     </table>
                 </div>
