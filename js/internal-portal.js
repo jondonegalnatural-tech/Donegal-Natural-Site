@@ -3478,6 +3478,16 @@ function applyAutoShippingRules() {
     const shippingEl = document.getElementById('ship-inv-shipping');
     if (!shippingEl || !shipInvoiceOrder) return;
 
+    // Back-order fulfillments: always free shipping (no additional charge)
+    if (typeof shipInvoiceMode !== 'undefined' && shipInvoiceMode === 'backorder') {
+        shippingEl.value = '0.00';
+        shippingEl.readOnly = true;
+        shippingEl.classList.add('bg-gray-100');
+        const noteEl = document.getElementById('ship-inv-shipping-note');
+        if (noteEl) noteEl.textContent = 'Back order follow-up: free shipping (no additional charge)';
+        return;
+    }
+
     const subtotal = getShipInvoiceSubtotal();
     const locationText = getShipInvoiceLocationText(shipInvoiceOrder);
     const result = evaluateFreeShipping(subtotal, locationText);
@@ -3552,9 +3562,17 @@ const shippingEl = document.getElementById('ship-inv-shipping');
     }
 
     renderShipInvoiceItems();
-    recalcShipInvoiceTotals();
 
-    document.getElementById('ship-invoice-modal')?.classList.remove('hidden');
+    // Ensure customer addresses are available for free-shipping region detection
+    const finishOpen = () => {
+        recalcShipInvoiceTotals();
+        document.getElementById('ship-invoice-modal')?.classList.remove('hidden');
+    };
+    if ((!allCustomers || allCustomers.length === 0) && typeof loadCustomers === 'function') {
+        loadCustomers().then(finishOpen).catch(finishOpen);
+    } else {
+        finishOpen();
+    }
 }
 
 function hideShipInvoiceModal() {
@@ -8012,8 +8030,12 @@ function updateBackOrdersBadge() {
     if (!badge) return;
     const pending = (allBackOrders || []).filter(b =>
         (b.status || '').toLowerCase() === 'pending'
-    ).length;
-    badge.textContent = pending;
+    );
+    // Distinct invoices / orders — not individual line items
+    const uniqueInvoices = new Set(
+        pending.map(b => String(b.invoice_number || b.original_order_id || b.id))
+    );
+    badge.textContent = uniqueInvoices.size;
 }
 
 function renderBackOrdersTable() {
@@ -8245,9 +8267,16 @@ function openShipInvoiceForBackOrder(groupKey, pendingItems) {
     }
 
     if (typeof renderShipInvoiceItems === 'function') renderShipInvoiceItems();
-    if (typeof recalcShipInvoiceTotals === 'function') recalcShipInvoiceTotals();
 
-    document.getElementById('ship-invoice-modal')?.classList.remove('hidden');
+    const finishBOOpen = () => {
+        if (typeof recalcShipInvoiceTotals === 'function') recalcShipInvoiceTotals();
+        document.getElementById('ship-invoice-modal')?.classList.remove('hidden');
+    };
+    if ((!allCustomers || allCustomers.length === 0) && typeof loadCustomers === 'function') {
+        loadCustomers().then(finishBOOpen).catch(finishBOOpen);
+    } else {
+        finishBOOpen();
+    }
 }
 
 async function confirmBackOrderFulfillFromShipModal() {
