@@ -20,6 +20,10 @@ let currentInsightsFilter = 'all';
 let allCustomers = [];
 let allOrders = [];
 let currentFilter = 'all';
+let allBackOrders = [];
+let currentOrdersView = 'all'; // 'all' | 'back'
+let approvePendingBackOrders = []; // queued during Approve modal
+let shipPendingBackOrders = [];    // queued during Ship modal
 let salesmen = [];
 const DATA_TTL_MS = 45000; // 45 seconds
 let ordersLoadedAt = 0;
@@ -657,7 +661,9 @@ function showSection(section) {
 
         // === Orders ===
     if (section === 'orders') {
-        currentFilter = 'all';          // always start on All Orders
+        currentFilter = 'all';
+        currentOrdersView = 'all';
+        if (typeof showAllOrders === 'function') showAllOrders();
         if (isDataFresh(ordersLoadedAt) && allOrders && allOrders.length >= 0) {
             if (typeof updateOrderStatusCards === 'function') updateOrderStatusCards();
             if (typeof renderOrdersTable === 'function') renderOrdersTable();
@@ -666,6 +672,8 @@ function showSection(section) {
         } else if (typeof renderOrdersTable === 'function') {
             renderOrdersTable();
         }
+        // Always refresh back-order badge count
+        if (typeof loadBackOrders === 'function') loadBackOrders();
     }
 
     // === Inquiries ===
@@ -2946,7 +2954,10 @@ function hideApproveOrderModal() {
     document.getElementById('approve-order-modal')?.classList.add('hidden');
     approveOrderOrder = null;
     approveOrderItems = [];
+    approvePendingBackOrders = [];
 }
+
+
 
 function renderApproveOrderItems() {
     const container = document.getElementById('approve-ord-items');
@@ -2985,6 +2996,10 @@ function renderApproveOrderItems() {
                     <p class="text-xs text-[#6B4423]">Line Total</p>
                     <p class="font-semibold text-sm brand-green">${lineTotalLabel}</p>
                 </div>
+                <button type="button" onclick="markApproveItemOutOfStock(${index})"
+                        class="px-3 py-1 text-xs bg-orange-500 text-white rounded-lg hover:bg-orange-600">
+                    Out of Stock
+                </button>
                 <button type="button" onclick="removeApproveOrderItem(${index})"
                         class="px-3 py-1 text-xs bg-red-600 text-white rounded-lg">
                     Remove
@@ -2992,6 +3007,34 @@ function renderApproveOrderItems() {
             </div>
         `;
     }).join('');
+}
+
+function markApproveItemOutOfStock(index) {
+    if (!approveOrderItems[index] || !approveOrderOrder) return;
+
+    const item = approveOrderItems[index];
+    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+
+    approvePendingBackOrders.push({
+        original_order_id: approveOrderOrder.id,
+        invoice_number: String(approveOrderOrder.id),
+        customer_name: approveOrderOrder.customer || approveOrderOrder.customer_name || null,
+        customer_email: approveOrderOrder.customerEmail || approveOrderOrder.customer_email || null,
+        customer_company: approveOrderOrder.customerCompany || approveOrderOrder.customer_company || null,
+        product_name: item.product,
+        case_size: item.caseSize || null,
+        quantity: item.quantity || 1,
+        unit_price: item.unitPrice != null ? item.unitPrice : null,
+        display_price: item.displayPrice || null,
+        is_market_price: !!item.isMarketPrice,
+        status: 'pending',
+        created_by: user.fullName || user.email || 'Admin'
+    });
+
+    // Remove line from the working order items
+    approveOrderItems.splice(index, 1);
+    renderApproveOrderItems();
+    recalcApproveOrderTotals();
 }
 
 function updateApproveOrderQty(index, value) {
@@ -3122,7 +3165,18 @@ async function confirmApproveOrder() {
             .eq('id', orderId);
 
         if (error) throw error;
-
+        // Insert any items marked Out of Stock during this approval
+        if (approvePendingBackOrders.length > 0) {
+            const { error: boError } = await supabaseClient
+                .from('back_orders')
+                .insert(approvePendingBackOrders);
+            if (boError) {
+                console.error('back_orders insert error:', boError);
+                alert('Order approved, but one or more back-order rows could not be saved.\n' + (boError.message || ''));
+            }
+            approvePendingBackOrders = [];
+            if (typeof loadBackOrders === 'function') await loadBackOrders();
+        }
         hideApproveOrderModal();
         await loadOrders();
         alert('Order approved.');
@@ -3284,6 +3338,7 @@ function hideShipInvoiceModal() {
     document.getElementById('ship-invoice-modal')?.classList.add('hidden');
     shipInvoiceOrder = null;
     shipInvoiceItems = [];
+    shipPendingBackOrders = [];
 }
 
 function renderShipInvoiceItems() {
@@ -3323,6 +3378,10 @@ function renderShipInvoiceItems() {
                     <p class="text-xs text-[#6B4423]">Line Total</p>
                     <p class="font-semibold text-sm brand-green">${lineTotalLabel}</p>
                 </div>
+                <button type="button" onclick="markShipItemOutOfStock(${index})"
+                        class="px-3 py-1 text-xs bg-orange-500 text-white rounded-lg hover:bg-orange-600">
+                    Out of Stock
+                </button>
                 <button type="button" onclick="removeShipInvoiceItem(${index})"
                         class="px-3 py-1 text-xs bg-red-600 text-white rounded-lg">
                     Remove
@@ -3345,6 +3404,33 @@ function updateShipInvoiceQty(index, value) {
 }
 
 function removeShipInvoiceItem(index) {
+    shipInvoiceItems.splice(index, 1);
+    renderShipInvoiceItems();
+    recalcShipInvoiceTotals();
+}
+
+function markShipItemOutOfStock(index) {
+    if (!shipInvoiceItems[index] || !shipInvoiceOrder) return;
+
+    const item = shipInvoiceItems[index];
+    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+
+    shipPendingBackOrders.push({
+        original_order_id: shipInvoiceOrder.id,
+        invoice_number: String(shipInvoiceOrder.id),
+        customer_name: shipInvoiceOrder.customer || shipInvoiceOrder.customer_name || null,
+        customer_email: shipInvoiceOrder.customerEmail || shipInvoiceOrder.customer_email || null,
+        customer_company: shipInvoiceOrder.customerCompany || shipInvoiceOrder.customer_company || null,
+        product_name: item.product,
+        case_size: item.caseSize || null,
+        quantity: item.quantity || 1,
+        unit_price: item.unitPrice != null ? item.unitPrice : null,
+        display_price: item.displayPrice || null,
+        is_market_price: !!item.isMarketPrice,
+        status: 'pending',
+        created_by: user.fullName || user.email || 'Admin'
+    });
+
     shipInvoiceItems.splice(index, 1);
     renderShipInvoiceItems();
     recalcShipInvoiceTotals();
@@ -3535,7 +3621,18 @@ async function confirmShipInvoice() {
             customerEmail: shipInvoiceOrder.customerEmail || shipInvoiceOrder.customer_email || '',
             customerCompany: shipInvoiceOrder.customerCompany || shipInvoiceOrder.customer_company || ''
         };
-
+        // Insert any items marked Out of Stock during this ship
+        if (shipPendingBackOrders.length > 0) {
+            const { error: boError } = await supabaseClient
+                .from('back_orders')
+                .insert(shipPendingBackOrders);
+            if (boError) {
+                console.error('back_orders insert error:', boError);
+                alert('Order shipped, but one or more back-order rows could not be saved.\n' + (boError.message || ''));
+            }
+            shipPendingBackOrders = [];
+            if (typeof loadBackOrders === 'function') await loadBackOrders();
+        }
         hideShipInvoiceModal();
         await loadOrders();
 
@@ -7595,11 +7692,194 @@ function createOrderRow(order) {
 }
 
 function showAllOrders() {
+    currentOrdersView = 'all';
     currentFilter = 'all';
+
+    // Button styles
+    const btnAll = document.getElementById('btn-all-orders');
+    const btnBack = document.getElementById('btn-back-orders');
+    if (btnAll) {
+        btnAll.className = 'inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold bg-[#1E4D2B] text-[#d4b78f] rounded-xl hover:bg-[#254a2f] transition';
+    }
+    if (btnBack) {
+        btnBack.className = 'inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold border-2 border-orange-500 text-orange-700 bg-white rounded-xl hover:bg-orange-50 transition';
+    }
+
+    // Show/hide containers
+    const ordersTable = document.getElementById('orders-table');
+    const ordersEmpty = document.getElementById('orders-empty');
+    const backTable = document.getElementById('back-orders-table');
+    const backEmpty = document.getElementById('back-orders-empty');
+    if (ordersTable) ordersTable.classList.remove('hidden');
+    if (backTable) backTable.classList.add('hidden');
+    if (backEmpty) backEmpty.classList.add('hidden');
+
     if (typeof renderOrdersTable === 'function') {
         renderOrdersTable();
     }
 }
+
+function showBackOrders() {
+    currentOrdersView = 'back';
+
+    // Button styles
+    const btnAll = document.getElementById('btn-all-orders');
+    const btnBack = document.getElementById('btn-back-orders');
+    if (btnAll) {
+        btnAll.className = 'inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold border-2 border-[#6B4423] text-[#6B4423] bg-white rounded-xl hover:bg-[#f8f4eb] transition';
+    }
+    if (btnBack) {
+        btnBack.className = 'inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition';
+    }
+
+    // Show/hide containers
+    const ordersTable = document.getElementById('orders-table');
+    const ordersEmpty = document.getElementById('orders-empty');
+    const backTable = document.getElementById('back-orders-table');
+    const backEmpty = document.getElementById('back-orders-empty');
+    if (ordersTable) ordersTable.classList.add('hidden');
+    if (ordersEmpty) ordersEmpty.classList.add('hidden');
+    if (backTable) backTable.classList.remove('hidden');
+
+    if (typeof loadBackOrders === 'function') {
+        loadBackOrders();
+    } else if (typeof renderBackOrdersTable === 'function') {
+        renderBackOrdersTable();
+    }
+}
+
+async function loadBackOrders() {
+    const container = document.getElementById('back-orders-table');
+    if (container) {
+        container.innerHTML = `<p class="text-center text-[#6B4423] py-10"><i class="fas fa-spinner fa-spin mr-2"></i>Loading back orders…</p>`;
+    }
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('back_orders')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        allBackOrders = data || [];
+    } catch (err) {
+        console.error('loadBackOrders error:', err);
+        allBackOrders = [];
+    }
+
+    if (typeof updateBackOrdersBadge === 'function') updateBackOrdersBadge();
+    if (typeof renderBackOrdersTable === 'function') renderBackOrdersTable();
+}
+
+function updateBackOrdersBadge() {
+    const badge = document.getElementById('back-orders-count');
+    if (!badge) return;
+    const pending = (allBackOrders || []).filter(b =>
+        (b.status || '').toLowerCase() === 'pending'
+    ).length;
+    badge.textContent = pending;
+}
+
+function renderBackOrdersTable() {
+    const container = document.getElementById('back-orders-table');
+    const empty = document.getElementById('back-orders-empty');
+    if (!container) return;
+
+    const rows = allBackOrders || [];
+
+    if (rows.length === 0) {
+        container.innerHTML = '';
+        if (empty) empty.classList.remove('hidden');
+        return;
+    }
+
+    if (empty) empty.classList.add('hidden');
+
+    let html = `
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                    <th class="p-3 text-left">Invoice #</th>
+                    <th class="p-3 text-left">Customer</th>
+                    <th class="p-3 text-left">Product</th>
+                    <th class="p-3 text-center">Qty</th>
+                    <th class="p-3 text-left">Status</th>
+                    <th class="p-3 text-left">Date</th>
+                    <th class="p-3 text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    rows.forEach(b => {
+        const inv = (b.invoice_number || String(b.original_order_id || '')).slice(0, 8);
+        const status = (b.status || 'pending').toLowerCase();
+        let statusBadge = '';
+        if (status === 'pending') {
+            statusBadge = `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">Pending</span>`;
+        } else if (status === 'fulfilled') {
+            statusBadge = `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Fulfilled</span>`;
+        } else if (status === 'cancelled') {
+            statusBadge = `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">Cancelled</span>`;
+        } else {
+            statusBadge = `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">${status}</span>`;
+        }
+
+        const dateText = b.created_at
+            ? new Date(b.created_at).toLocaleDateString()
+            : '—';
+
+        const actions = status === 'pending'
+            ? `<button type="button" onclick="markBackOrderFulfilled('${b.id}')"
+                       class="text-xs px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700">
+                   Mark Fulfilled
+               </button>`
+            : '—';
+
+        html += `
+            <tr class="border-t border-[#d4b78f] hover:bg-[#f8f4eb]">
+                <td class="p-3 font-mono">#${inv}</td>
+                <td class="p-3">${b.customer_name || '—'}</td>
+                <td class="p-3">
+                    <p class="font-medium">${b.product_name || '—'}</p>
+                    <p class="text-xs text-[#6B4423]">${b.case_size || ''}</p>
+                </td>
+                <td class="p-3 text-center font-semibold">${b.quantity || 1}</td>
+                <td class="p-3">${statusBadge}</td>
+                <td class="p-3 text-sm">${dateText}</td>
+                <td class="p-3 text-center">${actions}</td>
+            </tr>
+        `;
+    });
+
+    html += `</tbody></table>`;
+    container.innerHTML = html;
+}
+
+async function markBackOrderFulfilled(id) {
+    if (!id) return;
+    if (!confirm('Mark this back-order item as fulfilled?')) return;
+
+    try {
+        const { error } = await supabaseClient
+            .from('back_orders')
+            .update({
+                status: 'fulfilled',
+                fulfilled_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', id);
+
+        if (error) throw error;
+        await loadBackOrders();
+    } catch (err) {
+        console.error(err);
+        alert('Could not update back order.\n' + (err.message || ''));
+    }
+}
+
+// Framework stub only — future auto-create when inventory would go negative
+// function maybeAutoCreateBackOrderFromInventory(productName, requestedQty) { ... }
 
 function filterOrdersByCustomer(customerName) {
     const container = document.getElementById('orders-table');
