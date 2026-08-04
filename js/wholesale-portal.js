@@ -2429,6 +2429,11 @@ async function loadMyQuotes() {
         });
                 window._myQuotesCache = active;
 
+                // Ensure back orders available for nested fulfilled rows
+                if (!customerBackOrders || customerBackOrders.length === 0) {
+                    await loadCustomerBackOrders();
+                }
+
         if (active.length === 0) {
             container.innerHTML = `
                 <h2 class="text-2xl font-bold brand-green mb-6">My Quote Requests</h2>
