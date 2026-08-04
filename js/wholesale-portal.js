@@ -2504,6 +2504,7 @@ async function loadMyQuotes() {
 
                     <p class="text-sm text-[#6B4423] mb-2">${itemCount} item(s)</p>
 
+                    
                     <ul class="text-sm space-y-1 mb-4">
                         ${items.map(item => `
                             <li class="flex justify-between">
@@ -2511,6 +2512,27 @@ async function loadMyQuotes() {
                                 <span class="text-[#6B4423]">${item.displayPrice || ''}</span>
                             </li>
                         `).join('')}
+                        ${(() => {
+                            const fulfilledBOs = (customerBackOrders || []).filter(b =>
+                                (b.status || '').toLowerCase() === 'fulfilled' &&
+                                (String(b.original_order_id) === String(quote.id) ||
+                                 String(b.invoice_number) === String(quote.id))
+                            );
+                            if (!fulfilledBOs.length) return '';
+                            return `
+                                <li class="pt-2 mt-1 border-t border-[#e8d9c2]">
+                                    <p class="text-xs font-semibold text-green-800 mb-1">Back Order Fulfillment</p>
+                                    ${fulfilledBOs.map(b => `
+                                        <div class="flex justify-between text-green-800">
+                                            <span>• ${b.product_name || '—'} × ${b.quantity || 1}
+                                                <span class="ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-green-100 text-green-800">BO Fulfilled</span>
+                                            </span>
+                                            <span>${b.display_price || (b.unit_price != null ? ('$' + Number(b.unit_price).toFixed(2)) : '')}</span>
+                                        </div>
+                                    `).join('')}
+                                </li>
+                            `;
+                        })()}
                     </ul>
 
                     <div class="border-t border-[#d4b78f] pt-3 flex justify-between items-center mb-3">
