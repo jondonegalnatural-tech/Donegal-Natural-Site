@@ -2888,6 +2888,16 @@ async function loadOrderHistory() {
                             <p class="font-bold text-lg brand-green">Invoice</p>
                             <p class="text-xs text-[#6B4423]">${order.id}</p>
                             <p class="text-sm text-[#6B4423]">Order Date: ${date}</p>
+                            ${(order.tracking_number || '').trim() ? `
+                            <p class="text-sm text-[#6B4423] mt-1">
+                                <span class="font-semibold">${order.carrier || 'UPS'}:</span>
+                                <a href="https://www.ups.com/track?tracknum=${encodeURIComponent(String(order.tracking_number).trim())}"
+                                   target="_blank" rel="noopener"
+                                   onclick="event.stopPropagation()"
+                                   class="font-mono text-[#1E4D2B] underline hover:text-[#254a2f]">
+                                    ${String(order.tracking_number).trim()}
+                                </a>
+                            </p>` : ''}
                         </div>
                         <span class="px-3 py-1 text-xs font-semibold rounded-full ${badgeClass}">
                             ${badgeText}
@@ -3166,6 +3176,16 @@ function renderOrderHistoryCards(orders, listEl) {
                         <p class="font-bold text-lg brand-green">Invoice</p>
                         <p class="text-xs text-[#6B4423]">${order.id}</p>
                         <p class="text-sm text-[#6B4423]">Order Date: ${date}</p>
+                        ${(order.tracking_number || '').trim() ? `
+                        <p class="text-sm text-[#6B4423] mt-1">
+                            <span class="font-semibold">${order.carrier || 'UPS'}:</span>
+                            <a href="https://www.ups.com/track?tracknum=${encodeURIComponent(String(order.tracking_number).trim())}"
+                               target="_blank" rel="noopener"
+                               onclick="event.stopPropagation()"
+                               class="font-mono text-[#1E4D2B] underline hover:text-[#254a2f]">
+                                ${String(order.tracking_number).trim()}
+                            </a>
+                        </p>` : ''}
                     </div>
                     <span class="px-3 py-1 text-xs font-semibold rounded-full ${badgeClass}">${badgeText}</span>
                 </div>
@@ -4241,6 +4261,15 @@ function showBrandedInvoice(order) {
                         <p class="text-[#6B4423] font-semibold">Status</p>
                         <p class="capitalize">${order.status || '—'}</p>
                     </div>
+                    ${(order.tracking_number || '').trim() ? `
+                    <div>
+                        <p class="text-[#6B4423] font-semibold">${order.carrier || 'UPS'} Tracking</p>
+                        <a href="https://www.ups.com/track?tracknum=${encodeURIComponent(String(order.tracking_number).trim())}"
+                           target="_blank" rel="noopener"
+                           class="font-mono text-sm text-[#1E4D2B] underline hover:text-[#254a2f]">
+                            ${String(order.tracking_number).trim()}
+                        </a>
+                    </div>` : ''}
                 </div>
 
                 <!-- Bill To -->
