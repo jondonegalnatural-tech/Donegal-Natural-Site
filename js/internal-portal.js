@@ -1057,12 +1057,13 @@ function openOrderInvoiceModal(orderId) {
 
     // UPS tracking (framework — link opens UPS.com)
     const trackNum = (order.trackingNumber || order.tracking_number || '').trim();
+    const invStatusEl = document.getElementById('inv-status');
     let trackBadge = document.getElementById('inv-tracking-badge');
-    if (!trackBadge && invStatus && invStatus.parentElement) {
+    if (!trackBadge && invStatusEl && invStatusEl.parentElement) {
         trackBadge = document.createElement('div');
         trackBadge.id = 'inv-tracking-badge';
         trackBadge.className = 'mt-2 text-sm';
-        invStatus.parentElement.appendChild(trackBadge);
+        invStatusEl.parentElement.appendChild(trackBadge);
     }
     if (trackBadge) {
         if (trackNum) {
