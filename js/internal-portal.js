@@ -7880,6 +7880,11 @@ async function loadBackOrders() {
 
     if (typeof updateBackOrdersBadge === 'function') updateBackOrdersBadge();
     if (typeof renderBackOrdersTable === 'function') renderBackOrdersTable();
+
+    // Re-draw All Orders so nested fulfilled BO rows appear on first load
+    if (currentOrdersView === 'all' && typeof renderOrdersTable === 'function') {
+        renderOrdersTable();
+    }
 }
 
 function updateBackOrdersBadge() {
