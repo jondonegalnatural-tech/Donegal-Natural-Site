@@ -3284,6 +3284,8 @@ function applyAutoShippingRules() {
 }
 let shipInvoiceOrder = null;
 let shipInvoiceItems = [];
+let shipInvoiceMode = 'order'; // 'order' | 'backorder'
+let shipBackOrderPendingIds = [];
 
 function openShipInvoiceModal(orderId) {
     const order = allOrders.find(o => String(o.id) === String(orderId));
@@ -3339,6 +3341,8 @@ function hideShipInvoiceModal() {
     shipInvoiceOrder = null;
     shipInvoiceItems = [];
     shipPendingBackOrders = [];
+    shipInvoiceMode = 'order';
+    shipBackOrderPendingIds = [];
 }
 
 function renderShipInvoiceItems() {
@@ -3559,6 +3563,12 @@ async function sendOrderStatusEmail({ type, order, denialReason }) {
 
 async function confirmShipInvoice() {
     if (!shipInvoiceOrder) return;
+
+    // Back-order fulfill path (reuses this modal)
+    if (shipInvoiceMode === 'backorder') {
+        await confirmBackOrderFulfillFromShipModal();
+        return;
+    }
 
     if (!shipInvoiceItems.length) {
         alert('Invoice must have at least one line item.');
@@ -7786,23 +7796,51 @@ function renderBackOrdersTable() {
     if (!container) return;
 
     const rows = allBackOrders || [];
-
     if (rows.length === 0) {
         container.innerHTML = '';
         if (empty) empty.classList.remove('hidden');
         return;
     }
-
     if (empty) empty.classList.add('hidden');
+
+    // Group by invoice / original order
+    const groups = {};
+    rows.forEach(b => {
+        const key = String(b.invoice_number || b.original_order_id || b.id);
+        if (!groups[key]) {
+            groups[key] = {
+                key: key,
+                invoice: b.invoice_number || String(b.original_order_id || ''),
+                originalOrderId: b.original_order_id || null,
+                customer: b.customer_name || '—',
+                customerEmail: b.customer_email || null,
+                customerCompany: b.customer_company || null,
+                items: [],
+                createdAt: b.created_at || null
+            };
+        }
+        groups[key].items.push(b);
+        if (b.created_at && (!groups[key].createdAt || b.created_at < groups[key].createdAt)) {
+            groups[key].createdAt = b.created_at;
+        }
+    });
+
+    const groupList = Object.values(groups).sort((a, b) => {
+        const da = new Date(a.createdAt || 0);
+        const db = new Date(b.createdAt || 0);
+        return db - da;
+    });
+
+    if (!window.expandedBackOrders) window.expandedBackOrders = {};
 
     let html = `
         <table class="w-full text-sm">
             <thead>
                 <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                    <th class="p-3 text-left w-8"></th>
                     <th class="p-3 text-left">Invoice #</th>
                     <th class="p-3 text-left">Customer</th>
-                    <th class="p-3 text-left">Product</th>
-                    <th class="p-3 text-center">Qty</th>
+                    <th class="p-3 text-center">Items</th>
                     <th class="p-3 text-left">Status</th>
                     <th class="p-3 text-left">Date</th>
                     <th class="p-3 text-center">Actions</th>
@@ -7811,54 +7849,190 @@ function renderBackOrdersTable() {
             <tbody>
     `;
 
-    rows.forEach(b => {
-        const inv = (b.invoice_number || String(b.original_order_id || '')).slice(0, 8);
-        const status = (b.status || 'pending').toLowerCase();
-        let statusBadge = '';
-        if (status === 'pending') {
-            statusBadge = `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">Pending</span>`;
-        } else if (status === 'fulfilled') {
+    groupList.forEach(g => {
+        const pendingItems = g.items.filter(i => (i.status || '').toLowerCase() === 'pending');
+        const allFulfilled = pendingItems.length === 0;
+        const isExpanded = !!window.expandedBackOrders[g.key];
+        const invShort = String(g.invoice || '').slice(0, 8);
+        const dateText = g.createdAt ? new Date(g.createdAt).toLocaleDateString() : '—';
+
+        let statusBadge;
+        if (allFulfilled) {
             statusBadge = `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Fulfilled</span>`;
-        } else if (status === 'cancelled') {
-            statusBadge = `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">Cancelled</span>`;
+        } else if (pendingItems.length < g.items.length) {
+            statusBadge = `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Partial</span>`;
         } else {
-            statusBadge = `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">${status}</span>`;
+            statusBadge = `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">Pending</span>`;
         }
 
-        const dateText = b.created_at
-            ? new Date(b.created_at).toLocaleDateString()
-            : '—';
-
-        const actions = status === 'pending'
-            ? `<button type="button" onclick="markBackOrderFulfilled('${b.id}')"
+        const safeKey = String(g.key).replace(/'/g, "\\'");
+        const actions = !allFulfilled
+            ? `<button type="button" onclick="fulfillBackOrderGroup('${safeKey}'); event.stopPropagation();"
                        class="text-xs px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700">
-                   Mark Fulfilled
+                   Fulfill
                </button>`
             : '—';
 
         html += `
-            <tr class="border-t border-[#d4b78f] hover:bg-[#f8f4eb]">
-                <td class="p-3 font-mono">#${inv}</td>
-                <td class="p-3">${b.customer_name || '—'}</td>
-                <td class="p-3">
-                    <p class="font-medium">${b.product_name || '—'}</p>
-                    <p class="text-xs text-[#6B4423]">${b.case_size || ''}</p>
+            <tr class="border-t border-[#d4b78f] hover:bg-[#f8f4eb] cursor-pointer"
+                onclick="toggleBackOrderExpand('${safeKey}')">
+                <td class="p-3 text-center text-[#6B4423]">
+                    <i class="fas fa-chevron-${isExpanded ? 'down' : 'right'} text-xs"></i>
                 </td>
-                <td class="p-3 text-center font-semibold">${b.quantity || 1}</td>
+                <td class="p-3 font-mono">#${invShort}</td>
+                <td class="p-3">${g.customer}</td>
+                <td class="p-3 text-center font-semibold">${g.items.length}</td>
                 <td class="p-3">${statusBadge}</td>
                 <td class="p-3 text-sm">${dateText}</td>
-                <td class="p-3 text-center">${actions}</td>
+                <td class="p-3 text-center" onclick="event.stopPropagation()">${actions}</td>
             </tr>
         `;
+
+        if (isExpanded) {
+            html += `
+                <tr class="bg-[#f8f1e9]">
+                    <td colspan="7" class="p-0">
+                        <div class="px-4 py-3">
+                            <table class="w-full text-xs">
+                                <thead>
+                                    <tr class="text-[#6B4423]">
+                                        <th class="p-2 text-left">Product</th>
+                                        <th class="p-2 text-left">Case Size</th>
+                                        <th class="p-2 text-center">Qty</th>
+                                        <th class="p-2 text-left">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+            `;
+            g.items.forEach(item => {
+                const st = (item.status || 'pending').toLowerCase();
+                let itemBadge;
+                if (st === 'fulfilled') {
+                    itemBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">Fulfilled</span>`;
+                } else if (st === 'cancelled') {
+                    itemBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">Cancelled</span>`;
+                } else {
+                    itemBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">Pending</span>`;
+                }
+                html += `
+                    <tr class="border-t border-[#e8d9b8]">
+                        <td class="p-2 font-medium">${item.product_name || '—'}</td>
+                        <td class="p-2">${item.case_size || '—'}</td>
+                        <td class="p-2 text-center font-semibold">${item.quantity || 1}</td>
+                        <td class="p-2">${itemBadge}</td>
+                    </tr>
+                `;
+            });
+            html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
     });
 
     html += `</tbody></table>`;
     container.innerHTML = html;
 }
 
-async function markBackOrderFulfilled(id) {
-    if (!id) return;
-    if (!confirm('Mark this back-order item as fulfilled?')) return;
+function toggleBackOrderExpand(key) {
+    if (!window.expandedBackOrders) window.expandedBackOrders = {};
+    window.expandedBackOrders[key] = !window.expandedBackOrders[key];
+    renderBackOrdersTable();
+}
+
+async function fulfillBackOrderGroup(groupKey) {
+    if (!groupKey) return;
+
+    const groupItems = (allBackOrders || []).filter(b => {
+        const key = String(b.invoice_number || b.original_order_id || b.id);
+        return key === String(groupKey);
+    });
+    const pending = groupItems.filter(b => (b.status || '').toLowerCase() === 'pending');
+    if (!pending.length) {
+        alert('No pending items left on this invoice.');
+        return;
+    }
+
+    openShipInvoiceForBackOrder(groupKey, pending);
+}
+
+function openShipInvoiceForBackOrder(groupKey, pendingItems) {
+    shipInvoiceMode = 'backorder';
+    shipBackOrderPendingIds = pendingItems.map(b => b.id);
+    shipPendingBackOrders = [];
+
+    const sample = pendingItems[0];
+    const originalId = sample.original_order_id || sample.invoice_number;
+    const originalOrder = (allOrders || []).find(o => String(o.id) === String(originalId)) || null;
+
+    shipInvoiceOrder = originalOrder || {
+        id: originalId,
+        customer: sample.customer_name,
+        customerEmail: sample.customer_email,
+        customerCompany: sample.customer_company,
+        salesman: '',
+        shippingCost: 0,
+        credit: 0
+    };
+
+    shipInvoiceItems = pendingItems.map(item => ({
+        product: item.product_name || '',
+        quantity: item.quantity || 1,
+        caseSize: item.case_size || '',
+        unitPrice: item.unit_price != null ? item.unit_price : null,
+        displayPrice: item.display_price || '',
+        isMarketPrice: !!item.is_market_price
+    }));
+
+    const customerEl = document.getElementById('ship-inv-customer');
+    const salesmanEl = document.getElementById('ship-inv-salesman');
+    const idEl = document.getElementById('ship-inv-id');
+    const subtitleEl = document.getElementById('ship-invoice-subtitle');
+
+    if (customerEl) customerEl.textContent = shipInvoiceOrder.customer || sample.customer_name || '—';
+    if (salesmanEl) salesmanEl.textContent = shipInvoiceOrder.salesman || '—';
+    if (idEl) idEl.textContent = String(sample.invoice_number || originalId || '');
+    if (subtitleEl) subtitleEl.textContent = 'Back order fulfillment — review items and shipping, then confirm';
+
+    const shippingEl = document.getElementById('ship-inv-shipping');
+    if (shippingEl) {
+        // BO follow-up: no additional shipping when original qualified (region legend TBD in Reports)
+        shippingEl.value = '0.00';
+        shippingEl.readOnly = true;
+        shippingEl.classList.add('bg-gray-100');
+    }
+    const noteEl = document.getElementById('ship-inv-shipping-note');
+    if (noteEl) noteEl.textContent = 'Back order follow-up: no additional shipping (free-ship rules / original order)';
+
+    const creditEl = document.getElementById('ship-inv-credit');
+    if (creditEl) creditEl.value = '0.00';
+
+    const searchEl = document.getElementById('ship-inv-product-search');
+    if (searchEl) searchEl.value = '';
+    const resultsEl = document.getElementById('ship-inv-product-results');
+    if (resultsEl) {
+        resultsEl.innerHTML = '';
+        resultsEl.classList.add('hidden');
+    }
+
+    if (typeof renderShipInvoiceItems === 'function') renderShipInvoiceItems();
+    if (typeof recalcShipInvoiceTotals === 'function') recalcShipInvoiceTotals();
+
+    document.getElementById('ship-invoice-modal')?.classList.remove('hidden');
+}
+
+async function confirmBackOrderFulfillFromShipModal() {
+    if (!shipBackOrderPendingIds.length) {
+        alert('No back-order items to fulfill.');
+        return;
+    }
+    if (!shipInvoiceItems.length) {
+        alert('Invoice must have at least one line item.');
+        return;
+    }
 
     try {
         const { error } = await supabaseClient
@@ -7868,14 +8042,154 @@ async function markBackOrderFulfilled(id) {
                 fulfilled_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             })
-            .eq('id', id);
+            .in('id', shipBackOrderPendingIds);
 
         if (error) throw error;
-        await loadBackOrders();
+
+        if (typeof decreaseInventoryForOrder === 'function') {
+            await decreaseInventoryForOrder({
+                items: shipInvoiceItems.map(i => ({
+                    product: i.product,
+                    quantity: i.quantity
+                }))
+            });
+        }
+
+        hideShipInvoiceModal();
+        if (typeof loadBackOrders === 'function') await loadBackOrders();
+        alert('Back order fulfilled. Inventory updated.');
     } catch (err) {
         console.error(err);
-        alert('Could not update back order.\n' + (err.message || ''));
+        alert('Could not fulfill back order.\n' + (err.message || ''));
     }
+}
+
+function openBackOrderFulfillInvoice(groupKey, fulfilledItems) {
+    const items = fulfilledItems || (allBackOrders || []).filter(b => {
+        const key = String(b.invoice_number || b.original_order_id || b.id);
+        return key === String(groupKey);
+    });
+    if (!items.length) {
+        alert('No items to show on invoice.');
+        return;
+    }
+
+    const sample = items[0];
+    const originalId = sample.original_order_id || sample.invoice_number;
+    const originalOrder = (allOrders || []).find(o => String(o.id) === String(originalId)) || null;
+
+    // Prefer original order customer data; fall back to back_order snapshot
+    const customerName = (originalOrder && (originalOrder.customer || originalOrder.customer_name))
+        || sample.customer_name || '—';
+    const customerCompany = (originalOrder && (originalOrder.customerCompany || originalOrder.customer_company))
+        || sample.customer_company || '';
+    const customerEmail = (originalOrder && (originalOrder.customerEmail || originalOrder.customer_email))
+        || sample.customer_email || '';
+
+    // Invoice number / date
+    const invNum = document.getElementById('inv-number');
+    if (invNum) invNum.textContent = String(sample.invoice_number || originalId || '—');
+
+    const invDate = document.getElementById('inv-date');
+    if (invDate) invDate.textContent = new Date().toLocaleDateString();
+
+    const invStatus = document.getElementById('inv-status');
+    if (invStatus) invStatus.textContent = 'Back Order Fulfillment';
+
+    // BILL TO / SHIP TO — reuse customer lookup when possible
+    const customer = (allCustomers || []).find(c => {
+        const cEmail = (c.email || '').trim().toLowerCase();
+        const cName = (c.name || '').trim().toLowerCase();
+        if (customerEmail && cEmail && customerEmail.toLowerCase() === cEmail) return true;
+        if (customerName && cName && cName === customerName.toLowerCase()) return true;
+        return false;
+    }) || null;
+
+    const billEl = document.getElementById('inv-bill-to');
+    if (billEl) {
+        const lines = [customerName];
+        if (customerCompany) lines.push(customerCompany);
+        if (customer?.phone) lines.push(customer.phone);
+        else if (customerEmail) lines.push(customerEmail);
+        const billing = customer?.billingAddress || customer?.shippingAddress || '';
+        if (billing) lines.push(billing);
+        billEl.innerHTML = lines.map(l => `<p>${l}</p>`).join('');
+    }
+
+    const shipEl = document.getElementById('inv-ship-to');
+    if (shipEl) {
+        const lines = [customerName];
+        if (customerCompany) lines.push(customerCompany);
+        const shipping = customer?.shippingAddress || customer?.billingAddress || '';
+        if (shipping) lines.push(shipping);
+        shipEl.innerHTML = lines.map(l => `<p>${l}</p>`).join('');
+    }
+
+    // Line items from fulfilled back orders
+    const tbody = document.getElementById('inv-items-body');
+    let subtotal = 0;
+    if (tbody) {
+        tbody.innerHTML = items.map(item => {
+            const qty = parseInt(item.quantity, 10) || 0;
+            const unit = item.unit_price != null ? Number(item.unit_price) : 0;
+            const hasPrice = unit > 0;
+            const lineTotal = qty * unit;
+            if (hasPrice) subtotal += lineTotal;
+
+            const desc = [
+                item.product_name || '—',
+                item.case_size ? '· ' + item.case_size : ''
+            ].filter(Boolean).join(' ');
+
+            const unitText = hasPrice ? ('$' + unit.toFixed(2)) : (item.display_price || '—');
+            const totalText = hasPrice ? ('$' + lineTotal.toFixed(2)) : '—';
+
+            return `
+                <tr class="border-t border-[#d4b78f]">
+                    <td class="p-3 text-left font-semibold">${qty}</td>
+                    <td class="p-3 text-left">${desc}</td>
+                    <td class="p-3 text-right">${unitText}</td>
+                    <td class="p-3 text-right font-semibold">${totalText}</td>
+                </tr>`;
+        }).join('');
+    }
+
+    // Notes
+    const notesEl = document.getElementById('inv-notes');
+    if (notesEl) {
+        notesEl.textContent = 'Back order fulfillment for original invoice #' +
+            String(sample.invoice_number || originalId || '').slice(0, 8) +
+            '. These items were previously out of stock and are now ready to ship.';
+    }
+
+    // Shipping: free when original order had $0 shipping or met free-ship rules
+    let shipping = 0;
+    if (originalOrder) {
+        const origShip = Number(originalOrder.shippingCost != null ? originalOrder.shippingCost : originalOrder.shipping_cost);
+        if (!isNaN(origShip) && origShip === 0) {
+            shipping = 0;
+        } else {
+            // Still $0 for back-order follow-up when original qualified for free shipping
+            // (region rules still being finalized — default free for fulfillment shipments)
+            shipping = 0;
+        }
+    }
+
+    const credit = 0;
+    const total = Math.max(0, subtotal + shipping - credit);
+
+    const subEl = document.getElementById('inv-subtotal');
+    const shipCostEl = document.getElementById('inv-shipping');
+    const creditRow = document.getElementById('inv-credit-row');
+    const totEl = document.getElementById('inv-total');
+
+    if (subEl) subEl.textContent = '$' + subtotal.toFixed(2);
+    if (shipCostEl) shipCostEl.textContent = '$' + shipping.toFixed(2);
+    if (creditRow) creditRow.classList.add('hidden');
+    if (totEl) totEl.textContent = '$' + total.toFixed(2);
+
+    const modal = document.getElementById('order-invoice-modal');
+    if (modal) modal.classList.remove('hidden');
 }
 
 // Framework stub only — future auto-create when inventory would go negative
