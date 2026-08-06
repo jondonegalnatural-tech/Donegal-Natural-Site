@@ -536,9 +536,38 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     if (e.target === consentModal) closeConsentModal();
   });
 
+  function isValidPhone(value) {
+    const digits = String(value || '').replace(/\D/g, '');
+    // US: 10 digits, or 11 if leading country code 1
+    if (digits.length === 10) return true;
+    if (digits.length === 11 && digits.charAt(0) === '1') return true;
+    return false;
+  }
+
   form?.addEventListener('submit', function (e) {
     e.preventDefault();
-    // HTML5 required fields still validated by the browser before submit fires
+
+    // Force browser required/pattern UI first
+    if (typeof form.checkValidity === 'function' && !form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    const phoneInput = document.getElementById('wi-phone');
+    const phoneVal = phoneInput?.value.trim() || '';
+
+    if (!isValidPhone(phoneVal)) {
+      if (phoneInput) {
+        phoneInput.setCustomValidity('Enter a valid 10-digit phone number, e.g. (717) 555-1234');
+        phoneInput.reportValidity();
+        phoneInput.setCustomValidity('');
+        phoneInput.focus();
+      } else {
+        alert('Please enter a valid 10-digit phone number.');
+      }
+      return;
+    }
+
     openConsentModal();
   });
 
