@@ -1284,7 +1284,8 @@ async function loadSalesmen() {
             yearlySales: Number(s.yearly_sales) || 0,
             monthlySales: Number(s.monthly_sales) || 0,
             active: s.active !== false,
-            notes: s.notes || ''
+            notes: s.notes || '',
+            mailingAddress: s.mailing_address || ''
         }));
     } catch (err) {
         console.error('loadSalesmen error:', err);
@@ -4891,13 +4892,27 @@ function showAddCustomerModal() {
         'new-customer-email',
         'new-customer-phone',
         'new-customer-territory',
-        'new-customer-address',
-        'new-customer-notes'
+        'new-customer-notes',
+        'new-customer-ship-street',
+        'new-customer-ship-apt',
+        'new-customer-ship-city',
+        'new-customer-ship-state',
+        'new-customer-ship-zip',
+        'new-customer-bill-street',
+        'new-customer-bill-apt',
+        'new-customer-bill-city',
+        'new-customer-bill-state',
+        'new-customer-bill-zip'
     ];
     fields.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
+
+    const sameCb = document.getElementById('new-customer-same-address');
+    if (sameCb) sameCb.checked = true;
+    const billingFields = document.getElementById('new-customer-billing-fields');
+    if (billingFields) billingFields.classList.add('hidden');
 
     modal.classList.remove('hidden');
     document.getElementById('new-customer-name')?.focus();
@@ -4915,9 +4930,14 @@ async function saveNewCustomer(event) {
     const company = (document.getElementById('new-customer-company')?.value || '').trim();
     const email = (document.getElementById('new-customer-email')?.value || '').trim();
     const phone = (document.getElementById('new-customer-phone')?.value || '').trim();
-    const address = (document.getElementById('new-customer-address')?.value || '').trim();
     const territory = (document.getElementById('new-customer-territory')?.value || '').trim();
     const notes = (document.getElementById('new-customer-notes')?.value || '').trim();
+
+    const shipStreet = (document.getElementById('new-customer-ship-street')?.value || '').trim();
+    const shipApt = (document.getElementById('new-customer-ship-apt')?.value || '').trim();
+    const shipCity = (document.getElementById('new-customer-ship-city')?.value || '').trim();
+    const shipState = (document.getElementById('new-customer-ship-state')?.value || '').trim();
+    const shipZip = (document.getElementById('new-customer-ship-zip')?.value || '').trim();
 
     if (!name) {
         alert('Customer name is required.');
@@ -4935,9 +4955,27 @@ async function saveNewCustomer(event) {
         alert('Phone is required.');
         return;
     }
-    if (!address) {
-        alert('Address is required.');
+    if (!shipStreet || !shipCity || !shipState || !shipZip) {
+        alert('Shipping street, city, state, and ZIP are required.');
         return;
+    }
+
+    const shippingAddress = (typeof buildAddressFromParts === 'function')
+        ? buildAddressFromParts(shipStreet, shipApt, shipCity, shipState, shipZip)
+        : [shipStreet, shipApt, [shipCity, shipState, shipZip].filter(Boolean).join(', ')].filter(Boolean).join('\n');
+
+    const sameAsShipping = document.getElementById('new-customer-same-address')?.checked !== false;
+    let billingAddress = shippingAddress;
+    if (!sameAsShipping) {
+        const billStreet = (document.getElementById('new-customer-bill-street')?.value || '').trim();
+        const billApt = (document.getElementById('new-customer-bill-apt')?.value || '').trim();
+        const billCity = (document.getElementById('new-customer-bill-city')?.value || '').trim();
+        const billState = (document.getElementById('new-customer-bill-state')?.value || '').trim();
+        const billZip = (document.getElementById('new-customer-bill-zip')?.value || '').trim();
+        billingAddress = (typeof buildAddressFromParts === 'function')
+            ? buildAddressFromParts(billStreet, billApt, billCity, billState, billZip)
+            : [billStreet, billApt, [billCity, billState, billZip].filter(Boolean).join(', ')].filter(Boolean).join('\n');
+        if (!billingAddress) billingAddress = shippingAddress;
     }
 
     try {
@@ -4950,8 +4988,8 @@ async function saveNewCustomer(event) {
                 company: company,
                 email: email,
                 phone: phone,
-                shipping_address: address,
-                billing_address: address,
+                shipping_address: shippingAddress,
+                billing_address: billingAddress,
                 territory: territory || null,
                 notes: notes || null,
                 status: 'Active',
@@ -5671,6 +5709,15 @@ async function addNewSalesman(e) {
     const marketCommission = parseFloat(document.getElementById('new-market-commission').value) || 3;
     const email = (document.getElementById('new-salesman-email')?.value || "").trim().toLowerCase();
 
+    const mailStreet = (document.getElementById('new-salesman-mail-street')?.value || '').trim();
+    const mailApt = (document.getElementById('new-salesman-mail-apt')?.value || '').trim();
+    const mailCity = (document.getElementById('new-salesman-mail-city')?.value || '').trim();
+    const mailState = (document.getElementById('new-salesman-mail-state')?.value || '').trim();
+    const mailZip = (document.getElementById('new-salesman-mail-zip')?.value || '').trim();
+    const mailingAddress = (typeof buildAddressFromParts === 'function')
+        ? buildAddressFromParts(mailStreet, mailApt, mailCity, mailState, mailZip)
+        : [mailStreet, mailApt, [mailCity, mailState, mailZip].filter(Boolean).join(', ')].filter(Boolean).join('\n');
+
     if (!firstName || !lastName || !territory) {
         alert("Please fill in First Name, Last Name, and Territory.");
         return;
@@ -5689,7 +5736,8 @@ async function addNewSalesman(e) {
                 price_sheet_status: 'required',
                 yearly_sales: 0,
                 monthly_sales: 0,
-                active: true
+                active: true,
+                mailing_address: mailingAddress || null
             })
             .select()
             .single();
@@ -6374,6 +6422,24 @@ function hideInquiryApprovalModal() {
     const modal = document.getElementById('inquiry-approval-modal');
     if (modal) {
         modal.classList.add('hidden');
+    }
+}
+
+function toggleNewCustomerSameAddress() {
+    const same = document.getElementById('new-customer-same-address');
+    const billingFields = document.getElementById('new-customer-billing-fields');
+    if (!same || !billingFields) return;
+
+    if (same.checked) {
+        billingFields.classList.add('hidden');
+        // Optional: copy ship → bill so values exist if user later unchecks
+        document.getElementById('new-customer-bill-street').value = document.getElementById('new-customer-ship-street')?.value || '';
+        document.getElementById('new-customer-bill-apt').value = document.getElementById('new-customer-ship-apt')?.value || '';
+        document.getElementById('new-customer-bill-city').value = document.getElementById('new-customer-ship-city')?.value || '';
+        document.getElementById('new-customer-bill-state').value = document.getElementById('new-customer-ship-state')?.value || '';
+        document.getElementById('new-customer-bill-zip').value = document.getElementById('new-customer-ship-zip')?.value || '';
+    } else {
+        billingFields.classList.remove('hidden');
     }
 }
 
@@ -8750,7 +8816,7 @@ async function updateDashboardSalesmen() {
     try {
         const { data, error } = await supabaseClient
                         .from('salesmen')
-            .select('id, first_name, last_name, email, territory, commission, market_commission, price_sheet_status, yearly_sales, monthly_sales, active, notes')
+            .select('id, first_name, last_name, email, territory, commission, market_commission, price_sheet_status, yearly_sales, monthly_sales, active, notes, mailing_address')
             .order('last_name', { ascending: true });
 
         if (error) {
