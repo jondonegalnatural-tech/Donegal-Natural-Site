@@ -2,8 +2,10 @@
 
 document.addEventListener('DOMContentLoaded', () => {
   initNav();
-  initCartUI();
-  Cart.loadCart();
+  if (typeof Cart !== 'undefined') {
+    initCartUI();
+    Cart.loadCart();
+  }
 });
 
 // ── Navigation ─────────────────────────────────────────────────────────────────
@@ -29,6 +31,7 @@ function initNav() {
 
 // ── Cart UI wiring ─────────────────────────────────────────────────────────────
 function initCartUI() {
+  if (typeof Cart === 'undefined') return;
   document.getElementById('cart-btn')?.addEventListener('click', Cart.openCart);
   document.getElementById('cart-close')?.addEventListener('click', Cart.closeCart);
   document.getElementById('cart-overlay')?.addEventListener('click', Cart.closeCart);
@@ -199,6 +202,7 @@ function selectVariantBtn(btn) {
 }
 
 function addToCartFromModal() {
+  if (typeof Cart === 'undefined') return;
   if (!currentProduct) return;
 
   // Check for local variant selection first
@@ -251,6 +255,6 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeProductModal();
-    Cart.closeCart();
+    if (typeof Cart !== 'undefined') Cart.closeCart();
   }
 });
