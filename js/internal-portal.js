@@ -4729,7 +4729,7 @@ async function loadCustomers() {
     try {
         const { data, error } = await supabaseClient
             .from('customers')
-            .select('id, name, company, email, phone, shipping_address, billing_address, notes, status, source, submitted_by, submitted_by_email, salesman_email, territory, created_at, payment_method, payment_method_status')
+            .select('id, name, company, email, phone, shipping_address, billing_address, notes, status, source, submitted_by, submitted_by_email, salesman_email, territory, created_at, payment_method, payment_method_status, password_changed, onboarding_complete')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -4754,7 +4754,9 @@ async function loadCustomers() {
                 balance: 0,
                 created_at: c.created_at,
                 payment_method: c.payment_method || null,
-                payment_method_status: c.payment_method_status || null
+                payment_method_status: c.payment_method_status || null,
+                password_changed: !!c.password_changed,
+                onboarding_complete: !!c.onboarding_complete
             }));
         }
     } catch (err) {
@@ -4814,6 +4816,12 @@ function renderCustomers() {
                         <span class="px-3 py-1 text-xs font-semibold rounded-full ${customer.status === 'Active' || customer.status === 'Approved' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}">
                             ${customer.status || 'Active'}
                         </span>
+                        ${customer.password_changed
+                            ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-green-100 text-green-800">✓ Password</span>`
+                            : `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">Needs Password</span>`}
+                        ${(customer.onboarding_complete || customer.payment_method)
+                            ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-100 text-blue-800">✓ Payment</span>`
+                            : `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">Payment Pending</span>`}
                         ${isAchApproved ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-100 text-blue-800">ACH Approved</span>` : ''}
                     </div>
                 </div>
@@ -5668,18 +5676,13 @@ async function addNewSalesman(e) {
         return;
     }
 
-    if (!email) {
-        alert("Email is required.");
-        return;
-    }
-
     try {
         const { data, error } = await supabaseClient
             .from('salesmen')
             .insert({
                 first_name: firstName,
                 last_name: lastName,
-                email: email,
+                email: email || null,
                 territory: territory,
                 commission: commission,
                 market_commission: marketCommission,
