@@ -6631,7 +6631,7 @@ async function confirmInquiryApproval() {
             'Customer login (email + temp password):\n' +
             'Email: ' + email + '\n' +
             'Password: ' + tempPassword + '\n\n' +
-            '(Email delivery will be automated later)'
+            'Credentials email has been sent to the customer.'
         );
     } catch (err) {
         console.error('Confirm approval error:', err);
