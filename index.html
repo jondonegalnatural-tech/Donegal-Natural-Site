@@ -24,7 +24,6 @@
     </a>
 
     <nav class="navbar-nav">
-      <a href="shop.html">Shop</a>
       <a href="#about">About Us</a>
     </nav>
 
@@ -59,7 +58,6 @@
 
 <!-- Mobile Menu -->
 <div class="mobile-menu" id="mobile-menu">
-  <a href="shop.html">Shop</a>
   <a href="#about">About Us</a>
   <a href="login-portal.html">Wholesale Login</a>
 </div>
@@ -79,10 +77,12 @@
       </h1>
       <p class="hero-subtitle">Single-ingredient chews and natural jerky made with nothing but the best — no fillers, no preservatives, just like nature intended.</p>
       <div class="hero-btns">
-        <a href="shop.html" class="btn btn-primary btn-lg">Shop Now →</a>
-        <button type="button" class="btn btn-outline-white btn-lg" id="open-wholesale-inquiry">
+        <button type="button" class="btn btn-primary btn-lg" id="open-wholesale-inquiry">
           Wholesale Inquiry
         </button>
+        <a href="login-portal.html" class="btn btn-outline-white btn-lg">
+          Wholesale Login
+        </a>
       </div>
     </div>
   </div>
@@ -105,14 +105,14 @@
       <span class="trust-label">Single Ingredient</span>
     </div>
     <div class="trust-item">
-      <div class="trust-icon">🚚</div>
-      <span class="trust-label">Free Shipping $75+</span>
+      <div class="trust-icon">🇺🇸</div>
+      <span class="trust-label">Made in Pennsylvania</span>
     </div>
   </div>
 </div>
 
-<!-- ─── FEATURED PRODUCTS ─── -->
-<section class="section">
+<!-- ─── FEATURED PRODUCTS (hidden until retail shop is ready) ─── -->
+<section class="section" style="display:none;" aria-hidden="true">
   <div class="container">
     <div class="products-header">
       <div>
@@ -175,7 +175,9 @@
         <p style="color:var(--brown);font-size:1.05rem;font-weight:500;margin-bottom:2rem;line-height:1.85;">
           The father/daughter team of Marshall and Morgan put their discerning, experienced eyes on each and every treat and chew that enters and leaves their factory/warehouse. It's a time-consuming, old-fashioned way of doing business — but it's the only way this team knows that a safe, healthy treat has earned its way in front of your loving companion's nose.
         </p>
-        <a href="shop.html" class="btn btn-outline">Explore our treats</a>
+        <button type="button" class="btn btn-outline" id="open-wholesale-inquiry-about">
+          Wholesale Inquiry
+        </button>
       </div>
       <div class="story-photo-wrap">
         <img src="media/warehouse-process.jpg" alt="Natural chews and treats drying on racks at the Donegal Natural warehouse in Marietta, Pennsylvania" class="story-photo" loading="lazy">
@@ -274,24 +276,13 @@
         <p class="footer-brand-p">Handcrafted in Marietta, Pennsylvania. Pure ingredients, honest treats — because your dog deserves nothing less.</p>
       </div>
       <div class="footer-col">
-        <h4>Shop</h4>
-        <ul>
-          <li><a href="shop.html">All Products</a></li>
-          <li><a href="shop.html?filter=Bully+Sticks">Bully Sticks</a></li>
-          <li><a href="shop.html?filter=Rollios">Rollios</a></li>
-          <li><a href="shop.html?filter=Jerky">Jerky</a></li>
-          <li><a href="shop.html?filter=Ears">Ears</a></li>
-          <li><a href="shop.html?filter=Buffalo">Buffalo</a></li>
-          <li><a href="shop.html?filter=Beef+%2F+Oxtails">Beef / Oxtails</a></li>
-        </ul>
-      </div>
-      <div class="footer-col">
         <h4>Business</h4>
         <ul>
           <li><a href="#" id="footer-wholesale-inquiry">Wholesale Inquiry</a></li>
           <li><a href="login-portal.html">Wholesale Login</a></li>
-          <li><a href="mailto:jon.donegalnatural@gmail.com">jon.donegalnatural@gmail.com</a></li>
-          <li><a href="#">Marietta, Pennsylvania</a></li>
+          <li><a href="mailto:customerinquiry@donegalnatural.com">customerinquiry@donegalnatural.com</a></li>
+          <li><a href="mailto:help@donegalnatural.com">help@donegalnatural.com</a></li>
+          <li><span>Marietta, Pennsylvania</span></li>
         </ul>
       </div>
     </div>
@@ -433,6 +424,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 
   document.getElementById('open-wholesale-inquiry')?.addEventListener('click', openModal);
   document.getElementById('open-wholesale-inquiry-cta')?.addEventListener('click', openModal);
+  document.getElementById('open-wholesale-inquiry-about')?.addEventListener('click', openModal);
   document.getElementById('footer-wholesale-inquiry')?.addEventListener('click', function (e) {
     e.preventDefault();
     openModal();

@@ -1,0 +1,13 @@
+# Donegal Natural — discourage crawlers from portals and app scripts
+User-agent: *
+Disallow: /login-portal.html
+Disallow: /internal-portal.html
+Disallow: /salesman-portal.html
+Disallow: /wholesale-portal.html
+Disallow: /shop.html
+Disallow: /js/
+Disallow: /api/
+
+Allow: /
+
+# Retail shop file kept in repo but not offered publicly yet
