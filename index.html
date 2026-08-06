@@ -326,11 +326,12 @@
         <div>
           <label for="wi-phone" style="display:block; font-size:.8rem; font-weight:700; margin-bottom:.35rem; color:var(--brown);">Telephone Number *</label>
           <input type="tel" id="wi-phone" name="phone" required
-            inputmode="tel"
+            inputmode="numeric"
             autocomplete="tel"
             placeholder="(717) 555-1234"
-            pattern="^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$"
-            title="Enter a valid phone number, e.g. (717) 555-1234"
+            maxlength="14"
+            pattern="^\([0-9]{3}\) [0-9]{3}-[0-9]{4}$"
+            title="Enter phone as (717) 555-1234"
             style="width:100%; padding:.65rem .9rem; border:1.5px solid var(--border); border-radius:.6rem; background:var(--cream); font-size:.9rem; font-family:inherit;">
         </div>
         <div>
@@ -536,13 +537,30 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     if (e.target === consentModal) closeConsentModal();
   });
 
-  function isValidPhone(value) {
-    const digits = String(value || '').replace(/\D/g, '');
-    // US: 10 digits, or 11 if leading country code 1
-    if (digits.length === 10) return true;
-    if (digits.length === 11 && digits.charAt(0) === '1') return true;
-    return false;
+  function formatPhoneInput(value) {
+    const digits = String(value || '').replace(/\D/g, '').slice(0, 10);
+    if (digits.length <= 3) {
+      return digits.length ? '(' + digits : '';
+    }
+    if (digits.length <= 6) {
+      return '(' + digits.slice(0, 3) + ') ' + digits.slice(3);
+    }
+    return '(' + digits.slice(0, 3) + ') ' + digits.slice(3, 6) + '-' + digits.slice(6);
   }
+
+  function isValidPhone(value) {
+    // Must match (XXX) XXX-XXXX
+    return /^\([0-9]{3}\) [0-9]{3}-[0-9]{4}$/.test(String(value || '').trim());
+  }
+
+  const phoneInputEl = document.getElementById('wi-phone');
+  phoneInputEl?.addEventListener('input', function () {
+    const formatted = formatPhoneInput(this.value);
+    this.value = formatted;
+  });
+  phoneInputEl?.addEventListener('blur', function () {
+    if (this.value) this.value = formatPhoneInput(this.value);
+  });
 
   form?.addEventListener('submit', function (e) {
     e.preventDefault();
@@ -558,7 +576,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 
     if (!isValidPhone(phoneVal)) {
       if (phoneInput) {
-        phoneInput.setCustomValidity('Enter a valid 10-digit phone number, e.g. (717) 555-1234');
+        phoneInput.setCustomValidity('Enter phone as (717) 555-1234');
         phoneInput.reportValidity();
         phoneInput.setCustomValidity('');
         phoneInput.focus();
