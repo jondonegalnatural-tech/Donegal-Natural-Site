@@ -6505,14 +6505,12 @@ async function confirmInquiryApproval() {
         alert('Name, company, and email are required.');
         return;
     }
-    if (!salesmanId) {
-        alert('You must assign a salesman before approving.');
-        return;
-    }
 
     const selectedOpt = salesmanSelect.options[salesmanSelect.selectedIndex];
-    const salesmanEmail = selectedOpt.dataset.email || null;
-    const salesmanName = selectedOpt.dataset.name || selectedOpt.textContent;
+    const salesmanEmail = salesmanId ? (selectedOpt.dataset.email || null) : null;
+    const salesmanName = salesmanId
+        ? (selectedOpt.dataset.name || selectedOpt.textContent)
+        : 'Unassigned';
 
     const btn = document.getElementById('ia-confirm-btn');
     if (btn) {
@@ -6529,7 +6527,11 @@ async function confirmInquiryApproval() {
         if (billing) notesParts.push('Billing: ' + billing);
         if (adminNotes) notesParts.push('Admin notes: ' + adminNotes);
         notesParts.push('Approved by: ' + approvedBy);
-        notesParts.push('Assigned salesman: ' + salesmanName);
+        if (salesmanId) {
+            notesParts.push('Assigned salesman: ' + salesmanName);
+        } else {
+            notesParts.push('No salesman assigned at approval');
+        }
 
         const tempUsername = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
         const tempPassword = 'DN' + Math.random().toString(36).slice(2, 8).toUpperCase() + '!';
@@ -6583,7 +6585,7 @@ async function confirmInquiryApproval() {
             notes: notesWithCreds,
             status: 'Approved',
             salesman_email: salesmanEmail,
-            assigned_at: new Date().toISOString(),
+            assigned_at: salesmanId ? new Date().toISOString() : null,
             onboarding_complete: false,
             password_changed: false
         };
@@ -6608,7 +6610,7 @@ async function confirmInquiryApproval() {
             email: email,
             phone: phone || null,
             notes: notesWithCreds,
-            assigned_salesman_id: salesmanId
+            assigned_salesman_id: salesmanId || null
         };
 
         const { error: updateError } = await supabaseClient
@@ -6625,7 +6627,7 @@ async function confirmInquiryApproval() {
             'Inquiry approved.\n' +
             'Customer created.\n' +
             'Login account created.\n' +
-            'Assigned to: ' + salesmanName + '\n\n' +
+            (salesmanId ? 'Assigned to: ' + salesmanName : 'No salesman assigned (you can assign later)') + '\n\n' +
             'Customer login (email + temp password):\n' +
             'Email: ' + email + '\n' +
             'Password: ' + tempPassword + '\n\n' +
