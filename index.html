@@ -326,6 +326,11 @@
         <div>
           <label for="wi-phone" style="display:block; font-size:.8rem; font-weight:700; margin-bottom:.35rem; color:var(--brown);">Telephone Number *</label>
           <input type="tel" id="wi-phone" name="phone" required
+            inputmode="tel"
+            autocomplete="tel"
+            placeholder="(717) 555-1234"
+            pattern="^[\+]?[(]?[0-9]{3}[)]?[-\s\.]?[0-9]{3}[-\s\.]?[0-9]{4,6}$"
+            title="Enter a valid phone number, e.g. (717) 555-1234"
             style="width:100%; padding:.65rem .9rem; border:1.5px solid var(--border); border-radius:.6rem; background:var(--cream); font-size:.9rem; font-family:inherit;">
         </div>
         <div>
@@ -575,8 +580,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     try {
       const { error } = await supabaseClient
         .from('wholesale_inquiries')
-        .insert([payload])
-        .select();
+        .insert([payload]);
 
       if (error) throw error;
 
