@@ -113,4 +113,162 @@ document.addEventListener('DOMContentLoaded', function() {
             errorMessage.classList.add('hidden');
         }, 5000);
     }
+
+    // ========== FORGOT PASSWORD ==========
+    const forgotBtn = document.getElementById('forgot-password-btn');
+    const forgotModal = document.getElementById('forgot-password-modal');
+    const forgotClose = document.getElementById('forgot-password-close');
+    const forgotSendBtn = document.getElementById('forgot-send-btn');
+    const forgotEmail = document.getElementById('forgot-email');
+    const forgotMessage = document.getElementById('forgot-message');
+
+    const setPasswordModal = document.getElementById('set-password-modal');
+    const setPasswordBtn = document.getElementById('set-password-btn');
+    const newPassword = document.getElementById('new-password');
+    const confirmPassword = document.getElementById('confirm-password');
+    const setPasswordMessage = document.getElementById('set-password-message');
+
+    function showForgotMessage(text, isError) {
+        if (!forgotMessage) return;
+        forgotMessage.textContent = text;
+        forgotMessage.classList.remove('hidden', 'bg-red-50', 'text-red-700', 'border-red-200', 'bg-green-50', 'text-green-800', 'border-green-200');
+        if (isError) {
+            forgotMessage.classList.add('bg-red-50', 'text-red-700', 'border', 'border-red-200');
+        } else {
+            forgotMessage.classList.add('bg-green-50', 'text-green-800', 'border', 'border-green-200');
+        }
+    }
+
+    function showSetPasswordMessage(text, isError) {
+        if (!setPasswordMessage) return;
+        setPasswordMessage.textContent = text;
+        setPasswordMessage.classList.remove('hidden', 'bg-red-50', 'text-red-700', 'border-red-200', 'bg-green-50', 'text-green-800', 'border-green-200');
+        if (isError) {
+            setPasswordMessage.classList.add('bg-red-50', 'text-red-700', 'border', 'border-red-200');
+        } else {
+            setPasswordMessage.classList.add('bg-green-50', 'text-green-800', 'border', 'border-green-200');
+        }
+    }
+
+    if (forgotBtn && forgotModal) {
+        forgotBtn.addEventListener('click', function () {
+            if (forgotEmail) forgotEmail.value = (document.getElementById('username')?.value || '').trim();
+            if (forgotMessage) forgotMessage.classList.add('hidden');
+            forgotModal.classList.remove('hidden');
+        });
+    }
+
+    if (forgotClose && forgotModal) {
+        forgotClose.addEventListener('click', function () {
+            forgotModal.classList.add('hidden');
+        });
+    }
+
+    if (forgotModal) {
+        forgotModal.addEventListener('click', function (e) {
+            if (e.target === forgotModal) forgotModal.classList.add('hidden');
+        });
+    }
+
+    if (forgotSendBtn) {
+        forgotSendBtn.addEventListener('click', async function () {
+            const email = (forgotEmail?.value || '').trim();
+            if (!email || !email.includes('@')) {
+                showForgotMessage('Please enter a valid email address.', true);
+                return;
+            }
+
+            forgotSendBtn.disabled = true;
+            forgotSendBtn.textContent = 'Sending…';
+
+            try {
+                const redirectTo = window.location.origin + '/login-portal.html';
+                const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+                    redirectTo: redirectTo
+                });
+
+                if (error) {
+                    showForgotMessage(error.message || 'Could not send reset email.', true);
+                } else {
+                    showForgotMessage('If an account exists for that email, a reset link has been sent. Check your inbox (and spam).', false);
+                }
+            } catch (err) {
+                console.error(err);
+                showForgotMessage('Something went wrong. Please try again.', true);
+            } finally {
+                forgotSendBtn.disabled = false;
+                forgotSendBtn.textContent = 'Send reset link';
+            }
+        });
+    }
+
+    // Detect recovery session from the email link and show set-password modal
+    supabaseClient.auth.onAuthStateChange(async function (event, session) {
+        if (event === 'PASSWORD_RECOVERY') {
+            if (forgotModal) forgotModal.classList.add('hidden');
+            if (setPasswordModal) setPasswordModal.classList.remove('hidden');
+            if (setPasswordMessage) setPasswordMessage.classList.add('hidden');
+        }
+    });
+
+    // Also check hash on load (some browsers fire before listener is attached)
+    (async function checkRecoveryOnLoad() {
+        try {
+            const hash = window.location.hash || '';
+            if (hash.includes('type=recovery') || hash.includes('type%3Drecovery')) {
+                if (setPasswordModal) setPasswordModal.classList.remove('hidden');
+            }
+        } catch (e) {
+            console.warn('recovery check failed', e);
+        }
+    })();
+
+    if (setPasswordBtn) {
+        setPasswordBtn.addEventListener('click', async function () {
+            const pw = (newPassword?.value || '').trim();
+            const pw2 = (confirmPassword?.value || '').trim();
+
+            if (!pw || pw.length < 6) {
+                showSetPasswordMessage('Password must be at least 6 characters.', true);
+                return;
+            }
+            if (pw !== pw2) {
+                showSetPasswordMessage('Passwords do not match.', true);
+                return;
+            }
+
+            setPasswordBtn.disabled = true;
+            setPasswordBtn.textContent = 'Updating…';
+
+            try {
+                const { error } = await supabaseClient.auth.updateUser({ password: pw });
+                if (error) {
+                    showSetPasswordMessage(error.message || 'Could not update password.', true);
+                    return;
+                }
+
+                showSetPasswordMessage('Password updated. You can sign in with your new password.', false);
+
+                // Clear recovery hash from URL
+                if (window.history && window.history.replaceState) {
+                    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+                }
+
+                // Sign out recovery session so they log in cleanly
+                await supabaseClient.auth.signOut();
+
+                setTimeout(function () {
+                    if (setPasswordModal) setPasswordModal.classList.add('hidden');
+                    if (newPassword) newPassword.value = '';
+                    if (confirmPassword) confirmPassword.value = '';
+                }, 1500);
+            } catch (err) {
+                console.error(err);
+                showSetPasswordMessage('Something went wrong. Please try again.', true);
+            } finally {
+                setPasswordBtn.disabled = false;
+                setPasswordBtn.textContent = 'Update password';
+            }
+        });
+    }
 });

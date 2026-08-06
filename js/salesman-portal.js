@@ -293,7 +293,7 @@ function displayCurrentUser() {
     const adminViewBtn = document.getElementById("admin-view-btn");
     if (adminViewBtn) {
         const email = (user.email || "").toLowerCase().trim();
-        if (email === "jonathan@donegal.com") {
+        if (email === "jackerman@donegalnatural.com") {
             adminViewBtn.style.display = "";
         } else {
             adminViewBtn.style.display = "none";
@@ -1918,7 +1918,16 @@ async function openSalesmanOrderInvoice(orderId) {
     const totalEl = document.getElementById('inv-total');
 
     if (subEl) subEl.textContent = '$' + productSubtotal.toFixed(2);
-    if (shipCostEl) shipCostEl.textContent = shipping > 0 ? '$' + shipping.toFixed(2) : '$0.00';
+    if (shipCostEl) {
+        const st = (order.status || '').toString().toLowerCase();
+        if (shipping > 0) {
+            shipCostEl.textContent = '$' + shipping.toFixed(2);
+        } else if (st === 'shipped' || st === 'delivered' || st === 'completed') {
+            shipCostEl.textContent = 'Free Shipping';
+        } else {
+            shipCostEl.textContent = 'TBD';
+        }
+    }
     if (creditRow && creditEl) {
         if (credit > 0) {
             creditRow.classList.remove('hidden');
