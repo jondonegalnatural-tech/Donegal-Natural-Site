@@ -363,14 +363,6 @@
           <textarea id="wi-shipping" name="shippingAddress" required rows="2"
             style="width:100%; padding:.65rem .9rem; border:1.5px solid var(--border); border-radius:.6rem; background:var(--cream); font-size:.9rem; font-family:inherit;"></textarea>
         </div>
-        <label style="display:flex; align-items:flex-start; gap:.6rem; font-size:.85rem; color:var(--brown); line-height:1.5; cursor:pointer;">
-          <input type="checkbox" id="wi-agree-terms" required style="margin-top:.2rem; flex-shrink:0;">
-          <span>I agree to the
-            <a href="terms.html" target="_blank" rel="noopener" style="color:var(--green); font-weight:600;">Terms of Use</a>
-            and
-            <a href="privacy.html" target="_blank" rel="noopener" style="color:var(--green); font-weight:600;">Privacy Policy</a>.
-          </span>
-        </label>
         <div style="display:flex; gap:.75rem; margin-top:.75rem;">
           <button type="button" class="btn btn-outline" id="wholesale-inquiry-cancel" style="flex:1;">Cancel</button>
           <button type="submit" class="btn btn-primary" style="flex:1;">Submit Inquiry</button>
@@ -392,6 +384,52 @@
         <a href="mailto:customerinquiry@donegalnatural.com" style="color:var(--green); font-weight:600;">customerinquiry@donegalnatural.com</a>
       </p>
       <button type="button" class="btn btn-primary" id="wholesale-inquiry-thanks-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Consent modal (Terms + Privacy proof) -->
+<div class="modal-overlay" id="consent-modal" role="dialog" aria-modal="true" aria-labelledby="consent-title">
+  <div class="modal" style="max-width:420px;">
+    <button type="button" class="modal-close" id="consent-close" aria-label="Close">✕</button>
+    <h2 id="consent-title" style="font-size:1.35rem; color:var(--green); margin-bottom:.35rem;">Review &amp; agree</h2>
+    <p style="font-size:.9rem; color:var(--muted); margin-bottom:1.25rem; line-height:1.55;">
+      Please open and review each document, then confirm below. We keep a record of your agreement with this inquiry.
+    </p>
+
+    <div style="display:flex; flex-direction:column; gap:1rem; margin-bottom:1.25rem;">
+      <div style="border:1.5px solid var(--border); border-radius:.75rem; padding:.9rem 1rem; background:var(--cream);">
+        <a href="terms.html" target="_blank" rel="noopener"
+           style="display:inline-block; font-weight:700; color:var(--green); margin-bottom:.55rem;">
+          Open Terms of Use ↗
+        </a>
+        <label style="display:flex; align-items:flex-start; gap:.55rem; font-size:.85rem; color:var(--brown); line-height:1.45; cursor:pointer;">
+          <input type="checkbox" id="consent-terms" style="margin-top:.15rem; flex-shrink:0;">
+          <span>I have read and agree to the Terms of Use.</span>
+        </label>
+      </div>
+
+      <div style="border:1.5px solid var(--border); border-radius:.75rem; padding:.9rem 1rem; background:var(--cream);">
+        <a href="privacy.html" target="_blank" rel="noopener"
+           style="display:inline-block; font-weight:700; color:var(--green); margin-bottom:.55rem;">
+          Open Privacy Policy ↗
+        </a>
+        <label style="display:flex; align-items:flex-start; gap:.55rem; font-size:.85rem; color:var(--brown); line-height:1.45; cursor:pointer;">
+          <input type="checkbox" id="consent-privacy" style="margin-top:.15rem; flex-shrink:0;">
+          <span>I have read and agree to the Privacy Policy.</span>
+        </label>
+      </div>
+    </div>
+
+    <p id="consent-error" style="display:none; font-size:.85rem; color:#b91c1c; margin-bottom:.75rem;">
+      Please agree to both documents to continue.
+    </p>
+
+    <div style="display:flex; gap:.75rem;">
+      <button type="button" class="btn btn-outline" id="consent-cancel" style="flex:1;">Cancel</button>
+      <button type="button" class="btn btn-primary" id="consent-confirm" style="flex:1;" disabled>
+        Confirm &amp; Submit
+      </button>
     </div>
   </div>
 </div>
@@ -458,15 +496,62 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     otherWrap.style.display = this.value === 'Other' ? 'block' : 'none';
   });
 
-  form?.addEventListener('submit', async function (e) {
-    e.preventDefault();
+  const consentModal = document.getElementById('consent-modal');
+  const consentTerms = document.getElementById('consent-terms');
+  const consentPrivacy = document.getElementById('consent-privacy');
+  const consentConfirm = document.getElementById('consent-confirm');
+  const consentError = document.getElementById('consent-error');
+  const TERMS_VERSION = '2026-08-05';
+  const PRIVACY_VERSION = '2026-08-05';
 
+  function updateConsentButton() {
+    const ok = !!(consentTerms?.checked && consentPrivacy?.checked);
+    if (consentConfirm) consentConfirm.disabled = !ok;
+    if (consentError) consentError.style.display = 'none';
+  }
+
+  function openConsentModal() {
+    if (!consentModal) return;
+    if (consentTerms) consentTerms.checked = false;
+    if (consentPrivacy) consentPrivacy.checked = false;
+    updateConsentButton();
+    consentModal.classList.add('open');
+  }
+
+  function closeConsentModal() {
+    if (!consentModal) return;
+    consentModal.classList.remove('open');
+  }
+
+  consentTerms?.addEventListener('change', updateConsentButton);
+  consentPrivacy?.addEventListener('change', updateConsentButton);
+  document.getElementById('consent-close')?.addEventListener('click', closeConsentModal);
+  document.getElementById('consent-cancel')?.addEventListener('click', closeConsentModal);
+  consentModal?.addEventListener('click', function (e) {
+    if (e.target === consentModal) closeConsentModal();
+  });
+
+  form?.addEventListener('submit', function (e) {
+    e.preventDefault();
+    // HTML5 required fields still validated by the browser before submit fires
+    openConsentModal();
+  });
+
+  consentConfirm?.addEventListener('click', async function () {
+    if (!(consentTerms?.checked && consentPrivacy?.checked)) {
+      if (consentError) consentError.style.display = 'block';
+      return;
+    }
+
+    consentConfirm.disabled = true;
+    consentConfirm.textContent = 'Submitting…';
     if (submitBtn) {
       submitBtn.disabled = true;
       submitBtn.textContent = 'Submitting…';
     }
 
-        const shipping = document.getElementById('wi-shipping')?.value.trim() || '';
+    const shipping = document.getElementById('wi-shipping')?.value.trim() || '';
+    const now = new Date().toISOString();
 
     const payload = {
       owner_name: document.getElementById('wi-name').value.trim(),
@@ -478,26 +563,38 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
       nature_other: document.getElementById('wi-other')?.value.trim() || null,
       source: 'landing_page',
       status: 'pending',
-      notes: shipping ? ('Shipping: ' + shipping) : null
+      notes: shipping ? ('Shipping: ' + shipping) : null,
+      terms_accepted: true,
+      privacy_accepted: true,
+      terms_accepted_at: now,
+      privacy_accepted_at: now,
+      terms_version: TERMS_VERSION,
+      privacy_version: PRIVACY_VERSION
     };
 
     try {
-      const { data, error } = await supabaseClient
+      const { error } = await supabaseClient
         .from('wholesale_inquiries')
         .insert([payload])
         .select();
 
       if (error) throw error;
 
+      closeConsentModal();
       formWrap.style.display = 'none';
       thanks.style.display = 'block';
     } catch (err) {
       console.error('Inquiry submit error:', err);
       alert('Sorry — something went wrong submitting your inquiry. Please try again or email us directly.');
+      closeConsentModal();
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.textContent = 'Submit Inquiry';
       }
+    } finally {
+      consentConfirm.disabled = false;
+      consentConfirm.textContent = 'Confirm & Submit';
+      updateConsentButton();
     }
   });
 })();
