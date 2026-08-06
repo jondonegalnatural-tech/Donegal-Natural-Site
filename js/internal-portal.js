@@ -6376,18 +6376,59 @@ function hideInquiryApprovalModal() {
 
 function toggleIaSameAddress() {
     const same = document.getElementById('ia-same-address');
-    const shipping = document.getElementById('ia-shipping');
-    const billing = document.getElementById('ia-billing');
-    if (!same || !shipping || !billing) return;
+    const billingFields = document.getElementById('ia-billing-fields');
+    if (!same || !billingFields) return;
 
     if (same.checked) {
-        billing.value = shipping.value;
-        billing.readOnly = true;
-        billing.classList.add('bg-gray-100');
+        billingFields.classList.add('hidden');
+        // Optional: copy ship → bill so values exist if user later unchecks
+        document.getElementById('ia-bill-street').value = document.getElementById('ia-ship-street')?.value || '';
+        document.getElementById('ia-bill-apt').value = document.getElementById('ia-ship-apt')?.value || '';
+        document.getElementById('ia-bill-city').value = document.getElementById('ia-ship-city')?.value || '';
+        document.getElementById('ia-bill-state').value = document.getElementById('ia-ship-state')?.value || '';
+        document.getElementById('ia-bill-zip').value = document.getElementById('ia-ship-zip')?.value || '';
     } else {
-        billing.readOnly = false;
-        billing.classList.remove('bg-gray-100');
+        billingFields.classList.remove('hidden');
     }
+}
+
+function buildAddressFromParts(street, apt, city, state, zip) {
+    const parts = [];
+    if (street) parts.push(street.trim());
+    if (apt) parts.push(apt.trim());
+    const cityLine = [city, state, zip].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+    // Prefer "City, ST ZIP"
+    if (city && state) {
+        parts.push(`${city.trim()}, ${state.trim()} ${zip ? zip.trim() : ''}`.trim());
+    } else if (cityLine) {
+        parts.push(cityLine);
+    }
+    return parts.join('\n');
+}
+
+function parseAddressBlock(block) {
+    const result = { street: '', apt: '', city: '', state: '', zip: '' };
+    if (!block) return result;
+    const lines = block.split(/\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return result;
+
+    // Last line is usually "City, ST ZIP"
+    const last = lines[lines.length - 1];
+    const cityStateZip = last.match(/^(.+?),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/i);
+    if (cityStateZip) {
+        result.city = cityStateZip[1].trim();
+        result.state = cityStateZip[2].toUpperCase();
+        result.zip = cityStateZip[3];
+        lines.pop();
+    }
+
+    if (lines.length >= 1) result.street = lines[0];
+    if (lines.length >= 2) result.apt = lines[1];
+    // If only one remaining line and no city parsed, treat whole block as free-text street
+    if (!result.city && lines.length === 0 && block) {
+        result.street = block.trim();
+    }
+    return result;
 }
 
 async function openInquiryApprovalModal(inquiryId) {
@@ -6414,16 +6455,32 @@ async function openInquiryApprovalModal(inquiryId) {
         document.getElementById('ia-phone').value = inquiry.phone || '';
 
         const notesText = inquiry.notes || '';
-        let shipping = '';
-        let billing = '';
-        const shipMatch = notesText.match(/Shipping:\s*(.+?)(?:\n|$)/i);
-        const billMatch = notesText.match(/Billing:\s*(.+?)(?:\n|$)/i);
-        if (shipMatch) shipping = shipMatch[1].trim();
-        if (billMatch) billing = billMatch[1].trim();
 
-        document.getElementById('ia-shipping').value = shipping;
-        document.getElementById('ia-billing').value = billing || shipping;
-        document.getElementById('ia-same-address').checked = !billing || billing === shipping;
+        // Extract multi-line Shipping block (until next known key or end)
+        let shipBlock = '';
+        const shipMatch = notesText.match(/Shipping:\s*([\s\S]*?)(?=\n(?:Billing|Admin notes|Approved by|Assigned salesman|Temp username|Temp password):|$)/i);
+        if (shipMatch) shipBlock = shipMatch[1].trim();
+
+        let billBlock = '';
+        const billMatch = notesText.match(/Billing:\s*([\s\S]*?)(?=\n(?:Shipping|Admin notes|Approved by|Assigned salesman|Temp username|Temp password):|$)/i);
+        if (billMatch) billBlock = billMatch[1].trim();
+
+        const shipParts = parseAddressBlock(shipBlock);
+        document.getElementById('ia-ship-street').value = shipParts.street || '';
+        document.getElementById('ia-ship-apt').value = shipParts.apt || '';
+        document.getElementById('ia-ship-city').value = shipParts.city || '';
+        document.getElementById('ia-ship-state').value = shipParts.state || '';
+        document.getElementById('ia-ship-zip').value = shipParts.zip || '';
+
+        const billParts = parseAddressBlock(billBlock || shipBlock);
+        document.getElementById('ia-bill-street').value = billParts.street || '';
+        document.getElementById('ia-bill-apt').value = billParts.apt || '';
+        document.getElementById('ia-bill-city').value = billParts.city || '';
+        document.getElementById('ia-bill-state').value = billParts.state || '';
+        document.getElementById('ia-bill-zip').value = billParts.zip || '';
+
+        const same = !billBlock || billBlock.trim() === shipBlock.trim();
+        document.getElementById('ia-same-address').checked = same;
         toggleIaSameAddress();
         document.getElementById('ia-notes').value = '';
 
@@ -6494,9 +6551,29 @@ async function confirmInquiryApproval() {
     const company = document.getElementById('ia-company').value.trim();
     const email = document.getElementById('ia-email').value.trim();
     const phone = document.getElementById('ia-phone').value.trim();
-    const shipping = document.getElementById('ia-shipping').value.trim();
-    const same = document.getElementById('ia-same-address').checked;
-    const billing = same ? shipping : document.getElementById('ia-billing').value.trim();
+    const shipStreet = document.getElementById('ia-ship-street')?.value.trim() || '';
+    const shipApt = document.getElementById('ia-ship-apt')?.value.trim() || '';
+    const shipCity = document.getElementById('ia-ship-city')?.value.trim() || '';
+    const shipState = document.getElementById('ia-ship-state')?.value.trim() || '';
+    const shipZip = document.getElementById('ia-ship-zip')?.value.trim() || '';
+
+    if (!shipStreet || !shipCity || !shipState || !shipZip) {
+        alert('Shipping street, city, state, and ZIP are required.');
+        return;
+    }
+
+    const shipping = buildAddressFromParts(shipStreet, shipApt, shipCity, shipState, shipZip);
+
+    const same = document.getElementById('ia-same-address')?.checked;
+    let billing = shipping;
+    if (!same) {
+        const billStreet = document.getElementById('ia-bill-street')?.value.trim() || '';
+        const billApt = document.getElementById('ia-bill-apt')?.value.trim() || '';
+        const billCity = document.getElementById('ia-bill-city')?.value.trim() || '';
+        const billState = document.getElementById('ia-bill-state')?.value.trim() || '';
+        const billZip = document.getElementById('ia-bill-zip')?.value.trim() || '';
+        billing = buildAddressFromParts(billStreet, billApt, billCity, billState, billZip) || shipping;
+    }
     const adminNotes = document.getElementById('ia-notes').value.trim();
     const salesmanSelect = document.getElementById('ia-salesman');
     const salesmanId = salesmanSelect.value;
@@ -6523,8 +6600,6 @@ async function confirmInquiryApproval() {
         const approvedBy = user.fullName || user.name || user.email || 'Admin';
 
         const notesParts = [];
-        if (shipping) notesParts.push('Shipping: ' + shipping);
-        if (billing) notesParts.push('Billing: ' + billing);
         if (adminNotes) notesParts.push('Admin notes: ' + adminNotes);
         notesParts.push('Approved by: ' + approvedBy);
         if (salesmanId) {
