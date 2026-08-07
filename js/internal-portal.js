@@ -5497,6 +5497,10 @@ function normalizeAddressKey(addr) {
  * Aggressive free-form clean for Nominatim.
  * Starts at the first house number and cuts after ZIP when present.
  */
+/**
+ * Aggressive free-form clean for Nominatim.
+ * Starts at the first house number and cuts after the real ZIP (last 5-digit group).
+ */
 function cleanAddressForGeocode(raw) {
     if (!raw) return '';
     let s = String(raw)
@@ -5511,9 +5515,10 @@ function cleanAddressForGeocode(raw) {
     const numIdx = s.search(/\b\d{1,6}[A-Za-z]?\s+[A-Za-z0-9]/);
     if (numIdx > 0) s = s.slice(numIdx);
 
-    // Prefer truncate after ZIP if present
-    const zipM = s.match(/^(.*?\b\d{5}(?:-\d{4})?)\b/);
-    if (zipM) s = zipM[1].trim();
+    // Take everything up to (and including) the LAST ZIP-like number.
+    // Greedy match so we don't stop on the house number.
+    const zipMatch = s.match(/^(.*\b\d{5}(?:-\d{4})?)\b/);
+    if (zipMatch) s = zipMatch[1].trim();
 
     return s;
 }
