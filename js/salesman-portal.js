@@ -7,6 +7,17 @@
 
 
 
+// Immediate auth guard — redirect before the page paints
+(function () {
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        if (!user || (user.role !== 'salesman' && user.role !== 'admin')) {
+            window.location.replace('login-portal.html');
+        }
+    } catch (e) {
+        window.location.replace('login-portal.html');
+    }
+})();
 
 let currentUser = null;
 let proposals = JSON.parse(localStorage.getItem("salesmanProposals") || "[]");

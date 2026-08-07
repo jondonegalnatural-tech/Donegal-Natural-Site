@@ -4,6 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Donegal Natural | Sales Portal</title>
+    <script>
+// Auth guard — runs before any content paints
+(function () {
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        if (!user || (user.role !== 'salesman' && user.role !== 'admin')) {
+            window.location.replace('login-portal.html');
+        }
+    } catch (e) {
+        window.location.replace('login-portal.html');
+    }
+})();
+</script>
     <link rel="stylesheet" href="css/portal.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>

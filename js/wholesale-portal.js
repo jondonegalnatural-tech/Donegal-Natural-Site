@@ -3,6 +3,17 @@
 // =============================================
 
 console.log("wholesale-portal.js loaded");
+// Immediate auth guard — redirect before the page paints
+(function () {
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        if (!user || user.role !== 'customer') {
+            window.location.replace('login-portal.html');
+        }
+    } catch (e) {
+        window.location.replace('login-portal.html');
+    }
+})();
 
 // ================== SUPABASE SETUP (TEMPORARY) ==================
 // ================== SUPABASE SETUP ==================
