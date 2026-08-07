@@ -6892,7 +6892,7 @@ async function openInquiryApprovalModal(inquiryId) {
         select.innerHTML = '<option value="">Select salesman…</option>';
 
         let suggestedId = null;
-        const regionHint = (inquiry.region || shipping || notesText || '').toLowerCase();
+        const regionHint = (inquiry.region || shipBlock || notesText || '').toLowerCase();
 
             list.forEach(s => {
                         const label = [s.first_name, s.last_name].filter(Boolean).join(' ')
