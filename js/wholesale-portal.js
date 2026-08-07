@@ -4390,6 +4390,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateQuoteSidebar();
     setupSearch();
     displayWelcome();
+        // Shipping address confirmation (shows until customer confirms)
+    checkAndShowAddressConfirmation();
     updateOrderingAsIndicator();
     refreshOrderHistoryBadge();
     refreshMyQuotesBadge();
@@ -4418,6 +4420,92 @@ document.addEventListener('DOMContentLoaded', async () => {
     const defaultLink = document.querySelector('.sidebar-link[data-target="section-products"]');
     if (defaultLink) defaultLink.classList.add('active');
 });
+
+// ================== ADDRESS CONFIRMATION ==================
+async function checkAndShowAddressConfirmation() {
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        if (!user || !user.email) return;
+
+        const storageKey = 'shippingAddressConfirmed_' + user.email.toLowerCase();
+        if (localStorage.getItem(storageKey)) return; // already confirmed in this browser
+
+        // Prefer the currently selected store if multi-store is active
+        let customer = window._currentCustomer || null;
+
+        if (!customer) {
+            const { data: customers, error: custErr } = await supabaseClient
+                .from('customers')
+                .select('id, name, email')
+                .ilike('email', user.email)
+                .limit(1);
+            if (custErr || !customers || customers.length === 0) return;
+            customer = customers[0];
+        }
+
+        // Load default shipping address
+        const { data: addresses, error: addrErr } = await supabaseClient
+            .from('customer_shipping_addresses')
+            .select('*')
+            .eq('customer_id', customer.id)
+            .eq('is_default', true)
+            .limit(1);
+
+        if (addrErr || !addresses || addresses.length === 0) return;
+
+        const addr = addresses[0];
+
+        // Fill modal fields
+        document.getElementById('confirm-address-line1').value = addr.address_line1 || '';
+        document.getElementById('confirm-address-line2').value = addr.address_line2 || '';
+        document.getElementById('confirm-city').value = addr.city || '';
+        document.getElementById('confirm-state').value = addr.state || '';
+        document.getElementById('confirm-zip').value = addr.zip || '';
+
+        const modal = document.getElementById('address-confirm-modal');
+        if (!modal) return;
+
+        modal.dataset.addressId = addr.id;
+        modal.dataset.storageKey = storageKey;
+        modal.style.display = 'flex';
+
+        document.getElementById('confirm-address-btn').onclick = async function () {
+            const addressId = modal.dataset.addressId;
+            const key = modal.dataset.storageKey;
+
+            const updated = {
+                address_line1: document.getElementById('confirm-address-line1').value.trim(),
+                address_line2: document.getElementById('confirm-address-line2').value.trim() || null,
+                city: document.getElementById('confirm-city').value.trim(),
+                state: document.getElementById('confirm-state').value.trim(),
+                zip: document.getElementById('confirm-zip').value.trim(),
+                updated_at: new Date().toISOString()
+            };
+
+            if (!updated.address_line1 || !updated.city || !updated.state || !updated.zip) {
+                alert('Please fill in Street Address, City, State, and ZIP.');
+                return;
+            }
+
+            const { error } = await supabaseClient
+                .from('customer_shipping_addresses')
+                .update(updated)
+                .eq('id', addressId);
+
+            if (error) {
+                console.error('Address update failed:', error);
+                alert('Could not save address. Please try again.');
+                return;
+            }
+
+            localStorage.setItem(key, 'true');
+            modal.style.display = 'none';
+        };
+
+    } catch (err) {
+        console.error('Address confirmation error:', err);
+    }
+}
 
 async function submitPasswordChange() {
     const p1 = document.getElementById('new-password')?.value || '';
