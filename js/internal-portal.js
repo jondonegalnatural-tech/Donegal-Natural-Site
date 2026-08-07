@@ -5489,24 +5489,48 @@ function normalizeAddressKey(addr) {
  * Strip business names, contact people, and trailing notes so Nominatim
  * sees a clean street + city + state + ZIP string.
  */
-function cleanAddressForGeocode(raw) {
-    if (!raw) return '';
+/**
+ * Parse a noisy shipping address into street / city / state / zip.
+ * Returns null if we cannot extract usable components.
+ */
+function parseAddressComponents(raw) {
+    if (!raw) return null;
     let s = String(raw)
         .replace(/\bUnited States\b/gi, '')
         .replace(/\bUSA\b/gi, '')
-        .replace(/\bDO NOT\b[\s\S]*$/i, '')   // everything after "DO NOT …"
+        .replace(/\bDO NOT\b[\s\S]*$/i, '')
         .replace(/\s+/g, ' ')
         .trim();
 
-    // Prefer the substring that ends with a ZIP (most reliable)
-    const zipMatch = s.match(/(.+?\b\d{5}(?:-\d{4})?\b)/);
-    if (zipMatch) s = zipMatch[1].trim();
+    // Prefer "… City, ST ZIP" or "… City ST ZIP"
+    let m = s.match(/(.+?)[,\s]+([A-Za-z .'-]+?)[,\s]+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)\s*$/i);
+    if (!m) {
+        m = s.match(/(.+?)\s+([A-Za-z .'-]+)\s+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)\s*$/i);
+    }
+    if (!m) return null;
 
-    // Drop leading business / contact text by starting at the first street number
-    const streetStart = s.search(/\b\d{1,6}\s+[A-Za-z0-9]/);
-    if (streetStart > 0) s = s.slice(streetStart);
+    let streetPart = m[1].trim();
+    // Drop leading business / contact text — start at first street number
+    const numIdx = streetPart.search(/\b\d{1,6}\s+[A-Za-z0-9]/);
+    if (numIdx > 0) streetPart = streetPart.slice(numIdx);
 
-    return s.trim();
+    return {
+        street: streetPart.trim(),
+        city: m[2].trim(),
+        state: m[3].toUpperCase(),
+        zip: m[4]
+    };
+}
+
+/**
+ * Lightweight Florida sanity check.
+ * Only rejects results when the original address clearly claims Florida.
+ */
+function isPlausibleResult(lat, lng, originalAddr) {
+    const hasFL = /\b(FL|Florida)\b/i.test(originalAddr || '');
+    if (!hasFL) return true;
+    // Rough Florida bounding box
+    return lat >= 24.0 && lat <= 31.5 && lng >= -88.0 && lng <= -79.0;
 }
 /**
  * Geocode a shipping address via Nominatim (OpenStreetMap).
@@ -5528,16 +5552,33 @@ async function geocodeAddress(address) {
         }
     }
 
-    // Clean the address before querying Nominatim
-    const cleaned = cleanAddressForGeocode(address);
-    if (!cleaned || cleaned.length < 8) {
-        cache[key] = { failed: true, ts: Date.now() };
-        setGeocodeCache(cache);
-        return null;
-    }
+    const components = parseAddressComponents(address);
 
-    try {
-        const url = 'https://nominatim.openstreetmap.org/search?' +
+    // Build query — prefer structured when we have good components
+    let url;
+    if (components && components.street && (components.state || components.zip)) {
+        const params = new URLSearchParams({
+            format: 'json',
+            limit: '1',
+            countrycodes: 'us',
+            addressdetails: '0'
+        });
+        if (components.street) params.set('street', components.street);
+        if (components.city) params.set('city', components.city);
+        if (components.state) params.set('state', components.state);
+        if (components.zip) params.set('postalcode', components.zip);
+        url = 'https://nominatim.openstreetmap.org/search?' + params.toString();
+    } else {
+        // Fallback: cleaned free-form
+        const cleaned = components
+            ? [components.street, components.city, components.state, components.zip].filter(Boolean).join(', ')
+            : String(address).replace(/\bUnited States\b/gi, '').replace(/\bDO NOT\b[\s\S]*$/i, '').trim();
+        if (!cleaned || cleaned.length < 8) {
+            cache[key] = { failed: true, ts: Date.now() };
+            setGeocodeCache(cache);
+            return null;
+        }
+        url = 'https://nominatim.openstreetmap.org/search?' +
             new URLSearchParams({
                 q: cleaned,
                 format: 'json',
@@ -5545,7 +5586,9 @@ async function geocodeAddress(address) {
                 countrycodes: 'us',
                 addressdetails: '0'
             }).toString();
+    }
 
+    try {
         const res = await fetch(url, {
             headers: {
                 'Accept': 'application/json',
@@ -5554,23 +5597,28 @@ async function geocodeAddress(address) {
         });
 
         if (!res.ok) {
-            console.warn('Nominatim HTTP', res.status, cleaned);
+            console.warn('Nominatim HTTP', res.status);
             return null;
         }
 
         const data = await res.json();
         if (!Array.isArray(data) || data.length === 0) {
-            // Permanent failure – cache it so we never re-query this string
             cache[key] = { failed: true, ts: Date.now() };
             setGeocodeCache(cache);
-            // Only log once (the first time we see this address)
-            console.warn('Nominatim no result for', cleaned);
             return null;
         }
 
         const lat = parseFloat(data[0].lat);
         const lng = parseFloat(data[0].lon);
         if (isNaN(lat) || isNaN(lng)) {
+            cache[key] = { failed: true, ts: Date.now() };
+            setGeocodeCache(cache);
+            return null;
+        }
+
+        // Florida sanity check — reject WA / MN / etc. for FL addresses
+        if (!isPlausibleResult(lat, lng, address)) {
+            console.warn('Rejected implausible result for FL address', { lat, lng, address });
             cache[key] = { failed: true, ts: Date.now() };
             setGeocodeCache(cache);
             return null;
