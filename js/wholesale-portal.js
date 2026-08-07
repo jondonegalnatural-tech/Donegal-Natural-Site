@@ -3941,27 +3941,49 @@ async function payInvoice(orderId) {
     }
 }
 
-// ================== ACCOUNT INFO DISPLAY ==================//
+// ================== ACCOUNT INFO DISPLAY ==================
 function showAccountInfo() {
     const container = document.getElementById('account-details');
     if (!container) return;
 
-    const user = JSON.parse(localStorage.getItem('currentUser'));
-
+    const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
     if (!user) {
         container.innerHTML = `<p class="text-[#6B4423]">No user information found.</p>`;
         return;
     }
 
-    container.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    const accounts = window._customerAccounts || [];
+    const active = window._currentCustomer;
+
+    let html = '';
+
+    // ---- Multi-store selector (only when >1) ----
+    if (accounts.length > 1) {
+        html += `
+            <div class="mb-6">
+                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Active Store</label>
+                <select id="store-selector"
+                        class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2.5 text-sm font-medium"
+                        onchange="setActiveCustomer(this.value); showAccountInfo();">
+                    ${accounts.map(c => `
+                        <option value="${c.id}" ${active && String(c.id) === String(active.id) ? 'selected' : ''}>
+                            ${getStoreLabel(c)}
+                        </option>
+                    `).join('')}
+                </select>
+                <p class="text-xs text-[#6B4423] mt-1.5">
+                    Switching store changes which pricing, free-shipping rules, and customer ID are used for new quotes.
+                </p>
+            </div>
+        `;
+    }
+
+    // ---- Login-level info ----
+    html += `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
                 <p class="text-sm text-[#6B4423] font-semibold">Full Name</p>
                 <p class="text-lg font-semibold">${user.fullName || 'N/A'}</p>
-            </div>
-            <div>
-                <p class="text-sm text-[#6B4423] font-semibold">Company</p>
-                <p class="text-lg font-semibold">${user.company || 'N/A'}</p>
             </div>
             <div>
                 <p class="text-sm text-[#6B4423] font-semibold">Email</p>
@@ -3973,6 +3995,63 @@ function showAccountInfo() {
             </div>
         </div>
     `;
+
+    // ---- Selected store details ----
+    if (active) {
+        const pricingStatus = active.pricing_approved_at
+            ? `Approved ${new Date(active.pricing_approved_at).toLocaleDateString()}`
+            : 'Not yet approved';
+        const onboardingStatus = active.onboarding_complete ? 'Complete' : 'Incomplete';
+
+        html += `
+            <div class="border-t border-[#d4b78f] pt-5">
+                <h3 class="font-bold brand-green mb-3">Selected Store Details</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <p class="text-[#6B4423] font-semibold">Company / Store</p>
+                        <p class="font-medium">${active.company || active.name || '—'}</p>
+                    </div>
+                    <div>
+                        <p class="text-[#6B4423] font-semibold">Salesman</p>
+                        <p class="font-medium">${active.salesman_email || '—'}</p>
+                    </div>
+                    <div class="md:col-span-2">
+                        <p class="text-[#6B4423] font-semibold">Shipping Address</p>
+                        <p class="font-medium">${active.shipping_address || active.shippingAddress || '—'}</p>
+                    </div>
+                    <div class="md:col-span-2">
+                        <p class="text-[#6B4423] font-semibold">Billing Address</p>
+                        <p class="font-medium">${active.billing_address || active.billingAddress || '—'}</p>
+                    </div>
+                    <div>
+                        <p class="text-[#6B4423] font-semibold">Pricing Status</p>
+                        <p class="font-medium">${pricingStatus}</p>
+                    </div>
+                    <div>
+                        <p class="text-[#6B4423] font-semibold">Onboarding</p>
+                        <p class="font-medium">${onboardingStatus}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else if (accounts.length === 0) {
+        html += `
+            <div class="border-t border-[#d4b78f] pt-5">
+                <p class="text-[#6B4423] text-sm">No store records found for this email.</p>
+            </div>
+        `;
+    }
+
+    if (accounts.length > 1) {
+        html += `
+            <p class="text-xs text-[#6B4423] mt-6 leading-relaxed">
+                Quotes and Order History are organized by store tabs in those sections.
+                The “Ordering as” indicator at the top shows which store’s pricing and shipping rules apply to new quotes.
+            </p>
+        `;
+    }
+
+    container.innerHTML = html;
 }
 
 function logout() {
