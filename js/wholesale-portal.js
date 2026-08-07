@@ -175,6 +175,61 @@ function updateShippingPolicyCard() {
 }
 // ================== END FREE SHIPPING HELPERS ==================
 
+// ================== MULTI-STORE (SHARED EMAIL) HELPERS ==================
+window._customerAccounts = [];   // all customers that share the logged-in email
+
+function getStoreLabel(c) {
+    if (!c) return 'Store';
+    const company = (c.company || c.name || '').trim();
+    const addr = (c.shipping_address || c.billing_address || c.territory || '').trim();
+    const shortAddr = addr ? addr.split(',')[0].trim() : '';
+    if (company && shortAddr) return `${company} — ${shortAddr}`;
+    if (company) return company;
+    if (shortAddr) return shortAddr;
+    return c.id ? `Store ${String(c.id).slice(0, 8)}` : 'Store';
+}
+
+function setActiveCustomer(id) {
+    const accounts = window._customerAccounts || [];
+    const found = accounts.find(c => String(c.id) === String(id));
+    if (!found) return;
+
+    window._currentCustomer = found;
+    localStorage.setItem('activeCustomerId', String(found.id));
+
+    // Refresh anything that depends on the active store
+    if (typeof updateShippingPolicyCard === 'function') updateShippingPolicyCard();
+    if (typeof renderPortalProducts === 'function') renderPortalProducts();
+    if (typeof updateOrderingAsIndicator === 'function') updateOrderingAsIndicator();
+    if (typeof updateQuoteSidebar === 'function') updateQuoteSidebar();
+}
+
+function updateOrderingAsIndicator() {
+    // Remove any existing chip
+    document.getElementById('ordering-as-chip')?.remove();
+
+    const accounts = window._customerAccounts || [];
+    if (accounts.length <= 1) return;          // single-store → no chip
+
+    const active = window._currentCustomer;
+    if (!active) return;
+
+    const label = getStoreLabel(active);
+
+    // Prefer placing under the welcome name
+    const welcome = document.getElementById('welcome-name');
+    if (welcome && welcome.parentElement) {
+        const chip = document.createElement('div');
+        chip.id = 'ordering-as-chip';
+        chip.className = 'text-xs text-[#6B4423] mt-0.5';
+        chip.innerHTML = `Ordering as: <strong class="text-[#1E4D2B]">${label}</strong>
+            <button type="button" onclick="document.querySelector('.sidebar-link[data-target=\\'section-account\\']')?.click()"
+                    class="ml-1 underline hover:text-[#1E4D2B]">Change</button>`;
+        welcome.parentElement.appendChild(chip);
+    }
+}
+// ================== END MULTI-STORE HELPERS ==================
+
 // ================== MAIN CATEGORIES ==================
 const MAIN_CATEGORIES = [
     "All",
@@ -3922,6 +3977,7 @@ function showAccountInfo() {
 
 function logout() {
     localStorage.removeItem("currentUser");
+    localStorage.removeItem("activeCustomerId");
     window.location.href = "login-portal.html";
 }
 
@@ -4093,18 +4149,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         return; // stop portal init until password is changed
     }
 
-        // Load customer record for onboarding + pricing gate
+        // Load ALL customer records that share this email (multi-store support)
     try {
         const email = (user.email || '').toLowerCase().trim();
-        const { data: customer } = await supabaseClient
+        const { data: customers, error: custErr } = await supabaseClient
             .from('customers')
             .select('*')
-            .ilike('email', email)
-            .maybeSingle();
+            .ilike('email', email);
 
-        window._currentCustomer = customer || null;
+        if (custErr) throw custErr;
 
-        if (!customer || !customer.onboarding_complete) {
+        window._customerAccounts = customers || [];
+
+        // Resolve which store is active
+        const savedId = localStorage.getItem('activeCustomerId');
+        let active = null;
+        if (savedId) {
+            active = window._customerAccounts.find(c => String(c.id) === String(savedId));
+        }
+        if (!active && window._customerAccounts.length > 0) {
+            active = window._customerAccounts[0];   // auto-select first
+        }
+        window._currentCustomer = active || null;
+        if (active) {
+            localStorage.setItem('activeCustomerId', String(active.id));
+        }
+
+        // Onboarding is per selected store
+        if (!active || !active.onboarding_complete) {
             document.getElementById('onboarding-modal')?.classList.remove('hidden');
             return;
         }
@@ -4121,6 +4193,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateQuoteSidebar();
     setupSearch();
     displayWelcome();
+    updateOrderingAsIndicator();
     refreshOrderHistoryBadge();
     refreshMyQuotesBadge();
 
