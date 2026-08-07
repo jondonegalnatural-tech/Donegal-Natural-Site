@@ -5501,6 +5501,12 @@ function normalizeAddressKey(addr) {
  * Aggressive free-form clean for Nominatim.
  * Starts at the first house number and cuts after the real ZIP (last 5-digit group).
  */
+/**
+ * Aggressive free-form clean for Nominatim.
+ * - Starts at the first house number
+ * - Strips suite/unit/apt noise
+ * - Keeps up to the real ZIP (last 5-digit group)
+ */
 function cleanAddressForGeocode(raw) {
     if (!raw) return '';
     let s = String(raw)
@@ -5511,17 +5517,21 @@ function cleanAddressForGeocode(raw) {
         .replace(/\s+/g, ' ')
         .trim();
 
-    // Start at first house number (e.g. 123 Main St, 4567 SW 8th Ave)
+    // Start at first house number
     const numIdx = s.search(/\b\d{1,6}[A-Za-z]?\s+[A-Za-z0-9]/);
     if (numIdx > 0) s = s.slice(numIdx);
 
-    // Take everything up to (and including) the LAST ZIP-like number.
-    // Greedy match so we don't stop on the house number.
+    // Strip suite / unit / apt / # noise (helps Nominatim)
+    s = s.replace(/\b(suite|ste|unit|apt|#)\s*[a-z0-9-]+\b/gi, ' ');
+    s = s.replace(/\s+/g, ' ').trim();
+
+    // Keep everything up to (and including) the LAST ZIP-like number
     const zipMatch = s.match(/^(.*\b\d{5}(?:-\d{4})?)\b/);
     if (zipMatch) s = zipMatch[1].trim();
 
     return s;
 }
+
 function parseAddressComponents(raw) {
     if (!raw) return null;
     let s = String(raw)
