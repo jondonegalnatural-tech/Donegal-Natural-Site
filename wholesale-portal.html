@@ -316,14 +316,41 @@
                 <label class="block text-sm font-semibold text-[#6B4423] mb-2">Payment Method *</label>
                 <div class="space-y-2 text-sm text-[#6B4423]">
                     <label class="flex items-start gap-2 cursor-pointer">
-                        <input type="radio" name="payment-method" value="check" class="mt-1" checked>
+                        <input type="radio" name="payment-method" value="check" class="mt-1" checked
+                               onchange="toggleBankFields()">
                         <span><strong>Check</strong> — preferred method</span>
                     </label>
                     <label class="flex items-start gap-2 cursor-pointer">
-                        <input type="radio" name="payment-method" value="credit_card" class="mt-1">
+                        <input type="radio" name="payment-method" value="credit_card" class="mt-1"
+                               onchange="toggleBankFields()">
                         <span><strong>Credit Card</strong> — a 3% processing fee will be applied</span>
                     </label>
-                    
+                    <label class="flex items-start gap-2 cursor-pointer">
+                        <input type="radio" name="payment-method" value="ach" class="mt-1"
+                               onchange="toggleBankFields()">
+                        <span><strong>ACH / Bank Account</strong></span>
+                    </label>
+                </div>
+
+                <!-- Bank details (required when Check is selected) -->
+                <div id="bank-fields" class="mt-4 space-y-3 p-4 bg-[#f8f4eb] border border-[#d4b78f] rounded-xl">
+                    <p class="text-sm font-semibold text-[#1E4D2B]">Bank Account on File (required for Check)</p>
+                    <div>
+                        <label class="block text-xs font-semibold text-[#6B4423] mb-1">Routing Number *</label>
+                        <input id="onboard-routing" type="text" inputmode="numeric"
+                               class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2" placeholder="9 digits">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-[#6B4423] mb-1">Account Number *</label>
+                        <input id="onboard-account" type="text" inputmode="numeric"
+                               class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
+                    </div>
+                    <p class="text-xs text-[#6B4423] leading-relaxed">
+                        By selecting Check you authorize Donegal Natural to keep this bank account on file.
+                        If an invoice remains unpaid, ordering may be disabled after 30 days and the account
+                        may be charged automatically after 45 days. These actions occur with no prior communication.
+                        Re-enabling ordering requires admin approval.
+                    </p>
                 </div>
             </div>
             <p id="onboarding-error" class="hidden text-sm text-red-600"></p>

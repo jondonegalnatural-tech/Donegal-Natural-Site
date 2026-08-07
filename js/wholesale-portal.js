@@ -4720,6 +4720,14 @@ function showBrandedInvoice(order) {
     document.body.appendChild(modal);
 }
 
+function toggleBankFields() {
+    const method = document.querySelector('input[name="payment-method"]:checked')?.value || '';
+    const bankFields = document.getElementById('bank-fields');
+    if (!bankFields) return;
+    // Show bank fields only when Check is selected
+    bankFields.style.display = (method === 'check') ? 'block' : 'none';
+}
+
 async function submitOnboarding() {
     const street = document.getElementById('onboard-bill-street')?.value.trim() || '';
     const apt    = document.getElementById('onboard-bill-apt')?.value.trim() || '';
@@ -4730,6 +4738,8 @@ async function submitOnboarding() {
     // Join into a single string for the existing billing_address column
     const billing = [street, apt, city, state, zip].filter(Boolean).join(', ');
     const method = document.querySelector('input[name="payment-method"]:checked')?.value || '';
+    const routing = document.getElementById('onboard-routing')?.value.trim() || '';
+    const account = document.getElementById('onboard-account')?.value.trim() || '';
     const errEl = document.getElementById('onboarding-error');
 
     if (!street || !city || !state || !zip) {
@@ -4738,5 +4748,63 @@ async function submitOnboarding() {
             errEl.classList.remove('hidden');
         }
         return;
+    }
+    if (!method) {
+        if (errEl) {
+            errEl.textContent = 'Please select a payment method.';
+            errEl.classList.remove('hidden');
+        }
+        return;
+    }
+    if (method === 'check' && (!routing || !account)) {
+        if (errEl) {
+            errEl.textContent = 'Routing number and account number are required when paying by Check.';
+            errEl.classList.remove('hidden');
+        }
+        return;
+    }
+
+    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    const paymentStatus = method === 'ach' ? 'pending_admin' : 'active';
+    const email = (user.email || '').toLowerCase().trim();
+
+    try {
+        // Prefer the currently selected store; fall back to email only if none selected
+        const activeId = window._currentCustomer?.id;
+        let query = supabaseClient
+            .from('customers')
+            .update({
+                billing_address: billing,
+                payment_method: method,
+                payment_method_status: paymentStatus,
+                bank_routing_number: method === 'check' ? routing : null,
+                bank_account_number: method === 'check' ? account : null,
+                onboarding_complete: true
+            });
+
+        if (activeId) {
+            query = query.eq('id', activeId);
+        } else {
+            query = query.ilike('email', email);
+        }
+
+        const { data, error } = await query.select();
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            alert('Update ran but no customer row was matched for email: ' + email);
+            return;
+        }
+
+        document.getElementById('onboarding-modal')?.classList.add('hidden');
+        location.reload();
+    } catch (err) {
+        console.error(err);
+        alert('Onboarding save failed:\n' + (err.message || JSON.stringify(err)));
+        if (errEl) {
+            errEl.textContent = err.message || 'Could not save account info.';
+            errEl.classList.remove('hidden');
+        }
     }
 }    
