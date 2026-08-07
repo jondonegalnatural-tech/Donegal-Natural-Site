@@ -5493,6 +5493,30 @@ function normalizeAddressKey(addr) {
  * Parse a noisy shipping address into street / city / state / zip.
  * Returns null if we cannot extract usable components.
  */
+/**
+ * Aggressive free-form clean for Nominatim.
+ * Starts at the first house number and cuts after ZIP when present.
+ */
+function cleanAddressForGeocode(raw) {
+    if (!raw) return '';
+    let s = String(raw)
+        .replace(/\bUnited States\b/gi, '')
+        .replace(/\bUSA\b/gi, '')
+        .replace(/\bDO NOT\b[\s\S]*$/i, '')
+        .replace(/[\n\r]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    // Start at first house number (e.g. 123 Main St, 4567 SW 8th Ave)
+    const numIdx = s.search(/\b\d{1,6}[A-Za-z]?\s+[A-Za-z0-9]/);
+    if (numIdx > 0) s = s.slice(numIdx);
+
+    // Prefer truncate after ZIP if present
+    const zipM = s.match(/^(.*?\b\d{5}(?:-\d{4})?)\b/);
+    if (zipM) s = zipM[1].trim();
+
+    return s;
+}
 function parseAddressComponents(raw) {
     if (!raw) return null;
     let s = String(raw)
@@ -5506,6 +5530,11 @@ function parseAddressComponents(raw) {
     let m = s.match(/(.+?)[,\s]+([A-Za-z .'-]+?)[,\s]+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)\s*$/i);
     if (!m) {
         m = s.match(/(.+?)\s+([A-Za-z .'-]+)\s+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)\s*$/i);
+    }
+    // Also accept full state name "Florida"
+    if (!m) {
+        m = s.match(/(.+?)[,\s]+([A-Za-z .'-]+?)[,\s]+(Florida|Fl)\s+(\d{5}(?:-\d{4})?)\s*$/i);
+        if (m) m[3] = 'FL';
     }
     if (!m) return null;
 
@@ -5553,9 +5582,9 @@ async function geocodeAddress(address) {
     }
 
     const components = parseAddressComponents(address);
+    let coords = null;
 
-    // Build query — prefer structured when we have good components
-    let url;
+    // ---------- 1. Structured path (preferred) ----------
     if (components && components.street && (components.state || components.zip)) {
         const params = new URLSearchParams({
             format: 'json',
@@ -5567,70 +5596,79 @@ async function geocodeAddress(address) {
         if (components.city) params.set('city', components.city);
         if (components.state) params.set('state', components.state);
         if (components.zip) params.set('postalcode', components.zip);
-        url = 'https://nominatim.openstreetmap.org/search?' + params.toString();
-    } else {
-        // Fallback: cleaned free-form
-        const cleaned = components
-            ? [components.street, components.city, components.state, components.zip].filter(Boolean).join(', ')
-            : String(address).replace(/\bUnited States\b/gi, '').replace(/\bDO NOT\b[\s\S]*$/i, '').trim();
-        if (!cleaned || cleaned.length < 8) {
-            cache[key] = { failed: true, ts: Date.now() };
-            setGeocodeCache(cache);
-            return null;
-        }
-        url = 'https://nominatim.openstreetmap.org/search?' +
-            new URLSearchParams({
-                q: cleaned,
-                format: 'json',
-                limit: '1',
-                countrycodes: 'us',
-                addressdetails: '0'
-            }).toString();
-    }
 
-    try {
-        const res = await fetch(url, {
-            headers: {
-                'Accept': 'application/json',
-                'User-Agent': GEOCODE_USER_AGENT
+        try {
+            const res = await fetch(
+                'https://nominatim.openstreetmap.org/search?' + params.toString(),
+                {
+                    headers: {
+                        'Accept': 'application/json',
+                        'User-Agent': GEOCODE_USER_AGENT
+                    }
+                }
+            );
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data) && data.length > 0) {
+                    const lat = parseFloat(data[0].lat);
+                    const lng = parseFloat(data[0].lon);
+                    if (!isNaN(lat) && !isNaN(lng) && isPlausibleResult(lat, lng, address)) {
+                        coords = { lat, lng };
+                    }
+                }
             }
-        });
-
-        if (!res.ok) {
-            console.warn('Nominatim HTTP', res.status);
-            return null;
+        } catch (err) {
+            console.warn('Structured Nominatim error:', err);
         }
-
-        const data = await res.json();
-        if (!Array.isArray(data) || data.length === 0) {
-            cache[key] = { failed: true, ts: Date.now() };
-            setGeocodeCache(cache);
-            return null;
-        }
-
-        const lat = parseFloat(data[0].lat);
-        const lng = parseFloat(data[0].lon);
-        if (isNaN(lat) || isNaN(lng)) {
-            cache[key] = { failed: true, ts: Date.now() };
-            setGeocodeCache(cache);
-            return null;
-        }
-
-        // Florida sanity check — reject WA / MN / etc. for FL addresses
-        if (!isPlausibleResult(lat, lng, address)) {
-            console.warn('Rejected implausible result for FL address', { lat, lng, address });
-            cache[key] = { failed: true, ts: Date.now() };
-            setGeocodeCache(cache);
-            return null;
-        }
-
-        cache[key] = { lat, lng, ts: Date.now() };
-        setGeocodeCache(cache);
-        return { lat, lng };
-    } catch (err) {
-        console.error('geocodeAddress error:', err);
-        return null;
     }
+
+    // ---------- 2. Free-form fallback (only if structured missed) ----------
+    if (!coords) {
+        const cleaned = cleanAddressForGeocode(address);
+        if (cleaned && cleaned.length >= 8) {
+            try {
+                const res = await fetch(
+                    'https://nominatim.openstreetmap.org/search?' +
+                    new URLSearchParams({
+                        q: cleaned,
+                        format: 'json',
+                        limit: '1',
+                        countrycodes: 'us',
+                        addressdetails: '0'
+                    }).toString(),
+                    {
+                        headers: {
+                            'Accept': 'application/json',
+                            'User-Agent': GEOCODE_USER_AGENT
+                        }
+                    }
+                );
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        const lat = parseFloat(data[0].lat);
+                        const lng = parseFloat(data[0].lon);
+                        if (!isNaN(lat) && !isNaN(lng) && isPlausibleResult(lat, lng, address)) {
+                            coords = { lat, lng };
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('Free-form Nominatim error:', err);
+            }
+        }
+    }
+
+    // ---------- 3. Cache only after both paths have been tried ----------
+    if (coords) {
+        cache[key] = { lat: coords.lat, lng: coords.lng, ts: Date.now() };
+        setGeocodeCache(cache);
+        return coords;
+    }
+
+    cache[key] = { failed: true, ts: Date.now() };
+    setGeocodeCache(cache);
+    return null;
 }
 
 function delay(ms) {
