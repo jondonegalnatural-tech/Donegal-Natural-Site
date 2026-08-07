@@ -5458,6 +5458,94 @@ setTimeout(updateCustomerChangeRequestsBadge, 600);
 
 // ================== CUSTOMER MAP ==================
 // --- Customer Map Helpers ---
+
+const GEOCODE_CACHE_KEY = 'dn_geocode_cache_v1';
+const GEOCODE_USER_AGENT = 'DonegalNaturalInternalPortal/1.0 (admin@donegalnaturaldogtreats.com)';
+
+function getGeocodeCache() {
+    try {
+        return JSON.parse(localStorage.getItem(GEOCODE_CACHE_KEY) || '{}');
+    } catch {
+        return {};
+    }
+}
+
+function setGeocodeCache(cache) {
+    try {
+        localStorage.setItem(GEOCODE_CACHE_KEY, JSON.stringify(cache));
+    } catch (e) {
+        console.warn('Geocode cache write failed', e);
+    }
+}
+
+function normalizeAddressKey(addr) {
+    return String(addr || '')
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .replace(/[^\w\s,.-]/g, '')
+        .trim();
+}
+
+/**
+ * Geocode a shipping address via Nominatim (OpenStreetMap).
+ * Rate-limited: call with ≥1 s delay between requests.
+ * Results are cached in localStorage.
+ * Returns { lat, lng } or null.
+ */
+async function geocodeAddress(address) {
+    if (!address || !String(address).trim()) return null;
+
+    const key = normalizeAddressKey(address);
+    const cache = getGeocodeCache();
+    if (cache[key] && cache[key].lat != null && cache[key].lng != null) {
+        return { lat: cache[key].lat, lng: cache[key].lng };
+    }
+
+    try {
+        const url = 'https://nominatim.openstreetmap.org/search?' +
+            new URLSearchParams({
+                q: address,
+                format: 'json',
+                limit: '1',
+                countrycodes: 'us',
+                addressdetails: '0'
+            }).toString();
+
+        const res = await fetch(url, {
+            headers: {
+                'Accept': 'application/json',
+                'User-Agent': GEOCODE_USER_AGENT
+            }
+        });
+
+        if (!res.ok) {
+            console.warn('Nominatim HTTP', res.status, address);
+            return null;
+        }
+
+        const data = await res.json();
+        if (!Array.isArray(data) || data.length === 0) {
+            console.warn('Nominatim no result for', address);
+            return null;
+        }
+
+        const lat = parseFloat(data[0].lat);
+        const lng = parseFloat(data[0].lon);
+        if (isNaN(lat) || isNaN(lng)) return null;
+
+        cache[key] = { lat, lng, ts: Date.now() };
+        setGeocodeCache(cache);
+        return { lat, lng };
+    } catch (err) {
+        console.error('geocodeAddress error:', err);
+        return null;
+    }
+}
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+// --- Customer Map Helpers ---
 let customerMap;
 
 async function initCustomerMap() {
@@ -5470,8 +5558,8 @@ async function initCustomerMap() {
         customerMap = null;
     }
 
-    // Default view that matches the wider eastern US view you showed
-    customerMap = L.map('customer-map').setView([41.0, -77.5], 5);
+    // Default view (eastern US) — will fitBounds once markers are ready
+    customerMap = L.map('customer-map').setView([39.5, -80], 5);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
@@ -5479,29 +5567,60 @@ async function initCustomerMap() {
 
     // Force correct sizing after the tab becomes visible
     setTimeout(() => {
-        if (customerMap) {
-            customerMap.invalidateSize();
-        }
+        if (customerMap) customerMap.invalidateSize();
     }, 200);
 
-    // Load customers
-        if (!allCustomers || allCustomers.length === 0) {
+    // Ensure customers are loaded
+    if (!allCustomers || allCustomers.length === 0) {
         await loadCustomers();
     }
 
-        allCustomers.forEach(customer => {
-        const addr = customer.shippingAddress || customer.address || customer.shipping_address || '';
-        if (!addr) return;
+    // Status line under the map (optional progress)
+    const statusEl = document.getElementById('customer-map-status');
+    if (statusEl) statusEl.textContent = 'Geocoding addresses…';
 
-        // Temporary random positions until real geocoding is added
-        const lat = 40.5 + (Math.random() - 0.5) * 2;
-        const lng = -78.4 + (Math.random() - 0.5) * 3;
-
-        const marker = L.marker([lat, lng]).addTo(customerMap);
-        marker.bindPopup(
-            `<b>${customer.name}</b><br>${customer.company || ''}<br>${addr}`
-        );
+    const bounds = [];
+    const customersWithAddr = (allCustomers || []).filter(c => {
+        const addr = c.shippingAddress || c.address || c.shipping_address || '';
+        return !!String(addr).trim();
     });
+
+    // Sequential geocoding to respect Nominatim 1 req/sec guideline
+    for (let i = 0; i < customersWithAddr.length; i++) {
+        const customer = customersWithAddr[i];
+        const addr = customer.shippingAddress || customer.address || customer.shipping_address || '';
+
+        if (statusEl) {
+            statusEl.textContent = `Geocoding ${i + 1} of ${customersWithAddr.length}…`;
+        }
+
+        const coords = await geocodeAddress(addr);
+
+        if (coords) {
+            const marker = L.marker([coords.lat, coords.lng]).addTo(customerMap);
+            marker.bindPopup(
+                `<b>${customer.name || 'Customer'}</b><br>` +
+                `${customer.company || ''}<br>` +
+                `${addr}`
+            );
+            bounds.push([coords.lat, coords.lng]);
+        }
+
+        // Rate limit: 1 request per second (skip delay on last item)
+        if (i < customersWithAddr.length - 1) {
+            await delay(1100);
+        }
+    }
+
+    if (bounds.length > 0) {
+        customerMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
+    }
+
+    if (statusEl) {
+        statusEl.textContent = bounds.length
+            ? `${bounds.length} customer location${bounds.length === 1 ? '' : 's'} shown`
+            : 'No geocoded addresses yet';
+    }
 }
 
 function updateReportsSalesSummary() {
