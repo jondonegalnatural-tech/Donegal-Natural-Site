@@ -5575,23 +5575,60 @@ async function initCustomerMap() {
         await loadCustomers();
     }
 
-    // Status line under the map (optional progress)
     const statusEl = document.getElementById('customer-map-status');
-    if (statusEl) statusEl.textContent = 'Geocoding addresses…';
-
     const bounds = [];
+    const cache = getGeocodeCache();
+
     const customersWithAddr = (allCustomers || []).filter(c => {
         const addr = c.shippingAddress || c.address || c.shipping_address || '';
         return !!String(addr).trim();
     });
 
-    // Sequential geocoding to respect Nominatim 1 req/sec guideline
-    for (let i = 0; i < customersWithAddr.length; i++) {
-        const customer = customersWithAddr[i];
+    // Split into already-cached vs needs network
+    const cached = [];
+    const toGeocode = [];
+
+    customersWithAddr.forEach(customer => {
         const addr = customer.shippingAddress || customer.address || customer.shipping_address || '';
+        const key = normalizeAddressKey(addr);
+        if (cache[key] && cache[key].lat != null && cache[key].lng != null) {
+            cached.push({ customer, addr, coords: { lat: cache[key].lat, lng: cache[key].lng } });
+        } else {
+            toGeocode.push({ customer, addr });
+        }
+    });
+
+    // 1. Place every cached pin immediately
+    cached.forEach(({ customer, addr, coords }) => {
+        const marker = L.marker([coords.lat, coords.lng]).addTo(customerMap);
+        marker.bindPopup(
+            `<b>${customer.name || 'Customer'}</b><br>` +
+            `${customer.company || ''}<br>` +
+            `${addr}`
+        );
+        bounds.push([coords.lat, coords.lng]);
+    });
+
+    if (bounds.length > 0) {
+        customerMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
+    }
+
+    if (statusEl) {
+        if (toGeocode.length === 0) {
+            statusEl.textContent = bounds.length
+                ? `${bounds.length} customer location${bounds.length === 1 ? '' : 's'} shown`
+                : 'No geocoded addresses yet';
+        } else {
+            statusEl.textContent = `Showing ${bounds.length} from cache. Geocoding ${toGeocode.length} remaining…`;
+        }
+    }
+
+    // 2. Only network-geocode the ones that are missing (respect 1 req/sec)
+    for (let i = 0; i < toGeocode.length; i++) {
+        const { customer, addr } = toGeocode[i];
 
         if (statusEl) {
-            statusEl.textContent = `Geocoding ${i + 1} of ${customersWithAddr.length}…`;
+            statusEl.textContent = `Showing ${bounds.length} from cache. Geocoding ${i + 1} of ${toGeocode.length}…`;
         }
 
         const coords = await geocodeAddress(addr);
@@ -5604,16 +5641,16 @@ async function initCustomerMap() {
                 `${addr}`
             );
             bounds.push([coords.lat, coords.lng]);
+
+            // Re-fit as new pins arrive (keeps map useful while the rest load)
+            if (bounds.length > 0) {
+                customerMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
+            }
         }
 
-        // Rate limit: 1 request per second (skip delay on last item)
-        if (i < customersWithAddr.length - 1) {
+        if (i < toGeocode.length - 1) {
             await delay(1100);
         }
-    }
-
-    if (bounds.length > 0) {
-        customerMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
     }
 
     if (statusEl) {
