@@ -17,6 +17,62 @@ let currentCategoryFilter = 'All';
 let quoteItems = JSON.parse(localStorage.getItem('wholesaleQuote')) || [];
 let portalInventory = {}; // product_name → quantity
 let customerBackOrders = []; // pending + fulfilled for this customer
+
+// ================== MULTI-STORE (shared email) ==================
+window._customerAccounts = []; // all customers rows that share the login email
+
+function getStoreLabel(c) {
+    if (!c) return 'Unknown store';
+    const name = (c.company || c.name || '').trim();
+    const addr = (c.shipping_address || c.territory || '').trim();
+    const shortAddr = addr ? addr.split(',')[0].trim() : '';
+    if (name && shortAddr) return `${name} — ${shortAddr}`;
+    if (name) return name;
+    if (shortAddr) return shortAddr;
+    return `Store ${String(c.id || '').slice(0, 8)}`;
+}
+
+function resolveActiveCustomer() {
+    const accounts = window._customerAccounts || [];
+    if (accounts.length === 0) {
+        window._currentCustomer = null;
+        return null;
+    }
+    if (accounts.length === 1) {
+        window._currentCustomer = accounts[0];
+        localStorage.setItem('activeCustomerId', accounts[0].id);
+        return accounts[0];
+    }
+    const savedId = localStorage.getItem('activeCustomerId');
+    let active = accounts.find(c => String(c.id) === String(savedId));
+    if (!active) {
+        active = accounts[0];
+        localStorage.setItem('activeCustomerId', active.id);
+    }
+    window._currentCustomer = active;
+    return active;
+}
+
+function switchActiveCustomer(customerId) {
+    const accounts = window._customerAccounts || [];
+    const next = accounts.find(c => String(c.id) === String(customerId));
+    if (!next) return;
+
+    localStorage.setItem('activeCustomerId', next.id);
+    window._currentCustomer = next;
+
+    // Refresh anything that depends on the active store
+    if (typeof updateShippingPolicyCard === 'function') updateShippingPolicyCard();
+    if (typeof renderPortalProducts === 'function') renderPortalProducts();
+    if (typeof displayWelcome === 'function') displayWelcome();
+    if (typeof updateQuoteSidebar === 'function') updateQuoteSidebar();
+
+    // If this store still needs onboarding, show the modal
+    if (!next.onboarding_complete) {
+        document.getElementById('onboarding-modal')?.classList.remove('hidden');
+    }
+}
+// ================== END MULTI-STORE ==================
 let _quotesStoreFilter = 'all';   // 'all' or a customer id (string)
 let _ordersStoreFilter = 'all';   // same for Order History
 // ================== FREE SHIPPING HELPERS (customer portal) ==================
@@ -4019,100 +4075,81 @@ function showAccountInfo() {
     const accounts = window._customerAccounts || [];
     const active = window._currentCustomer;
 
-    let html = '';
+    let html = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+                <p class="text-sm text-[#6B4423] font-semibold">Login Email</p>
+                <p class="text-lg">${user.email || 'N/A'}</p>
+            </div>
+            <div>
+                <p class="text-sm text-[#6B4423] font-semibold">Full Name</p>
+                <p class="text-lg font-semibold">${user.fullName || 'N/A'}</p>
+            </div>
+        </div>
+    `;
 
-    // ---- Multi-store selector (only when >1) ----
+    // Store selector (only when more than one store shares the email)
     if (accounts.length > 1) {
         html += `
-            <div class="mb-6">
-                <label class="block text-sm font-semibold text-[#6B4423] mb-1">Active Store</label>
+            <div class="mb-6 p-4 bg-[#f8f4eb] border-2 border-[#6B4423] rounded-xl">
+                <label class="block text-sm font-semibold text-[#1E4D2B] mb-2">Active Store</label>
                 <select id="store-selector"
                         class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2.5 text-sm font-medium"
-                        onchange="setActiveCustomer(this.value); showAccountInfo();">
+                        onchange="switchActiveCustomer(this.value)">
                     ${accounts.map(c => `
                         <option value="${c.id}" ${active && String(c.id) === String(active.id) ? 'selected' : ''}>
                             ${getStoreLabel(c)}
                         </option>
                     `).join('')}
                 </select>
-                <p class="text-xs text-[#6B4423] mt-1.5">
-                    Switching store changes which pricing, free-shipping rules, and customer ID are used for new quotes.
+                <p class="text-xs text-[#6B4423] mt-2">
+                    Pricing, free-shipping thresholds, and new quotes use the selected store.
+                    Quotes &amp; Order History still show activity for every store under this email.
                 </p>
             </div>
         `;
     }
 
-    // ---- Login-level info ----
-    html += `
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div>
-                <p class="text-sm text-[#6B4423] font-semibold">Full Name</p>
-                <p class="text-lg font-semibold">${user.fullName || 'N/A'}</p>
-            </div>
-            <div>
-                <p class="text-sm text-[#6B4423] font-semibold">Email</p>
-                <p class="text-lg">${user.email || 'N/A'}</p>
-            </div>
-            <div>
-                <p class="text-sm text-[#6B4423] font-semibold">Role</p>
-                <p class="text-lg capitalize">${user.role || 'N/A'}</p>
-            </div>
-        </div>
-    `;
-
-    // ---- Selected store details ----
+    // Selected store details
     if (active) {
-        const pricingStatus = active.pricing_approved_at
-            ? `Approved ${new Date(active.pricing_approved_at).toLocaleDateString()}`
-            : 'Not yet approved';
-        const onboardingStatus = active.onboarding_complete ? 'Complete' : 'Incomplete';
-
+        const pricingOk = !!active.pricing_approved_at;
         html += `
-            <div class="border-t border-[#d4b78f] pt-5">
-                <h3 class="font-bold brand-green mb-3">Selected Store Details</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div class="border-t border-[#d4b78f] pt-6">
+                <h3 class="font-bold brand-green mb-4">
+                    ${accounts.length > 1 ? 'Selected Store Details' : 'Store Details'}
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
                     <div>
                         <p class="text-[#6B4423] font-semibold">Company / Store</p>
-                        <p class="font-medium">${active.company || active.name || '—'}</p>
+                        <p class="font-semibold text-[#1E4D2B]">${active.company || active.name || '—'}</p>
                     </div>
                     <div>
                         <p class="text-[#6B4423] font-semibold">Salesman</p>
-                        <p class="font-medium">${active.salesman_email || '—'}</p>
+                        <p>${active.salesman_email || '—'}</p>
                     </div>
                     <div class="md:col-span-2">
                         <p class="text-[#6B4423] font-semibold">Shipping Address</p>
-                        <p class="font-medium">${active.shipping_address || active.shippingAddress || '—'}</p>
+                        <p>${active.shipping_address || '—'}</p>
                     </div>
                     <div class="md:col-span-2">
                         <p class="text-[#6B4423] font-semibold">Billing Address</p>
-                        <p class="font-medium">${active.billing_address || active.billingAddress || '—'}</p>
+                        <p>${active.billing_address || '—'}</p>
                     </div>
                     <div>
                         <p class="text-[#6B4423] font-semibold">Pricing Status</p>
-                        <p class="font-medium">${pricingStatus}</p>
+                        <p class="${pricingOk ? 'text-green-700 font-semibold' : 'text-orange-700'}">
+                            ${pricingOk ? 'Approved' : 'Awaiting salesman approval'}
+                        </p>
                     </div>
                     <div>
                         <p class="text-[#6B4423] font-semibold">Onboarding</p>
-                        <p class="font-medium">${onboardingStatus}</p>
+                        <p>${active.onboarding_complete ? 'Complete' : 'Incomplete'}</p>
                     </div>
                 </div>
             </div>
         `;
-    } else if (accounts.length === 0) {
-        html += `
-            <div class="border-t border-[#d4b78f] pt-5">
-                <p class="text-[#6B4423] text-sm">No store records found for this email.</p>
-            </div>
-        `;
-    }
-
-    if (accounts.length > 1) {
-        html += `
-            <p class="text-xs text-[#6B4423] mt-6 leading-relaxed">
-                Quotes and Order History are organized by store tabs in those sections.
-                The “Ordering as” indicator at the top shows which store’s pricing and shipping rules apply to new quotes.
-            </p>
-        `;
+    } else {
+        html += `<p class="text-[#6B4423]">No store record found for this email.</p>`;
     }
 
     container.innerHTML = html;
@@ -4268,10 +4305,16 @@ function displayWelcome() {
     if (!nameElement) return;
 
     const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    const active = window._currentCustomer;
+    const accounts = window._customerAccounts || [];
 
     if (user && user.fullName) {
         const company = user.company ? ` (${user.company})` : '';
-        nameElement.textContent = `${user.fullName}${company}`;
+        let text = `${user.fullName}${company}`;
+        if (accounts.length > 1 && active) {
+            text += `<br><span class="text-xs font-normal text-[#6B4423]">Ordering as: ${getStoreLabel(active)}</span>`;
+        }
+        nameElement.innerHTML = text;
     } else {
         nameElement.textContent = '';
     }
@@ -4405,6 +4448,7 @@ async function submitPasswordChange() {
         }
 
         // Durable flag on customers table (this is what stops the modal on next login)
+        // Password is account-level; mark password_changed on every store that shares this email
         if (email) {
             const { error: custError } = await supabaseClient
                 .from('customers')
@@ -4605,16 +4649,24 @@ async function submitOnboarding() {
     console.log('Payload:', { billing, method, paymentStatus });
 
     try {
-        const { data, error } = await supabaseClient
+        // Prefer the currently selected store; fall back to email only if none selected
+        const activeId = window._currentCustomer?.id;
+        let query = supabaseClient
             .from('customers')
             .update({
                 billing_address: billing,
                 payment_method: method,
                 payment_method_status: paymentStatus,
                 onboarding_complete: true
-            })
-            .ilike('email', email)
-            .select();
+            });
+
+        if (activeId) {
+            query = query.eq('id', activeId);
+        } else {
+            query = query.ilike('email', email);
+        }
+
+        const { data, error } = await query.select();
 
         console.log('Update data:', data);
         console.log('Update error:', error);
