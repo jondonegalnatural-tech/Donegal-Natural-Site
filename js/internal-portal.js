@@ -9,6 +9,9 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // =====================================================
 
+// HARD SAFETY — set to true ONLY right before publishing the live site
+const EMAILS_ENABLED = false;
+
 // ================== GLOBAL VARIABLES ==================
 let currentMatrixStartDate = null;
 let currentMatrixMetric = 'units';
@@ -3876,6 +3879,16 @@ async function sendOrderStatusEmail({ type, order, denialReason }) {
         return;
     }
 
+    // HARD SAFETY — emails disabled while developing
+    if (!EMAILS_ENABLED) {
+        console.log('[DEV] Email skipped (EMAILS_ENABLED=false):', {
+            type,
+            toEmail,
+            orderId: order.id
+        });
+        return;
+    }
+
     try {
         const res = await fetch(
             SUPABASE_URL + '/functions/v1/send-order-status-email',
@@ -5494,14 +5507,7 @@ function normalizeAddressKey(addr) {
  * Returns null if we cannot extract usable components.
  */
 /**
- * Aggressive free-form clean for Nominatim.
- * Starts at the first house number and cuts after ZIP when present.
- */
-/**
- * Aggressive free-form clean for Nominatim.
- * Starts at the first house number and cuts after the real ZIP (last 5-digit group).
- */
-/**
+
  * Aggressive free-form clean for Nominatim.
  * - Starts at the first house number
  * - Strips suite/unit/apt noise
