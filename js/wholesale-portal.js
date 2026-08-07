@@ -17,7 +17,8 @@ let currentCategoryFilter = 'All';
 let quoteItems = JSON.parse(localStorage.getItem('wholesaleQuote')) || [];
 let portalInventory = {}; // product_name → quantity
 let customerBackOrders = []; // pending + fulfilled for this customer
-
+let _quotesStoreFilter = 'all';   // 'all' or a customer id (string)
+let _ordersStoreFilter = 'all';   // same for Order History
 // ================== FREE SHIPPING HELPERS (customer portal) ==================
 const WEST_OF_MISSISSIPPI_STATES = [
     'WA', 'OR', 'CA', 'NV', 'ID', 'MT', 'WY', 'UT', 'AZ', 'NM', 'CO',
@@ -229,7 +230,43 @@ function updateOrderingAsIndicator() {
     }
 }
 // ================== END MULTI-STORE HELPERS ==================
+function buildStoreTabs(section, currentFilter, onSelect) {
+    const accounts = window._customerAccounts || [];
+    if (accounts.length <= 1) return '';   // single-store → no tabs
 
+    const tabs = [
+        { id: 'all', label: 'All Stores' },
+        ...accounts.map(c => ({ id: String(c.id), label: getStoreLabel(c) }))
+    ];
+
+    return `
+        <div class="flex flex-wrap gap-2 mb-5 border-b border-[#d4b78f] pb-3">
+            ${tabs.map(t => {
+                const active = String(currentFilter) === String(t.id);
+                return `
+                    <button type="button"
+                            onclick="${onSelect}('${t.id}')"
+                            class="px-3 py-1.5 text-sm font-semibold rounded-xl border-2 transition
+                                   ${active
+                                       ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]'
+                                       : 'bg-white text-[#6B4423] border-[#6B4423] hover:bg-[#f8f4eb]'}">
+                        ${t.label}
+                    </button>`;
+            }).join('')}
+        </div>
+    `;
+}
+
+function getStoreBadgeForOrder(order) {
+    const accounts = window._customerAccounts || [];
+    if (accounts.length <= 1) return '';
+    const match = accounts.find(c =>
+        String(c.id) === String(order.customer_id) ||
+        (c.company && order.customer_company && c.company.toLowerCase() === order.customer_company.toLowerCase())
+    );
+    if (!match) return '';
+    return `<span class="inline-block ml-2 px-2 py-0.5 text-[10px] font-semibold rounded-full bg-[#e8d9c2] text-[#1E4D2B]">${getStoreLabel(match)}</span>`;
+}
 // ================== MAIN CATEGORIES ==================
 const MAIN_CATEGORIES = [
     "All",
@@ -2673,17 +2710,26 @@ async function loadMyQuotes() {
                     await loadCustomerBackOrders();
                 }
 
-        if (active.length === 0) {
+        // Apply store filter
+        let filtered = active;
+        if (_quotesStoreFilter !== 'all') {
+            filtered = active.filter(o => String(o.customer_id) === String(_quotesStoreFilter));
+        }
+
+        if (filtered.length === 0) {
+            const tabsHtml = buildStoreTabs('quotes', _quotesStoreFilter, 'switchQuotesStoreFilter');
             container.innerHTML = `
-                <h2 class="text-2xl font-bold brand-green mb-6">My Quote Requests</h2>
+                <h2 class="text-2xl font-bold brand-green mb-4">My Quote Requests</h2>
+                ${tabsHtml}
                 <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-8 text-center">
-                    <p class="text-[#6B4423]">No open quotes. Submitted quotes stay here until they are paid or denied.</p>
+                    <p class="text-[#6B4423]">No open quotes for this store.</p>
                 </div>
             `;
             return;
         }
 
-        let html = `<h2 class="text-2xl font-bold brand-green mb-6">My Quote Requests</h2>`;
+        const tabsHtml = buildStoreTabs('quotes', _quotesStoreFilter, 'switchQuotesStoreFilter');
+        let html = `<h2 class="text-2xl font-bold brand-green mb-4">My Quote Requests</h2>${tabsHtml}`;
 
         active.forEach(quote => {
             const date = new Date(quote.submitted_at).toLocaleDateString();
@@ -2730,7 +2776,7 @@ async function loadMyQuotes() {
                      onclick='showBrandedInvoice(${JSON.stringify(quote).replace(/'/g, "&#39;")})'>
                     <div class="flex justify-between items-start mb-3">
                         <div>
-                            <p class="font-bold text-lg brand-green">Quote</p>
+                            <p class="font-bold text-lg brand-green">Quote ${getStoreBadgeForOrder(quote)}</p>
                             <p class="text-xs text-[#6B4423]">${quote.id}</p>
                             <p class="text-sm text-[#6B4423]">Submitted: ${date}</p>
                         </div>
@@ -2835,6 +2881,10 @@ async function loadMyQuotes() {
         `;
     }
 }       
+function switchQuotesStoreFilter(id) {
+    _quotesStoreFilter = id;
+    loadMyQuotes();
+}
 
 async function loadOrderHistory() {
     const container = document.getElementById('section-orders');
@@ -2882,28 +2932,38 @@ async function loadOrderHistory() {
             await loadCustomerBackOrders();
         }
 
-        if (completed.length === 0) {
+        // Apply store filter
+        let filtered = completed;
+        if (_ordersStoreFilter !== 'all') {
+            filtered = completed.filter(o => String(o.customer_id) === String(_ordersStoreFilter));
+        }
+
+        if (filtered.length === 0) {
+            const tabsHtml = buildStoreTabs('orders', _ordersStoreFilter, 'switchOrdersStoreFilter');
             container.innerHTML = `
-                <h2 class="text-2xl font-bold brand-green mb-6">Order History</h2>
+                <h2 class="text-2xl font-bold brand-green mb-4">Order History</h2>
+                ${tabsHtml}
                 <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-8 text-center">
-                    <p class="text-[#6B4423]">No paid or denied orders yet. Paid invoices and denied quotes appear here.</p>
+                    <p class="text-[#6B4423]">No paid or denied orders for this store.</p>
                 </div>
             `;
             return;
         }
 
+        const tabsHtml = buildStoreTabs('orders', _ordersStoreFilter, 'switchOrdersStoreFilter');
         let html = `
-            <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <h2 class="text-2xl font-bold brand-green">Order History</h2>
                 <input type="text" id="order-history-search"
                        placeholder="Search invoice #, product, amount…"
                        class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-full sm:w-72"
                        oninput="filterOrderHistory()">
             </div>
+            ${tabsHtml}
             <div id="order-history-list">
         `;
 
-        completed.forEach(order => {
+        filtered.forEach(order => {
             const date = new Date(order.submitted_at).toLocaleDateString();
             const status = (order.status || '').toLowerCase();
             const items = order.items || [];
@@ -2940,7 +3000,7 @@ async function loadOrderHistory() {
                      onclick="openOrderHistoryInvoice('${order.id}')">
                     <div class="flex justify-between items-start mb-3">
                         <div>
-                            <p class="font-bold text-lg brand-green">Invoice</p>
+                            <p class="font-bold text-lg brand-green">Invoice ${getStoreBadgeForOrder(order)}</p>
                             <p class="text-xs text-[#6B4423]">${order.id}</p>
                             <p class="text-sm text-[#6B4423]">Order Date: ${date}</p>
                             ${(order.tracking_number || '').trim() ? `
@@ -3047,6 +3107,10 @@ async function loadOrderHistory() {
             <p class="text-sm text-red-600">Could not load order history.</p>
         `;
     }
+}
+function switchOrdersStoreFilter(id) {
+    _ordersStoreFilter = id;
+    loadOrderHistory();
 }
 
 // ================== CUSTOMER BACK ORDERS ==================
