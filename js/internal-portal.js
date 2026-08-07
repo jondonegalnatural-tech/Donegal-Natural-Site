@@ -5485,7 +5485,29 @@ function normalizeAddressKey(addr) {
         .replace(/[^\w\s,.-]/g, '')
         .trim();
 }
+/**
+ * Strip business names, contact people, and trailing notes so Nominatim
+ * sees a clean street + city + state + ZIP string.
+ */
+function cleanAddressForGeocode(raw) {
+    if (!raw) return '';
+    let s = String(raw)
+        .replace(/\bUnited States\b/gi, '')
+        .replace(/\bUSA\b/gi, '')
+        .replace(/\bDO NOT\b[\s\S]*$/i, '')   // everything after "DO NOT …"
+        .replace(/\s+/g, ' ')
+        .trim();
 
+    // Prefer the substring that ends with a ZIP (most reliable)
+    const zipMatch = s.match(/(.+?\b\d{5}(?:-\d{4})?\b)/);
+    if (zipMatch) s = zipMatch[1].trim();
+
+    // Drop leading business / contact text by starting at the first street number
+    const streetStart = s.search(/\b\d{1,6}\s+[A-Za-z0-9]/);
+    if (streetStart > 0) s = s.slice(streetStart);
+
+    return s.trim();
+}
 /**
  * Geocode a shipping address via Nominatim (OpenStreetMap).
  * Rate-limited: call with ≥1 s delay between requests.
@@ -5497,14 +5519,27 @@ async function geocodeAddress(address) {
 
     const key = normalizeAddressKey(address);
     const cache = getGeocodeCache();
-    if (cache[key] && cache[key].lat != null && cache[key].lng != null) {
-        return { lat: cache[key].lat, lng: cache[key].lng };
+
+    // Cache hit (success or permanent failure) → return immediately
+    if (cache[key]) {
+        if (cache[key].failed) return null;
+        if (cache[key].lat != null && cache[key].lng != null) {
+            return { lat: cache[key].lat, lng: cache[key].lng };
+        }
+    }
+
+    // Clean the address before querying Nominatim
+    const cleaned = cleanAddressForGeocode(address);
+    if (!cleaned || cleaned.length < 8) {
+        cache[key] = { failed: true, ts: Date.now() };
+        setGeocodeCache(cache);
+        return null;
     }
 
     try {
         const url = 'https://nominatim.openstreetmap.org/search?' +
             new URLSearchParams({
-                q: address,
+                q: cleaned,
                 format: 'json',
                 limit: '1',
                 countrycodes: 'us',
@@ -5519,19 +5554,27 @@ async function geocodeAddress(address) {
         });
 
         if (!res.ok) {
-            console.warn('Nominatim HTTP', res.status, address);
+            console.warn('Nominatim HTTP', res.status, cleaned);
             return null;
         }
 
         const data = await res.json();
         if (!Array.isArray(data) || data.length === 0) {
-            console.warn('Nominatim no result for', address);
+            // Permanent failure – cache it so we never re-query this string
+            cache[key] = { failed: true, ts: Date.now() };
+            setGeocodeCache(cache);
+            // Only log once (the first time we see this address)
+            console.warn('Nominatim no result for', cleaned);
             return null;
         }
 
         const lat = parseFloat(data[0].lat);
         const lng = parseFloat(data[0].lon);
-        if (isNaN(lat) || isNaN(lng)) return null;
+        if (isNaN(lat) || isNaN(lng)) {
+            cache[key] = { failed: true, ts: Date.now() };
+            setGeocodeCache(cache);
+            return null;
+        }
 
         cache[key] = { lat, lng, ts: Date.now() };
         setGeocodeCache(cache);
