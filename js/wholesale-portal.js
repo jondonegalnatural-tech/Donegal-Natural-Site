@@ -4721,70 +4721,22 @@ function showBrandedInvoice(order) {
 }
 
 async function submitOnboarding() {
-    const billing = document.getElementById('onboard-billing')?.value.trim() || '';
+    const street = document.getElementById('onboard-bill-street')?.value.trim() || '';
+    const apt    = document.getElementById('onboard-bill-apt')?.value.trim() || '';
+    const city   = document.getElementById('onboard-bill-city')?.value.trim() || '';
+    const state  = document.getElementById('onboard-bill-state')?.value.trim() || '';
+    const zip    = document.getElementById('onboard-bill-zip')?.value.trim() || '';
+
+    // Join into a single string for the existing billing_address column
+    const billing = [street, apt, city, state, zip].filter(Boolean).join(', ');
     const method = document.querySelector('input[name="payment-method"]:checked')?.value || '';
     const errEl = document.getElementById('onboarding-error');
 
-    if (!billing) {
+    if (!street || !city || !state || !zip) {
         if (errEl) {
-            errEl.textContent = 'Billing address is required.';
+            errEl.textContent = 'Street, City, State, and ZIP are required.';
             errEl.classList.remove('hidden');
         }
         return;
     }
-    if (!method) {
-        if (errEl) {
-            errEl.textContent = 'Please select a payment method.';
-            errEl.classList.remove('hidden');
-        }
-        return;
-    }
-
-    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    const paymentStatus = method === 'ach' ? 'pending_admin' : 'active';
-    const email = (user.email || '').toLowerCase().trim();
-
-    console.log('Onboarding update for email:', email);
-    console.log('Payload:', { billing, method, paymentStatus });
-
-    try {
-        // Prefer the currently selected store; fall back to email only if none selected
-        const activeId = window._currentCustomer?.id;
-        let query = supabaseClient
-            .from('customers')
-            .update({
-                billing_address: billing,
-                payment_method: method,
-                payment_method_status: paymentStatus,
-                onboarding_complete: true
-            });
-
-        if (activeId) {
-            query = query.eq('id', activeId);
-        } else {
-            query = query.ilike('email', email);
-        }
-
-        const { data, error } = await query.select();
-
-        console.log('Update data:', data);
-        console.log('Update error:', error);
-
-        if (error) throw error;
-
-        if (!data || data.length === 0) {
-            alert('Update ran but no customer row was matched for email: ' + email);
-            return;
-        }
-
-        document.getElementById('onboarding-modal')?.classList.add('hidden');
-        location.reload();
-    } catch (err) {
-        console.error(err);
-        alert('Onboarding save failed:\n' + (err.message || JSON.stringify(err)));
-        if (errEl) {
-            errEl.textContent = err.message || 'Could not save account info.';
-            errEl.classList.remove('hidden');
-        }
-    }
-}
+}    
