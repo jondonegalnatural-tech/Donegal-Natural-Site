@@ -8350,28 +8350,30 @@ function initDashboardDragAndDrop() {
 
 // ================== INITIALIZATION ==================
 window.onload = async function() {
-    loadUser();
+    // Require admin login
+    const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    if (!user || user.role !== 'admin') {
+        window.location.href = 'login-portal.html';
+        return;
+    }
 
+    loadUser();
     const dashboard = document.getElementById('dashboard');
     if (dashboard) dashboard.style.display = 'block';
-
     if (typeof initDashboardDragAndDrop === 'function') {
         initDashboardDragAndDrop();
     }
-
     // Parallel independent loads for faster first paint
     const loads = [];
     if (typeof loadOrders === 'function') loads.push(loadOrders());
     if (typeof loadInventory === 'function') loads.push(loadInventory());
     if (typeof loadInquiries === 'function') loads.push(loadInquiries());
     if (typeof loadVendors === 'function') loads.push(loadVendors());
-
     try {
         await Promise.all(loads);
     } catch (err) {
         console.warn('Dashboard parallel load warning:', err);
     }
-
     // Pure UI updates from in-memory data (after loads settle)
     if (typeof updateDashboardSales === 'function') updateDashboardSales();
     if (typeof updateDashboardOrders === 'function') updateDashboardOrders();
