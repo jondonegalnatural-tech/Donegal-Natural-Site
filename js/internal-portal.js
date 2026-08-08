@@ -1360,6 +1360,11 @@ async function renderSalesmen() {
         const monthly = '$' + Math.round(totals.monthly).toLocaleString();
         const yearly = '$' + Math.round(totals.yearly).toLocaleString();
 
+        const toggleLabel = isActive ? 'Disable' : 'Enable';
+        const toggleClass = isActive
+            ? 'border-red-600 text-red-700 hover:bg-red-50'
+            : 'border-green-600 text-green-700 hover:bg-green-50';
+
         const card = document.createElement('div');
         card.className = 'bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition';
         card.onclick = () => showSalesmanDetail(s.id);
@@ -1375,9 +1380,16 @@ async function renderSalesmen() {
                         <p class="text-sm text-[#6B4423]">Territory: <strong>${s.territory || '—'}</strong></p>
                     </div>
                 </div>
-                <span class="px-3 py-1 text-xs font-semibold rounded-full flex-shrink-0 ${isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}">
-                    ${isActive ? 'Active' : 'Inactive'}
-                </span>
+                <div class="flex flex-col items-end gap-2 flex-shrink-0" onclick="event.stopPropagation()">
+                    <span class="px-3 py-1 text-xs font-semibold rounded-full ${isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}">
+                        ${isActive ? 'Active' : 'Inactive'}
+                    </span>
+                    <button type="button"
+                            onclick="toggleSalesmanActive('${s.id}', event)"
+                            class="px-3 py-1 text-xs font-semibold rounded-lg border-2 ${toggleClass}">
+                        ${toggleLabel}
+                    </button>
+                </div>
             </div>
             <div class="grid grid-cols-2 gap-4 text-sm">
                 <div>
@@ -6423,6 +6435,49 @@ function showEditSalesmanModal() {
 
     modal.classList.remove('hidden');
     modal.style.display = 'flex';
+}
+
+async function toggleSalesmanActive(salesmanId, event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === 'function') {
+            event.stopImmediatePropagation();
+        }
+    }
+
+    const salesman = (salesmen || []).find(s => String(s.id) === String(salesmanId));
+    if (!salesman) {
+        alert('Salesman not found.');
+        return;
+    }
+
+    const currentlyActive = salesman.active !== false;
+    const newActive = !currentlyActive;
+    const name = salesman.name
+        || [salesman.firstName, salesman.lastName].filter(Boolean).join(' ')
+        || 'this salesman';
+
+    const action = newActive ? 'enable' : 'disable';
+    if (!confirm(`${action === 'enable' ? 'Enable' : 'Disable'} ${name}?`)) {
+        return;
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from('salesmen')
+            .update({ active: newActive })
+            .eq('id', salesmanId);
+
+        if (error) throw error;
+
+        salesman.active = newActive;
+        if (typeof renderSalesmen === 'function') await renderSalesmen();
+        if (typeof updateDashboardSalesmen === 'function') updateDashboardSalesmen();
+    } catch (err) {
+        console.error('toggleSalesmanActive error:', err);
+        alert('Could not update salesman status.\n' + (err.message || ''));
+    }
 }
 
 async function saveEditedSalesman(event) {
