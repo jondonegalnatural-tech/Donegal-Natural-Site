@@ -1340,33 +1340,32 @@ async function renderSalesmen() {
         card.onclick = () => showSalesmanDetail(s.id);
 
         card.innerHTML = `
-            <div class="flex items-center gap-4 mb-4">
-                <div class="w-14 h-14 bg-[#1E4D2B] rounded-full flex items-center justify-center">
-                    <i class="fas fa-user text-[#d4b78f] text-2xl"></i>
+            <div class="flex items-start justify-between gap-3 mb-4">
+                <div class="flex items-center gap-4 min-w-0">
+                    <div class="w-14 h-14 bg-[#1E4D2B] rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-user text-[#d4b78f] text-2xl"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h3 class="text-xl font-bold brand-green truncate">${s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || 'Unnamed'}</h3>
+                        <p class="text-sm text-[#6B4423]">Territory: <strong>${s.territory || '—'}</strong></p>
+                    </div>
                 </div>
-                <div>
-                    <h3 class="text-xl font-bold brand-green ${isActive ? '' : 'line-through text-gray-400'}">${s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || 'Unnamed'}</h3>
-                    <p class="text-sm text-[#6B4423]">Territory: <strong>${s.territory || '—'}</strong></p>
-                </div>
+                <span class="px-3 py-1 text-xs font-semibold rounded-full flex-shrink-0 ${isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}">
+                    ${isActive ? 'Active' : 'Inactive'}
+                </span>
             </div>
-            <div class="grid grid-cols-2 gap-4 text-sm mb-3">
+            <div class="grid grid-cols-2 gap-4 text-sm">
                 <div>
                     <p class="text-[#6B4423] text-xs">Yearly Sales</p>
                     <p class="font-semibold brand-green">${yearly}</p>
                 </div>
                 <div class="text-right">
+                    <p class="text-[#6B4423] text-xs">This Month</p>
+                    <p class="font-semibold brand-green">${monthly}</p>
+                </div>
+                <div>
                     <p class="text-[#6B4423] text-xs">Commission</p>
                     <p class="font-semibold brand-green">${s.commission != null ? s.commission + '%' : '—'}</p>
-                </div>
-            </div>
-            <div class="flex justify-between text-sm">
-                <div>
-                    <p class="text-[#6B4423]">Status</p>
-                    <p class="font-semibold ${isActive ? 'text-green-600' : 'text-gray-400'}">${isActive ? 'Active' : 'Inactive'}</p>
-                </div>
-                <div class="text-right">
-                    <p class="text-[#6B4423]">This Month Sales</p>
-                    <p class="font-semibold brand-green">${monthly}</p>
                 </div>
             </div>
         `;
@@ -5945,45 +5944,24 @@ async function hideSalesmanModal() {
     const modal = document.getElementById('salesman-modal');
     if (!modal) return;
 
+    // Optional: still allow quick notes save from the detail modal
     const salesmanId = modal.dataset.salesmanId;
-    const commissionEl = document.getElementById('modal-commission');
-    const marketEl = document.getElementById('modal-market-commission');
     const notesEl = document.getElementById('modal-notes');
-
-    const commission = commissionEl ? parseFloat(commissionEl.value) : null;
-    const marketCommission = marketEl ? parseFloat(marketEl.value) : null;
     const notes = notesEl ? notesEl.value.trim() : '';
 
-    if (salesmanId) {
+    if (salesmanId && notesEl) {
         const salesman = salesmen.find(s => String(s.id) === String(salesmanId));
-        if (salesman) {
-            if (!isNaN(commission)) salesman.commission = commission;
-            if (!isNaN(marketCommission)) salesman.marketCommission = marketCommission;
-            salesman.notes = notes;
-        }
+        if (salesman) salesman.notes = notes;
 
-        // Persist to Supabase
         try {
-            const payload = {
-                notes: notes || null
-            };
-            if (!isNaN(commission)) payload.commission = commission;
-            if (!isNaN(marketCommission)) payload.market_commission = marketCommission;
-
             const { error } = await supabaseClient
                 .from('salesmen')
-                .update(payload)
+                .update({ notes: notes || null })
                 .eq('id', salesmanId);
-
             if (error) throw error;
-
-            // Keep localStorage in sync for other helpers
-            saveSalesmen();
-            if (typeof renderSalesmen === 'function') renderSalesmen();
-            if (typeof updateDashboardSalesmen === 'function') updateDashboardSalesmen();
         } catch (err) {
             console.error(err);
-            alert('Could not save salesman changes.\n' + (err.message || ''));
+            // Non-blocking — still close the modal
         }
     }
 
@@ -6042,13 +6020,19 @@ function showEditSalesmanModal() {
     modal.style.display = 'flex';
 }
 
-function hideEditSalesmanModal() {
-    const modal = document.getElementById('edit-salesman-modal');
-    if (modal) {
-        modal.classList.add('hidden');
-        modal.style.display = 'none';
-    }
-}
+        hideEditSalesmanModal();
+
+        // Force a full reload so cards + detail use fresh Supabase data
+        if (typeof loadSalesmen === 'function') await loadSalesmen();
+        if (typeof renderSalesmen === 'function') await renderSalesmen();
+        if (typeof updateDashboardSalesmen === 'function') await updateDashboardSalesmen();
+
+        // Re-open detail so the user sees the updated values
+        if (typeof showSalesmanDetail === 'function') {
+            showSalesmanDetail(salesmanId);
+        }
+
+        alert('Salesman updated.');
 
 async function saveEditedSalesman(event) {
     event.preventDefault();
@@ -9284,7 +9268,9 @@ async function updateDashboardSalesmen() {
                 priceSheetStatus: s.price_sheet_status,
                 yearlySales: Number(s.yearly_sales) || 0,
                 monthlySales: Number(s.monthly_sales) || 0,
-                active: s.active !== false
+                active: s.active !== false,
+                notes: s.notes || '',
+                mailingAddress: s.mailing_address || ''
             }));
         }
     } catch (err) {
