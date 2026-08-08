@@ -4773,7 +4773,7 @@ async function submitOnboarding() {
         const activeId = window._currentCustomer?.id;
         let query = supabaseClient
             .from('customers')
-            .update({
+                        .update({
                 billing_address: billing,
                 payment_method: method,
                 payment_method_status: paymentStatus,
