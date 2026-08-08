@@ -4148,7 +4148,7 @@ function showAccountInfo() {
                 <h3 class="font-bold brand-green">
                     ${accounts.length > 1 ? 'Selected Store Details' : 'Store Details'}
                 </h3>
-                <button onclick="openManageAddressesModal()"
+                <button onclick="openShippingAddressesModal()"
                         class="px-4 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold text-[#1E4D2B]">
                     Edit
                 </button>
@@ -4189,7 +4189,7 @@ function showAccountInfo() {
         <div class="border-t border-[#d4b78f] pt-6 mt-6">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="font-bold brand-green">Payment Method</h3>
-                <button onclick="openManageAddressesModal()"
+                <button onclick="openPaymentMethodModal()"
                         class="px-4 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold text-[#1E4D2B]">
                     Edit
                 </button>
@@ -4212,7 +4212,7 @@ function showAccountInfo() {
         <div class="border-t border-[#d4b78f] pt-6 mt-6">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="font-bold brand-green">Resale Certificate</h3>
-                <button onclick="openManageAddressesModal()"
+                <button onclick="openResaleCertModal()"
                         class="px-4 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold text-[#1E4D2B]">
                     Edit
                 </button>
@@ -4277,14 +4277,29 @@ async function loadAccountResaleSummary() {
 }
 
 // ================== MANAGE SHIPPING ADDRESSES ==================
-async function openManageAddressesModal() {
+async function openShippingAddressesModal() {
     const modal = document.getElementById('manage-addresses-modal');
     if (!modal) return;
+
+    // Show only shipping section, hide payment + resale
+    modal.querySelectorAll('[data-section]').forEach(el => {
+        el.style.display = el.getAttribute('data-section') === 'shipping' ? 'block' : 'none';
+    });
+    modal.querySelector('h2').textContent = 'Shipping Addresses';
     modal.style.display = 'flex';
     await loadManageAddressesList();
-    await loadCurrentResaleCert();
+}
 
-    // Pre-select current payment method
+async function openPaymentMethodModal() {
+    const modal = document.getElementById('manage-addresses-modal');
+    if (!modal) return;
+
+    modal.querySelectorAll('[data-section]').forEach(el => {
+        el.style.display = el.getAttribute('data-section') === 'payment' ? 'block' : 'none';
+    });
+    modal.querySelector('h2').textContent = 'Payment Method';
+    modal.style.display = 'flex';
+
     const customer = window._currentCustomer;
     if (customer && customer.payment_method) {
         const radio = document.querySelector(`input[name="edit-payment-method"][value="${customer.payment_method}"]`);
@@ -4297,6 +4312,18 @@ async function openManageAddressesModal() {
             if (document.getElementById('edit-account')) document.getElementById('edit-account').value = customer.bank_account_number || '';
         }
     }
+}
+
+async function openResaleCertModal() {
+    const modal = document.getElementById('manage-addresses-modal');
+    if (!modal) return;
+
+    modal.querySelectorAll('[data-section]').forEach(el => {
+        el.style.display = el.getAttribute('data-section') === 'resale' ? 'block' : 'none';
+    });
+    modal.querySelector('h2').textContent = 'Resale Certificate';
+    modal.style.display = 'flex';
+    await loadCurrentResaleCert();
 }
 
 function closeManageAddressesModal() {
