@@ -448,6 +448,7 @@
       </div>
 
       <div id="edit-bank-fields" class="space-y-2 p-3 bg-[#f8f4eb] border border-[#d4b78f] rounded-xl mb-3" style="display: none;">
+        <p class="text-sm font-semibold text-[#1E4D2B]">Bank Account on File (required for Check)</p>
         <div>
           <label class="block text-xs font-semibold text-[#6B4423] mb-1">Routing Number</label>
           <input id="edit-routing" type="text" inputmode="numeric"
@@ -458,6 +459,12 @@
           <input id="edit-account" type="text" inputmode="numeric"
                  class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
         </div>
+        <p class="text-xs text-[#6B4423] leading-relaxed">
+          By selecting "Check" you authorize Donegal Natural to keep this bank account on file.
+          If an invoice remains unpaid, ordering may be disabled after 30 days and the account
+          may be charged automatically after 45 days. These actions occur with no prior communication.
+          Re-enabling ordering requires admin approval.
+        </p>
       </div>
 
       <div id="edit-stripe-wrap" class="mb-3 hidden">
