@@ -1304,7 +1304,7 @@ body { background: #f8f1e9; }
                         <div class="flex items-center justify-between mb-8">
                 <div>
                     <h1 class="text-3xl font-bold brand-green">Legal / Forms</h1>
-                    <p class="text-[#6B4423]">Placeholder checklist of documents we should collect and store</p>
+                    <p class="text-[#6B4423]">Customer resale certificates and document checklist</p>
                 </div>
                 <button onclick="showSection('dashboard')" 
                         class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
@@ -1313,9 +1313,25 @@ body { background: #f8f1e9; }
                 </button>
             </div>
 
-            <div class="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 mb-8 text-sm text-yellow-800">
-                <strong>Note:</strong> This is a reminder area only. Real document uploads and storage will be added later.
+                    <!-- Resale Certificates (live) -->
+        <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mb-8">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <h2 class="text-xl font-bold brand-green flex items-center gap-2">
+                    <i class="fas fa-file-certificate"></i> Resale Certificates
+                </h2>
+                <button onclick="exportResaleCertificatesCSV()"
+                        class="px-4 py-2 text-sm bg-[#1E4D2B] text-[#d4b78f] font-bold rounded-xl hover:bg-[#254a2f]">
+                    Export CSV
+                </button>
             </div>
+            <div id="resale-certs-admin-list" class="overflow-x-auto">
+                <p class="text-sm text-[#6B4423]">Loading…</p>
+            </div>
+        </div>
+
+        <div class="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 mb-8 text-sm text-yellow-800">
+            <strong>Note:</strong> Checklist below is a reminder area. Resale certificates above are live from customer uploads.
+        </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
