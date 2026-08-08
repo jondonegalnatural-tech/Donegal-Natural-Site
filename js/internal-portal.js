@@ -5969,6 +5969,13 @@ async function hideSalesmanModal() {
     modal.classList.add('hidden');
 }
 
+function hideEditSalesmanModal() {
+    const modal = document.getElementById('edit-salesman-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+}
+
 function showEditSalesmanModal() {
     const detailModal = document.getElementById('salesman-modal');
     const salesmanId = detailModal?.dataset?.salesmanId;
@@ -6019,20 +6026,6 @@ function showEditSalesmanModal() {
     modal.classList.remove('hidden');
     modal.style.display = 'flex';
 }
-
-        hideEditSalesmanModal();
-
-        // Force a full reload so cards + detail use fresh Supabase data
-        if (typeof loadSalesmen === 'function') await loadSalesmen();
-        if (typeof renderSalesmen === 'function') await renderSalesmen();
-        if (typeof updateDashboardSalesmen === 'function') await updateDashboardSalesmen();
-
-        // Re-open detail so the user sees the updated values
-        if (typeof showSalesmanDetail === 'function') {
-            showSalesmanDetail(salesmanId);
-        }
-
-        alert('Salesman updated.');
 
 async function saveEditedSalesman(event) {
     event.preventDefault();
