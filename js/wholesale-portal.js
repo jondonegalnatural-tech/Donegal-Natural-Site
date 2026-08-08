@@ -4135,10 +4135,23 @@ function showAccountInfo() {
         if (m === 'ach') return 'ACH / Bank Account';
         return m || '—';
     })();
-    const bankLast4 = (() => {
-        const acct = (active.bank_account_number || '').trim();
-        if (!acct) return '—';
-        return '••••' + acct.slice(-4);
+    const paymentDetailLabel = (() => {
+        const m = (active.payment_method || '').toLowerCase();
+        if (m === 'check') return 'Bank Account';
+        if (m === 'credit_card' || m === 'ach') return 'Payment details';
+        return 'Details';
+    })();
+    const paymentDetailInitial = (() => {
+        const m = (active.payment_method || '').toLowerCase();
+        if (m === 'check') {
+            const acct = (active.bank_account_number || '').trim();
+            return acct ? ('••••' + acct.slice(-4)) : '—';
+        }
+        if (m === 'credit_card' || m === 'ach') {
+            if (active.stripe_payment_method_id) return 'Loading…';
+            return 'Not on file';
+        }
+        return '—';
     })();
 
     // ========== STORE DETAILS ==========
@@ -4200,8 +4213,8 @@ function showAccountInfo() {
                     <p>${payMethod}</p>
                 </div>
                 <div>
-                    <p class="text-[#6B4423] font-semibold">Bank Account</p>
-                    <p>${bankLast4}</p>
+                    <p class="text-[#6B4423] font-semibold">${paymentDetailLabel}</p>
+                    <p id="account-payment-detail">${paymentDetailInitial}</p>
                 </div>
             </div>
         </div>
@@ -4227,7 +4240,61 @@ function showAccountInfo() {
 
     // Load resale cert summary asynchronously
     loadAccountResaleSummary();
+
+    // Load Stripe card/bank display details when on file
+    loadAccountPaymentDetail(active);
 }
+
+async function loadAccountPaymentDetail(customer) {
+    const el = document.getElementById('account-payment-detail');
+    if (!el || !customer) return;
+
+    const method = (customer.payment_method || '').toLowerCase();
+    if (method !== 'credit_card' && method !== 'ach') return;
+
+    const pmId = (customer.stripe_payment_method_id || '').trim();
+    if (!pmId) {
+        el.textContent = 'Not on file';
+        return;
+    }
+
+    try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/get-payment-method`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({ paymentMethodId: pmId })
+        });
+
+        const data = await response.json();
+        if (data.error || !data.details) {
+            throw new Error(data.error || 'No details returned');
+        }
+
+        const d = data.details;
+        if (d.type === 'card') {
+            const brand = (d.brand || 'Card').replace(/^\w/, c => c.toUpperCase());
+            const last4 = d.last4 ? `•••• ${d.last4}` : '';
+            const exp = (d.exp_month && d.exp_year)
+                ? ` · ${String(d.exp_month).padStart(2, '0')}/${String(d.exp_year).slice(-2)}`
+                : '';
+            el.textContent = `${brand} ${last4}${exp}`.trim();
+        } else if (d.type === 'us_bank_account') {
+            const bank = d.bank_name || 'Bank account';
+            const last4 = d.last4 ? `•••• ${d.last4}` : '';
+            const acctType = d.account_type ? ` (${d.account_type})` : '';
+            el.textContent = `${bank} ${last4}${acctType}`.trim();
+        } else {
+            el.textContent = 'Saved with Stripe ✓';
+        }
+    } catch (err) {
+        console.error('loadAccountPaymentDetail error:', err);
+        el.textContent = 'Saved with Stripe ✓';
+    }
+}
+
 
 async function loadAccountResaleSummary() {
     const el = document.getElementById('account-resale-summary');
