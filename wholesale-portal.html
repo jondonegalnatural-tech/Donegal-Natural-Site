@@ -420,13 +420,17 @@
       </div>
     </div>
 
-    <!-- ========== PAYMENT SECTION ========== -->
+        <!-- ========== PAYMENT SECTION ========== -->
     <div data-section="payment" style="display: none;">
       <p class="text-xs text-[#6B4423] leading-relaxed mb-3">
         Card and ACH payments are processed securely through Stripe.
         Donegal Natural only handles payment processing directly when you pay by check
         (we deposit/cash the check ourselves).
       </p>
+
+      <div id="edit-payment-current" class="mb-3 text-sm text-[#6B4423] hidden">
+        <!-- filled by JS with current method summary -->
+      </div>
 
       <div class="space-y-2 text-sm text-[#6B4423] mb-3">
         <label class="flex items-start gap-2 cursor-pointer">
@@ -455,6 +459,18 @@
                  class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
         </div>
       </div>
+
+      <div id="edit-stripe-wrap" class="mb-3 hidden">
+        <p class="text-sm font-semibold text-[#1E4D2B] mb-2">Secure payment details</p>
+        <div id="edit-stripe-element" class="min-h-[120px] p-3 border-2 border-[#6B4423] rounded-xl bg-white">
+          <div class="text-center text-[#6B4423] text-sm py-4">
+            <i class="fas fa-spinner fa-spin"></i> Loading secure form…
+          </div>
+        </div>
+        <p id="edit-stripe-message" class="hidden text-sm text-red-600 mt-2"></p>
+      </div>
+
+      <p id="edit-payment-error" class="hidden text-sm text-red-600 mb-2"></p>
 
       <button onclick="savePaymentInfo()"
               class="w-full px-4 py-2.5 bg-[#1E4D2B] text-[#d4b78f] font-bold rounded-xl">

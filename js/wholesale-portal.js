@@ -4367,18 +4367,88 @@ async function openPaymentMethodModal() {
     modal.querySelector('h2').textContent = 'Payment Method';
     modal.style.display = 'flex';
 
+    // Reset edit Stripe state so a fresh SetupIntent is created when needed
+    editStripe = null;
+    editElements = null;
+    editSetupClientSecret = null;
+    editStripeCustomerId = null;
+
+    const errEl = document.getElementById('edit-payment-error');
+    if (errEl) {
+        errEl.classList.add('hidden');
+        errEl.textContent = '';
+    }
+
     const customer = window._currentCustomer;
+    const currentEl = document.getElementById('edit-payment-current');
+
     if (customer && customer.payment_method) {
         const radio = document.querySelector(`input[name="edit-payment-method"][value="${customer.payment_method}"]`);
         if (radio) {
             radio.checked = true;
-            toggleEditBankFields();
         }
-        if (customer.payment_method === 'check' || customer.payment_method === 'ach') {
-            if (document.getElementById('edit-routing')) document.getElementById('edit-routing').value = customer.bank_routing_number || '';
-            if (document.getElementById('edit-account')) document.getElementById('edit-account').value = customer.bank_account_number || '';
+
+        if (currentEl) {
+            currentEl.classList.remove('hidden');
+            const m = (customer.payment_method || '').toLowerCase();
+            if (m === 'check') {
+                const acct = (customer.bank_account_number || '').trim();
+                currentEl.innerHTML = `<span class="font-semibold">Current:</span> Check${acct ? ' · ••••' + acct.slice(-4) : ''}`;
+            } else if (m === 'credit_card' || m === 'ach') {
+                currentEl.innerHTML = `<span class="font-semibold">Current:</span> ${m === 'credit_card' ? 'Credit Card' : 'ACH'} · <span id="edit-current-pm-detail">Loading…</span>`;
+                if (customer.stripe_payment_method_id) {
+                    // Reuse same fetch helper shape as Account
+                    fetch(`${SUPABASE_URL}/functions/v1/get-payment-method`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                        },
+                        body: JSON.stringify({ paymentMethodId: customer.stripe_payment_method_id })
+                    })
+                        .then(r => r.json())
+                        .then(data => {
+                            const detailEl = document.getElementById('edit-current-pm-detail');
+                            if (!detailEl) return;
+                            const d = data.details;
+                            if (!d) {
+                                detailEl.textContent = 'On file with Stripe';
+                                return;
+                            }
+                            if (d.type === 'card') {
+                                const brand = (d.brand || 'Card').replace(/^\w/, c => c.toUpperCase());
+                                detailEl.textContent = `${brand}${d.last4 ? ' •••• ' + d.last4 : ''}`;
+                            } else if (d.type === 'us_bank_account') {
+                                detailEl.textContent = `${d.bank_name || 'Bank'}${d.last4 ? ' •••• ' + d.last4 : ''}`;
+                            } else {
+                                detailEl.textContent = 'On file with Stripe';
+                            }
+                        })
+                        .catch(() => {
+                            const detailEl = document.getElementById('edit-current-pm-detail');
+                            if (detailEl) detailEl.textContent = 'On file with Stripe';
+                        });
+                } else if (document.getElementById('edit-current-pm-detail')) {
+                    document.getElementById('edit-current-pm-detail').textContent = 'Not on file';
+                }
+            } else {
+                currentEl.classList.add('hidden');
+            }
         }
+
+        if (customer.payment_method === 'check') {
+            if (document.getElementById('edit-routing')) {
+                document.getElementById('edit-routing').value = customer.bank_routing_number || '';
+            }
+            if (document.getElementById('edit-account')) {
+                document.getElementById('edit-account').value = customer.bank_account_number || '';
+            }
+        }
+    } else if (currentEl) {
+        currentEl.classList.add('hidden');
     }
+
+    toggleEditBankFields();
 }
 
 async function openResaleCertModal() {
@@ -4557,9 +4627,84 @@ async function deleteAddress(addressId) {
 function toggleEditBankFields() {
     const method = document.querySelector('input[name="edit-payment-method"]:checked')?.value || '';
     const bankFields = document.getElementById('edit-bank-fields');
-    if (!bankFields) return;
-    // Show bank fields for both Check and ACH
-    bankFields.style.display = (method === 'check' || method === 'ach') ? 'block' : 'none';
+    const stripeWrap = document.getElementById('edit-stripe-wrap');
+
+    if (bankFields) {
+        bankFields.style.display = (method === 'check') ? 'block' : 'none';
+    }
+    if (stripeWrap) {
+        if (method === 'credit_card' || method === 'ach') {
+            stripeWrap.classList.remove('hidden');
+            initEditStripe();
+        } else {
+            stripeWrap.classList.add('hidden');
+        }
+    }
+}
+
+async function initEditStripe() {
+    const el = document.getElementById('edit-stripe-element');
+    const msgEl = document.getElementById('edit-stripe-message');
+    if (!el) return;
+
+    if (editElements && editSetupClientSecret) return;
+
+    el.innerHTML = `
+        <div class="text-center text-[#6B4423] text-sm py-4">
+            <i class="fas fa-spinner fa-spin"></i> Loading secure form…
+        </div>
+    `;
+    if (msgEl) {
+        msgEl.classList.add('hidden');
+        msgEl.textContent = '';
+    }
+
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const customer = window._currentCustomer || {};
+        const email = (user.email || customer.email || '').toLowerCase().trim();
+        if (!email) throw new Error('No email found for this account.');
+
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/create-setup-intent`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+                email,
+                customerName: user.fullName || customer.name || '',
+                companyName: user.company || customer.company || '',
+                customerId: customer.id || null
+            })
+        });
+
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        if (!data.clientSecret) throw new Error('No client secret returned.');
+
+        editSetupClientSecret = data.clientSecret;
+        editStripeCustomerId = data.stripeCustomerId || null;
+
+        const STRIPE_PUBLISHABLE_KEY = 'pk_test_51TzhpXJj3sEFPuyY4JerITMKZD0XzUl0raiOGJiokimP471fJ23AAKQjCs0t4CSwWf4QvQKfaeZxBuAj8532S4FR00RVgGli27';
+        editStripe = Stripe(STRIPE_PUBLISHABLE_KEY);
+        editElements = editStripe.elements({ clientSecret: editSetupClientSecret });
+
+        el.innerHTML = '';
+        const paymentElement = editElements.create('payment');
+        paymentElement.mount('#edit-stripe-element');
+    } catch (err) {
+        console.error('initEditStripe error:', err);
+        el.innerHTML = `
+            <div class="text-center text-red-600 text-sm py-4">
+                Could not load payment form. Please try again or select Check.
+            </div>
+        `;
+        if (msgEl) {
+            msgEl.textContent = err.message || 'Could not load secure payment form.';
+            msgEl.classList.remove('hidden');
+        }
+    }
 }
 
 async function savePaymentInfo() {
@@ -4572,36 +4717,116 @@ async function savePaymentInfo() {
     const method = document.querySelector('input[name="edit-payment-method"]:checked')?.value || '';
     const routing = document.getElementById('edit-routing')?.value.trim() || '';
     const account = document.getElementById('edit-account')?.value.trim() || '';
+    const errEl = document.getElementById('edit-payment-error');
+    const stripeMsg = document.getElementById('edit-stripe-message');
+
+    if (errEl) {
+        errEl.classList.add('hidden');
+        errEl.textContent = '';
+    }
 
     if (!method) {
-        alert('Please select a payment method.');
+        if (errEl) {
+            errEl.textContent = 'Please select a payment method.';
+            errEl.classList.remove('hidden');
+        }
         return;
     }
-        if ((method === 'check' || method === 'ach') && (!routing || !account)) {
-        alert('Routing number and account number are required for Check and ACH.');
+
+    if (method === 'check' && (!routing || !account)) {
+        if (errEl) {
+            errEl.textContent = 'Routing number and account number are required for Check.';
+            errEl.classList.remove('hidden');
+        }
         return;
+    }
+
+    let stripePaymentMethodId = null;
+    let stripeCustomerId = editStripeCustomerId || customer.stripe_customer_id || null;
+
+    if (method === 'credit_card' || method === 'ach') {
+        if (!editStripe || !editElements || !editSetupClientSecret) {
+            if (errEl) {
+                errEl.textContent = 'Payment form is still loading. Please wait a moment and try again.';
+                errEl.classList.remove('hidden');
+            }
+            return;
+        }
+
+        const { error: setupError, setupIntent } = await editStripe.confirmSetup({
+            elements: editElements,
+            redirect: 'if_required',
+            confirmParams: {
+                return_url: window.location.href
+            }
+        });
+
+        if (setupError) {
+            if (stripeMsg) {
+                stripeMsg.textContent = setupError.message || 'Could not save payment method.';
+                stripeMsg.classList.remove('hidden');
+            }
+            if (errEl) {
+                errEl.textContent = setupError.message || 'Could not save payment method.';
+                errEl.classList.remove('hidden');
+            }
+            return;
+        }
+
+        if (!setupIntent || (setupIntent.status !== 'succeeded' && setupIntent.status !== 'processing')) {
+            if (errEl) {
+                errEl.textContent = 'Payment method was not confirmed. Please try again.';
+                errEl.classList.remove('hidden');
+            }
+            return;
+        }
+
+        stripePaymentMethodId = setupIntent.payment_method || null;
     }
 
     try {
+        const updatePayload = {
+            payment_method: method,
+            payment_method_status: 'active',
+            bank_routing_number: method === 'check' ? routing : null,
+            bank_account_number: method === 'check' ? account : null
+        };
+
+        if (method === 'credit_card' || method === 'ach') {
+            if (stripeCustomerId) updatePayload.stripe_customer_id = stripeCustomerId;
+            if (stripePaymentMethodId) updatePayload.stripe_payment_method_id = stripePaymentMethodId;
+        } else {
+            // Switching to Check — clear Stripe refs optional; keep them if you prefer reuse later
+            // updatePayload.stripe_payment_method_id = null;
+        }
+
         const { error } = await supabaseClient
             .from('customers')
-            .update({
-                payment_method: method,
-                payment_method_status: method === 'ach' ? 'pending_admin' : 'active',
-                bank_routing_number: (method === 'check' || method === 'ach') ? routing : null,
-                bank_account_number: (method === 'check' || method === 'ach') ? account : null,
-                bank_account_number: method === 'check' ? account : null
-            })
+            .update(updatePayload)
             .eq('id', customer.id);
 
         if (error) throw error;
 
         // Refresh local customer object
-        window._currentCustomer.payment_method = method;
+        Object.assign(window._currentCustomer, updatePayload);
+
+        // Reset edit Stripe so next open gets a new SetupIntent
+        editStripe = null;
+        editElements = null;
+        editSetupClientSecret = null;
+        editStripeCustomerId = null;
+
+        closeManageAddressesModal();
+        showAccountInfo();
         alert('Payment method updated.');
     } catch (err) {
         console.error(err);
-        alert('Could not save payment method.\n' + (err.message || ''));
+        if (errEl) {
+            errEl.textContent = err.message || 'Could not save payment method.';
+            errEl.classList.remove('hidden');
+        } else {
+            alert('Could not save payment method.\n' + (err.message || ''));
+        }
     }
 }
 
@@ -5276,6 +5501,10 @@ let onboardStripe = null;
 let onboardElements = null;
 let onboardSetupClientSecret = null;
 let onboardStripeCustomerId = null;
+let editStripe = null;
+let editElements = null;
+let editSetupClientSecret = null;
+let editStripeCustomerId = null;
 
 function toggleBankFields() {
     const method = document.querySelector('input[name="payment-method"]:checked')?.value || '';
