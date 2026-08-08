@@ -5141,6 +5141,44 @@ function showEditCustomerModal() {
         customer.shippingAddress || customer.address || '';
     document.getElementById('edit-notes').value = customer.notes || '';
 
+    // Populate salesman dropdown
+    const salesmanSelect = document.getElementById('edit-salesman');
+    if (salesmanSelect) {
+        const fillSalesmanSelect = () => {
+            salesmanSelect.innerHTML = '<option value="">— Unassigned —</option>';
+            (salesmen || []).forEach(s => {
+                if (s.active === false) return;
+                const name = s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || s.email || '';
+                const email = (s.email || '').toLowerCase().trim();
+                if (!email && !name) return;
+                const opt = document.createElement('option');
+                opt.value = email || name;
+                opt.textContent = name + (s.territory ? ' — ' + s.territory : '');
+                salesmanSelect.appendChild(opt);
+            });
+            const current = (customer.salesmanEmail || '').toLowerCase().trim();
+            if (current) {
+                salesmanSelect.value = current;
+                // If email didn't match any option, keep Unassigned selected
+                if (salesmanSelect.value !== current) {
+                    salesmanSelect.value = '';
+                }
+            } else {
+                salesmanSelect.value = '';
+            }
+        };
+
+        if (!Array.isArray(salesmen) || salesmen.length === 0) {
+            if (typeof loadSalesmen === 'function') {
+                loadSalesmen().then(fillSalesmanSelect);
+            } else {
+                fillSalesmanSelect();
+            }
+        } else {
+            fillSalesmanSelect();
+        }
+    }
+
     modal.classList.remove('hidden');
     modal.style.display = 'flex';
 }
@@ -5164,6 +5202,7 @@ async function saveEditedCustomer(e) {
     const territory = document.getElementById('edit-territory').value.trim();
     const address = document.getElementById('edit-address').value.trim();
     const notes = document.getElementById('edit-notes').value.trim();
+    const salesmanEmail = (document.getElementById('edit-salesman')?.value || '').trim().toLowerCase() || null;
 
     if (!name) {
         alert('Customer name is required.');
@@ -5181,6 +5220,8 @@ async function saveEditedCustomer(e) {
                 territory: territory || null,
                 shipping_address: address || null,
                 notes: notes || null,
+                salesman_email: salesmanEmail,
+                assigned_at: salesmanEmail ? new Date().toISOString() : null,
                 updated_at: new Date().toISOString()
             })
             .eq('id', customerId);
