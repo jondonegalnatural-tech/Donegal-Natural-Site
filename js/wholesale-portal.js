@@ -3825,24 +3825,43 @@ async function payInvoice(orderId) {
                     </div>
                 </div>
 
-                <!-- Right column: Stripe Payment Element -->
+                <!-- Right column: saved method and/or Stripe Payment Element -->
                 <div>
-                    <div id="payment-element" class="mb-5 min-h-[320px]">
-                        <div class="flex items-center justify-center h-full text-[#6B4423]">
-                            <div class="text-center">
-                                <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-                                <p class="text-sm">Preparing secure payment form…</p>
+                    <div id="saved-payment-panel" class="hidden mb-5">
+                        <p class="text-sm font-semibold text-[#1E4D2B] mb-2">Saved payment method</p>
+                        <div class="p-4 bg-[#f8f4eb] border border-[#d4b78f] rounded-xl mb-3">
+                            <p id="saved-payment-label" class="font-semibold text-[#1E4D2B]">Loading…</p>
+                            <p class="text-xs text-[#6B4423] mt-1">Charged securely through Stripe</p>
+                        </div>
+                        <button id="stripe-pay-saved-button"
+                                class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3.5 rounded-xl mb-3"
+                                disabled>
+                            Pay with saved method
+                        </button>
+                        <button type="button" id="use-different-method-btn"
+                                class="w-full text-sm text-[#6B4423] underline hover:text-[#1E4D2B]">
+                            Use a different payment method
+                        </button>
+                    </div>
+
+                    <div id="new-payment-panel">
+                        <div id="payment-element" class="mb-5 min-h-[320px]">
+                            <div class="flex items-center justify-center h-full text-[#6B4423]">
+                                <div class="text-center">
+                                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                                    <p class="text-sm">Preparing secure payment form…</p>
+                                </div>
                             </div>
                         </div>
+
+                        <button id="stripe-pay-button"
+                                class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3.5 rounded-xl opacity-50 cursor-not-allowed"
+                                disabled>
+                            Pay Now
+                        </button>
                     </div>
 
                     <div id="payment-message" class="text-sm text-red-600 mb-3 hidden"></div>
-
-                    <button id="stripe-pay-button"
-                            class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3.5 rounded-xl opacity-50 cursor-not-allowed"
-                            disabled>
-                        Pay Now
-                    </button>
                 </div>
             </div>
         </div>
@@ -3931,24 +3950,264 @@ async function payInvoice(orderId) {
             showBrandedInvoice(order);
         };
 
-        // ========== Stripe setup ==========
+                // ========== Stripe setup ==========
         const STRIPE_PUBLISHABLE_KEY = 'pk_test_51TzhpXJj3sEFPuyY4JerITMKZD0XzUl0raiOGJiokimP471fJ23AAKQjCs0t4CSwWf4QvQKfaeZxBuAj8532S4FR00RVgGli27';
         const stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
 
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/create-payment-intent`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            },
-            body: JSON.stringify({
-                email: order.customer_email || user.email,
-                orderId: order.id,
-                amount: total,
-                customerName: order.customer_name || user.fullName,
-                companyName: order.customer_company || user.company
-            })
-        });
+        const customer = window._currentCustomer || {};
+        const savedPmId = (customer.stripe_payment_method_id || '').trim();
+        const savedCustomerId = (customer.stripe_customer_id || '').trim();
+        const hasSavedMethod = !!(savedPmId && (customer.payment_method === 'credit_card' || customer.payment_method === 'ach'));
+
+        const savedPanel = document.getElementById('saved-payment-panel');
+        const newPanel = document.getElementById('new-payment-panel');
+        const paySavedBtn = document.getElementById('stripe-pay-saved-button');
+        const useDifferentBtn = document.getElementById('use-different-method-btn');
+        const payBtn = document.getElementById('stripe-pay-button');
+
+        async function updateOrderAfterPayment(paymentIntent, orderId) {
+            const isAch = paymentIntent.status === 'processing';
+            const updatePayload = {
+                stripe_payment_intent_id: paymentIntent.id,
+                payment_initiated_at: new Date().toISOString()
+            };
+            if (isAch) {
+                updatePayload.payment_method_type = 'us_bank_account';
+            } else {
+                updatePayload.payment_method_type = 'card';
+            }
+
+            const { error: updateError } = await supabaseClient
+                .from('orders')
+                .update(updatePayload)
+                .eq('id', orderId);
+
+            if (updateError) throw updateError;
+
+            const msgEl = document.getElementById('payment-message');
+            msgEl.classList.remove('hidden', 'text-red-600');
+            msgEl.classList.add('text-green-700');
+
+            if (isAch) {
+                msgEl.innerHTML = `
+                    <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-sm leading-relaxed">
+                        <p class="font-semibold text-green-800 mb-1">Bank payment submitted</p>
+                        <p>ACH payments typically clear in <strong>3–5 business days</strong>. We’ll email you once it clears and your order moves to Processing.</p>
+                    </div>
+                `;
+            } else {
+                msgEl.innerHTML = `
+                    <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-sm leading-relaxed">
+                        <p class="font-semibold text-green-800 mb-1">Payment received</p>
+                        <p>Your payment is being confirmed. This page will refresh in a moment.</p>
+                    </div>
+                `;
+            }
+
+            if (paySavedBtn) {
+                paySavedBtn.textContent = 'Submitted ✓';
+                paySavedBtn.disabled = true;
+                paySavedBtn.classList.add('bg-green-600');
+                paySavedBtn.classList.remove('bg-[#1E4D2B]', 'hover:bg-[#254a2f]');
+            }
+            if (payBtn) {
+                payBtn.textContent = 'Submitted ✓';
+                payBtn.disabled = true;
+                payBtn.classList.add('bg-green-600');
+                payBtn.classList.remove('bg-[#1E4D2B]', 'hover:bg-[#254a2f]', 'opacity-50', 'cursor-not-allowed');
+            }
+
+            document.getElementById('stripe-payment-modal')?.setAttribute('data-payment-success', '1');
+        }
+
+        async function mountNewPaymentElement() {
+            if (savedPanel) savedPanel.classList.add('hidden');
+            if (newPanel) newPanel.classList.remove('hidden');
+
+            document.getElementById('payment-element').innerHTML = `
+                <div class="flex items-center justify-center h-full text-[#6B4423]">
+                    <div class="text-center">
+                        <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                        <p class="text-sm">Preparing secure payment form…</p>
+                    </div>
+                </div>
+            `;
+            if (payBtn) {
+                payBtn.disabled = true;
+                payBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+
+            const response = await fetch(`${SUPABASE_URL}/functions/v1/create-payment-intent`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                },
+                body: JSON.stringify({
+                    email: order.customer_email || user.email,
+                    orderId: order.id,
+                    amount: total,
+                    customerName: order.customer_name || user.fullName,
+                    companyName: order.customer_company || user.company,
+                    stripeCustomerId: savedCustomerId || undefined
+                })
+            });
+
+            const data = await response.json();
+            if (data.error) throw new Error(data.error);
+
+            const elements = stripe.elements({ clientSecret: data.clientSecret });
+            const paymentElement = elements.create('payment');
+            document.getElementById('payment-element').innerHTML = '';
+            paymentElement.mount('#payment-element');
+
+            if (payBtn) {
+                payBtn.disabled = false;
+                payBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                payBtn.onclick = async () => {
+                    payBtn.disabled = true;
+                    payBtn.textContent = 'Processing…';
+                    document.getElementById('payment-message')?.classList.add('hidden');
+
+                    const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
+                        elements,
+                        redirect: 'if_required',
+                        confirmParams: { return_url: window.location.href }
+                    });
+
+                    if (confirmError) {
+                        const msgEl = document.getElementById('payment-message');
+                        msgEl.textContent = confirmError.message;
+                        msgEl.classList.remove('hidden', 'text-green-700');
+                        msgEl.classList.add('text-red-600');
+                        payBtn.disabled = false;
+                        payBtn.textContent = 'Pay Now';
+                        return;
+                    }
+
+                    if (paymentIntent && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing')) {
+                        try {
+                            await updateOrderAfterPayment(paymentIntent, orderId);
+                        } catch (err) {
+                            console.error('Failed to update order after payment:', err);
+                            const msgEl = document.getElementById('payment-message');
+                            msgEl.textContent = 'Payment was accepted but we could not update the order status. Please contact us.';
+                            msgEl.classList.remove('hidden', 'text-green-700');
+                            msgEl.classList.add('text-red-600');
+                        }
+                    }
+                };
+            }
+        }
+
+        if (hasSavedMethod) {
+            // Show saved method panel; hide new-method form until requested
+            if (savedPanel) savedPanel.classList.remove('hidden');
+            if (newPanel) newPanel.classList.add('hidden');
+
+            // Label from Stripe
+            const labelEl = document.getElementById('saved-payment-label');
+            try {
+                const pmRes = await fetch(`${SUPABASE_URL}/functions/v1/get-payment-method`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                    },
+                    body: JSON.stringify({ paymentMethodId: savedPmId })
+                });
+                const pmData = await pmRes.json();
+                const d = pmData.details;
+                if (d && d.type === 'card') {
+                    const brand = (d.brand || 'Card').replace(/^\w/, c => c.toUpperCase());
+                    labelEl.textContent = `${brand}${d.last4 ? ' •••• ' + d.last4 : ''}`;
+                    if (paySavedBtn) paySavedBtn.textContent = `Pay with ${brand}${d.last4 ? ' •••• ' + d.last4 : ''}`;
+                } else if (d && d.type === 'us_bank_account') {
+                    const bank = d.bank_name || 'Bank account';
+                    labelEl.textContent = `${bank}${d.last4 ? ' •••• ' + d.last4 : ''}`;
+                    if (paySavedBtn) paySavedBtn.textContent = `Pay with ${bank}${d.last4 ? ' •••• ' + d.last4 : ''}`;
+                } else {
+                    labelEl.textContent = 'Saved payment method on file';
+                }
+            } catch (e) {
+                console.error(e);
+                if (labelEl) labelEl.textContent = 'Saved payment method on file';
+            }
+
+            if (paySavedBtn) {
+                paySavedBtn.disabled = false;
+                paySavedBtn.onclick = async () => {
+                    paySavedBtn.disabled = true;
+                    paySavedBtn.textContent = 'Processing…';
+                    document.getElementById('payment-message')?.classList.add('hidden');
+
+                    try {
+                        const response = await fetch(`${SUPABASE_URL}/functions/v1/create-payment-intent`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+                            },
+                            body: JSON.stringify({
+                                email: order.customer_email || user.email,
+                                orderId: order.id,
+                                amount: total,
+                                customerName: order.customer_name || user.fullName,
+                                companyName: order.customer_company || user.company,
+                                paymentMethodId: savedPmId,
+                                stripeCustomerId: savedCustomerId || undefined
+                            })
+                        });
+
+                        const data = await response.json();
+                        if (data.error) throw new Error(data.error);
+
+                        const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
+                            clientSecret: data.clientSecret,
+                            confirmParams: {
+                                payment_method: savedPmId,
+                                return_url: window.location.href
+                            },
+                            redirect: 'if_required'
+                        });
+
+                        if (confirmError) {
+                            throw new Error(confirmError.message);
+                        }
+
+                        if (paymentIntent && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing')) {
+                            await updateOrderAfterPayment(paymentIntent, orderId);
+                        } else {
+                            throw new Error('Payment was not completed. Please try again.');
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        const msgEl = document.getElementById('payment-message');
+                        msgEl.textContent = err.message || 'Could not process payment.';
+                        msgEl.classList.remove('hidden', 'text-green-700');
+                        msgEl.classList.add('text-red-600');
+                        paySavedBtn.disabled = false;
+                        paySavedBtn.textContent = 'Pay with saved method';
+                    }
+                };
+            }
+
+            if (useDifferentBtn) {
+                useDifferentBtn.onclick = () => {
+                    mountNewPaymentElement().catch(err => {
+                        console.error(err);
+                        const msgEl = document.getElementById('payment-message');
+                        msgEl.textContent = err.message || 'Could not load payment form.';
+                        msgEl.classList.remove('hidden');
+                    });
+                };
+            }
+        } else {
+            // No saved method — existing full Payment Element flow
+            if (savedPanel) savedPanel.classList.add('hidden');
+            if (newPanel) newPanel.classList.remove('hidden');
+            await mountNewPaymentElement();
+        }
 
         const data = await response.json();
 
