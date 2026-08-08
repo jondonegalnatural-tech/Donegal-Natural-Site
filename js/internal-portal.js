@@ -878,11 +878,11 @@ function openSalesmanOrdersModal() {
     }
 }
 
-function hideSalesmanOrdersModal() {
-    const modal = document.getElementById('salesman-orders-modal');
+function hideSalesmanModal() {
+    const modal = document.getElementById('salesman-modal');
     if (!modal) return;
-    modal.classList.add('hidden');
     modal.style.display = 'none';
+    modal.classList.add('hidden');
 }
 
 function renderSalesmanOrdersList(salesman) {
@@ -1281,7 +1281,7 @@ async function loadSalesmen() {
     try {
         const { data, error } = await supabaseClient
             .from('salesmen')
-            .select('id, first_name, last_name, email, territory, commission, market_commission, price_sheet_status, yearly_sales, monthly_sales, active, notes')
+            .select('id, first_name, last_name, email, territory, commission, market_commission, price_sheet_status, yearly_sales, monthly_sales, active, notes, mailing_address')
             .order('last_name', { ascending: true });
 
         if (error) throw error;
@@ -5926,8 +5926,8 @@ function showSalesmanDetail(salesmanId = null) {
 
     setText('modal-salesman-name', displayName);
     setText('modal-territory', salesman.territory || 'N/A');
-    setValue('modal-commission', salesman.commission != null ? salesman.commission : 8);
-    setValue('modal-market-commission', salesman.marketCommission != null ? salesman.marketCommission : 3);
+    setText('modal-commission', (salesman.commission != null ? salesman.commission : 8) + '%');
+    setText('modal-market-commission', (salesman.marketCommission != null ? salesman.marketCommission : 3) + '%');
 
     const totals = typeof getSalesmanOrderTotals === 'function'
         ? getSalesmanOrderTotals(salesman)
@@ -5990,6 +5990,142 @@ async function hideSalesmanModal() {
     modal.style.display = 'none';
     modal.classList.add('hidden');
 }
+
+function showEditSalesmanModal() {
+    const detailModal = document.getElementById('salesman-modal');
+    const salesmanId = detailModal?.dataset?.salesmanId;
+    if (!salesmanId) {
+        alert('No salesman selected.');
+        return;
+    }
+
+    const salesman = salesmen.find(s => String(s.id) === String(salesmanId));
+    if (!salesman) {
+        alert('Could not load salesman for editing.');
+        return;
+    }
+
+    // Hide detail modal
+    if (detailModal) {
+        detailModal.classList.add('hidden');
+        detailModal.style.display = 'none';
+    }
+
+    const modal = document.getElementById('edit-salesman-modal');
+    if (!modal) return;
+
+    modal.dataset.salesmanId = salesman.id || '';
+
+    document.getElementById('edit-salesman-first-name').value = salesman.firstName || '';
+    document.getElementById('edit-salesman-last-name').value = salesman.lastName || '';
+    document.getElementById('edit-salesman-email').value = salesman.email || '';
+    document.getElementById('edit-salesman-territory').value = salesman.territory || '';
+    document.getElementById('edit-salesman-active').checked = salesman.active !== false;
+    document.getElementById('edit-salesman-commission').value =
+        salesman.commission != null ? salesman.commission : 8;
+    document.getElementById('edit-salesman-market-commission').value =
+        salesman.marketCommission != null ? salesman.marketCommission : 3;
+    document.getElementById('edit-salesman-notes').value = salesman.notes || '';
+
+    // Parse existing mailing address into structured fields
+    const parts = (typeof parseAddressBlock === 'function')
+        ? parseAddressBlock(salesman.mailingAddress || '')
+        : { street: '', apt: '', city: '', state: '', zip: '' };
+
+    document.getElementById('edit-salesman-mail-street').value = parts.street || '';
+    document.getElementById('edit-salesman-mail-apt').value = parts.apt || '';
+    document.getElementById('edit-salesman-mail-city').value = parts.city || '';
+    document.getElementById('edit-salesman-mail-state').value = parts.state || '';
+    document.getElementById('edit-salesman-mail-zip').value = parts.zip || '';
+
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+}
+
+function hideEditSalesmanModal() {
+    const modal = document.getElementById('edit-salesman-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+    }
+}
+
+async function saveEditedSalesman(event) {
+    event.preventDefault();
+
+    const modal = document.getElementById('edit-salesman-modal');
+    const salesmanId = modal?.dataset?.salesmanId;
+    if (!salesmanId) {
+        alert('Could not find salesman id. Please close and open again.');
+        return;
+    }
+
+    const firstName = (document.getElementById('edit-salesman-first-name')?.value || '').trim();
+    const lastName = (document.getElementById('edit-salesman-last-name')?.value || '').trim();
+    const email = (document.getElementById('edit-salesman-email')?.value || '').trim().toLowerCase();
+    const territory = (document.getElementById('edit-salesman-territory')?.value || '').trim();
+    const active = document.getElementById('edit-salesman-active')?.checked !== false;
+    const commission = parseFloat(document.getElementById('edit-salesman-commission')?.value);
+    const marketCommission = parseFloat(document.getElementById('edit-salesman-market-commission')?.value);
+    const notes = (document.getElementById('edit-salesman-notes')?.value || '').trim();
+
+    const mailStreet = (document.getElementById('edit-salesman-mail-street')?.value || '').trim();
+    const mailApt = (document.getElementById('edit-salesman-mail-apt')?.value || '').trim();
+    const mailCity = (document.getElementById('edit-salesman-mail-city')?.value || '').trim();
+    const mailState = (document.getElementById('edit-salesman-mail-state')?.value || '').trim();
+    const mailZip = (document.getElementById('edit-salesman-mail-zip')?.value || '').trim();
+    const mailingAddress = (typeof buildAddressFromParts === 'function')
+        ? buildAddressFromParts(mailStreet, mailApt, mailCity, mailState, mailZip)
+        : [mailStreet, mailApt, [mailCity, mailState, mailZip].filter(Boolean).join(', ')].filter(Boolean).join('\n');
+
+    if (!firstName || !lastName || !territory) {
+        alert('First Name, Last Name, and Territory are required.');
+        return;
+    }
+    if (isNaN(commission) || commission < 0) {
+        alert('Please enter a valid Standard Commission %.');
+        return;
+    }
+    if (isNaN(marketCommission) || marketCommission < 0) {
+        alert('Please enter a valid Market Price Commission %.');
+        return;
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from('salesmen')
+            .update({
+                first_name: firstName,
+                last_name: lastName,
+                email: email || null,
+                territory: territory,
+                active: active,
+                commission: commission,
+                market_commission: marketCommission,
+                notes: notes || null,
+                mailing_address: mailingAddress || null
+            })
+            .eq('id', salesmanId);
+
+        if (error) throw error;
+
+        hideEditSalesmanModal();
+
+        if (typeof renderSalesmen === 'function') await renderSalesmen();
+        if (typeof updateDashboardSalesmen === 'function') updateDashboardSalesmen();
+
+        // Re-open detail so the user sees the updated values
+        if (typeof showSalesmanDetail === 'function') {
+            showSalesmanDetail(salesmanId);
+        }
+
+        alert('Salesman updated.');
+    } catch (err) {
+        console.error(err);
+        alert('Could not update salesman.\n' + (err.message || ''));
+    }
+}
+
 
 function showAddSalesmanModal() {
     const modal = document.getElementById('add-salesman-modal');

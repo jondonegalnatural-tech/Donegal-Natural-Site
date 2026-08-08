@@ -1464,13 +1464,11 @@ body { background: #f8f1e9; }
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <p class="text-sm text-[#6B4423] font-semibold">Standard Commission %</p>
-                    <input type="number" id="modal-commission" value="8" step="0.5" min="0"
-                           class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2 text-lg font-semibold">
+                    <p class="text-lg font-semibold" id="modal-commission">8%</p>
                 </div>
                 <div>
                     <p class="text-sm text-[#6B4423] font-semibold">Market Price Commission %</p>
-                    <input type="number" id="modal-market-commission" value="3" step="0.5" min="0"
-                           class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2 text-lg font-semibold">
+                    <p class="text-lg font-semibold" id="modal-market-commission">3%</p>
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-4">
@@ -1500,7 +1498,12 @@ body { background: #f8f1e9; }
                 </button>
             </div>
         </div>
-        <div class="mt-8 flex justify-end">
+        <div class="mt-8 flex flex-wrap justify-between gap-3">
+            <button type="button" onclick="showEditSalesmanModal()"
+                    class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl hover:bg-[#254a2f] flex items-center gap-2 font-semibold">
+                <i class="fas fa-edit"></i>
+                <span>Edit</span>
+            </button>
             <button onclick="hideSalesmanModal()"
                     class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
                 Close
@@ -2213,6 +2216,139 @@ body { background: #f8f1e9; }
                 <button type="submit"
                         class="btn-brand px-6 py-2 rounded-xl font-semibold">
                     Add Salesman
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Salesman Modal -->
+<div id="edit-salesman-modal"
+     onclick="hideEditSalesmanModal()"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div onclick="event.stopImmediatePropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg mx-4 p-8 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold brand-green">Edit Salesman</h2>
+            <button type="button" onclick="hideEditSalesmanModal()"
+                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+
+        <form id="edit-salesman-form" onsubmit="saveEditedSalesman(event)">
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-[#6B4423] mb-1">First Name</label>
+                        <input type="text" id="edit-salesman-first-name" required
+                               class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-[#6B4423] mb-1">Last Name</label>
+                        <input type="text" id="edit-salesman-last-name" required
+                               class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Email</label>
+                    <input type="email" id="edit-salesman-email"
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Territory</label>
+                    <input type="text" id="edit-salesman-territory" required
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                </div>
+
+                <div>
+                    <label class="flex items-center gap-2 text-sm font-semibold text-[#6B4423] cursor-pointer">
+                        <input type="checkbox" id="edit-salesman-active" class="accent-[#1E4D2B]">
+                        Active
+                    </label>
+                </div>
+
+                <!-- Mailing Address (for commission checks) -->
+                <div>
+                    <p class="text-sm font-semibold text-[#6B4423] mb-2">Mailing Address <span class="font-normal">(for commission checks)</span></p>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs text-[#6B4423] mb-1">Street / PO Box</label>
+                            <input type="text" id="edit-salesman-mail-street"
+                                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"
+                                   placeholder="e.g. 123 Main St or PO Box 45">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-[#6B4423] mb-1">Apt / Suite / Unit</label>
+                            <input type="text" id="edit-salesman-mail-apt"
+                                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"
+                                   placeholder="Optional">
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs text-[#6B4423] mb-1">City</label>
+                                <input type="text" id="edit-salesman-mail-city"
+                                       class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-[#6B4423] mb-1">State</label>
+                                <select id="edit-salesman-mail-state"
+                                        class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                                    <option value="">Select…</option>
+                                    <option value="AL">AL</option><option value="AK">AK</option><option value="AZ">AZ</option><option value="AR">AR</option>
+                                    <option value="CA">CA</option><option value="CO">CO</option><option value="CT">CT</option><option value="DE">DE</option>
+                                    <option value="FL">FL</option><option value="GA">GA</option><option value="HI">HI</option><option value="ID">ID</option>
+                                    <option value="IL">IL</option><option value="IN">IN</option><option value="IA">IA</option><option value="KS">KS</option>
+                                    <option value="KY">KY</option><option value="LA">LA</option><option value="ME">ME</option><option value="MD">MD</option>
+                                    <option value="MA">MA</option><option value="MI">MI</option><option value="MN">MN</option><option value="MS">MS</option>
+                                    <option value="MO">MO</option><option value="MT">MT</option><option value="NE">NE</option><option value="NV">NV</option>
+                                    <option value="NH">NH</option><option value="NJ">NJ</option><option value="NM">NM</option><option value="NY">NY</option>
+                                    <option value="NC">NC</option><option value="ND">ND</option><option value="OH">OH</option><option value="OK">OK</option>
+                                    <option value="OR">OR</option><option value="PA">PA</option><option value="RI">RI</option><option value="SC">SC</option>
+                                    <option value="SD">SD</option><option value="TN">TN</option><option value="TX">TX</option><option value="UT">UT</option>
+                                    <option value="VT">VT</option><option value="VA">VA</option><option value="WA">WA</option><option value="WV">WV</option>
+                                    <option value="WI">WI</option><option value="WY">WY</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-[#6B4423] mb-1">ZIP</label>
+                                <input type="text" id="edit-salesman-mail-zip"
+                                       pattern="^\d{5}(-\d{4})?$" maxlength="10"
+                                       class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"
+                                       placeholder="17547">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-[#6B4423] mb-1">Standard Commission %</label>
+                        <input type="number" id="edit-salesman-commission" step="0.5" min="0"
+                               class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-[#6B4423] mb-1">Market Price Commission %</label>
+                        <input type="number" id="edit-salesman-market-commission" step="0.5" min="0"
+                               class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">Notes</label>
+                    <textarea id="edit-salesman-notes" rows="3"
+                              class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"></textarea>
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-end gap-3">
+                <button type="button" onclick="hideEditSalesmanModal()"
+                        class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="btn-brand px-6 py-2 rounded-xl font-semibold">
+                    Save Changes
                 </button>
             </div>
         </form>
