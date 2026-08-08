@@ -4208,118 +4208,7 @@ async function payInvoice(orderId) {
             if (newPanel) newPanel.classList.remove('hidden');
             await mountNewPaymentElement();
         }
-
-        const data = await response.json();
-
-        if (data.error) {
-            throw new Error(data.error);
-        }
-
-        // Mount the Payment Element
-        const elements = stripe.elements({ clientSecret: data.clientSecret });
-        const paymentElement = elements.create('payment');
-        
-        document.getElementById('payment-element').innerHTML = '';
-        paymentElement.mount('#payment-element');
-
-        // Enable the Pay button
-        const payBtn = document.getElementById('stripe-pay-button');
-        payBtn.disabled = false;
-        payBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-
-        // Handle Pay button
-        payBtn.addEventListener('click', async () => {
-            payBtn.disabled = true;
-            payBtn.textContent = 'Processing…';
-
-            const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
-                elements,
-                redirect: 'if_required',
-                confirmParams: {
-                    return_url: window.location.href
-                }
-            });
-
-            if (confirmError) {
-                document.getElementById('payment-message').textContent = confirmError.message;
-                document.getElementById('payment-message').classList.remove('hidden');
-                payBtn.disabled = false;
-                payBtn.textContent = 'Pay Now';
-                return;
-            }
-
-                        // Card (succeeded) or ACH / bank (processing)
-            if (paymentIntent && (paymentIntent.status === 'succeeded' || paymentIntent.status === 'processing')) {
-                const isAch = paymentIntent.status === 'processing';
-
-                try {
-                    const updatePayload = {
-                        stripe_payment_intent_id: paymentIntent.id
-                    };
-
-                    // BOTH card and ACH: only record initiation.
-                    // Webhook (payment_intent.succeeded) is the ONLY place that sets
-                    // payment_status = 'paid' and amount_paid (funds actually received).
-                    updatePayload.payment_initiated_at = new Date().toISOString();
-
-                    if (isAch) {
-                        updatePayload.payment_method_type = 'us_bank_account';
-                    } else {
-                        // card / Link / other instant methods
-                        updatePayload.payment_method_type = 'card';
-                    }
-
-                    const { error: updateError } = await supabaseClient
-                        .from('orders')
-                        .update(updatePayload)
-                        .eq('id', orderId);
-
-                    if (updateError) throw updateError;
-
-                    // Success UI
-                    const msgEl = document.getElementById('payment-message');
-                    msgEl.classList.remove('hidden', 'text-red-600');
-                    msgEl.classList.add('text-green-700');
-
-                    if (isAch) {
-                        msgEl.innerHTML = `
-                            <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-sm leading-relaxed">
-                                <p class="font-semibold text-green-800 mb-1">Bank payment submitted</p>
-                                <p>ACH payments typically clear in <strong>3–5 business days</strong>. We’ll email you once it clears and your order moves to Processing.</p>
-                            </div>
-                        `;
-                        payBtn.textContent = 'Submitted ✓';
-                        payBtn.classList.remove('bg-[#1E4D2B]', 'hover:bg-[#254a2f]', 'opacity-50', 'cursor-not-allowed');
-                        payBtn.classList.add('bg-green-600');
-                        payBtn.disabled = true;
-                    } else {
-                        // Card / Link — funds clear almost immediately via webhook
-                        msgEl.innerHTML = `
-                            <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-sm leading-relaxed">
-                                <p class="font-semibold text-green-800 mb-1">Payment received</p>
-                                <p>Your payment is being confirmed. This page will refresh in a moment.</p>
-                            </div>
-                        `;
-                        payBtn.textContent = 'Submitted ✓';
-                        payBtn.classList.remove('bg-[#1E4D2B]', 'hover:bg-[#254a2f]', 'opacity-50', 'cursor-not-allowed');
-                        payBtn.classList.add('bg-green-600');
-                        payBtn.disabled = true;
-                    }
-
-                    // Flag so closing the modal reloads the page (lists update)
-                    document.getElementById('stripe-payment-modal')?.setAttribute('data-payment-success', '1');
-
-                } catch (err) {
-                    console.error('Failed to update order after payment:', err);
-                    document.getElementById('payment-message').textContent =
-                        'Payment was accepted but we could not update the order status. Please contact us.';
-                    document.getElementById('payment-message').classList.remove('hidden');
-                    document.getElementById('payment-message').classList.add('text-red-600');
-                }
-            }
-        });
-
-    } catch (err) {
+            } catch (err) {
         console.error(err);
         document.getElementById('payment-message').textContent = err.message || 'Could not load payment form. Please try again.';
         document.getElementById('payment-message').classList.remove('hidden');
@@ -4330,6 +4219,7 @@ async function payInvoice(orderId) {
         `;
     }
 }
+
 
 // ================== ACCOUNT INFO DISPLAY ==================
 function showAccountInfo() {
