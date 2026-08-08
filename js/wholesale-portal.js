@@ -4478,21 +4478,34 @@ async function uploadResaleCertificate() {
         alert('Certificate number, expiration date, and file are required.');
         return;
     }
+    if (file.size === 0) {
+        alert('The selected file is empty. Please choose another file.');
+        return;
+    }
 
     try {
-        // Upload file to Storage under the customer's auth uid folder
         const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
         const uid = user.id || customer.id;
-        const ext = file.name.split('.').pop() || 'pdf';
+        const ext = (file.name.split('.').pop() || 'pdf').toLowerCase();
         const path = `${uid}/${Date.now()}.${ext}`;
+
+        // Explicit content type helps avoid "No content provided"
+        const contentType = file.type || (
+            ext === 'pdf' ? 'application/pdf' :
+            ext === 'png' ? 'image/png' :
+            'image/jpeg'
+        );
 
         const { error: uploadError } = await supabaseClient.storage
             .from('resale-certificates')
-            .upload(path, file, { upsert: true });
+            .upload(path, file, {
+                upsert: true,
+                contentType: contentType,
+                cacheControl: '3600'
+            });
 
         if (uploadError) throw uploadError;
 
-        // Save metadata (one active cert approach: insert new row)
         const { error: insertError } = await supabaseClient
             .from('customer_resale_certificates')
             .insert({
@@ -4505,7 +4518,6 @@ async function uploadResaleCertificate() {
 
         if (insertError) throw insertError;
 
-        // Clear form
         document.getElementById('resale-cert-number').value = '';
         document.getElementById('resale-cert-expiration').value = '';
         if (fileInput) fileInput.value = '';
@@ -4514,7 +4526,7 @@ async function uploadResaleCertificate() {
         alert('Resale certificate uploaded.');
     } catch (err) {
         console.error(err);
-        alert('Could not upload certificate.\n' + (err.message || ''));
+        alert('Could not upload certificate.\n' + (err.message || JSON.stringify(err)));
     }
 }
 
