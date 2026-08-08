@@ -4172,6 +4172,20 @@ async function openManageAddressesModal() {
     if (!modal) return;
     modal.style.display = 'flex';
     await loadManageAddressesList();
+
+    // Pre-select current payment method
+    const customer = window._currentCustomer;
+    if (customer && customer.payment_method) {
+        const radio = document.querySelector(`input[name="edit-payment-method"][value="${customer.payment_method}"]`);
+        if (radio) {
+            radio.checked = true;
+            toggleEditBankFields();
+        }
+        if (customer.payment_method === 'check') {
+            if (document.getElementById('edit-routing')) document.getElementById('edit-routing').value = customer.bank_routing_number || '';
+            if (document.getElementById('edit-account')) document.getElementById('edit-account').value = customer.bank_account_number || '';
+        }
+    }
 }
 
 function closeManageAddressesModal() {
@@ -4332,6 +4346,55 @@ async function deleteAddress(addressId) {
     } catch (err) {
         console.error(err);
         alert('Could not delete address.');
+    }
+}
+
+function toggleEditBankFields() {
+    const method = document.querySelector('input[name="edit-payment-method"]:checked')?.value || '';
+    const bankFields = document.getElementById('edit-bank-fields');
+    if (!bankFields) return;
+    bankFields.style.display = (method === 'check') ? 'block' : 'none';
+}
+
+async function savePaymentInfo() {
+    const customer = window._currentCustomer;
+    if (!customer) {
+        alert('No customer selected.');
+        return;
+    }
+
+    const method = document.querySelector('input[name="edit-payment-method"]:checked')?.value || '';
+    const routing = document.getElementById('edit-routing')?.value.trim() || '';
+    const account = document.getElementById('edit-account')?.value.trim() || '';
+
+    if (!method) {
+        alert('Please select a payment method.');
+        return;
+    }
+    if (method === 'check' && (!routing || !account)) {
+        alert('Routing number and account number are required for Check.');
+        return;
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from('customers')
+            .update({
+                payment_method: method,
+                payment_method_status: method === 'ach' ? 'pending_admin' : 'active',
+                bank_routing_number: method === 'check' ? routing : null,
+                bank_account_number: method === 'check' ? account : null
+            })
+            .eq('id', customer.id);
+
+        if (error) throw error;
+
+        // Refresh local customer object
+        window._currentCustomer.payment_method = method;
+        alert('Payment method updated.');
+    } catch (err) {
+        console.error(err);
+        alert('Could not save payment method.\n' + (err.message || ''));
     }
 }
 // ================== END MANAGE SHIPPING ADDRESSES ==================
