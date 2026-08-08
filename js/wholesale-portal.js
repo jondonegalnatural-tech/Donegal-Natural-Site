@@ -4156,6 +4156,25 @@ function showAccountInfo() {
                         <p class="text-[#6B4423] font-semibold">Onboarding</p>
                         <p>${active.onboarding_complete ? 'Complete' : 'Incomplete'}</p>
                     </div>
+                                        <div>
+                        <p class="text-[#6B4423] font-semibold">Payment Method</p>
+                        <p>${(() => {
+                            const m = (active.payment_method || '').toLowerCase();
+                            if (m === 'check') return 'Check';
+                            if (m === 'credit_card') return 'Credit Card';
+                            if (m === 'ach') return 'ACH / Bank Account';
+                            return m || '—';
+                        })()}</p>
+                    </div>
+                    <div>
+                        <p class="text-[#6B4423] font-semibold">Bank Account</p>
+                        <p>${(() => {
+                            const acct = (active.bank_account_number || '').trim();
+                            if (!acct) return '—';
+                            const last4 = acct.slice(-4);
+                            return '••••' + last4;
+                        })()}</p>
+                    </div>
                 </div>
             </div>
         `;
