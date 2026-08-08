@@ -4099,7 +4099,7 @@ function showAccountInfo() {
         </div>
     `;
 
-    // Store selector (only when more than one store shares the email)
+    // Store selector (multi-store only)
     if (accounts.length > 1) {
         html += `
             <div class="mb-6 p-4 bg-[#f8f4eb] border-2 border-[#6B4423] rounded-xl">
@@ -4121,68 +4121,159 @@ function showAccountInfo() {
         `;
     }
 
-    // Selected store details
-    if (active) {
-        const pricingOk = !!active.pricing_approved_at;
-        html += `
-            <div class="border-t border-[#d4b78f] pt-6">
-                <h3 class="font-bold brand-green mb-4">
+    if (!active) {
+        html += `<p class="text-[#6B4423]">No store record found for this email.</p>`;
+        container.innerHTML = html;
+        return;
+    }
+
+    const pricingOk = !!active.pricing_approved_at;
+    const payMethod = (() => {
+        const m = (active.payment_method || '').toLowerCase();
+        if (m === 'check') return 'Check';
+        if (m === 'credit_card') return 'Credit Card';
+        if (m === 'ach') return 'ACH / Bank Account';
+        return m || '—';
+    })();
+    const bankLast4 = (() => {
+        const acct = (active.bank_account_number || '').trim();
+        if (!acct) return '—';
+        return '••••' + acct.slice(-4);
+    })();
+
+    // ========== STORE DETAILS ==========
+    html += `
+        <div class="border-t border-[#d4b78f] pt-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold brand-green">
                     ${accounts.length > 1 ? 'Selected Store Details' : 'Store Details'}
                 </h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
-                    <div>
-                        <p class="text-[#6B4423] font-semibold">Company / Store</p>
-                        <p class="font-semibold text-[#1E4D2B]">${active.company || active.name || '—'}</p>
-                    </div>
-                    <div>
-                        <p class="text-[#6B4423] font-semibold">Salesman</p>
-                        <p>${active.salesman_email || '—'}</p>
-                    </div>
-                    <div class="md:col-span-2">
-                        <p class="text-[#6B4423] font-semibold">Shipping Address</p>
-                        <p>${active.shipping_address || '—'}</p>
-                    </div>
-                    <div class="md:col-span-2">
-                        <p class="text-[#6B4423] font-semibold">Billing Address</p>
-                        <p>${active.billing_address || '—'}</p>
-                    </div>
-                    <div>
-                        <p class="text-[#6B4423] font-semibold">Pricing Status</p>
-                        <p class="${pricingOk ? 'text-green-700 font-semibold' : 'text-orange-700'}">
-                            ${pricingOk ? 'Approved' : 'Awaiting salesman approval'}
-                        </p>
-                    </div>
-                    <div>
-                        <p class="text-[#6B4423] font-semibold">Onboarding</p>
-                        <p>${active.onboarding_complete ? 'Complete' : 'Incomplete'}</p>
-                    </div>
-                                        <div>
-                        <p class="text-[#6B4423] font-semibold">Payment Method</p>
-                        <p>${(() => {
-                            const m = (active.payment_method || '').toLowerCase();
-                            if (m === 'check') return 'Check';
-                            if (m === 'credit_card') return 'Credit Card';
-                            if (m === 'ach') return 'ACH / Bank Account';
-                            return m || '—';
-                        })()}</p>
-                    </div>
-                    <div>
-                        <p class="text-[#6B4423] font-semibold">Bank Account</p>
-                        <p>${(() => {
-                            const acct = (active.bank_account_number || '').trim();
-                            if (!acct) return '—';
-                            const last4 = acct.slice(-4);
-                            return '••••' + last4;
-                        })()}</p>
-                    </div>
+                <button onclick="openManageAddressesModal()"
+                        class="px-4 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold text-[#1E4D2B]">
+                    Edit
+                </button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
+                <div>
+                    <p class="text-[#6B4423] font-semibold">Company / Store</p>
+                    <p class="font-semibold text-[#1E4D2B]">${active.company || active.name || '—'}</p>
+                </div>
+                <div>
+                    <p class="text-[#6B4423] font-semibold">Salesman</p>
+                    <p>${active.salesman_email || '—'}</p>
+                </div>
+                <div class="md:col-span-2">
+                    <p class="text-[#6B4423] font-semibold">Shipping Address</p>
+                    <p>${active.shipping_address || '—'}</p>
+                </div>
+                <div class="md:col-span-2">
+                    <p class="text-[#6B4423] font-semibold">Billing Address</p>
+                    <p>${active.billing_address || '—'}</p>
+                </div>
+                <div>
+                    <p class="text-[#6B4423] font-semibold">Pricing Status</p>
+                    <p class="${pricingOk ? 'text-green-700 font-semibold' : 'text-orange-700'}">
+                        ${pricingOk ? 'Approved' : 'Awaiting salesman approval'}
+                    </p>
+                </div>
+                <div>
+                    <p class="text-[#6B4423] font-semibold">Onboarding</p>
+                    <p>${active.onboarding_complete ? 'Complete' : 'Incomplete'}</p>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // ========== PAYMENT METHOD ==========
+    html += `
+        <div class="border-t border-[#d4b78f] pt-6 mt-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold brand-green">Payment Method</h3>
+                <button onclick="openManageAddressesModal()"
+                        class="px-4 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold text-[#1E4D2B]">
+                    Edit
+                </button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
+                <div>
+                    <p class="text-[#6B4423] font-semibold">Method</p>
+                    <p>${payMethod}</p>
+                </div>
+                <div>
+                    <p class="text-[#6B4423] font-semibold">Bank Account</p>
+                    <p>${bankLast4}</p>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // ========== RESALE CERTIFICATE ==========
+    html += `
+        <div class="border-t border-[#d4b78f] pt-6 mt-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold brand-green">Resale Certificate</h3>
+                <button onclick="openManageAddressesModal()"
+                        class="px-4 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold text-[#1E4D2B]">
+                    Edit
+                </button>
+            </div>
+            <div id="account-resale-summary" class="text-sm text-[#6B4423]">
+                <p>Loading…</p>
+            </div>
+        </div>
+    `;
+
+    container.innerHTML = html;
+
+    // Load resale cert summary asynchronously
+    loadAccountResaleSummary();
+}
+
+async function loadAccountResaleSummary() {
+    const el = document.getElementById('account-resale-summary');
+    if (!el) return;
+
+    const customer = window._currentCustomer;
+    if (!customer) {
+        el.innerHTML = '<p>—</p>';
+        return;
+    }
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('customer_resale_certificates')
+            .select('*')
+            .eq('customer_id', customer.id)
+            .order('uploaded_at', { ascending: false })
+            .limit(1);
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            el.innerHTML = '<p>No resale certificate on file.</p>';
+            return;
+        }
+
+        const cert = data[0];
+        const exp = cert.expiration_date ? new Date(cert.expiration_date).toLocaleDateString() : '—';
+        const expired = cert.expiration_date && new Date(cert.expiration_date) < new Date();
+
+        el.innerHTML = `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                    <p class="text-[#6B4423] font-semibold">Certificate Number</p>
+                    <p>${cert.certificate_number || '—'}</p>
+                </div>
+                <div>
+                    <p class="text-[#6B4423] font-semibold">Expiration</p>
+                    <p class="${expired ? 'text-red-600 font-semibold' : ''}">${exp}${expired ? ' (Expired)' : ''}</p>
                 </div>
             </div>
         `;
-    } else {
-        html += `<p class="text-[#6B4423]">No store record found for this email.</p>`;
+    } catch (err) {
+        console.error(err);
+        el.innerHTML = '<p class="text-red-600">Could not load certificate.</p>';
     }
-
-    container.innerHTML = html;
 }
 
 // ================== MANAGE SHIPPING ADDRESSES ==================
