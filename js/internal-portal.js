@@ -4779,7 +4779,7 @@ async function loadCustomers() {
     try {
         const { data, error } = await supabaseClient
             .from('customers')
-            .select('id, name, company, email, phone, shipping_address, billing_address, notes, status, source, submitted_by, submitted_by_email, salesman_email, territory, created_at, payment_method, payment_method_status, password_changed, onboarding_complete')
+            .select('id, name, company, email, phone, shipping_address, billing_address, notes, status, source, submitted_by, submitted_by_email, salesman_email, territory, created_at, payment_method, payment_method_status, password_changed, onboarding_complete, pricing_approved_at, pricing_approved_by, assigned_at')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -4806,7 +4806,10 @@ async function loadCustomers() {
                 payment_method: c.payment_method || null,
                 payment_method_status: c.payment_method_status || null,
                 password_changed: !!c.password_changed,
-                onboarding_complete: !!c.onboarding_complete
+                onboarding_complete: !!c.onboarding_complete,
+                pricingApprovedAt: c.pricing_approved_at || null,
+                pricingApprovedBy: c.pricing_approved_by || null,
+                assignedAt: c.assigned_at || null,
             }));
         }
     } catch (err) {
@@ -5065,7 +5068,7 @@ async function saveNewCustomer(event) {
     }
 }
 
-function showCustomerDetail(customerName) {
+async function showCustomerDetail(customerName) {
     const customer = allCustomers.find(c => c.name === customerName);
     if (!customer) return;
 
@@ -5108,6 +5111,72 @@ function showCustomerDetail(customerName) {
             display = email;
         }
         salesmanEl.textContent = display;
+            // ===== Pricing status + assigned salesman's approved sheet (read-only) + Revoke =====
+    let pricingSection = document.getElementById('modal-customer-pricing');
+    if (!pricingSection) {
+        pricingSection = document.createElement('div');
+        pricingSection.id = 'modal-customer-pricing';
+        pricingSection.className = 'mt-4 pt-4 border-t border-[#d4b78f]';
+        const salesmanBlock = document.getElementById('modal-customer-salesman');
+        if (salesmanBlock && salesmanBlock.parentElement) {
+            salesmanBlock.parentElement.appendChild(pricingSection);
+        }
+    }
+
+    const isPricingApproved = !!customer.pricingApprovedAt;
+    let sheetHtml = '<p class="text-sm text-[#6B4423]">No price sheet found for the assigned salesman.</p>';
+
+    const salesmanEmail = (customer.salesmanEmail || '').toLowerCase().trim();
+    if (salesmanEmail) {
+        try {
+            const { data: sheet } = await supabaseClient
+                .from('salesman_price_sheets')
+                .select('prices, updated_at, salesman_name')
+                .eq('salesman_email', salesmanEmail)
+                .maybeSingle();
+
+            if (sheet && sheet.prices && Object.keys(sheet.prices).length > 0) {
+                const rows = Object.keys(sheet.prices).sort().map(name => {
+                    const price = Number(sheet.prices[name]);
+                    return `<div class="flex justify-between text-sm py-1 border-b border-[#eee]">
+                        <span class="pr-2">${name}</span>
+                        <span class="font-semibold brand-green">$${price.toFixed(2)}</span>
+                    </div>`;
+                }).join('');
+                sheetHtml = `
+                    <p class="text-xs text-[#6B4423] mb-2">
+                        Salesman sheet${sheet.salesman_name ? ' (' + sheet.salesman_name + ')' : ''}
+                        ${sheet.updated_at ? ' · updated ' + new Date(sheet.updated_at).toLocaleDateString() : ''}
+                    </p>
+                    <div class="max-h-48 overflow-y-auto border border-[#d4b78f] rounded-lg p-2 bg-[#f8f4eb]">
+                        ${rows}
+                    </div>
+                `;
+            }
+        } catch (err) {
+            console.error('Could not load salesman price sheet:', err);
+            sheetHtml = '<p class="text-sm text-red-600">Could not load price sheet.</p>';
+        }
+    }
+
+    pricingSection.innerHTML = `
+        <p class="text-sm font-semibold brand-green mb-1">Pricing Access</p>
+        <p class="text-sm mb-3 ${isPricingApproved ? 'text-green-700' : 'text-orange-700'}">
+            ${isPricingApproved
+                ? `<i class="fas fa-check-circle mr-1"></i> Approved ${new Date(customer.pricingApprovedAt).toLocaleDateString()}
+                   ${customer.pricingApprovedBy ? ' by ' + customer.pricingApprovedBy : ''}`
+                : `<i class="fas fa-exclamation-circle mr-1"></i> Not approved — customer cannot see prices`}
+        </p>
+        ${sheetHtml}
+        ${isPricingApproved ? `
+            <button type="button"
+                    onclick="revokeCustomerPricingAccess()"
+                    class="mt-4 w-full px-4 py-2.5 border-2 border-red-600 text-red-700 rounded-xl font-semibold text-sm hover:bg-red-50">
+                Revoke pricing access for this customer
+            </button>
+            <p class="text-xs text-[#6B4423] mt-1">Clears the customer’s access only. Does not change the salesman’s price sheet.</p>
+        ` : ''}
+    `;
     }
 
     const addr = customer.shippingAddress || customer.address || 'N/A';
@@ -5128,6 +5197,44 @@ function hideEditCustomerModal() {
     if (modal) {
         modal.classList.add('hidden');
         modal.style.display = 'none';
+    }
+}
+
+async function revokeCustomerPricingAccess() {
+    const modal = document.getElementById('customer-modal');
+    const customerId = modal?.dataset?.customerId;
+    if (!customerId) {
+        alert('Could not find customer id.');
+        return;
+    }
+
+    if (!confirm('Revoke pricing access for this customer?\n\nThey will no longer see prices until a salesman re-approves them.\nThe salesman’s price sheet itself is not changed.')) {
+        return;
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from('customers')
+            .update({
+                pricing_approved_at: null,
+                pricing_approved_by: null
+            })
+            .eq('id', customerId);
+
+        if (error) throw error;
+
+        await loadCustomers();
+        // Re-open the same customer so the modal refreshes
+        const refreshed = allCustomers.find(c => String(c.id) === String(customerId));
+        if (refreshed) {
+            showCustomerDetail(refreshed.name);
+        } else {
+            hideCustomerModal();
+        }
+        alert('Pricing access revoked for this customer.');
+    } catch (err) {
+        console.error(err);
+        alert('Could not revoke pricing access.\n' + (err.message || ''));
     }
 }
 
@@ -6027,10 +6134,208 @@ function showSalesmanDetail(salesmanId = null) {
     setText('modal-yearly-sales', '$' + Math.round(totals.yearly).toLocaleString());
     setText('modal-monthly-sales', '$' + Math.round(totals.monthly).toLocaleString());
     setText('modal-quotes', salesman.quotesSubmitted || 0);
+        // Initial pricing sheet status + actions
+    const sheetStatusEl = document.getElementById('modal-price-sheet-status');
+    const sheetCustomersEl = document.getElementById('modal-price-sheet-customers');
+    const viewSheetBtn = document.getElementById('modal-view-price-sheet-btn');
+    const resetSheetBtn = document.getElementById('modal-reset-price-sheet-btn');
+
+    const statusRaw = (salesman.priceSheetStatus || '').toLowerCase();
+    let statusLabel = 'Not submitted';
+    if (statusRaw === 'approved') statusLabel = 'Approved';
+    else if (statusRaw === 'pending' || statusRaw === 'submitted') statusLabel = 'Pending review';
+    else if (statusRaw === 'required') statusLabel = 'Required (not yet approved)';
+    if (sheetStatusEl) sheetStatusEl.textContent = statusLabel;
+
+    if (viewSheetBtn) viewSheetBtn.classList.add('hidden');
+    if (resetSheetBtn) resetSheetBtn.classList.add('hidden');
+    if (sheetCustomersEl) sheetCustomersEl.textContent = '';
+
+    if (statusRaw === 'approved') {
+        if (viewSheetBtn) viewSheetBtn.classList.remove('hidden');
+        if (resetSheetBtn) resetSheetBtn.classList.remove('hidden');
+        // Count customers unlocked under this salesman
+        const email = (salesman.email || '').toLowerCase().trim();
+        if (email && sheetCustomersEl) {
+            (async () => {
+                try {
+                    const { count, error } = await supabaseClient
+                        .from('customers')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('salesman_email', email)
+                        .not('pricing_approved_at', 'is', null);
+                    if (!error && sheetCustomersEl) {
+                        sheetCustomersEl.textContent = (count || 0) + ' customer(s) currently have pricing unlocked under this salesman.';
+                    }
+                } catch (e) {
+                    console.warn('price sheet customer count:', e);
+                }
+            })();
+        }
+    }
     setValue('modal-notes', salesman.notes || '');
 
     modal.style.display = 'flex';
     modal.classList.remove('hidden');
+}
+
+async function openSalesmanPriceSheetModal() {
+    const detailModal = document.getElementById('salesman-modal');
+    const salesmanId = detailModal?.dataset?.salesmanId;
+    const salesman = salesmanId
+        ? salesmen.find(s => String(s.id) === String(salesmanId))
+        : null;
+
+    if (!salesman || !(salesman.email || '').trim()) {
+        alert('No salesman email on file — cannot load price sheet.');
+        return;
+    }
+
+    const email = salesman.email.toLowerCase().trim();
+    const titleEl = document.getElementById('price-sheet-modal-title');
+    const subEl = document.getElementById('price-sheet-modal-subtitle');
+    const listEl = document.getElementById('price-sheet-modal-list');
+    const modal = document.getElementById('salesman-price-sheet-modal');
+
+    if (titleEl) titleEl.textContent = 'Initial Pricing Sheet';
+    if (subEl) subEl.textContent = (salesman.name || email) + ' · ' + email;
+    if (listEl) listEl.innerHTML = '<p class="text-sm text-[#6B4423]"><i class="fas fa-spinner fa-spin mr-2"></i>Loading…</p>';
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+    }
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('salesman_price_sheets')
+            .select('id, prices, updated_at, salesman_name')
+            .eq('salesman_email', email)
+            .maybeSingle();
+
+        if (error) throw error;
+
+        if (!data || !data.prices || typeof data.prices !== 'object') {
+            if (listEl) listEl.innerHTML = '<p class="text-sm text-[#6B4423]">No price sheet found for this salesman.</p>';
+            return;
+        }
+
+        const entries = Object.entries(data.prices)
+            .map(([product, price]) => ({ product, price: Number(price) }))
+            .filter(e => e.product)
+            .sort((a, b) => a.product.localeCompare(b.product));
+
+        if (entries.length === 0) {
+            if (listEl) listEl.innerHTML = '<p class="text-sm text-[#6B4423]">Price sheet is empty.</p>';
+            return;
+        }
+
+        if (subEl) {
+            const updated = data.updated_at ? new Date(data.updated_at).toLocaleString() : '';
+            subEl.textContent = (salesman.name || email) + ' · ' + entries.length + ' products'
+                + (updated ? ' · Updated ' + updated : '');
+        }
+
+        if (listEl) {
+            listEl.innerHTML = `
+                <div class="overflow-x-auto border border-[#d4b78f] rounded-xl">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                                <th class="p-3 text-left">Product</th>
+                                <th class="p-3 text-right w-28">Price</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${entries.map((e, i) => `
+                                <tr class="border-t border-[#e8d9b8] ${i % 2 ? 'bg-[#f8f4eb]' : 'bg-white'}">
+                                    <td class="p-3">${e.product}</td>
+                                    <td class="p-3 text-right font-semibold">$${e.price.toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+    } catch (err) {
+        console.error('openSalesmanPriceSheetModal error:', err);
+        if (listEl) listEl.innerHTML = `<p class="text-sm text-red-600">Could not load price sheet.<br>${err.message || ''}</p>`;
+    }
+}
+
+function hideSalesmanPriceSheetModal() {
+    const modal = document.getElementById('salesman-price-sheet-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+}
+
+async function resetSalesmanPriceSheet() {
+    const detailModal = document.getElementById('salesman-modal');
+    const salesmanId = detailModal?.dataset?.salesmanId;
+    const salesman = salesmanId
+        ? salesmen.find(s => String(s.id) === String(salesmanId))
+        : null;
+
+    if (!salesman || !(salesman.email || '').trim()) {
+        alert('No salesman email on file — cannot reset price sheet.');
+        return;
+    }
+
+    const email = salesman.email.toLowerCase().trim();
+    const name = salesman.name || email;
+
+    const ok = confirm(
+        'RESET initial pricing sheet for ' + name + '?\n\n' +
+        'This will:\n' +
+        '• Delete their approved price sheet\n' +
+        '• Set their price sheet status back to Required\n' +
+        '• Clear pricing approval on all customers assigned to them (they will not see prices until the salesman re-approves)\n\n' +
+        'The salesman must submit a new initial sheet and you must approve it again.'
+    );
+    if (!ok) return;
+
+    const ok2 = confirm('Are you sure? This cannot be undone.');
+    if (!ok2) return;
+
+    try {
+        // 1. Delete price sheet row(s)
+        const { error: delErr } = await supabaseClient
+            .from('salesman_price_sheets')
+            .delete()
+            .eq('salesman_email', email);
+        if (delErr) throw delErr;
+
+        // 2. Set salesman status back to required
+        const { error: statusErr } = await supabaseClient
+            .from('salesmen')
+            .update({ price_sheet_status: 'required' })
+            .eq('id', salesmanId);
+        if (statusErr) throw statusErr;
+
+        // 3. Re-lock customers assigned to this salesman
+        const { error: custErr } = await supabaseClient
+            .from('customers')
+            .update({ pricing_approved_at: null })
+            .eq('salesman_email', email);
+        if (custErr) throw custErr;
+
+        // Update local cache
+        salesman.priceSheetStatus = 'required';
+
+        alert('Price sheet reset for ' + name + '.\nCustomers under this salesman are locked again until pricing is re-approved.');
+
+        hideSalesmanPriceSheetModal();
+        if (typeof showSalesmanDetail === 'function') {
+            showSalesmanDetail(salesmanId);
+        }
+        if (typeof renderSalesmen === 'function') {
+            renderSalesmen();
+        }
+    } catch (err) {
+        console.error('resetSalesmanPriceSheet error:', err);
+        alert('Could not reset price sheet.\n' + (err.message || ''));
+    }
 }
 
 async function hideSalesmanModal() {
