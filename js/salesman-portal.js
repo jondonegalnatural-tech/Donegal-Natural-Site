@@ -494,8 +494,9 @@ async function renderCustomers() {
             .order('name', { ascending: true });
 
         if (user.role === 'salesman') {
-            query = query.or(
-                `salesman_email.eq.${(user.email || '').toLowerCase().trim()},salesman_email.is.null`
+            query = query.eq(
+                'salesman_email',
+                (user.email || '').toLowerCase().trim()
             );
         }
 
