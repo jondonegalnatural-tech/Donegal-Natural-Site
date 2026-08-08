@@ -294,20 +294,20 @@
         <div class="space-y-4">
             <div>
                 <label class="block text-sm font-semibold text-[#6B4423] mb-1">Billing Address *</label>
-<div class="space-y-2">
-    <input id="onboard-bill-street" type="text" required placeholder="Street address"
-           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
-    <input id="onboard-bill-apt" type="text" placeholder="Apt / Suite (optional)"
-           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
-    <div class="grid grid-cols-3 gap-2">
-        <input id="onboard-bill-city" type="text" required placeholder="City"
-               class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
-        <input id="onboard-bill-state" type="text" required placeholder="State"
-               class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
-        <input id="onboard-bill-zip" type="text" required placeholder="ZIP"
-               class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
-    </div>
-</div>
+                <div class="space-y-2">
+                    <input id="onboard-bill-street" type="text" required placeholder="Street address"
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                    <input id="onboard-bill-apt" type="text" placeholder="Apt / Suite (optional)"
+                           class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                    <div class="grid grid-cols-3 gap-2">
+                        <input id="onboard-bill-city" type="text" required placeholder="City"
+                               class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
+                        <input id="onboard-bill-state" type="text" required placeholder="State"
+                               class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
+                        <input id="onboard-bill-zip" type="text" required placeholder="ZIP"
+                               class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
+                    </div>
+                </div>
             </div>
             <div>
                 <label class="block text-sm font-semibold text-[#6B4423] mb-2">Payment Method *</label>
@@ -348,6 +348,20 @@
                         may be charged automatically after 45 days. These actions occur with no prior communication.
                         Re-enabling ordering requires admin approval.
                     </p>
+                </div>
+
+                <!-- Stripe Payment Element (Card + ACH) — shown when Credit Card or ACH is selected -->
+                <div id="onboard-stripe-wrap" class="mt-4 hidden">
+                    <p class="text-sm font-semibold text-[#1E4D2B] mb-2">Secure payment details</p>
+                    <p class="text-xs text-[#6B4423] mb-3">
+                        Enter your card or bank account below. This is saved securely with Stripe so you won’t have to re-enter it when paying invoices.
+                    </p>
+                    <div id="onboard-stripe-element" class="min-h-[120px] p-3 border-2 border-[#6B4423] rounded-xl bg-white">
+                        <div class="text-center text-[#6B4423] text-sm py-6">
+                            <i class="fas fa-spinner fa-spin"></i> Loading secure form…
+                        </div>
+                    </div>
+                    <p id="onboard-stripe-message" class="hidden text-sm text-red-600 mt-2"></p>
                 </div>
             </div>
             <p id="onboarding-error" class="hidden text-sm text-red-600"></p>

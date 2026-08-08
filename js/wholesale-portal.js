@@ -5204,12 +5204,95 @@ function showBrandedInvoice(order) {
     document.body.appendChild(modal);
 }
 
+// Onboarding Stripe state
+let onboardStripe = null;
+let onboardElements = null;
+let onboardSetupClientSecret = null;
+let onboardStripeCustomerId = null;
+
 function toggleBankFields() {
     const method = document.querySelector('input[name="payment-method"]:checked')?.value || '';
     const bankFields = document.getElementById('bank-fields');
-    if (!bankFields) return;
-    // Show bank fields only when Check is selected
-    bankFields.style.display = (method === 'check') ? 'block' : 'none';
+    const stripeWrap = document.getElementById('onboard-stripe-wrap');
+
+    if (bankFields) {
+        bankFields.style.display = (method === 'check') ? 'block' : 'none';
+    }
+    if (stripeWrap) {
+        if (method === 'credit_card' || method === 'ach') {
+            stripeWrap.classList.remove('hidden');
+            initOnboardStripe();
+        } else {
+            stripeWrap.classList.add('hidden');
+        }
+    }
+}
+
+async function initOnboardStripe() {
+    const el = document.getElementById('onboard-stripe-element');
+    const msgEl = document.getElementById('onboard-stripe-message');
+    if (!el) return;
+
+    // Already mounted for this session — don't recreate
+    if (onboardElements && onboardSetupClientSecret) return;
+
+    el.innerHTML = `
+        <div class="text-center text-[#6B4423] text-sm py-6">
+            <i class="fas fa-spinner fa-spin"></i> Loading secure form…
+        </div>
+    `;
+    if (msgEl) {
+        msgEl.classList.add('hidden');
+        msgEl.textContent = '';
+    }
+
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const customer = window._currentCustomer || {};
+        const email = (user.email || customer.email || '').toLowerCase().trim();
+
+        if (!email) throw new Error('No email found for this account.');
+
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/create-setup-intent`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+                email,
+                customerName: user.fullName || customer.name || '',
+                companyName: user.company || customer.company || '',
+                customerId: customer.id || null
+            })
+        });
+
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+        if (!data.clientSecret) throw new Error('No client secret returned from setup intent.');
+
+        onboardSetupClientSecret = data.clientSecret;
+        onboardStripeCustomerId = data.stripeCustomerId || null;
+
+        const STRIPE_PUBLISHABLE_KEY = 'pk_test_51TzhpXJj3sEFPuyY4JerITMKZD0XzUl0raiOGJiokimP471fJ23AAKQjCs0t4CSwWf4QvQKfaeZxBuAj8532S4FR00RVgGli27';
+        onboardStripe = Stripe(STRIPE_PUBLISHABLE_KEY);
+        onboardElements = onboardStripe.elements({ clientSecret: onboardSetupClientSecret });
+
+        el.innerHTML = '';
+        const paymentElement = onboardElements.create('payment');
+        paymentElement.mount('#onboard-stripe-element');
+    } catch (err) {
+        console.error('initOnboardStripe error:', err);
+        el.innerHTML = `
+            <div class="text-center text-red-600 text-sm py-4">
+                Could not load payment form. Please try again or select Check.
+            </div>
+        `;
+        if (msgEl) {
+            msgEl.textContent = err.message || 'Could not load secure payment form.';
+            msgEl.classList.remove('hidden');
+        }
+    }
 }
 
 async function submitOnboarding() {
@@ -5219,12 +5302,12 @@ async function submitOnboarding() {
     const state  = document.getElementById('onboard-bill-state')?.value.trim() || '';
     const zip    = document.getElementById('onboard-bill-zip')?.value.trim() || '';
 
-    // Join into a single string for the existing billing_address column
     const billing = [street, apt, city, state, zip].filter(Boolean).join(', ');
     const method = document.querySelector('input[name="payment-method"]:checked')?.value || '';
     const routing = document.getElementById('onboard-routing')?.value.trim() || '';
     const account = document.getElementById('onboard-account')?.value.trim() || '';
     const errEl = document.getElementById('onboarding-error');
+    const stripeMsg = document.getElementById('onboard-stripe-message');
 
     if (!street || !city || !state || !zip) {
         if (errEl) {
@@ -5248,23 +5331,77 @@ async function submitOnboarding() {
         return;
     }
 
+    // Card / ACH: require Stripe SetupIntent confirmation first
+    let stripePaymentMethodId = null;
+    if (method === 'credit_card' || method === 'ach') {
+        if (!onboardStripe || !onboardElements || !onboardSetupClientSecret) {
+            if (errEl) {
+                errEl.textContent = 'Payment form is still loading. Please wait a moment and try again.';
+                errEl.classList.remove('hidden');
+            }
+            return;
+        }
+
+        const { error: setupError, setupIntent } = await onboardStripe.confirmSetup({
+            elements: onboardElements,
+            redirect: 'if_required',
+            confirmParams: {
+                return_url: window.location.href
+            }
+        });
+
+        if (setupError) {
+            if (stripeMsg) {
+                stripeMsg.textContent = setupError.message || 'Could not save payment method.';
+                stripeMsg.classList.remove('hidden');
+            }
+            if (errEl) {
+                errEl.textContent = setupError.message || 'Could not save payment method.';
+                errEl.classList.remove('hidden');
+            }
+            return;
+        }
+
+        if (!setupIntent || (setupIntent.status !== 'succeeded' && setupIntent.status !== 'processing')) {
+            if (errEl) {
+                errEl.textContent = 'Payment method was not confirmed. Please try again.';
+                errEl.classList.remove('hidden');
+            }
+            return;
+        }
+
+        stripePaymentMethodId = setupIntent.payment_method || null;
+    }
+
     const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    const paymentStatus = method === 'ach' ? 'pending_admin' : 'active';
     const email = (user.email || '').toLowerCase().trim();
 
+    // ACH via Stripe is active (no pending_admin). Check keeps local bank fields.
+    const paymentStatus = 'active';
+
     try {
-        // Prefer the currently selected store; fall back to email only if none selected
         const activeId = window._currentCustomer?.id;
+        const updatePayload = {
+            billing_address: billing,
+            payment_method: method,
+            payment_method_status: paymentStatus,
+            bank_routing_number: method === 'check' ? routing : null,
+            bank_account_number: method === 'check' ? account : null,
+            onboarding_complete: true
+        };
+
+        if (method === 'credit_card' || method === 'ach') {
+            if (onboardStripeCustomerId) {
+                updatePayload.stripe_customer_id = onboardStripeCustomerId;
+            }
+            if (stripePaymentMethodId) {
+                updatePayload.stripe_payment_method_id = stripePaymentMethodId;
+            }
+        }
+
         let query = supabaseClient
             .from('customers')
-                        .update({
-                billing_address: billing,
-                payment_method: method,
-                payment_method_status: paymentStatus,
-                bank_routing_number: method === 'check' ? routing : null,
-                bank_account_number: method === 'check' ? account : null,
-                onboarding_complete: true
-            });
+            .update(updatePayload);
 
         if (activeId) {
             query = query.eq('id', activeId);
