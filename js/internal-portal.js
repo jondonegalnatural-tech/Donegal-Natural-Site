@@ -5072,8 +5072,13 @@ function showCustomerDetail(customerName) {
     const modal = document.getElementById('customer-modal');
     if (!modal) return;
 
-    // Store id on the modal so edit/save can use it
+        // Store id on the modal so edit/save can use it
     modal.dataset.customerId = customer.id || '';
+
+    // Ensure salesmen list is available for name lookup
+    if ((!salesmen || salesmen.length === 0) && typeof loadSalesmen === 'function') {
+        loadSalesmen();
+    }
 
     document.getElementById('modal-customer-name').textContent = customer.name;
     document.getElementById('modal-customer-company').textContent = customer.company || '';
@@ -5082,6 +5087,28 @@ function showCustomerDetail(customerName) {
     document.getElementById('modal-customer-email').textContent = customer.email || 'N/A';
     document.getElementById('modal-customer-territory').textContent = customer.territory || 'N/A';
     document.getElementById('modal-customer-balance').textContent = '$' + (customer.balance || 0).toLocaleString();
+
+    // Assigned salesman (read-only)
+    const salesmanEl = document.getElementById('modal-customer-salesman');
+    if (salesmanEl) {
+        const email = (customer.salesmanEmail || '').toLowerCase().trim();
+        let display = '— Unassigned —';
+        if (email && Array.isArray(salesmen) && salesmen.length > 0) {
+            const match = salesmen.find(s =>
+                (s.email || '').toLowerCase().trim() === email
+            );
+            if (match) {
+                display = match.name
+                    || [match.firstName, match.lastName].filter(Boolean).join(' ')
+                    || email;
+            } else {
+                display = email; // fallback if salesman list is stale
+            }
+        } else if (email) {
+            display = email;
+        }
+        salesmanEl.textContent = display;
+    }
 
     const addr = customer.shippingAddress || customer.address || 'N/A';
     document.getElementById('modal-customer-address').textContent = addr;
