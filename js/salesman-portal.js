@@ -275,6 +275,19 @@ function getCurrentUser() {
     }
 }
 
+function goToAdminView() {
+    try {
+        const original = JSON.parse(localStorage.getItem('originalAdminUser') || 'null');
+        if (original) {
+            localStorage.setItem('currentUser', JSON.stringify(original));
+            localStorage.removeItem('originalAdminUser');
+        }
+    } catch (e) {
+        console.error('goToAdminView error:', e);
+    }
+    window.location.href = 'internal-portal.html';
+}
+
 function isHeadAdmin() {
     const user = getCurrentUser();
     return user && user.role === "admin";
@@ -300,16 +313,17 @@ function displayCurrentUser() {
         territoriesEl.innerHTML = `<strong>${roleText}</strong>${territoryText}`;
     }
 
-    // Only Jonathan (dual admin + salesman) sees the Admin View button
-    const adminViewBtn = document.getElementById("admin-view-btn");
+    // Show Admin View when we are Jonathan or when we are in a temporary Sales View
+        const adminViewBtn = document.getElementById("admin-view-btn");
     if (adminViewBtn) {
         const email = (user.email || "").toLowerCase().trim();
-        if (email === "jackerman@donegalnatural.com") {
-            adminViewBtn.style.display = "";
-        } else {
-            adminViewBtn.style.display = "none";
-        }
+        const hasOriginalAdmin = !!localStorage.getItem('originalAdminUser');
+    if (email === "jackerman@donegalnatural.com" || hasOriginalAdmin || user.isViewAs) {
+        adminViewBtn.style.display = "";
+    } else {
+        adminViewBtn.style.display = "none";
     }
+}
 }
 
 // ================== LOGIN ==================
@@ -340,7 +354,8 @@ async function showPortal() {
 }
 
 function logout() {
-    localStorage.removeItem("currentUser");   // Correct key
+    localStorage.removeItem("currentUser");
+    localStorage.removeItem("originalAdminUser");
     location.reload();
 }
 

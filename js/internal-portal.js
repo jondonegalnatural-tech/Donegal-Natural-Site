@@ -57,6 +57,31 @@ function showTableLoading(containerId, message) {
     el.innerHTML = `<p class="text-center text-[#6B4423] py-10"><i class="fas fa-spinner fa-spin mr-2"></i>${message || 'Loading…'}</p>`;
 }
 
+function goToSalesmanView() {
+    try {
+        const original = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        if (original) {
+            localStorage.setItem('originalAdminUser', JSON.stringify(original));
+        }
+
+        localStorage.setItem('currentUser', JSON.stringify({
+            id: original?.id || null,
+            username: 'jon.donegalnatural@gmail.com',
+            fullName: 'Jonathan (Sales View)',
+            name: 'Jonathan (Sales View)',
+            role: 'salesman',
+            email: 'jon.donegalnatural@gmail.com',
+            mustChangePassword: false,
+            loginTime: new Date().toISOString(),
+            supabase: true,
+            isViewAs: true
+        }));
+    } catch (e) {
+        console.error('goToSalesmanView error:', e);
+    }
+    window.location.href = 'salesman-portal.html';
+}
+
 // ================== SHARED HELPER FUNCTIONS ==================
 // Functions used by more than one section will be placed here.
 // (We will move shared helpers into this section as we reorganize.)
