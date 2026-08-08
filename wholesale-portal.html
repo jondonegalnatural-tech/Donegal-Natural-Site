@@ -365,7 +365,7 @@
     <script src="https://js.stripe.com/v3/"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/wholesale-portal.js"></script>
-    
+
 <!-- Manage Account Information Modal -->
 <div id="manage-addresses-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4" style="display: none;">
   <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 p-6 border-2 border-[#6B4423] max-h-[90vh] overflow-y-auto">
@@ -401,21 +401,27 @@
       </div>
     </div>
 
-    <!-- Payment Information -->
+        <!-- Payment Information -->
     <div class="border-t border-[#d4b78f] pt-4">
-      <h3 class="font-semibold brand-green mb-3">Payment Information</h3>
+      <h3 class="font-semibold brand-green mb-2">Payment Information</h3>
+      <p class="text-xs text-[#6B4423] leading-relaxed mb-3">
+        Card and ACH payments are processed securely through Stripe.
+        Donegal Natural only handles payment processing directly when you pay by check
+        (we deposit/cash the check ourselves).
+      </p>
+
       <div class="space-y-2 text-sm text-[#6B4423] mb-3">
         <label class="flex items-start gap-2 cursor-pointer">
           <input type="radio" name="edit-payment-method" value="check" class="mt-1" onchange="toggleEditBankFields()">
-          <span><strong>Check</strong> — preferred method</span>
+          <span><strong>Check</strong> — preferred method. We process the check directly.</span>
         </label>
         <label class="flex items-start gap-2 cursor-pointer">
           <input type="radio" name="edit-payment-method" value="credit_card" class="mt-1" onchange="toggleEditBankFields()">
-          <span><strong>Credit Card</strong> — 3% processing fee</span>
+          <span><strong>Credit Card</strong> — a 3% processing fee will be applied on the invoice</span>
         </label>
         <label class="flex items-start gap-2 cursor-pointer">
           <input type="radio" name="edit-payment-method" value="ach" class="mt-1" onchange="toggleEditBankFields()">
-          <span><strong>ACH / Bank Account</strong></span>
+          <span><strong>ACH / Bank Account</strong> — processed securely through Stripe</span>
         </label>
       </div>
 

@@ -4353,7 +4353,8 @@ function toggleEditBankFields() {
     const method = document.querySelector('input[name="edit-payment-method"]:checked')?.value || '';
     const bankFields = document.getElementById('edit-bank-fields');
     if (!bankFields) return;
-    bankFields.style.display = (method === 'check') ? 'block' : 'none';
+    // Show bank fields for both Check and ACH
+    bankFields.style.display = (method === 'check' || method === 'ach') ? 'block' : 'none';
 }
 
 async function savePaymentInfo() {
@@ -4371,8 +4372,8 @@ async function savePaymentInfo() {
         alert('Please select a payment method.');
         return;
     }
-    if (method === 'check' && (!routing || !account)) {
-        alert('Routing number and account number are required for Check.');
+        if ((method === 'check' || method === 'ach') && (!routing || !account)) {
+        alert('Routing number and account number are required for Check and ACH.');
         return;
     }
 
@@ -4382,7 +4383,8 @@ async function savePaymentInfo() {
             .update({
                 payment_method: method,
                 payment_method_status: method === 'ach' ? 'pending_admin' : 'active',
-                bank_routing_number: method === 'check' ? routing : null,
+                bank_routing_number: (method === 'check' || method === 'ach') ? routing : null,
+                bank_account_number: (method === 'check' || method === 'ach') ? account : null,
                 bank_account_number: method === 'check' ? account : null
             })
             .eq('id', customer.id);
