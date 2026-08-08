@@ -4166,6 +4166,176 @@ function showAccountInfo() {
     container.innerHTML = html;
 }
 
+// ================== MANAGE SHIPPING ADDRESSES ==================
+async function openManageAddressesModal() {
+    const modal = document.getElementById('manage-addresses-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    await loadManageAddressesList();
+}
+
+function closeManageAddressesModal() {
+    const modal = document.getElementById('manage-addresses-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function loadManageAddressesList() {
+    const container = document.getElementById('manage-addresses-list');
+    if (!container) return;
+
+    const customer = window._currentCustomer;
+    if (!customer) {
+        container.innerHTML = '<p class="text-sm text-[#6B4423]">No customer selected.</p>';
+        return;
+    }
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('customer_shipping_addresses')
+            .select('*')
+            .eq('customer_id', customer.id)
+            .order('is_default', { ascending: false })
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            container.innerHTML = '<p class="text-sm text-[#6B4423]">No shipping addresses yet.</p>';
+            return;
+        }
+
+        container.innerHTML = data.map(addr => {
+            const line = [addr.address_line1, addr.address_line2, addr.city, addr.state, addr.zip]
+                .filter(Boolean).join(', ');
+            const badge = addr.is_default
+                ? '<span class="ml-2 px-2 py-0.5 text-[10px] font-bold rounded-full bg-green-100 text-green-800">Default</span>'
+                : '';
+            return `
+                <div class="border border-[#d4b78f] rounded-xl p-3 bg-[#f8f4eb]">
+                    <div class="flex justify-between items-start gap-2">
+                        <div>
+                            <p class="font-semibold text-[#1E4D2B]">${addr.label || 'Address'}${badge}</p>
+                            <p class="text-sm text-[#6B4423] mt-0.5">${line}</p>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            ${!addr.is_default ? `<button onclick="setDefaultAddress('${addr.id}')" class="text-xs px-2 py-1 border border-[#6B4423] rounded-lg hover:bg-white">Set Default</button>` : ''}
+                            <button onclick="deleteAddress('${addr.id}')" class="text-xs px-2 py-1 bg-red-600 text-white rounded-lg">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error(err);
+        container.innerHTML = '<p class="text-sm text-red-600">Could not load addresses.</p>';
+    }
+}
+
+async function saveNewAddress() {
+    const customer = window._currentCustomer;
+    if (!customer) {
+        alert('No customer selected.');
+        return;
+    }
+
+    const label = document.getElementById('new-addr-label')?.value.trim() || 'Shipping';
+    const line1 = document.getElementById('new-addr-line1')?.value.trim() || '';
+    const line2 = document.getElementById('new-addr-line2')?.value.trim() || null;
+    const city  = document.getElementById('new-addr-city')?.value.trim() || '';
+    const state = document.getElementById('new-addr-state')?.value.trim() || '';
+    const zip   = document.getElementById('new-addr-zip')?.value.trim() || '';
+    const makeDefault = document.getElementById('new-addr-default')?.checked || false;
+
+    if (!line1 || !city || !state || !zip) {
+        alert('Street, City, State, and ZIP are required.');
+        return;
+    }
+
+    try {
+        // If making this the default, clear existing default first
+        if (makeDefault) {
+            await supabaseClient
+                .from('customer_shipping_addresses')
+                .update({ is_default: false })
+                .eq('customer_id', customer.id)
+                .eq('is_default', true);
+        }
+
+        const { error } = await supabaseClient
+            .from('customer_shipping_addresses')
+            .insert({
+                customer_id: customer.id,
+                label,
+                address_line1: line1,
+                address_line2: line2,
+                city,
+                state,
+                zip,
+                is_default: makeDefault
+            });
+
+        if (error) throw error;
+
+        // Clear form
+        document.getElementById('new-addr-label').value = '';
+        document.getElementById('new-addr-line1').value = '';
+        document.getElementById('new-addr-line2').value = '';
+        document.getElementById('new-addr-city').value = '';
+        document.getElementById('new-addr-state').value = '';
+        document.getElementById('new-addr-zip').value = '';
+        document.getElementById('new-addr-default').checked = false;
+
+        await loadManageAddressesList();
+    } catch (err) {
+        console.error(err);
+        alert('Could not save address.\n' + (err.message || ''));
+    }
+}
+
+async function setDefaultAddress(addressId) {
+    const customer = window._currentCustomer;
+    if (!customer) return;
+
+    try {
+        // Clear current default
+        await supabaseClient
+            .from('customer_shipping_addresses')
+            .update({ is_default: false })
+            .eq('customer_id', customer.id)
+            .eq('is_default', true);
+
+        // Set new default
+        const { error } = await supabaseClient
+            .from('customer_shipping_addresses')
+            .update({ is_default: true })
+            .eq('id', addressId);
+
+        if (error) throw error;
+        await loadManageAddressesList();
+    } catch (err) {
+        console.error(err);
+        alert('Could not update default address.');
+    }
+}
+
+async function deleteAddress(addressId) {
+    if (!confirm('Delete this shipping address?')) return;
+
+    try {
+        const { error } = await supabaseClient
+            .from('customer_shipping_addresses')
+            .delete()
+            .eq('id', addressId);
+
+        if (error) throw error;
+        await loadManageAddressesList();
+    } catch (err) {
+        console.error(err);
+        alert('Could not delete address.');
+    }
+}
+// ================== END MANAGE SHIPPING ADDRESSES ==================
+
 function logout() {
     localStorage.removeItem("currentUser");
     localStorage.removeItem("activeCustomerId");

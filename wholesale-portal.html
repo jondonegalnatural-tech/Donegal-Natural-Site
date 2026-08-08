@@ -224,10 +224,10 @@
                     <div id="account-details" class="space-y-4">
                         <!-- Populated by showAccountInfo() -->
                     </div>
-                    <div class="mt-8 pt-6 border-t border-[#d4b78f]">
-                        <button onclick="logout()"
-                                class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-2xl">
-                            Logout
+                                        <div class="mt-8 pt-6 border-t border-[#d4b78f]">
+                        <button onclick="openManageAddressesModal()"
+                                class="px-6 py-3 bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold rounded-2xl">
+                            Edit / Manage Shipping Addresses
                         </button>
                     </div>
                 </div>
@@ -346,7 +346,7 @@
                                class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
                     </div>
                     <p class="text-xs text-[#6B4423] leading-relaxed">
-                        By selecting Check you authorize Donegal Natural to keep this bank account on file.
+                        By selecting "Check" you authorize Donegal Natural to keep this bank account on file.
                         If an invoice remains unpaid, ordering may be disabled after 30 days and the account
                         may be charged automatically after 45 days. These actions occur with no prior communication.
                         Re-enabling ordering requires admin approval.
@@ -365,6 +365,40 @@
     <script src="https://js.stripe.com/v3/"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/wholesale-portal.js"></script>
+    <!-- Manage Shipping Addresses Modal -->
+<div id="manage-addresses-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4" style="display: none;">
+  <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 p-6 border-2 border-[#6B4423] max-h-[90vh] overflow-y-auto">
+    <div class="flex justify-between items-start mb-4">
+      <h2 class="text-xl font-bold brand-green">Shipping Addresses</h2>
+      <button onclick="closeManageAddressesModal()" class="text-2xl text-[#6B4423] leading-none">&times;</button>
+    </div>
+
+    <div id="manage-addresses-list" class="space-y-3 mb-5">
+      <!-- filled by JS -->
+    </div>
+
+    <div class="border-t border-[#d4b78f] pt-4">
+      <h3 class="font-semibold brand-green mb-3">Add New Address</h3>
+      <div class="space-y-2">
+        <input id="new-addr-label" type="text" placeholder="Label (e.g. Warehouse, Store 2)" class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
+        <input id="new-addr-line1" type="text" placeholder="Street address *" class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
+        <input id="new-addr-line2" type="text" placeholder="Apt / Suite (optional)" class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
+        <div class="grid grid-cols-3 gap-2">
+          <input id="new-addr-city" type="text" placeholder="City *" class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
+          <input id="new-addr-state" type="text" placeholder="State *" class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
+          <input id="new-addr-zip" type="text" placeholder="ZIP *" class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
+        </div>
+        <label class="flex items-center gap-2 text-sm text-[#6B4423] mt-1">
+          <input type="checkbox" id="new-addr-default">
+          Set as default shipping address
+        </label>
+        <button onclick="saveNewAddress()" class="w-full mt-2 px-4 py-2.5 bg-[#1E4D2B] text-[#d4b78f] font-bold rounded-xl">
+          Save Address
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
     <!-- Address Confirmation Modal -->
 <div id="address-confirm-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
   <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 p-6 border-2 border-[#6B4423]">
