@@ -1360,11 +1360,6 @@ async function renderSalesmen() {
         const monthly = '$' + Math.round(totals.monthly).toLocaleString();
         const yearly = '$' + Math.round(totals.yearly).toLocaleString();
 
-        const toggleLabel = isActive ? 'Disable' : 'Enable';
-        const toggleClass = isActive
-            ? 'border-red-600 text-red-700 hover:bg-red-50'
-            : 'border-green-600 text-green-700 hover:bg-green-50';
-
         const card = document.createElement('div');
         card.className = 'bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition';
         card.onclick = () => showSalesmanDetail(s.id);
@@ -1380,16 +1375,15 @@ async function renderSalesmen() {
                         <p class="text-sm text-[#6B4423]">Territory: <strong>${s.territory || '—'}</strong></p>
                     </div>
                 </div>
-                <div class="flex flex-col items-end gap-2 flex-shrink-0" onclick="event.stopPropagation()">
-                    <span class="px-3 py-1 text-xs font-semibold rounded-full ${isActive ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}">
-                        ${isActive ? 'Active' : 'Inactive'}
-                    </span>
-                    <button type="button"
-                            onclick="toggleSalesmanActive('${s.id}', event)"
-                            class="px-3 py-1 text-xs font-semibold rounded-lg border-2 ${toggleClass}">
-                        ${toggleLabel}
-                    </button>
-                </div>
+                <button type="button"
+                        title="${isActive ? 'Click to disable' : 'Click to enable'}"
+                        onclick="toggleSalesmanActive('${s.id}', event)"
+                        class="px-3 py-1 text-xs font-semibold rounded-full flex-shrink-0 cursor-pointer transition
+                               ${isActive
+                                   ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                   : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}">
+                    ${isActive ? 'Active' : 'Inactive'}
+                </button>
             </div>
             <div class="grid grid-cols-2 gap-4 text-sm">
                 <div>
