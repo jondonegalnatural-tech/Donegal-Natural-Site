@@ -618,7 +618,7 @@ function dismissNewCustomersModal() {
     document.getElementById('new-customers-modal')?.classList.add('hidden');
 }
 
-function showSalesmanCustomerDetail(customer) {
+async function showSalesmanCustomerDetail(customer) {
     const modal = document.getElementById('salesman-customer-modal');
     if (!modal || !customer) return;
 
@@ -664,19 +664,35 @@ function showSalesmanCustomerDetail(customer) {
             <p class="text-xs text-[#6B4423] mt-1">Customer can view your approved price sheet.</p>
         `;
     } else {
-        pricingEl.innerHTML = `
-            <p class="text-sm font-semibold text-orange-700 mb-2">
-                Pricing not approved yet
-            </p>
-            <p class="text-xs text-[#6B4423] mb-3">
-                Attach your approved price sheet so this customer can see pricing.
-            </p>
-            <button type="button"
-                    onclick="approveCustomerPricing()"
-                    class="w-full px-4 py-2.5 bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-semibold text-sm">
-                Approve Pricing for This Customer
-            </button>
-        `;
+        const hasSheet = await salesmanHasApprovedPriceSheet();
+        if (hasSheet) {
+            pricingEl.innerHTML = `
+                <p class="text-sm font-semibold text-orange-700 mb-2">
+                    Pricing not approved yet
+                </p>
+                <p class="text-xs text-[#6B4423] mb-3">
+                    Attach your approved price sheet so this customer can see pricing.
+                </p>
+                <button type="button"
+                        onclick="approveCustomerPricing()"
+                        class="w-full px-4 py-2.5 bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-semibold text-sm">
+                    Approve Pricing for This Customer
+                </button>
+            `;
+        } else {
+            pricingEl.innerHTML = `
+                <p class="text-sm font-semibold text-orange-700 mb-2">
+                    Pricing not available yet
+                </p>
+                <p class="text-xs text-[#6B4423] mb-3">
+                    Your initial pricing sheet must be approved by admin before you can approve pricing for customers.
+                </p>
+                <button type="button" disabled
+                        class="w-full px-4 py-2.5 bg-gray-300 text-gray-500 rounded-xl font-semibold text-sm cursor-not-allowed">
+                    Approve Pricing (requires your approved sheet)
+                </button>
+            `;
+        }
     }
 
     modal.classList.remove('hidden');
@@ -691,6 +707,37 @@ function hideSalesmanCustomerModal() {
     }
 }
 
+async function salesmanHasApprovedPriceSheet() {
+    const user = getCurrentUser() || currentUser;
+    if (!user || !user.email) return false;
+    const email = (user.email || '').toLowerCase().trim();
+
+    try {
+        const { data: sheet } = await supabaseClient
+            .from('salesman_price_sheets')
+            .select('id, prices')
+            .eq('salesman_email', email)
+            .maybeSingle();
+
+        if (sheet && sheet.prices && Object.keys(sheet.prices).length > 0) {
+            return true;
+        }
+    } catch (e) {
+        console.warn('salesmanHasApprovedPriceSheet sheet check:', e);
+    }
+
+    // Fallback: salesmen.price_sheet_status
+    try {
+        const record = await getMySalesmanRecord();
+        const status = (record && record.priceSheetStatus)
+            ? String(record.priceSheetStatus).toLowerCase().trim()
+            : '';
+        return status === 'approved';
+    } catch (e) {
+        return false;
+    }
+}
+
 async function approveCustomerPricing() {
     const modal = document.getElementById('salesman-customer-modal');
     const customerId = modal?.dataset?.customerId;
@@ -702,6 +749,13 @@ async function approveCustomerPricing() {
     const user = getCurrentUser() || currentUser;
     if (!user) {
         alert('You must be logged in.');
+        return;
+    }
+
+    // Gate: salesman must already have an approved initial price sheet
+    const hasSheet = await salesmanHasApprovedPriceSheet();
+    if (!hasSheet) {
+        alert('Your initial pricing sheet must be approved by admin before you can approve pricing for customers.\n\nSubmit (or wait for approval of) your Initial Pricing Sheet first.');
         return;
     }
 
@@ -2086,6 +2140,31 @@ function exportPriceSheetPdf() {
 }
 
 // ================== INITIAL PRICING SHEET ==================
+async function salesmanHasApprovedPriceSheet() {
+    const user = getCurrentUser() || currentUser;
+    if (!user) return false;
+    const email = (user.email || '').toLowerCase().trim();
+    if (!email) return false;
+
+    // Prefer live sheet with actual prices
+    try {
+        const { data: sheet } = await supabaseClient
+            .from('salesman_price_sheets')
+            .select('id, prices')
+            .eq('salesman_email', email)
+            .maybeSingle();
+        if (sheet && sheet.prices && Object.keys(sheet.prices).length > 0) {
+            return true;
+        }
+    } catch (e) {
+        // fall through to status check
+    }
+
+    // Fallback: salesmen.price_sheet_status
+    const record = await getMySalesmanRecord();
+    const status = (record?.priceSheetStatus || '').toLowerCase().trim();
+    return status === 'approved';
+}
 
 async function getMySalesmanRecord() {
     const user = getCurrentUser() || currentUser;
