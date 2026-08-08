@@ -440,6 +440,30 @@
         Save Payment Method
       </button>
     </div>
+        <!-- Resale Certificate -->
+    <div class="border-t border-[#d4b78f] pt-4 mt-4">
+      <h3 class="font-semibold brand-green mb-3">Resale Certificate</h3>
+      <div id="resale-cert-current" class="mb-3 text-sm text-[#6B4423]">
+        <!-- filled by JS -->
+      </div>
+      <div class="space-y-2">
+        <div>
+          <label class="block text-xs font-semibold text-[#6B4423] mb-1">Certificate Number *</label>
+          <input id="resale-cert-number" type="text" class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-[#6B4423] mb-1">Expiration Date *</label>
+          <input id="resale-cert-expiration" type="date" class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-[#6B4423] mb-1">Certificate File (PDF, JPG, PNG) *</label>
+          <input id="resale-cert-file" type="file" accept=".pdf,image/jpeg,image/png" class="w-full text-sm">
+        </div>
+        <button onclick="uploadResaleCertificate()" class="w-full mt-2 px-4 py-2.5 bg-[#1E4D2B] text-[#d4b78f] font-bold rounded-xl">
+          Upload Certificate
+        </button>
+      </div>
+    </div>
   </div>
 </div>
     <!-- Address Confirmation Modal -->

@@ -4191,6 +4191,7 @@ async function openManageAddressesModal() {
     if (!modal) return;
     modal.style.display = 'flex';
     await loadManageAddressesList();
+    await loadCurrentResaleCert();
 
     // Pre-select current payment method
     const customer = window._currentCustomer;
@@ -4200,7 +4201,7 @@ async function openManageAddressesModal() {
             radio.checked = true;
             toggleEditBankFields();
         }
-        if (customer.payment_method === 'check') {
+        if (customer.payment_method === 'check' || customer.payment_method === 'ach') {
             if (document.getElementById('edit-routing')) document.getElementById('edit-routing').value = customer.bank_routing_number || '';
             if (document.getElementById('edit-account')) document.getElementById('edit-account').value = customer.bank_account_number || '';
         }
@@ -4418,6 +4419,105 @@ async function savePaymentInfo() {
         alert('Could not save payment method.\n' + (err.message || ''));
     }
 }
+
+async function loadCurrentResaleCert() {
+    const el = document.getElementById('resale-cert-current');
+    if (!el) return;
+
+    const customer = window._currentCustomer;
+    if (!customer) {
+        el.innerHTML = '<p class="text-sm text-[#6B4423]">No customer selected.</p>';
+        return;
+    }
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('customer_resale_certificates')
+            .select('*')
+            .eq('customer_id', customer.id)
+            .order('uploaded_at', { ascending: false })
+            .limit(1);
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            el.innerHTML = '<p class="text-sm text-[#6B4423]">No resale certificate on file.</p>';
+            return;
+        }
+
+        const cert = data[0];
+        const exp = cert.expiration_date ? new Date(cert.expiration_date).toLocaleDateString() : '—';
+        const expired = cert.expiration_date && new Date(cert.expiration_date) < new Date();
+
+        el.innerHTML = `
+            <div class="p-3 bg-[#f8f4eb] border border-[#d4b78f] rounded-xl">
+                <p><span class="font-semibold">Number:</span> ${cert.certificate_number || '—'}</p>
+                <p><span class="font-semibold">Expires:</span> <span class="${expired ? 'text-red-600 font-semibold' : ''}">${exp}${expired ? ' (Expired)' : ''}</span></p>
+                <p class="text-xs mt-1">${cert.file_name || ''}</p>
+            </div>
+        `;
+    } catch (err) {
+        console.error(err);
+        el.innerHTML = '<p class="text-sm text-red-600">Could not load certificate.</p>';
+    }
+}
+
+async function uploadResaleCertificate() {
+    const customer = window._currentCustomer;
+    if (!customer) {
+        alert('No customer selected.');
+        return;
+    }
+
+    const number = document.getElementById('resale-cert-number')?.value.trim() || '';
+    const expiration = document.getElementById('resale-cert-expiration')?.value || '';
+    const fileInput = document.getElementById('resale-cert-file');
+    const file = fileInput?.files?.[0];
+
+    if (!number || !expiration || !file) {
+        alert('Certificate number, expiration date, and file are required.');
+        return;
+    }
+
+    try {
+        // Upload file to Storage under the customer's auth uid folder
+        const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const uid = user.id || customer.id;
+        const ext = file.name.split('.').pop() || 'pdf';
+        const path = `${uid}/${Date.now()}.${ext}`;
+
+        const { error: uploadError } = await supabaseClient.storage
+            .from('resale-certificates')
+            .upload(path, file, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        // Save metadata (one active cert approach: insert new row)
+        const { error: insertError } = await supabaseClient
+            .from('customer_resale_certificates')
+            .insert({
+                customer_id: customer.id,
+                certificate_number: number,
+                expiration_date: expiration,
+                file_name: file.name,
+                file_path: path
+            });
+
+        if (insertError) throw insertError;
+
+        // Clear form
+        document.getElementById('resale-cert-number').value = '';
+        document.getElementById('resale-cert-expiration').value = '';
+        if (fileInput) fileInput.value = '';
+
+        await loadCurrentResaleCert();
+        alert('Resale certificate uploaded.');
+    } catch (err) {
+        console.error(err);
+        alert('Could not upload certificate.\n' + (err.message || ''));
+    }
+}
+
 // ================== END MANAGE SHIPPING ADDRESSES ==================
 
 function logout() {
