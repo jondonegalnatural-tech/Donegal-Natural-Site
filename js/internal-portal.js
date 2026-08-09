@@ -1325,7 +1325,8 @@ async function loadSalesmen() {
             monthlySales: Number(s.monthly_sales) || 0,
             active: s.active !== false,
             notes: s.notes || '',
-            mailingAddress: s.mailing_address || ''
+            mailingAddress: s.mailing_address || '',
+            assignedProducts: Array.isArray(s.assigned_products) ? s.assigned_products : []
         }));
     } catch (err) {
         console.error('loadSalesmen error:', err);
