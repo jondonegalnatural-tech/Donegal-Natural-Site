@@ -8034,8 +8034,6 @@ async function saveNewProduct(event) {
                 unit_price: unitPrice,
                 is_market_price: isMarket,
                 market_price_note: isMarket ? (marketNote || null) : null,
-                landed_cost: null,
-                gross_profit: null,
                 price_as_of: priceAsOf || null
             });
 
