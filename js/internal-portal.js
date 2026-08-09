@@ -1306,7 +1306,7 @@ async function loadSalesmen() {
     try {
         const { data, error } = await supabaseClient
             .from('salesmen')
-            .select('id, first_name, last_name, email, territory, commission, market_commission, price_sheet_status, yearly_sales, monthly_sales, active, notes, mailing_address')
+.select('id, first_name, last_name, email, territory, commission, market_commission, price_sheet_status, yearly_sales, monthly_sales, active, notes, mailing_address, assigned_products')
             .order('last_name', { ascending: true });
 
         if (error) throw error;
@@ -9689,7 +9689,7 @@ async function updateDashboardSalesmen() {
     try {
         const { data, error } = await supabaseClient
                         .from('salesmen')
-            .select('id, first_name, last_name, email, territory, commission, market_commission, price_sheet_status, yearly_sales, monthly_sales, active, notes, mailing_address')
+.select('id, first_name, last_name, email, territory, commission, market_commission, price_sheet_status, yearly_sales, monthly_sales, active, notes, mailing_address, assigned_products')
             .order('last_name', { ascending: true });
 
         if (error) {
@@ -9710,7 +9710,8 @@ async function updateDashboardSalesmen() {
                 monthlySales: Number(s.monthly_sales) || 0,
                 active: s.active !== false,
                 notes: s.notes || '',
-                mailingAddress: s.mailing_address || ''
+                mailingAddress: s.mailing_address || '',
+                assignedProducts: Array.isArray(s.assigned_products) ? s.assigned_products : []
             }));
         }
     } catch (err) {
