@@ -7234,6 +7234,26 @@ async function approvePriceProposal(id) {
             return;
         }
 
+        // 5% catalog-price increase safety check (Initial Pricing Sheet only)
+        if (proposal.type === 'initialPriceSheet') {
+            const over = [];
+            (proposal.items || []).forEach(item => {
+                const catalog = Number(item.catalogPrice);
+                const proposed = Number(item.proposedPrice);
+                if (!isNaN(catalog) && catalog > 0 && !isNaN(proposed) && proposed > catalog * 1.05) {
+                    const pct = ((proposed - catalog) / catalog * 100).toFixed(1);
+                    over.push(`${item.product}: $${catalog.toFixed(2)} → $${proposed.toFixed(2)} (+${pct}%)`);
+                }
+            });
+            if (over.length > 0) {
+                const msg =
+                    'WARNING: The following items exceed a 5% increase over catalog price:\n\n' +
+                    over.join('\n') +
+                    '\n\nDo you still want to approve this pricing sheet?';
+                if (!confirm(msg)) return;
+            }
+        }
+
         // 2. Mark the proposal as Approved
         const { error: updateError } = await supabaseClient
             .from('price_proposals')
@@ -7311,7 +7331,7 @@ async function approvePriceProposal(id) {
     }
 }
 
-function denyPriceProposal(id) {
+async function denyPriceProposal(id) {
     const reason = prompt("Reason for denying this proposal (required):", "");
     if (reason === null) return;
     if (!reason.trim()) {
@@ -7319,19 +7339,25 @@ function denyPriceProposal(id) {
         return;
     }
 
-    let all = JSON.parse(localStorage.getItem("salesmanProposals") || "[]");
-    const proposal = all.find(p => p.id === id);
-    if (!proposal) return;
+    try {
+        const { error } = await supabaseClient
+            .from('price_proposals')
+            .update({
+                status: 'Denied',
+                denial_reason: reason.trim(),
+                decided_at: new Date().toISOString()
+            })
+            .eq('id', id);
 
-    proposal.status = "Denied";
-    proposal.denialReason = reason.trim();
-    proposal.decidedAt = new Date().toISOString();
-    localStorage.setItem("salesmanProposals", JSON.stringify(all));
+        if (error) throw error;
 
-    alert("Proposal denied.");
-
-    updatePriceProposalsBadge();
-    showPriceProposalsPanel();
+        alert("Proposal denied.");
+        await updatePriceProposalsBadge();
+        showPriceProposalsPanel();
+    } catch (err) {
+        console.error('denyPriceProposal error:', err);
+        alert("Could not deny proposal.\n" + (err.message || ''));
+    }
 }
 
 // ================== WHOLESALE INQUIRIES (Supabase) ==================
