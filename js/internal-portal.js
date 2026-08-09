@@ -7331,6 +7331,7 @@ async function approvePriceProposal(id) {
     }
 }
 
+// BEFORE
 async function denyPriceProposal(id) {
     const reason = prompt("Reason for denying this proposal (required):", "");
     if (reason === null) return;
@@ -7345,6 +7346,36 @@ async function denyPriceProposal(id) {
             .update({
                 status: 'Denied',
                 denial_reason: reason.trim(),
+                decided_at: new Date().toISOString()
+            })
+            .eq('id', id);
+
+        if (error) throw error;
+
+        alert("Proposal denied.");
+        await updatePriceProposalsBadge();
+        showPriceProposalsPanel();
+    } catch (err) {
+        console.error('denyPriceProposal error:', err);
+        alert("Could not deny proposal.\n" + (err.message || ''));
+    }
+}
+
+// AFTER
+async function denyPriceProposal(id) {
+    const reason = prompt("Reason for denying this proposal (required):", "");
+    if (reason === null) return;
+    if (!reason.trim()) {
+        alert("A denial reason is required.");
+        return;
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from('price_proposals')
+            .update({
+                status: 'Denied',
+                overall_notes: reason.trim(),   // use existing column instead of missing denial_reason
                 decided_at: new Date().toISOString()
             })
             .eq('id', id);
