@@ -8033,8 +8033,7 @@ async function saveNewProduct(event) {
                 case_size: caseSize || null,
                 unit_price: unitPrice,
                 is_market_price: isMarket,
-                market_price_note: isMarket ? (marketNote || null) : null,
-                price_as_of: priceAsOf || null
+                active: true
             });
 
         if (prodErr) throw prodErr;
