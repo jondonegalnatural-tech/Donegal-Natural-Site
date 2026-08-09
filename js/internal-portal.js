@@ -7331,7 +7331,6 @@ async function approvePriceProposal(id) {
     }
 }
 
-// BEFORE
 async function denyPriceProposal(id) {
     const reason = prompt("Reason for denying this proposal (required):", "");
     if (reason === null) return;
@@ -7341,50 +7340,55 @@ async function denyPriceProposal(id) {
     }
 
     try {
-        const { error } = await supabaseClient
+        // 1. Load the proposal so we know its type + salesman
+        const { data: proposal, error: loadError } = await supabaseClient
+            .from('price_proposals')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (loadError || !proposal) {
+            alert("Could not find the proposal.");
+            return;
+        }
+
+        // 2. Mark it Denied (reason goes in overall_notes — safest column)
+        const { error: updateError } = await supabaseClient
             .from('price_proposals')
             .update({
                 status: 'Denied',
-                denial_reason: reason.trim(),
+                overall_notes: (proposal.overall_notes ? proposal.overall_notes + '\n\n' : '') +
+                               'DENIED: ' + reason.trim(),
                 decided_at: new Date().toISOString()
             })
             .eq('id', id);
 
-        if (error) throw error;
+        if (updateError) throw updateError;
 
-        alert("Proposal denied.");
+        // 3. If this was an Initial Pricing Sheet, reset the salesman so they can resubmit
+        if (proposal.type === 'initialPriceSheet') {
+            const email = (proposal.salesman_email || '').toLowerCase().trim();
+            if (email) {
+                const { error: statusError } = await supabaseClient
+                    .from('salesmen')
+                    .update({ price_sheet_status: 'required' })
+                    .eq('email', email);
+
+                if (statusError) {
+                    console.error('Could not reset price_sheet_status:', statusError);
+                    // Still continue — the proposal itself is denied
+                }
+            }
+        }
+
+        alert("Proposal denied." +
+              (proposal.type === 'initialPriceSheet'
+                  ? "\n\nSalesman can now submit a new Initial Pricing Sheet."
+                  : ""));
+
         await updatePriceProposalsBadge();
         showPriceProposalsPanel();
-    } catch (err) {
-        console.error('denyPriceProposal error:', err);
-        alert("Could not deny proposal.\n" + (err.message || ''));
-    }
-}
 
-// AFTER
-async function denyPriceProposal(id) {
-    const reason = prompt("Reason for denying this proposal (required):", "");
-    if (reason === null) return;
-    if (!reason.trim()) {
-        alert("A denial reason is required.");
-        return;
-    }
-
-    try {
-        const { error } = await supabaseClient
-            .from('price_proposals')
-            .update({
-                status: 'Denied',
-                overall_notes: reason.trim(),   // use existing column instead of missing denial_reason
-                decided_at: new Date().toISOString()
-            })
-            .eq('id', id);
-
-        if (error) throw error;
-
-        alert("Proposal denied.");
-        await updatePriceProposalsBadge();
-        showPriceProposalsPanel();
     } catch (err) {
         console.error('denyPriceProposal error:', err);
         alert("Could not deny proposal.\n" + (err.message || ''));
