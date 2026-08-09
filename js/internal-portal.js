@@ -1410,7 +1410,7 @@ async function renderSalesmen() {
 
 
 // ================== PRODUCT CATALOG ==================
-const PRODUCT_CATALOG = [
+let PRODUCT_CATALOG = [
     // ========== BULLY STICKS - Green Line ==========
     { name: "6” Thin Green Line Bully Sticks (Bulk)", category: "Bully Sticks", subCategory: "Green Line", caseSize: "1000/cs", unitPrice: 0.54, isMarketPrice: false, marketPriceNote: null, landedCost: null, grossProfit: null, priceAsOf: "July 2026" },
     { name: "12” Thin Green Line Bully Sticks (Bulk)", category: "Bully Sticks", subCategory: "Green Line", caseSize: "500/cs", unitPrice: 1.10, isMarketPrice: false, marketPriceNote: null, landedCost: null, grossProfit: null, priceAsOf: "July 2026" },
@@ -6948,7 +6948,9 @@ async function showPriceProposalsPanel() {
     list.innerHTML = pending.map(p => {
         const date = new Date(p.submittedAt).toLocaleDateString();
         const itemCount = (p.items || []).length;
-        const typeLabel = p.type === 'initialPriceSheet' ? 'Initial Pricing Sheet' : 'Price Change';
+        const typeLabel = p.type === 'initialPriceSheet'
+            ? 'Initial Pricing Sheet'
+            : (p.type === 'newProduct' ? 'New Product' : 'Price Change');
 
         return `
             <div class="border-2 border-[#6B4423] rounded-2xl p-4 mb-3 cursor-pointer hover:bg-[#f8f4eb] transition"
@@ -6997,7 +6999,9 @@ async function showProposalDetail(id) {
         };
 
         const date = new Date(p.submittedAt).toLocaleDateString();
-        const typeLabel = p.type === 'initialPriceSheet' ? 'Initial Pricing Sheet' : 'Price Change';
+const typeLabel = p.type === 'initialPriceSheet'
+            ? 'Initial Pricing Sheet'
+            : (p.type === 'newProduct' ? 'New Product' : 'Price Change');
 
         const itemRows = (p.items || []).map(item => `
             <div class="border border-[#d4b78f] rounded-xl p-3 mb-2 bg-[#f8f4eb]">
@@ -7921,7 +7925,182 @@ function showInquiriesSection() {
 }
 
 // ================== INVENTORY ==================
-// --- Inventory Helpers ---
+function openAddProductModal() {
+    const modal = document.getElementById('add-product-modal');
+    if (!modal) return;
+
+    // Clear form
+    const ids = [
+        'new-product-name', 'new-product-category', 'new-product-subcategory',
+        'new-product-casesize', 'new-product-unitprice', 'new-product-marketnote',
+        'new-product-priceasof'
+    ];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    const marketCb = document.getElementById('new-product-ismarket');
+    if (marketCb) marketCb.checked = false;
+    toggleAddProductMarketFields();
+
+    // Populate category datalist from existing catalog
+    const list = document.getElementById('new-product-category-list');
+    if (list && typeof PRODUCT_CATALOG !== 'undefined') {
+        const cats = [...new Set(PRODUCT_CATALOG.map(p => p.category).filter(Boolean))].sort();
+        list.innerHTML = cats.map(c => `<option value="${c}">`).join('');
+    }
+
+    // Default "Price As Of"
+    const asOf = document.getElementById('new-product-priceasof');
+    if (asOf && !asOf.value) {
+        const now = new Date();
+        asOf.value = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    }
+
+    modal.classList.remove('hidden');
+    document.getElementById('new-product-name')?.focus();
+}
+
+function hideAddProductModal() {
+    const modal = document.getElementById('add-product-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function toggleAddProductMarketFields() {
+    const cb = document.getElementById('new-product-ismarket');
+    const wrap = document.getElementById('new-product-market-note-wrap');
+    if (!wrap) return;
+    if (cb && cb.checked) {
+        wrap.classList.remove('hidden');
+    } else {
+        wrap.classList.add('hidden');
+    }
+}
+
+async function saveNewProduct(event) {
+    event.preventDefault();
+
+    const name = (document.getElementById('new-product-name')?.value || '').trim();
+    const category = (document.getElementById('new-product-category')?.value || '').trim();
+    const subCategory = (document.getElementById('new-product-subcategory')?.value || '').trim();
+    const caseSize = (document.getElementById('new-product-casesize')?.value || '').trim();
+    const unitPriceRaw = document.getElementById('new-product-unitprice')?.value;
+    const unitPrice = parseFloat(unitPriceRaw);
+    const isMarket = document.getElementById('new-product-ismarket')?.checked === true;
+    const marketNote = (document.getElementById('new-product-marketnote')?.value || '').trim();
+    const priceAsOf = (document.getElementById('new-product-priceasof')?.value || '').trim();
+
+    if (!name) {
+        alert('Product name is required.');
+        return;
+    }
+    if (!category) {
+        alert('Category is required.');
+        return;
+    }
+    if (isNaN(unitPrice) || unitPrice < 0) {
+        alert('Enter a valid unit price (0 or higher).');
+        return;
+    }
+
+    // Guard against exact-name duplicates in the live catalog
+    if (PRODUCT_CATALOG.some(p => p.name === name)) {
+        alert('A product with that exact name already exists in the catalog.');
+        return;
+    }
+
+    const catalogEntry = {
+        name: name,
+        category: category,
+        subCategory: subCategory || null,
+        caseSize: caseSize || null,
+        unitPrice: unitPrice,
+        isMarketPrice: isMarket,
+        marketPriceNote: isMarket ? (marketNote || null) : null,
+        landedCost: null,
+        grossProfit: null,
+        priceAsOf: priceAsOf || null
+    };
+
+    try {
+        // 1. Insert into products table
+        const { error: prodErr } = await supabaseClient
+            .from('products')
+            .insert({
+                name: name,
+                category: category,
+                sub_category: subCategory || null,
+                case_size: caseSize || null,
+                unit_price: unitPrice,
+                is_market_price: isMarket,
+                market_price_note: isMarket ? (marketNote || null) : null,
+                landed_cost: null,
+                gross_profit: null,
+                price_as_of: priceAsOf || null
+            });
+
+        if (prodErr) throw prodErr;
+
+        // 2. Push into live catalog
+        PRODUCT_CATALOG.push(catalogEntry);
+
+        // 3. Start inventory at 0
+        if (typeof upsertInventoryQuantity === 'function') {
+            inventory[name] = 0;
+            await upsertInventoryQuantity(name, 0);
+        }
+
+        // 4. Ensure salesmen are loaded
+        if (!Array.isArray(salesmen) || salesmen.length === 0) {
+            if (typeof loadSalesmen === 'function') await loadSalesmen();
+        }
+
+        const activeSalesmen = (salesmen || []).filter(s => s.active !== false && (s.email || '').trim());
+
+        // 5. Create type='newProduct' proposal for every active salesman
+        if (activeSalesmen.length > 0) {
+            const proposalRows = activeSalesmen.map(s => ({
+                type: 'newProduct',
+                salesman_email: (s.email || '').toLowerCase().trim(),
+                salesman_name: s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || '',
+                status: 'Pending',
+                items: [{
+                    product: name,
+                    catalogPrice: unitPrice,
+                    proposedPrice: unitPrice,
+                    belowCatalog: false
+                }],
+                overall_notes: 'New product added to catalog — please review / adjust your proposed price.',
+                submitted_at: new Date().toISOString()
+            }));
+
+            const { error: propErr } = await supabaseClient
+                .from('price_proposals')
+                .insert(proposalRows);
+
+            if (propErr) {
+                console.error('price_proposals insert error:', propErr);
+                alert('Product was saved, but one or more salesman proposals could not be created.\n' + (propErr.message || ''));
+            }
+        }
+
+        hideAddProductModal();
+
+        if (typeof showCurrentInventory === 'function') showCurrentInventory();
+        if (typeof updatePriceProposalsBadge === 'function') updatePriceProposalsBadge();
+
+        alert(
+            'Product added: ' + name + '\n' +
+            'Inventory started at 0.\n' +
+            (activeSalesmen.length
+                ? activeSalesmen.length + ' New Product proposal(s) created for active salesmen.'
+                : 'No active salesmen found — no proposals created.')
+        );
+    } catch (err) {
+        console.error('saveNewProduct error:', err);
+        alert('Could not save product.\n' + (err.message || ''));
+    }
+}
 
 // Preferred main category order
 const INVENTORY_CATEGORY_ORDER = [
@@ -8066,6 +8245,8 @@ function showCurrentInventory() {
 
     renderCurrentInventoryList();
 }
+
+
 
 function renderCurrentInventoryList() {
     const list = document.getElementById('inventory-list');
