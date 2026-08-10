@@ -4895,12 +4895,12 @@ function renderCustomers() {
                                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}">
                             ${isCustomerEnabled(customer.status) ? 'Active' : 'Inactive'}
                         </button>
-                        ${customer.password_changed
-                            ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-green-100 text-green-800">✓ Password</span>`
-                            : `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">Needs Password</span>`}
-                        ${(customer.onboarding_complete || customer.payment_method)
-                            ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-100 text-blue-800">✓ Payment</span>`
-                            : `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">Payment Pending</span>`}
+                        ${!customer.password_changed
+                            ?`<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">Needs Password</span>`
+                            : ''}
+                        ${!(customer.onboarding_complete || customer.payment_method)
+                            ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">Payment Pending</span>`
+                            : ''}
                         ${isAchApproved ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-100 text-blue-800">ACH Approved</span>` : ''}
                     </div>
                 </div>
@@ -5116,7 +5116,27 @@ async function showCustomerDetail(customerName) {
     document.getElementById('modal-customer-email').textContent = customer.email || 'N/A';
     document.getElementById('modal-customer-territory').textContent = customer.territory || 'N/A';
     document.getElementById('modal-customer-balance').textContent = '$' + (customer.balance || 0).toLocaleString();
-
+    // Password + Payment status (always visible in detail, even when completed)
+let onboardingSection = document.getElementById('modal-customer-onboarding');
+if (!onboardingSection) {
+    onboardingSection = document.createElement('div');
+    onboardingSection.id = 'modal-customer-onboarding';
+    onboardingSection.className = 'mt-3 pt-3 border-t border-[#d4b78f]';
+    const statusEl = document.getElementById('modal-customer-status');
+    if (statusEl && statusEl.parentElement) {
+        statusEl.parentElement.appendChild(onboardingSection);
+    }
+}
+const pwBadge = customer.password_changed
+    ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-green-100 text-green-800">✓ Password set</span>`
+    : `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">Needs Password</span>`;
+const payBadge = (customer.onboarding_complete || customer.payment_method)
+    ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-100 text-blue-800">✓ Payment method</span>`
+    : `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">Payment Pending</span>`;
+onboardingSection.innerHTML = `
+    <p class="text-xs text-[#6B4423] mb-1.5">Onboarding Status</p>
+    <div class="flex flex-wrap gap-2">${pwBadge}${payBadge}</div>
+`;
     // Assigned salesman (read-only)
     const salesmanEl = document.getElementById('modal-customer-salesman');
     if (salesmanEl) {
