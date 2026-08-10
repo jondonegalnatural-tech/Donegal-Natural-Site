@@ -2392,11 +2392,13 @@ function showPackagedItemModal(name, price, cs, category, image = null, healthBe
     const oldModal = document.getElementById('add-to-quote-modal');
     if (oldModal) oldModal.remove();
 
+    // Store pending item safely — avoids broken onclick string interpolation
+    window._pendingQuoteItem = { name, price, cs, category };
+
     const modal = document.createElement('div');
     modal.id = 'add-to-quote-modal';
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[999]';
 
-    // Use placeholder image if none is provided
     const imagePath = image || 'media/placeholder-bully-stick.png';
 
     let imageHTML = `
@@ -2435,11 +2437,11 @@ function showPackagedItemModal(name, price, cs, category, image = null, healthBe
             </div>
 
             <div class="flex gap-3">
-                <button onclick="addToQuote('${name.replace(/'/g, "\\'")}', '${price}', '${cs}', document.getElementById('quote-quantity').value)"
+                <button onclick="addToQuoteFromModal()"
                         class="flex-1 bg-[#1E4D2B] text-[#d4b78f] font-bold py-3 rounded-2xl">
                     Add to Quote
                 </button>
-                <button onclick="closeAddToQuoteModal()" 
+                <button onclick="closeAddToQuoteModal()"
                         class="flex-1 border-2 border-[#6B4423] text-[#6B4423] font-bold py-3 rounded-2xl">
                     Cancel
                 </button>
@@ -2449,7 +2451,6 @@ function showPackagedItemModal(name, price, cs, category, image = null, healthBe
 
     document.body.appendChild(modal);
 
-    // Focus quantity immediately (delayed so the modal is fully in the DOM)
     setTimeout(() => {
         const qtyInput = document.getElementById('quote-quantity');
         if (qtyInput) {
@@ -2462,6 +2463,39 @@ function showPackagedItemModal(name, price, cs, category, image = null, healthBe
 function closeAddToQuoteModal() {
     const modal = document.getElementById('add-to-quote-modal');
     if (modal) modal.remove();
+}
+
+function addToQuoteFromModal() {
+    const pending = window._pendingQuoteItem;
+    if (!pending) {
+        closeAddToQuoteModal();
+        return;
+    }
+
+    const qtyInput = document.getElementById('quote-quantity');
+    const qty = parseInt(qtyInput?.value, 10) || 1;
+
+    quoteItems.push({
+        name: pending.name,
+        price: pending.price,
+        cs: pending.cs,
+        quantity: qty
+    });
+
+    localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
+    updateQuoteSidebar();
+    closeAddToQuoteModal();
+    window._pendingQuoteItem = null;
+}
+
+function showQuoteSidebar() {
+    const el = document.getElementById('quote-sidebar');
+    if (el) el.classList.remove('hidden');
+}
+
+function hideQuoteSidebar() {
+    const el = document.getElementById('quote-sidebar');
+    if (el) el.classList.add('hidden');
 }
 
 function addToQuote(name, price, cs, quantity) {
@@ -2484,6 +2518,10 @@ function updateQuoteSidebar() {
     const summaryContainer = document.getElementById('quote-summary');
     
     if (!itemsContainer || !summaryContainer) return;
+
+    // Always keep mobile quote badge in sync (empty + non-empty)
+    const mobileCount = document.getElementById('quote-count-mobile');
+    if (mobileCount) mobileCount.textContent = String(quoteItems.length);
 
     itemsContainer.innerHTML = '';
     summaryContainer.innerHTML = '';
@@ -2660,6 +2698,22 @@ function clearQuote() {
         quoteItems = [];
         localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
         updateQuoteSidebar();
+    }
+}
+
+function showQuoteSidebar() {
+    const sidebar = document.getElementById('quote-sidebar');
+    if (sidebar) {
+        sidebar.classList.remove('hidden');
+        sidebar.classList.add('flex');
+    }
+}
+
+function hideQuoteSidebar() {
+    const sidebar = document.getElementById('quote-sidebar');
+    if (sidebar) {
+        sidebar.classList.add('hidden');
+        sidebar.classList.remove('flex');
     }
 }
 
