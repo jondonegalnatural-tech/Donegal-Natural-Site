@@ -32,17 +32,6 @@ let customerBackOrders = []; // pending + fulfilled for this customer
 // ================== MULTI-STORE (shared email) ==================
 window._customerAccounts = []; // all customers rows that share the login email
 
-function getStoreLabel(c) {
-    if (!c) return 'Unknown store';
-    const name = (c.company || c.name || '').trim();
-    const addr = (c.shipping_address || c.territory || '').trim();
-    const shortAddr = addr ? addr.split(',')[0].trim() : '';
-    if (name && shortAddr) return `${name} — ${shortAddr}`;
-    if (name) return name;
-    if (shortAddr) return shortAddr;
-    return `Store ${String(c.id || '').slice(0, 8)}`;
-}
-
 function resolveActiveCustomer() {
     const accounts = window._customerAccounts || [];
     if (accounts.length === 0) {
