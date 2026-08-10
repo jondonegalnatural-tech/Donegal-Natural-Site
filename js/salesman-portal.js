@@ -1051,13 +1051,11 @@ async function saveCustomerPricing() {
         alert('No customer selected.');
         return;
     }
-
     const user = getCurrentUser() || currentUser;
     if (!user) {
         alert('You must be logged in.');
         return;
     }
-
     const email = (user.email || '').toLowerCase().trim();
     const basePrices = window._customerPricingBase || {};
     const draft = window._customerPricingDraft || {};
@@ -1065,16 +1063,13 @@ async function saveCustomerPricing() {
     // Build full price map from live inputs (prefer draft map)
     const prices = {};
     const outsideItems = [];
-
     document.querySelectorAll('.cp-price-input').forEach(inp => {
         const name = inp.getAttribute('data-name');
         const base = parseFloat(inp.getAttribute('data-base'));
         let val = parseFloat(inp.value);
         if (name && draft[name] != null) val = Number(draft[name]);
         if (!name || isNaN(val) || val < 0) return;
-
         prices[name] = val;
-
         if (!isNaN(base) && base > 0) {
             const pct = Math.abs((val - base) / base) * 100;
             if (pct > 5) {
@@ -1110,7 +1105,6 @@ async function saveCustomerPricing() {
                     prices: prices,
                     updated_at: new Date().toISOString()
                 }, { onConflict: 'customer_id' });
-
             if (upsertErr) throw upsertErr;
 
             const { error: custErr } = await supabaseClient
@@ -1120,7 +1114,6 @@ async function saveCustomerPricing() {
                     pricing_approved_by: user.fullName || user.name || user.email || 'Salesman'
                 })
                 .eq('id', customer.id);
-
             if (custErr) throw custErr;
 
             alert('Customer pricing saved. Customer can now see these prices.');
@@ -1136,38 +1129,45 @@ async function saveCustomerPricing() {
                 }
             }
             if (typeof renderCustomers === 'function') renderCustomers();
-
         } else {
-            // Some outside ±5% — still save in-range as draft on customer sheet? 
-            // Per design: create Pending proposal; keep previous prices until admin acts.
-            // We do NOT overwrite customer_price_sheets until approved.
+            // Some outside ±5% — create Pending proposal with full map.
+            // Do NOT overwrite customer_price_sheets until admin approves.
+            const allItems = Object.keys(prices).map(name => {
+                const base = basePrices[name] != null ? Number(basePrices[name]) : null;
+                const proposed = Number(prices[name]);
+                let pctChange = null;
+                let outside5 = false;
+                if (base != null && base > 0 && !isNaN(proposed)) {
+                    pctChange = Number((((proposed - base) / base) * 100).toFixed(2));
+                    outside5 = Math.abs(pctChange) > 5;
+                }
+                return {
+                    product: name,
+                    basePrice: base,
+                    proposedPrice: proposed,
+                    pctChange: pctChange,
+                    outside5: outside5,
+                    customerId: customer.id,
+                    customerName: customer.name || '',
+                    customerCompany: customer.company || ''
+                };
+            });
+
             const { error: propErr } = await supabaseClient
                 .from('price_proposals')
                 .insert({
                     type: 'customerPricing',
+                    customer_id: customer.id,
                     salesman_email: email,
                     salesman_name: user.fullName || user.name || 'Salesman',
                     status: 'Pending',
-                    items: outsideItems.map(i => ({
-                        product: i.product,
-                        basePrice: i.basePrice,
-                        proposedPrice: i.proposedPrice,
-                        pctChange: Number(i.pctChange.toFixed(2)),
-                        customerId: customer.id,
-                        customerName: customer.name || '',
-                        customerCompany: customer.company || ''
-                    })),
-                    overall_notes: 'Customer pricing changes outside ±5% of salesman base sheet. Customer: ' +
-                        (customer.name || customer.id),
+                    items: allItems,
+                    overall_notes: 'Customer pricing (full map). Outside ±5%: ' +
+                        outsideItems.length + ' item(s). Customer: ' +
+                        (customer.name || customer.id) + ' | id=' + customer.id,
                     submitted_at: new Date().toISOString()
                 });
-
             if (propErr) throw propErr;
-
-            // Also apply the in-range prices immediately if customer already had approval
-            // or if this is first-time and only some items are outside.
-            // Simpler rule: only apply full map when ALL are in range.
-            // Outside → proposal only; previous sheet stays until admin approves.
 
             alert(
                 outsideItems.length + ' product(s) are outside ±5% of your base sheet.\n\n' +
