@@ -7365,10 +7365,11 @@ async function denyPriceProposal(id) {
 
         if (updateError) throw updateError;
 
-        // 3. If this was an Initial Pricing Sheet, reset the salesman so they can resubmit
+        // 3. If this was an Initial Pricing Sheet, reset salesman so they can resubmit
         if (proposal.type === 'initialPriceSheet') {
             const email = (proposal.salesman_email || '').toLowerCase().trim();
             if (email) {
+                // Reset status → Initial Sheet tab can show again
                 const { error: statusError } = await supabaseClient
                     .from('salesmen')
                     .update({ price_sheet_status: 'required' })
@@ -7376,7 +7377,16 @@ async function denyPriceProposal(id) {
 
                 if (statusError) {
                     console.error('Could not reset price_sheet_status:', statusError);
-                    // Still continue — the proposal itself is denied
+                }
+
+                // Remove any existing sheet so the tab is not blocked by hasApprovedSheet
+                const { error: sheetError } = await supabaseClient
+                    .from('salesman_price_sheets')
+                    .delete()
+                    .eq('salesman_email', email);
+
+                if (sheetError) {
+                    console.error('Could not clear salesman_price_sheets:', sheetError);
                 }
             }
         }
@@ -8142,73 +8152,19 @@ async function saveNewProduct(event) {
             if (typeof loadSalesmen === 'function') await loadSalesmen();
         }
 
-        const activeSalesmen = (salesmen || []).filter(s => s.active !== false && (s.email || '').trim());
-
-        // 5. Create type='newProduct' proposal for every active salesman
-        //    (skip if a Pending newProduct proposal already exists for this product + salesman)
-        if (activeSalesmen.length > 0) {
-            const proposalRows = [];
-
-            for (const s of activeSalesmen) {
-                const email = (s.email || '').toLowerCase().trim();
-                if (!email) continue;
-
-                // Avoid duplicate pending proposals for the same salesman + product
-                const { data: existingProp } = await supabaseClient
-                    .from('price_proposals')
-                    .select('id')
-                    .eq('type', 'newProduct')
-                    .eq('status', 'Pending')
-                    .eq('salesman_email', email)
-                    .limit(20);
-
-                const alreadyPending = (existingProp || []).some(row => {
-                    // items is jsonb — check if this product is already on a pending proposal
-                    return true; // we'll filter below if needed
-                });
-
-                // Simpler approach: always insert; admin can deny duplicates if needed.
-                // To fully prevent duplicates we'd need a more complex items filter.
-                proposalRows.push({
-                    type: 'newProduct',
-                    salesman_email: email,
-                    salesman_name: s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || '',
-                    status: 'Pending',
-                    items: [{
-                        product: name,
-                        catalogPrice: unitPrice,
-                        proposedPrice: unitPrice,
-                        belowCatalog: false
-                    }],
-                    overall_notes: 'New product added to catalog — please review / adjust your proposed price.',
-                    submitted_at: new Date().toISOString()
-                });
-            }
-
-            if (proposalRows.length > 0) {
-                const { error: propErr } = await supabaseClient
-                    .from('price_proposals')
-                    .insert(proposalRows);
-
-                if (propErr) {
-                    console.error('price_proposals insert error:', propErr);
-                    alert('Product was saved, but one or more salesman proposals could not be created.\n' + (propErr.message || ''));
-                }
-            }
-        }
+                // New products are added to the catalog only.
+        // Salesmen set their own prices later via Price Change proposal.
+        // Do NOT auto-create Pending proposals — that put them in the admin queue immediately.
 
         hideAddProductModal();
 
         if (typeof showCurrentInventory === 'function') showCurrentInventory();
         if (typeof updatePriceProposalsBadge === 'function') updatePriceProposalsBadge();
 
-        alert(
+                alert(
             'Product added: ' + name + '\n' +
-            (productAlreadyInDb ? '(was already in database — inventory/proposals updated)\n' : '') +
             'Inventory started at 0.\n' +
-            (activeSalesmen.length
-                ? activeSalesmen.length + ' New Product proposal(s) created for active salesmen.'
-                : 'No active salesmen found — no proposals created.')
+            'Salesmen can set their price via a Price Change proposal when ready.'
         );
     } catch (err) {
         console.error('saveNewProduct error:', err);
