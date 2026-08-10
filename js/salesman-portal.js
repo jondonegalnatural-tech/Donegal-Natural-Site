@@ -1154,19 +1154,18 @@ async function saveCustomerPricing() {
             });
 
             const { error: propErr } = await supabaseClient
-                .from('price_proposals')
-                .insert({
-                    type: 'customerPricing',
-                    customer_id: customer.id,
-                    salesman_email: email,
-                    salesman_name: user.fullName || user.name || 'Salesman',
-                    status: 'Pending',
-                    items: allItems,
-                    overall_notes: 'Customer pricing (full map). Outside ±5%: ' +
-                        outsideItems.length + ' item(s). Customer: ' +
-                        (customer.name || customer.id) + ' | id=' + customer.id,
-                    submitted_at: new Date().toISOString()
-                });
+    .from('price_proposals')
+    .insert({
+        type: 'customerPricing',
+        salesman_email: email,
+        salesman_name: user.fullName || user.name || 'Salesman',
+        status: 'Pending',
+        items: allItems,
+        overall_notes: 'Customer pricing (full map). Outside ±5%: ' +
+            outsideItems.length + ' item(s). Customer: ' +
+            (customer.name || customer.id) + ' | id=' + customer.id,
+        submitted_at: new Date().toISOString()
+    });
             if (propErr) throw propErr;
 
             alert(
