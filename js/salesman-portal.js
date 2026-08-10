@@ -2301,6 +2301,9 @@ async function renderInitialPriceSheet() {
         return;
     }
 
+    // Draft map — survives accordion expand/collapse
+    if (!window.initialSheetDraftPrices) window.initialSheetDraftPrices = {};
+
     // Group catalog by category (preserve first-seen order)
     const grouped = {};
     const categoryOrder = [];
@@ -2331,6 +2334,14 @@ async function renderInitialPriceSheet() {
                     class="px-3 py-1.5 text-xs font-semibold border-2 border-[#6B4423] rounded-lg hover:bg-[#f8f4eb]">
                 Collapse All
             </button>
+            <button type="button" onclick="selectAllInitialSheet(true)"
+                    class="px-3 py-1.5 text-xs font-semibold border-2 border-[#6B4423] rounded-lg hover:bg-[#f8f4eb]">
+                Select All
+            </button>
+            <button type="button" onclick="selectAllInitialSheet(false)"
+                    class="px-3 py-1.5 text-xs font-semibold border-2 border-[#6B4423] rounded-lg hover:bg-[#f8f4eb]">
+                Deselect All
+            </button>
         </div>
     `;
 
@@ -2358,12 +2369,26 @@ async function renderInitialPriceSheet() {
             const displayCatalog = p.isMarketPrice
                 ? "Market Price"
                 : "$" + Number(p.unitPrice).toFixed(2);
-            const startVal = p.isMarketPrice ? "" : Number(p.unitPrice).toFixed(2);
+
+            // Prefer saved draft, otherwise catalog default
+            let startVal = "";
+            if (p.isMarketPrice) {
+                startVal = (window.initialSheetDraftPrices[p.name] != null)
+                    ? Number(window.initialSheetDraftPrices[p.name]).toFixed(2)
+                    : "";
+            } else if (window.initialSheetDraftPrices[p.name] != null) {
+                startVal = Number(window.initialSheetDraftPrices[p.name]).toFixed(2);
+            } else {
+                startVal = Number(p.unitPrice).toFixed(2);
+            }
+
             const safeName = p.name.replace(/"/g, "&quot;");
+            const safeNameJs = p.name.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 
             html += `
                 <div class="bg-white border border-[#d4b78f] rounded-xl p-3 flex flex-wrap items-center gap-3"
-                     data-initial-index="${index}">
+                     data-initial-index="${index}"
+                     data-product-name="${safeName}">
                     <input type="checkbox"
                            class="initial-sheet-check w-4 h-4 accent-[#1E4D2B]"
                            data-name="${safeName}"
@@ -2372,7 +2397,7 @@ async function renderInitialPriceSheet() {
                         <p class="text-sm font-semibold brand-green">${p.name}</p>
                         <p class="text-xs text-[#6B4423]">${p.caseSize || ""} · Catalog: ${displayCatalog}</p>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
                         <label class="text-xs text-[#6B4423] whitespace-nowrap">Your price</label>
                         <div class="flex items-center border-2 border-[#6B4423] rounded-lg overflow-hidden bg-white">
                             <span class="px-2 py-1.5 text-sm font-semibold text-[#6B4423] bg-[#f8f4eb] border-r border-[#d4b78f] select-none">$</span>
@@ -2383,9 +2408,16 @@ async function renderInitialPriceSheet() {
                                    class="initial-sheet-price w-20 border-0 px-2 py-1.5 text-sm font-semibold focus:outline-none focus:ring-0"
                                    data-catalog="${catalogPrice === null ? "" : catalogPrice}"
                                    data-name="${safeName}"
-                                   oninput="flagInitialPrice(this)">
+                                   oninput="onInitialPriceInput(this)">
                         </div>
-                        <span class="initial-flag text-xs text-red-600 font-semibold hidden">Below catalog</span>
+                        <button type="button"
+                                class="initial-save-btn hidden px-2.5 py-1 text-xs font-semibold rounded-lg bg-[#1E4D2B] text-[#d4b78f] hover:bg-[#254a2f]"
+                                data-name="${safeName}"
+                                onclick="saveInitialPriceRow('${safeNameJs}')">
+                            Save
+                        </button>
+                        <span class="initial-saved-label text-xs text-green-700 font-semibold hidden">Saved</span>
+                        <span class="initial-flag text-xs text-red-600 font-semibold hidden">±5% from catalog</span>
                     </div>
                 </div>
             `;
@@ -2398,6 +2430,11 @@ async function renderInitialPriceSheet() {
     });
 
     container.innerHTML = html;
+
+    // Re-apply flags for any restored draft values
+    container.querySelectorAll(".initial-sheet-price").forEach(inp => {
+        if (typeof flagInitialPrice === "function") flagInitialPrice(inp);
+    });
 }
 
 function toggleInitialCategory(cat) {
@@ -2421,19 +2458,102 @@ function expandAllInitialCategories(open) {
     renderInitialPriceSheet();
 }
 
+function onInitialPriceInput(input) {
+    if (!window.initialSheetDraftPrices) window.initialSheetDraftPrices = {};
+
+    const name = input.getAttribute("data-name");
+    const row = input.closest("[data-product-name]") || input.closest("[data-initial-index]");
+    const saveBtn = row ? row.querySelector(".initial-save-btn") : null;
+    const savedLabel = row ? row.querySelector(".initial-saved-label") : null;
+
+    // Always keep the live value in the draft map while typing
+    const val = parseFloat(input.value);
+    if (name && !isNaN(val) && val >= 0) {
+        // Do NOT commit yet — only on Save click
+        // Just show the Save button when different from last saved draft
+        const lastSaved = window.initialSheetDraftPrices[name];
+        const catalog = parseFloat(input.getAttribute("data-catalog"));
+        const baseline = (lastSaved != null) ? Number(lastSaved) : (isNaN(catalog) ? null : catalog);
+
+        const differs = baseline == null
+            ? !isNaN(val)
+            : Math.abs(val - baseline) > 0.0001;
+
+        if (saveBtn) {
+            if (differs) {
+                saveBtn.classList.remove("hidden");
+                if (savedLabel) savedLabel.classList.add("hidden");
+            } else {
+                saveBtn.classList.add("hidden");
+            }
+        }
+    } else if (saveBtn) {
+        saveBtn.classList.remove("hidden");
+        if (savedLabel) savedLabel.classList.add("hidden");
+    }
+
+    flagInitialPrice(input);
+}
+
+function saveInitialPriceRow(productName) {
+    if (!window.initialSheetDraftPrices) window.initialSheetDraftPrices = {};
+
+    const input = document.querySelector(
+        `.initial-sheet-price[data-name="${CSS.escape(productName)}"]`
+    );
+    if (!input) return;
+
+    const val = parseFloat(input.value);
+    if (isNaN(val) || val < 0) {
+        alert("Enter a valid price (0 or higher) before saving.");
+        return;
+    }
+
+    window.initialSheetDraftPrices[productName] = val;
+
+    const row = input.closest("[data-product-name]") || input.closest("[data-initial-index]");
+    const saveBtn = row ? row.querySelector(".initial-save-btn") : null;
+    const savedLabel = row ? row.querySelector(".initial-saved-label") : null;
+
+    if (saveBtn) saveBtn.classList.add("hidden");
+    if (savedLabel) {
+        savedLabel.classList.remove("hidden");
+        setTimeout(() => {
+            if (savedLabel) savedLabel.classList.add("hidden");
+        }, 1500);
+    }
+
+    flagInitialPrice(input);
+}
+
 function flagInitialPrice(input) {
+    // Absolute ±5% from catalog (higher OR lower)
     const catalog = parseFloat(input.getAttribute("data-catalog"));
     const proposed = parseFloat(input.value);
-    const flag = input.parentElement.querySelector(".initial-flag");
+
+    // Flag sits next to the $ input group — search from the row
+    const row = input.closest("[data-product-name]") || input.closest("[data-initial-index]");
+    const flag = row
+        ? row.querySelector(".initial-flag")
+        : input.parentElement.querySelector(".initial-flag");
     if (!flag) return;
 
-    if (!isNaN(catalog) && !isNaN(proposed) && proposed < catalog) {
-        flag.classList.remove("hidden");
-        input.classList.add("border-red-500");
-    } else {
-        flag.classList.add("hidden");
-        input.classList.remove("border-red-500");
+    // Style the outer $ wrapper border, not the bare input
+    const wrapper = input.closest(".flex.items-center.border-2") || input;
+
+    if (!isNaN(catalog) && catalog > 0 && !isNaN(proposed)) {
+        const pct = Math.abs((proposed - catalog) / catalog) * 100;
+        if (pct > 5) {
+            flag.textContent = (proposed >= catalog ? "+" : "") +
+                ((proposed - catalog) / catalog * 100).toFixed(1) + "% from catalog";
+            flag.classList.remove("hidden");
+            wrapper.classList.add("border-red-500");
+            return;
+        }
     }
+
+    flag.classList.add("hidden");
+    wrapper.classList.remove("border-red-500");
 }
 
 function selectAllInitialSheet(checked) {
@@ -2461,7 +2581,13 @@ async function submitInitialPriceSheet() {
         const priceInput = row.querySelector(".initial-sheet-price");
         const name = cb.getAttribute("data-name");
         const catalog = parseFloat(priceInput.getAttribute("data-catalog"));
-        const proposed = parseFloat(priceInput.value);
+        const nameKey = cb.getAttribute("data-name");
+        // Prefer the saved draft if present, otherwise the live input
+        let proposed = parseFloat(priceInput.value);
+        if (window.initialSheetDraftPrices &&
+            window.initialSheetDraftPrices[nameKey] != null) {
+            proposed = Number(window.initialSheetDraftPrices[nameKey]);
+        }
 
         if (isNaN(proposed) || proposed < 0) {
             return;
@@ -2520,6 +2646,9 @@ async function submitInitialPriceSheet() {
             items.length + " product(s) included." +
             (belowCount ? "\n" + belowCount + " item(s) are below catalog price and will need careful review." : "")
         );
+
+        // Clear drafts so a future required sheet starts clean
+        window.initialSheetDraftPrices = {};
 
         // Refresh the UI
         await updateInitialSheetTabVisibility();

@@ -7024,7 +7024,8 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
         const hasCatalog = catalog != null && !isNaN(catalog);
         const isChanged = hasCatalog && !isNaN(proposed) && Math.abs(proposed - catalog) > 0.0001;
         const below = item.belowCatalog || (hasCatalog && !isNaN(proposed) && proposed < catalog);
-        const over5 = hasCatalog && catalog > 0 && !isNaN(proposed) && proposed > catalog * 1.05;
+        const over5 = hasCatalog && catalog > 0 && !isNaN(proposed) &&
+            Math.abs(proposed - catalog) / catalog > 0.05;
 
         if (isChanged) changedCount++;
         if (over5) over5Count++;
@@ -7054,7 +7055,7 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
 
         const changeLabel = isChanged
             ? (over5
-                ? ' <span class="text-red-700 text-xs font-bold">(>5% above catalog)</span>'
+                ? ' <span class="text-red-700 text-xs font-bold">(±5% from catalog)</span>'
                 : (below
                     ? ' <span class="text-orange-700 text-xs font-semibold">(below catalog)</span>'
                     : ' <span class="text-[#1E4D2B] text-xs font-semibold">(changed)</span>'))
@@ -7075,7 +7076,7 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
 
     const summaryBits = [];
     if (changedCount > 0) summaryBits.push(changedCount + " changed");
-    if (over5Count > 0) summaryBits.push(over5Count + " over 5%");
+    if (over5Count > 0) summaryBits.push(over5Count + " outside ±5%");
     const summaryText = summaryBits.length
         ? summaryBits.join(" · ")
         : "No price changes from catalog";
@@ -7331,14 +7332,16 @@ async function approvePriceProposal(id) {
             (proposal.items || []).forEach(item => {
                 const catalog = Number(item.catalogPrice);
                 const proposed = Number(item.proposedPrice);
-                if (!isNaN(catalog) && catalog > 0 && !isNaN(proposed) && proposed > catalog * 1.05) {
+                if (!isNaN(catalog) && catalog > 0 && !isNaN(proposed) &&
+                    Math.abs(proposed - catalog) / catalog > 0.05) {
                     const pct = ((proposed - catalog) / catalog * 100).toFixed(1);
-                    over.push(`${item.product}: $${catalog.toFixed(2)} → $${proposed.toFixed(2)} (+${pct}%)`);
+                    const sign = Number(pct) >= 0 ? "+" : "";
+                    over.push(`${item.product}: $${catalog.toFixed(2)} → $${proposed.toFixed(2)} (${sign}${pct}%)`);
                 }
             });
             if (over.length > 0) {
                 const msg =
-                    'WARNING: The following items exceed a 5% increase over catalog price:\n\n' +
+                    'WARNING: The following items are more than ±5% away from catalog price:\n\n' +
                     over.join('\n') +
                     '\n\nDo you still want to approve this pricing sheet?';
                 if (!confirm(msg)) return;
