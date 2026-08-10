@@ -4854,7 +4854,18 @@ function renderCustomers() {
         return;
     }
 
-    let html = '';
+    let html = `
+        <div class="col-span-full flex flex-wrap gap-3 mb-2">
+            <button type="button" onclick="setAllCustomersActive(true)"
+                    class="px-4 py-2 text-sm font-semibold rounded-xl bg-green-700 text-white hover:bg-green-800">
+                Enable All Customers
+            </button>
+            <button type="button" onclick="setAllCustomersActive(false)"
+                    class="px-4 py-2 text-sm font-semibold rounded-xl bg-red-700 text-white hover:bg-red-800">
+                Disable All Customers
+            </button>
+        </div>
+    `;
     filteredCustomers.forEach(customer => {
         const balanceClass = customer.balance > 0 ? 'text-red-600' : 'text-green-600';
         const isAchApproved =
@@ -4875,9 +4886,15 @@ function renderCustomers() {
                         <p class="text-sm text-[#6B4423]">${customer.company || 'Individual'}</p>
                     </div>
                     <div class="flex flex-col items-end gap-1">
-                        <span class="px-3 py-1 text-xs font-semibold rounded-full ${customer.status === 'Active' || customer.status === 'Approved' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}">
-                            ${customer.status || 'Active'}
-                        </span>
+                        <button type="button"
+                                title="${isCustomerEnabled(customer.status) ? 'Click to disable' : 'Click to enable'}"
+                                onclick="toggleCustomerActive('${customer.id}', event)"
+                                class="px-3 py-1 text-xs font-semibold rounded-full cursor-pointer transition
+                                       ${isCustomerEnabled(customer.status)
+                                           ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                           : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}">
+                            ${isCustomerEnabled(customer.status) ? 'Active' : 'Inactive'}
+                        </button>
                         ${customer.password_changed
                             ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-green-100 text-green-800">✓ Password</span>`
                             : `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">Needs Password</span>`}
@@ -5391,6 +5408,93 @@ function hideCustomerModal() {
     if (modal) {
         modal.classList.add('hidden');
         modal.style.display = 'none';
+    }
+}
+
+function isCustomerEnabled(status) {
+    const s = String(status || '').toLowerCase();
+    // Active or Approved = enabled; everything else (Inactive, Rejected, etc.) = disabled
+    return s === 'active' || s === 'approved';
+}
+
+async function toggleCustomerActive(customerId, event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === 'function') {
+            event.stopImmediatePropagation();
+        }
+    }
+
+    const customer = (allCustomers || []).find(c => String(c.id) === String(customerId));
+    if (!customer) {
+        alert('Customer not found.');
+        return;
+    }
+
+    const currentlyEnabled = isCustomerEnabled(customer.status);
+    const newStatus = currentlyEnabled ? 'Inactive' : 'Active';
+    const name = customer.name || customer.company || 'this customer';
+    const action = currentlyEnabled ? 'Disable' : 'Enable';
+
+    if (!confirm(`${action} ${name}?`)) return;
+
+    try {
+        const { error } = await supabaseClient
+            .from('customers')
+            .update({
+                status: newStatus,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', customerId);
+
+        if (error) throw error;
+
+        customer.status = newStatus;
+        if (typeof renderCustomers === 'function') renderCustomers();
+        if (typeof initCustomerMap === 'function') initCustomerMap();
+    } catch (err) {
+        console.error('toggleCustomerActive error:', err);
+        alert('Could not update customer status.\n' + (err.message || ''));
+    }
+}
+
+async function setAllCustomersActive(enabled) {
+    const action = enabled ? 'Enable' : 'Disable';
+    const newStatus = enabled ? 'Active' : 'Inactive';
+    const ids = (allCustomers || []).map(c => c.id).filter(Boolean);
+
+    if (!ids.length) {
+        alert('No customers loaded.');
+        return;
+    }
+
+    if (!confirm(`${action} ALL ${ids.length} customer(s)?\n\nThis will set every customer to ${newStatus}.`)) {
+        return;
+    }
+
+    // Extra confirm for Disable All
+    if (!enabled && !confirm('Are you sure? Disabled customers will not be able to log in and will not receive emails (once Steps 2–3 are live).')) {
+        return;
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from('customers')
+            .update({
+                status: newStatus,
+                updated_at: new Date().toISOString()
+            })
+            .in('id', ids);
+
+        if (error) throw error;
+
+        await loadCustomers();
+        if (typeof initCustomerMap === 'function') initCustomerMap();
+        alert(`All customers set to ${newStatus}.`);
+    } catch (err) {
+        console.error('setAllCustomersActive error:', err);
+        alert('Could not update customers.\n' + (err.message || ''));
     }
 }
 
