@@ -661,7 +661,12 @@ async function showSalesmanCustomerDetail(customer) {
                 <i class="fas fa-check-circle mr-1"></i>
                 Pricing approved ${when}
             </p>
-            <p class="text-xs text-[#6B4423] mt-1">Customer can view your approved price sheet.</p>
+            <p class="text-xs text-[#6B4423] mt-1 mb-3">Customer can view their price sheet.</p>
+            <button type="button"
+                    onclick="openCustomerPricingEditor(JSON.parse(document.getElementById('salesman-customer-modal').dataset.customerJson))"
+                    class="w-full px-4 py-2.5 border-2 border-[#6B4423] text-[#1E4D2B] rounded-xl font-semibold text-sm hover:bg-[#f8f4eb]">
+                Edit Customer Pricing
+            </button>
         `;
     } else {
         const hasSheet = await salesmanHasApprovedPriceSheet();
@@ -676,7 +681,7 @@ async function showSalesmanCustomerDetail(customer) {
                 <button type="button"
                         onclick="approveCustomerPricing()"
                         class="w-full px-4 py-2.5 bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-semibold text-sm">
-                    Approve Pricing for This Customer
+                    Set/Edit Pricing for This Customer
                 </button>
             `;
         } else {
@@ -739,10 +744,311 @@ async function salesmanHasApprovedPriceSheet() {
 }
 
 async function approveCustomerPricing() {
+    // Legacy entry point — open the full customer pricing editor instead
     const modal = document.getElementById('salesman-customer-modal');
-    const customerId = modal?.dataset?.customerId;
-    if (!customerId) {
-        alert('Missing customer id.');
+    let customer = null;
+    try {
+        customer = JSON.parse(modal?.dataset?.customerJson || 'null');
+    } catch (e) {
+        customer = null;
+    }
+    if (!customer) {
+        alert('Could not load customer.');
+        return;
+    }
+    openCustomerPricingEditor(customer);
+}
+
+async function openCustomerPricingEditor(customer) {
+    if (!customer || !customer.id) {
+        alert('Missing customer.');
+        return;
+    }
+
+    const hasSheet = await salesmanHasApprovedPriceSheet();
+    if (!hasSheet) {
+        alert('Your initial pricing sheet must be approved by admin before you can set customer pricing.');
+        return;
+    }
+
+    window._customerPricingTarget = customer;
+    window._customerPricingDraft = {};
+    window._customerPricingBase = {};
+    window._customerPriceExpanded = window._customerPriceExpanded || {};
+
+    const label = document.getElementById('cp-customer-label');
+    if (label) {
+        label.textContent = (customer.name || 'Customer') +
+            (customer.company ? ' · ' + customer.company : '');
+    }
+
+    const list = document.getElementById('customer-pricing-list');
+    if (list) list.innerHTML = `<p class="text-sm text-[#6B4423]">Loading price sheet…</p>`;
+
+    const modal = document.getElementById('customer-pricing-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+    }
+
+    await renderCustomerPricingEditor();
+}
+
+function hideCustomerPricingModal() {
+    const modal = document.getElementById('customer-pricing-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+    }
+    window._customerPricingTarget = null;
+    window._customerPricingDraft = {};
+    window._customerPricingBase = {};
+}
+
+async function loadSalesmanBasePrices() {
+    const user = getCurrentUser() || currentUser;
+    const email = (user?.email || '').toLowerCase().trim();
+    if (!email) return {};
+
+    try {
+        const { data: sheet } = await supabaseClient
+            .from('salesman_price_sheets')
+            .select('prices')
+            .eq('salesman_email', email)
+            .maybeSingle();
+
+        if (sheet && sheet.prices && typeof sheet.prices === 'object') {
+            return sheet.prices;
+        }
+    } catch (e) {
+        console.warn('loadSalesmanBasePrices:', e);
+    }
+    return {};
+}
+
+async function loadCustomerPrices(customerId) {
+    if (!customerId) return null;
+    try {
+        const { data } = await supabaseClient
+            .from('customer_price_sheets')
+            .select('prices')
+            .eq('customer_id', customerId)
+            .maybeSingle();
+        if (data && data.prices && typeof data.prices === 'object') {
+            return data.prices;
+        }
+    } catch (e) {
+        console.warn('loadCustomerPrices:', e);
+    }
+    return null;
+}
+
+async function renderCustomerPricingEditor() {
+    const container = document.getElementById('customer-pricing-list');
+    if (!container) return;
+
+    if (typeof PRODUCT_CATALOG === 'undefined') {
+        container.innerHTML = `<p class="text-red-600">PRODUCT_CATALOG not found.</p>`;
+        return;
+    }
+
+    const customer = window._customerPricingTarget;
+    if (!customer) {
+        container.innerHTML = `<p class="text-sm text-[#6B4423]">No customer selected.</p>`;
+        return;
+    }
+
+    const basePrices = await loadSalesmanBasePrices();
+    const existingCustomer = await loadCustomerPrices(customer.id);
+
+    window._customerPricingBase = basePrices || {};
+    if (!window._customerPricingDraft) window._customerPricingDraft = {};
+
+    // Seed draft: existing customer sheet → else base sheet → else catalog
+    PRODUCT_CATALOG.forEach(p => {
+        const name = p.name;
+        if (window._customerPricingDraft[name] != null) return;
+        if (existingCustomer && existingCustomer[name] != null) {
+            window._customerPricingDraft[name] = Number(existingCustomer[name]);
+        } else if (basePrices[name] != null) {
+            window._customerPricingDraft[name] = Number(basePrices[name]);
+        } else if (!p.isMarketPrice) {
+            window._customerPricingDraft[name] = Number(p.unitPrice);
+        }
+    });
+
+    // Group by category
+    const grouped = {};
+    const categoryOrder = [];
+    PRODUCT_CATALOG.forEach(p => {
+        const cat = p.category || 'Other';
+        if (!grouped[cat]) {
+            grouped[cat] = [];
+            categoryOrder.push(cat);
+        }
+        grouped[cat].push(p);
+    });
+
+    if (!window._customerPriceExpanded) window._customerPriceExpanded = {};
+    categoryOrder.forEach(cat => {
+        if (window._customerPriceExpanded[cat] === undefined) {
+            window._customerPriceExpanded[cat] = (cat === 'Bully Sticks');
+        }
+    });
+
+    let html = '';
+    categoryOrder.forEach(cat => {
+        const items = grouped[cat];
+        const isOpen = !!window._customerPriceExpanded[cat];
+        const safeCat = cat.replace(/'/g, "\\'");
+
+        html += `
+            <div class="mb-3 border-2 border-[#6B4423] rounded-2xl overflow-hidden">
+                <button type="button"
+                        onclick="toggleCustomerPriceCategory('${safeCat}')"
+                        class="w-full flex items-center justify-between gap-3 px-4 py-3 bg-[#1E4D2B] text-[#d4b78f] text-left hover:bg-[#254a2f]">
+                    <span class="font-bold text-sm">
+                        <i class="fas fa-chevron-${isOpen ? 'down' : 'right'} text-xs mr-2"></i>
+                        ${cat}
+                    </span>
+                    <span class="text-xs opacity-90">${items.length} product${items.length !== 1 ? 's' : ''}</span>
+                </button>
+                <div class="cp-cat-body ${isOpen ? '' : 'hidden'} space-y-2 p-3 bg-[#f8f4eb]">
+        `;
+
+        items.forEach(p => {
+            const base = (basePrices[p.name] != null)
+                ? Number(basePrices[p.name])
+                : (p.isMarketPrice ? null : Number(p.unitPrice));
+            const draft = window._customerPricingDraft[p.name];
+            const startVal = (draft != null && !isNaN(Number(draft)))
+                ? Number(draft).toFixed(2)
+                : (base != null ? Number(base).toFixed(2) : '');
+            const baseLabel = base != null ? ('$' + Number(base).toFixed(2)) : 'Market';
+            const safeName = p.name.replace(/"/g, '&quot;');
+            const safeNameJs = p.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+            html += `
+                <div class="bg-white border border-[#d4b78f] rounded-xl p-3 flex flex-wrap items-center gap-3"
+                     data-cp-name="${safeName}">
+                    <div class="flex-1 min-w-[160px]">
+                        <p class="text-sm font-semibold brand-green">${p.name}</p>
+                        <p class="text-xs text-[#6B4423]">${p.caseSize || ''} · Your base: ${baseLabel}</p>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <label class="text-xs text-[#6B4423] whitespace-nowrap">Customer price</label>
+                        <div class="flex items-center border-2 border-[#6B4423] rounded-lg overflow-hidden bg-white">
+                            <span class="px-2 py-1.5 text-sm font-semibold text-[#6B4423] bg-[#f8f4eb] border-r border-[#d4b78f] select-none">$</span>
+                            <input type="number"
+                                   step="0.01"
+                                   min="0"
+                                   value="${startVal}"
+                                   class="cp-price-input w-20 border-0 px-2 py-1.5 text-sm font-semibold focus:outline-none focus:ring-0"
+                                   data-name="${safeName}"
+                                   data-base="${base === null || base === undefined ? '' : base}"
+                                   oninput="onCustomerPriceInput(this)">
+                        </div>
+                        <span class="cp-flag text-xs text-red-600 font-semibold hidden">±5% from base</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `
+                </div>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+
+    container.querySelectorAll('.cp-price-input').forEach(inp => {
+        flagCustomerPrice(inp);
+    });
+
+    updateCustomerPricingSummary();
+}
+
+function toggleCustomerPriceCategory(cat) {
+    if (!window._customerPriceExpanded) window._customerPriceExpanded = {};
+    window._customerPriceExpanded[cat] = !window._customerPriceExpanded[cat];
+    renderCustomerPricingEditor();
+}
+
+function expandAllCustomerPriceCategories(open) {
+    if (!window._customerPriceExpanded) window._customerPriceExpanded = {};
+    if (typeof PRODUCT_CATALOG !== 'undefined') {
+        PRODUCT_CATALOG.forEach(p => {
+            const cat = p.category || 'Other';
+            window._customerPriceExpanded[cat] = !!open;
+        });
+    }
+    renderCustomerPricingEditor();
+}
+
+function onCustomerPriceInput(input) {
+    if (!window._customerPricingDraft) window._customerPricingDraft = {};
+    const name = input.getAttribute('data-name');
+    const val = parseFloat(input.value);
+    if (name && !isNaN(val) && val >= 0) {
+        window._customerPricingDraft[name] = val;
+    }
+    flagCustomerPrice(input);
+    updateCustomerPricingSummary();
+}
+
+function flagCustomerPrice(input) {
+    // ±5% vs salesman BASE sheet (not catalog)
+    const base = parseFloat(input.getAttribute('data-base'));
+    const proposed = parseFloat(input.value);
+    const row = input.closest('[data-cp-name]');
+    const flag = row ? row.querySelector('.cp-flag') : null;
+    const wrapper = input.closest('.flex.items-center.border-2') || input;
+
+    if (!flag) return;
+
+    if (!isNaN(base) && base > 0 && !isNaN(proposed)) {
+        const pct = Math.abs((proposed - base) / base) * 100;
+        if (pct > 5) {
+            const signed = ((proposed - base) / base * 100);
+            flag.textContent = (signed >= 0 ? '+' : '') + signed.toFixed(1) + '% from your base';
+            flag.classList.remove('hidden');
+            wrapper.classList.add('border-red-500');
+            return;
+        }
+    }
+    flag.classList.add('hidden');
+    wrapper.classList.remove('border-red-500');
+}
+
+function updateCustomerPricingSummary() {
+    const el = document.getElementById('customer-pricing-summary');
+    if (!el) return;
+
+    const inputs = document.querySelectorAll('.cp-price-input');
+    let outside = 0;
+    inputs.forEach(inp => {
+        const base = parseFloat(inp.getAttribute('data-base'));
+        const proposed = parseFloat(inp.value);
+        if (!isNaN(base) && base > 0 && !isNaN(proposed)) {
+            const pct = Math.abs((proposed - base) / base) * 100;
+            if (pct > 5) outside++;
+        }
+    });
+
+    if (outside > 0) {
+        el.classList.remove('hidden');
+        el.innerHTML = `<span class="text-orange-700 font-semibold">${outside} product(s) are outside ±5% of your base sheet.</span> Those will be sent to admin for approval. Prices within ±5% will apply immediately.`;
+    } else {
+        el.classList.add('hidden');
+        el.innerHTML = '';
+    }
+}
+
+async function saveCustomerPricing() {
+    const customer = window._customerPricingTarget;
+    if (!customer || !customer.id) {
+        alert('No customer selected.');
         return;
     }
 
@@ -752,50 +1058,132 @@ async function approveCustomerPricing() {
         return;
     }
 
-    // Gate: salesman must already have an approved initial price sheet
-    const hasSheet = await salesmanHasApprovedPriceSheet();
-    if (!hasSheet) {
-        alert('Your initial pricing sheet must be approved by admin before you can approve pricing for customers.\n\nSubmit (or wait for approval of) your Initial Pricing Sheet first.');
+    const email = (user.email || '').toLowerCase().trim();
+    const basePrices = window._customerPricingBase || {};
+    const draft = window._customerPricingDraft || {};
+
+    // Build full price map from live inputs (prefer draft map)
+    const prices = {};
+    const outsideItems = [];
+
+    document.querySelectorAll('.cp-price-input').forEach(inp => {
+        const name = inp.getAttribute('data-name');
+        const base = parseFloat(inp.getAttribute('data-base'));
+        let val = parseFloat(inp.value);
+        if (name && draft[name] != null) val = Number(draft[name]);
+        if (!name || isNaN(val) || val < 0) return;
+
+        prices[name] = val;
+
+        if (!isNaN(base) && base > 0) {
+            const pct = Math.abs((val - base) / base) * 100;
+            if (pct > 5) {
+                outsideItems.push({
+                    product: name,
+                    basePrice: base,
+                    proposedPrice: val,
+                    pctChange: ((val - base) / base) * 100
+                });
+            }
+        }
+    });
+
+    if (Object.keys(prices).length === 0) {
+        alert('No valid prices to save.');
         return;
     }
 
-    if (!confirm('Attach your approved price sheet to this customer? They will then be able to see pricing.')) {
-        return;
+    const saveBtn = document.getElementById('customer-pricing-save-btn');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
     }
 
     try {
-        const { error } = await supabaseClient
-            .from('customers')
-            .update({
-                pricing_approved_at: new Date().toISOString(),
-                pricing_approved_by: user.fullName || user.name || user.email || 'Salesman'
-            })
-            .eq('id', customerId);
+        if (outsideItems.length === 0) {
+            // All within ±5% — write sheet + approve customer immediately
+            const { error: upsertErr } = await supabaseClient
+                .from('customer_price_sheets')
+                .upsert({
+                    customer_id: customer.id,
+                    salesman_email: email,
+                    prices: prices,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'customer_id' });
 
-        if (error) throw error;
+            if (upsertErr) throw upsertErr;
 
-        // Refresh local customer object in modal
-        let customer = null;
-        try {
-            customer = JSON.parse(modal.dataset.customerJson || 'null');
-        } catch (e) {
-            customer = null;
-        }
-        if (customer) {
+            const { error: custErr } = await supabaseClient
+                .from('customers')
+                .update({
+                    pricing_approved_at: new Date().toISOString(),
+                    pricing_approved_by: user.fullName || user.name || user.email || 'Salesman'
+                })
+                .eq('id', customer.id);
+
+            if (custErr) throw custErr;
+
+            alert('Customer pricing saved. Customer can now see these prices.');
+            hideCustomerPricingModal();
+
+            // Refresh customer detail + list
             customer.pricing_approved_at = new Date().toISOString();
-            customer.pricing_approved_by = user.fullName || user.name || user.email || 'Salesman';
-            modal.dataset.customerJson = JSON.stringify(customer);
-            showSalesmanCustomerDetail(customer);
-        }
+            const detailModal = document.getElementById('salesman-customer-modal');
+            if (detailModal) {
+                detailModal.dataset.customerJson = JSON.stringify(customer);
+                if (typeof showSalesmanCustomerDetail === 'function') {
+                    showSalesmanCustomerDetail(customer);
+                }
+            }
+            if (typeof renderCustomers === 'function') renderCustomers();
 
-        if (typeof renderCustomers === 'function') {
-            renderCustomers();
-        }
+        } else {
+            // Some outside ±5% — still save in-range as draft on customer sheet? 
+            // Per design: create Pending proposal; keep previous prices until admin acts.
+            // We do NOT overwrite customer_price_sheets until approved.
+            const { error: propErr } = await supabaseClient
+                .from('price_proposals')
+                .insert({
+                    type: 'customerPricing',
+                    salesman_email: email,
+                    salesman_name: user.fullName || user.name || 'Salesman',
+                    status: 'Pending',
+                    items: outsideItems.map(i => ({
+                        product: i.product,
+                        basePrice: i.basePrice,
+                        proposedPrice: i.proposedPrice,
+                        pctChange: Number(i.pctChange.toFixed(2)),
+                        customerId: customer.id,
+                        customerName: customer.name || '',
+                        customerCompany: customer.company || ''
+                    })),
+                    overall_notes: 'Customer pricing changes outside ±5% of salesman base sheet. Customer: ' +
+                        (customer.name || customer.id),
+                    submitted_at: new Date().toISOString()
+                });
 
-        alert('Pricing approved for this customer.');
+            if (propErr) throw propErr;
+
+            // Also apply the in-range prices immediately if customer already had approval
+            // or if this is first-time and only some items are outside.
+            // Simpler rule: only apply full map when ALL are in range.
+            // Outside → proposal only; previous sheet stays until admin approves.
+
+            alert(
+                outsideItems.length + ' product(s) are outside ±5% of your base sheet.\n\n' +
+                'Those were sent to admin for approval.\n' +
+                'Previous customer prices (if any) are unchanged until admin approves.'
+            );
+            hideCustomerPricingModal();
+        }
     } catch (err) {
         console.error(err);
-        alert('Could not approve pricing.\n' + (err.message || ''));
+        alert('Could not save customer pricing.\n' + (err.message || ''));
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save Customer Pricing';
+        }
     }
 }
 
