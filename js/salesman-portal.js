@@ -2314,10 +2314,10 @@ async function renderInitialPriceSheet() {
     });
 
     if (!window.initialSheetExpanded) window.initialSheetExpanded = {};
-    // First load: expand all categories
+    // First load: only Bully Sticks open; everything else collapsed
     categoryOrder.forEach(cat => {
         if (window.initialSheetExpanded[cat] === undefined) {
-            window.initialSheetExpanded[cat] = true;
+            window.initialSheetExpanded[cat] = (cat === "Bully Sticks");
         }
     });
 
@@ -2374,13 +2374,13 @@ async function renderInitialPriceSheet() {
                     </div>
                     <div class="flex items-center gap-2">
                         <label class="text-xs text-[#6B4423] whitespace-nowrap">Your price</label>
-                        <div class="relative">
-                            <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#6B4423] pointer-events-none">$</span>
+                        <div class="flex items-center border-2 border-[#6B4423] rounded-lg overflow-hidden bg-white">
+                            <span class="px-2 py-1.5 text-sm font-semibold text-[#6B4423] bg-[#f8f4eb] border-r border-[#d4b78f] select-none">$</span>
                             <input type="number"
                                    step="0.01"
                                    min="0"
                                    value="${startVal}"
-                                   class="initial-sheet-price w-28 border-2 border-[#6B4423] rounded-lg pl-6 pr-2 py-1.5 text-sm font-semibold"
+                                   class="initial-sheet-price w-20 border-0 px-2 py-1.5 text-sm font-semibold focus:outline-none focus:ring-0"
                                    data-catalog="${catalogPrice === null ? "" : catalogPrice}"
                                    data-name="${safeName}"
                                    oninput="flagInitialPrice(this)">
