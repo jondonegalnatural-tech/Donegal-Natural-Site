@@ -4291,7 +4291,7 @@ function showAccountInfo() {
                 </div>
                 <div>
                     <p class="text-[#6B4423] font-semibold">Assigned Salesman</p>
-                    <p>${active.salesman_email || '—'}</p>
+                    <p id="account-assigned-salesman">${active.salesman_email || '—'}</p>
                 </div>
                 <div class="md:col-span-2">
                     <p class="text-[#6B4423] font-semibold">Shipping Address</p>
@@ -4361,6 +4361,42 @@ function showAccountInfo() {
 
     // Load Stripe card/bank display details when on file
     loadAccountPaymentDetail(active);
+    loadAssignedSalesmanDisplay(active);
+}
+
+async function loadAssignedSalesmanDisplay(customer) {
+    const el = document.getElementById('account-assigned-salesman');
+    if (!el || !customer) return;
+
+    const email = (customer.salesman_email || '').toLowerCase().trim();
+    if (!email) {
+        el.textContent = '—';
+        return;
+    }
+
+    // Show email immediately while we look up the name
+    el.textContent = email;
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('salesmen')
+            .select('first_name, last_name, email')
+            .ilike('email', email)
+            .maybeSingle();
+
+        if (error || !data) {
+            // Keep the email we already showed
+            return;
+        }
+
+        const name = [data.first_name, data.last_name].filter(Boolean).join(' ').trim();
+        if (name) {
+            el.innerHTML = `<span class="font-semibold text-[#1E4D2B]">${name}</span><br><span class="text-xs text-[#6B4423]">${email}</span>`;
+        }
+    } catch (err) {
+        console.error('loadAssignedSalesmanDisplay error:', err);
+        // Leave the email visible
+    }
 }
 
 async function loadAccountPaymentDetail(customer) {
