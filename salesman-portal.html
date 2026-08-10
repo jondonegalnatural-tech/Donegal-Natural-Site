@@ -313,23 +313,14 @@
                     Prices below catalog will be flagged.
                 </p>
             </div>
-            <div class="flex flex-wrap gap-2">
-                <button type="button" onclick="selectAllInitialSheet(true)"
-                        class="px-3 md:px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl font-semibold">
-                    Select All
-                </button>
-                <button type="button" onclick="selectAllInitialSheet(false)"
-                        class="px-3 md:px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl font-semibold">
-                    Deselect All
-                </button>
-            </div>
+
         </div>
 
         <div id="initial-sheet-list" class="space-y-2 max-h-[60vh] overflow-y-auto mb-4">
             <!-- Filled by JavaScript -->
         </div>
 
-        <button type="button" onclick="submitInitialPriceSheet()"
+        <button type="button" id="initial-sheet-submit-btn" onclick="submitInitialPriceSheet()"
                 class="btn-brand px-8 py-3 rounded-2xl font-bold">
             Submit Initial Pricing Sheet
         </button>

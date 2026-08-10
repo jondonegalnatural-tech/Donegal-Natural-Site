@@ -2291,14 +2291,39 @@ async function renderInitialPriceSheet() {
     }
 
     const record = await getMySalesmanRecord();
-    if (record && record.priceSheetStatus === "pending") {
-        container.innerHTML = `
-            <div class="bg-orange-50 border-2 border-orange-300 rounded-xl p-4">
-                <p class="font-semibold text-orange-800">Your initial pricing sheet is pending admin approval.</p>
-                <p class="text-sm text-orange-700 mt-1">You can review it here after it is approved. The tab will then be removed.</p>
-            </div>
-        `;
-        return;
+    const isPending = record && String(record.priceSheetStatus || '').toLowerCase() === 'pending';
+
+    // If pending, load the existing Pending initialPriceSheet so the salesman can still edit it
+    window._pendingInitialProposalId = null;
+    if (isPending) {
+        const user = getCurrentUser() || currentUser;
+        const email = (user?.email || '').toLowerCase().trim();
+        if (email) {
+            try {
+                const { data: pendingProp } = await supabaseClient
+                    .from('price_proposals')
+                    .select('id, items, submitted_at')
+                    .eq('type', 'initialPriceSheet')
+                    .eq('status', 'Pending')
+                    .eq('salesman_email', email)
+                    .order('submitted_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+
+                if (pendingProp) {
+                    window._pendingInitialProposalId = pendingProp.id;
+                    if (!window.initialSheetDraftPrices) window.initialSheetDraftPrices = {};
+                    // Prefill drafts from the submitted proposal
+                    (pendingProp.items || []).forEach(item => {
+                        if (item.product != null && item.proposedPrice != null) {
+                            window.initialSheetDraftPrices[item.product] = Number(item.proposedPrice);
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn('Could not load pending initial sheet proposal:', e);
+            }
+        }
     }
 
     // Draft map — survives accordion expand/collapse
@@ -2324,7 +2349,22 @@ async function renderInitialPriceSheet() {
         }
     });
 
-    let html = `
+    let html = '';
+
+    // Banner when editing a still-Pending sheet
+    if (isPending) {
+        html += `
+            <div class="bg-orange-50 border-2 border-orange-300 rounded-xl p-4 mb-4">
+                <p class="font-semibold text-orange-800">Your initial pricing sheet is pending admin approval.</p>
+                <p class="text-sm text-orange-700 mt-1">
+                    You can still edit prices below and update the sheet until an admin reviews it.
+                    New catalog products (if any) appear with catalog defaults.
+                </p>
+            </div>
+        `;
+    }
+
+    html += `
         <div class="flex flex-wrap gap-2 mb-3">
             <button type="button" onclick="expandAllInitialCategories(true)"
                     class="px-3 py-1.5 text-xs font-semibold border-2 border-[#6B4423] rounded-lg hover:bg-[#f8f4eb]">
@@ -2435,6 +2475,15 @@ async function renderInitialPriceSheet() {
     container.querySelectorAll(".initial-sheet-price").forEach(inp => {
         if (typeof flagInitialPrice === "function") flagInitialPrice(inp);
     });
+
+    // Update Submit button label for pending vs first submit
+    const submitBtn = document.getElementById('initial-sheet-submit-btn');
+    if (submitBtn) {
+        submitBtn.textContent = window._pendingInitialProposalId
+            ? 'Update Pending Pricing Sheet'
+            : 'Submit Initial Pricing Sheet';
+        submitBtn.style.display = '';
+    }
 }
 
 function toggleInitialCategory(cat) {
@@ -2610,19 +2659,37 @@ async function submitInitialPriceSheet() {
     const email = (user.email || "").toLowerCase().trim();
 
     try {
-        // 1. Insert the proposal into Supabase
-        const { data: proposal, error: proposalError } = await supabaseClient
-            .from('price_proposals')
-            .insert({
-                type: 'initialPriceSheet',
-                salesman_email: email,
-                salesman_name: user.fullName || user.name || "Salesman",
-                status: 'Pending',
-                items: items,
-                submitted_at: new Date().toISOString()
-            })
-            .select()
-            .single();
+        // 1. Upsert: if a Pending initialPriceSheet already exists for this salesman, UPDATE it
+        let proposalError = null;
+        if (window._pendingInitialProposalId) {
+            const { error } = await supabaseClient
+                .from('price_proposals')
+                .update({
+                    items: items,
+                    submitted_at: new Date().toISOString(),
+                    salesman_name: user.fullName || user.name || "Salesman"
+                })
+                .eq('id', window._pendingInitialProposalId)
+                .eq('status', 'Pending'); // safety: only update while still Pending
+            proposalError = error;
+        } else {
+            const { data: proposal, error } = await supabaseClient
+                .from('price_proposals')
+                .insert({
+                    type: 'initialPriceSheet',
+                    salesman_email: email,
+                    salesman_name: user.fullName || user.name || "Salesman",
+                    status: 'Pending',
+                    items: items,
+                    submitted_at: new Date().toISOString()
+                })
+                .select()
+                .single();
+            proposalError = error;
+            if (proposal && proposal.id) {
+                window._pendingInitialProposalId = proposal.id;
+            }
+        }
 
         if (proposalError) {
             console.error(proposalError);
@@ -2641,14 +2708,17 @@ async function submitInitialPriceSheet() {
             // Proposal was saved, but status update failed – still tell the user it was submitted
         }
 
+        const wasUpdate = !!window._pendingInitialProposalId;
         alert(
-            "Initial pricing sheet submitted for admin approval.\n" +
+            (wasUpdate
+                ? "Pending pricing sheet updated.\n"
+                : "Initial pricing sheet submitted for admin approval.\n") +
             items.length + " product(s) included." +
             (belowCount ? "\n" + belowCount + " item(s) are below catalog price and will need careful review." : "")
         );
 
-        // Clear drafts so a future required sheet starts clean
-        window.initialSheetDraftPrices = {};
+        // Keep drafts while still Pending so the form stays in sync after update.
+        // Drafts are cleared when admin approves/denies (deny already resets status to required).
 
         // Refresh the UI
         await updateInitialSheetTabVisibility();
