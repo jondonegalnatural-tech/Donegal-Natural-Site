@@ -2847,6 +2847,21 @@ async function loadMyQuotes() {
                     </div>
 
                     ${(() => {
+                        if (total <= 0) return '';
+                        const accounts = window._customerAccounts || [];
+                        const quoteCust = accounts.find(c => String(c.id) === String(quote.customer_id)) || window._currentCustomer;
+                        const loc = quoteCust
+                            ? [quoteCust.shipping_address, quoteCust.billing_address, quoteCust.territory].filter(Boolean).join(' ').toUpperCase()
+                            : getCustomerLocationText();
+                        const fs = evaluateFreeShipping(total, loc || '');
+                        if (!fs.free) return '';
+                        return `
+                            <div class="mb-3 px-3 py-2 rounded-xl bg-green-50 border border-green-200 text-green-800 text-xs font-semibold">
+                                ✓ Free shipping qualified — ${fs.reason}
+                            </div>`;
+                    })()}
+
+                    ${(() => {
                         const pStatus = (quote.payment_status || '').toLowerCase();
                         const method = (quote.payment_method_type || '').toLowerCase();
                         const isAchPending = pStatus !== 'paid' && (method === 'us_bank_account' || method === 'customer_balance');
@@ -4275,7 +4290,7 @@ function showAccountInfo() {
                     <p class="font-semibold text-[#1E4D2B]">${active.company || active.name || '—'}</p>
                 </div>
                 <div>
-                    <p class="text-[#6B4423] font-semibold">Salesman</p>
+                    <p class="text-[#6B4423] font-semibold">Assigned Salesman</p>
                     <p>${active.salesman_email || '—'}</p>
                 </div>
                 <div class="md:col-span-2">
