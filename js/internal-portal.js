@@ -6998,63 +6998,154 @@ async function showProposalDetail(id) {
             submittedAt: data.submitted_at
         };
 
+        // Cache for toggle filter
+        window._currentProposalDetail = p;
+
         const date = new Date(p.submittedAt).toLocaleDateString();
-const typeLabel = p.type === 'initialPriceSheet'
+        const typeLabel = p.type === 'initialPriceSheet'
             ? 'Initial Pricing Sheet'
             : (p.type === 'newProduct' ? 'New Product' : 'Price Change');
 
-        const itemRows = (p.items || []).map(item => `
-            <div class="border border-[#d4b78f] rounded-xl p-3 mb-2 bg-[#f8f4eb]">
-                <p class="font-semibold brand-green">${item.product}</p>
-                <p class="text-sm text-[#6B4423] mt-1">
-                    Catalog: <strong>${item.catalogPrice != null ? "$" + Number(item.catalogPrice).toFixed(2) : "—"}</strong>
-                    → Proposed: <strong class="text-[#c56134]">$${Number(item.proposedPrice).toFixed(2)}</strong>
-                    ${item.belowCatalog ? ' <span class="text-red-600 text-xs">(below catalog)</span>' : ''}
-                </p>
-            </div>
-        `).join("");
-
-        list.innerHTML = `
-            <button type="button" onclick="showPriceProposalsPanel()"
-                    class="mb-4 text-sm text-[#6B4423] hover:underline">
-                ← Back to list
-            </button>
-
-            <div class="border-2 border-[#6B4423] rounded-2xl p-4">
-                <div class="flex justify-between items-start mb-3">
-                    <div>
-                        <p class="font-bold text-lg brand-green">${p.salesmanName || "Salesman"}</p>
-                        <p class="text-sm text-[#6B4423]">${typeLabel} · ${date} · ${(p.items || []).length} product(s)</p>
-                    </div>
-                    <span class="px-3 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">
-                        Pending
-                    </span>
-                </div>
-
-                ${p.overallNotes ? `<p class="text-sm text-[#6B4423] mb-3"><strong>Notes:</strong> ${p.overallNotes}</p>` : ""}
-
-                <div class="max-h-64 overflow-y-auto mb-4">
-                    ${itemRows || "<p class='text-sm text-[#6B4423]'>No items</p>"}
-                </div>
-
-                <div class="flex gap-3">
-                    <button type="button"
-                            onclick="approvePriceProposal('${p.id}')"
-                            class="flex-1 px-4 py-3 bg-green-700 text-white font-semibold rounded-xl">
-                        Approve
-                    </button>
-                    <button type="button"
-                            onclick="denyPriceProposal('${p.id}')"
-                            class="flex-1 px-4 py-3 bg-red-700 text-white font-semibold rounded-xl">
-                        Deny
-                    </button>
-                </div>
-            </div>
-        `;
+        list.innerHTML = renderProposalDetailHtml(p, date, typeLabel, false);
     } catch (err) {
         console.error(err);
         list.innerHTML = `<p class="text-red-600 text-center py-8">Error loading proposal.</p>`;
     }
+}
+
+function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
+    const items = p.items || [];
+    let changedCount = 0;
+    let over5Count = 0;
+
+    const itemRows = items.map(item => {
+        const catalog = item.catalogPrice != null ? Number(item.catalogPrice) : null;
+        const proposed = Number(item.proposedPrice);
+        const hasCatalog = catalog != null && !isNaN(catalog);
+        const isChanged = hasCatalog && !isNaN(proposed) && Math.abs(proposed - catalog) > 0.0001;
+        const below = item.belowCatalog || (hasCatalog && !isNaN(proposed) && proposed < catalog);
+        const over5 = hasCatalog && catalog > 0 && !isNaN(proposed) && proposed > catalog * 1.05;
+
+        if (isChanged) changedCount++;
+        if (over5) over5Count++;
+
+        if (changesOnly && !isChanged) return "";
+
+        let pctBadge = "";
+        if (hasCatalog && catalog > 0 && !isNaN(proposed) && isChanged) {
+            const pct = ((proposed - catalog) / catalog) * 100;
+            const sign = pct >= 0 ? "+" : "";
+            if (over5) {
+                pctBadge = `<span class="ml-1 px-2 py-0.5 text-xs font-bold rounded-full bg-red-100 text-red-700">${sign}${pct.toFixed(1)}%</span>`;
+            } else if (below) {
+                pctBadge = `<span class="ml-1 px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-700">${sign}${pct.toFixed(1)}%</span>`;
+            } else {
+                pctBadge = `<span class="ml-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">${sign}${pct.toFixed(1)}%</span>`;
+            }
+        }
+
+        const rowClass = over5
+            ? "border-2 border-red-400 bg-red-50"
+            : (below
+                ? "border-2 border-orange-300 bg-orange-50"
+                : (isChanged
+                    ? "border-2 border-[#1E4D2B] bg-[#f0f7f0]"
+                    : "border border-[#d4b78f] bg-[#f8f4eb]"));
+
+        const changeLabel = isChanged
+            ? (over5
+                ? ' <span class="text-red-700 text-xs font-bold">(>5% above catalog)</span>'
+                : (below
+                    ? ' <span class="text-orange-700 text-xs font-semibold">(below catalog)</span>'
+                    : ' <span class="text-[#1E4D2B] text-xs font-semibold">(changed)</span>'))
+            : ' <span class="text-[#6B4423] text-xs">(same as catalog)</span>';
+
+        return `
+            <div class="rounded-xl p-3 mb-2 ${rowClass}">
+                <p class="font-semibold brand-green">${item.product || "—"}</p>
+                <p class="text-sm text-[#6B4423] mt-1">
+                    Catalog: <strong>${hasCatalog ? "$" + catalog.toFixed(2) : "—"}</strong>
+                    → Proposed: <strong class="${over5 ? "text-red-700" : (below ? "text-orange-700" : "text-[#c56134]")}">$${isNaN(proposed) ? "—" : proposed.toFixed(2)}</strong>
+                    ${pctBadge}
+                    ${changeLabel}
+                </p>
+            </div>
+        `;
+    }).join("");
+
+    const summaryBits = [];
+    if (changedCount > 0) summaryBits.push(changedCount + " changed");
+    if (over5Count > 0) summaryBits.push(over5Count + " over 5%");
+    const summaryText = summaryBits.length
+        ? summaryBits.join(" · ")
+        : "No price changes from catalog";
+
+    return `
+        <button type="button" onclick="showPriceProposalsPanel()"
+                class="mb-4 text-sm text-[#6B4423] hover:underline">
+            ← Back to list
+        </button>
+
+        <div class="border-2 border-[#6B4423] rounded-2xl p-4">
+            <div class="flex justify-between items-start mb-3">
+                <div>
+                    <p class="font-bold text-lg brand-green">${p.salesmanName || "Salesman"}</p>
+                    <p class="text-sm text-[#6B4423]">${typeLabel} · ${date} · ${items.length} product(s)</p>
+                    <p class="text-xs font-semibold mt-1 ${over5Count > 0 ? "text-red-700" : "text-[#6B4423]"}">${summaryText}</p>
+                </div>
+                <span class="px-3 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">
+                    Pending
+                </span>
+            </div>
+
+            ${p.overallNotes ? `<p class="text-sm text-[#6B4423] mb-3"><strong>Notes:</strong> ${p.overallNotes}</p>` : ""}
+
+            <div class="flex flex-wrap gap-2 mb-3">
+                <button type="button"
+                        onclick="toggleProposalChangesOnly(false)"
+                        class="px-3 py-1.5 text-xs font-semibold rounded-lg border-2 ${!changesOnly ? "bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]" : "border-[#6B4423] text-[#6B4423] hover:bg-[#f8f4eb]"}">
+                    Show all
+                </button>
+                <button type="button"
+                        onclick="toggleProposalChangesOnly(true)"
+                        class="px-3 py-1.5 text-xs font-semibold rounded-lg border-2 ${changesOnly ? "bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]" : "border-[#6B4423] text-[#6B4423] hover:bg-[#f8f4eb]"}">
+                    Show changes only
+                </button>
+            </div>
+
+            <div class="max-h-72 overflow-y-auto mb-4">
+                ${itemRows || "<p class='text-sm text-[#6B4423]'>No items</p>"}
+                ${changesOnly && changedCount === 0 ? "<p class='text-sm text-[#6B4423]'>No price changes — every selected item matches catalog.</p>" : ""}
+            </div>
+
+            <div class="flex gap-3">
+                <button type="button"
+                        onclick="approvePriceProposal('${p.id}')"
+                        class="flex-1 px-4 py-3 bg-green-700 text-white font-semibold rounded-xl">
+                    Approve
+                </button>
+                <button type="button"
+                        onclick="denyPriceProposal('${p.id}')"
+                        class="flex-1 px-4 py-3 bg-red-700 text-white font-semibold rounded-xl">
+                    Deny
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function toggleProposalChangesOnly(changesOnly) {
+    const p = window._currentProposalDetail;
+    if (!p) return;
+    const list = document.getElementById("price-proposals-list");
+    if (!list) return;
+
+    const date = new Date(p.submittedAt).toLocaleDateString();
+    const typeLabel = p.type === 'initialPriceSheet'
+        ? 'Initial Pricing Sheet'
+        : (p.type === 'newProduct' ? 'New Product' : 'Price Change');
+
+    list.innerHTML = renderProposalDetailHtml(p, date, typeLabel, !!changesOnly);
 }
 
 function hidePriceProposalsPanel() {

@@ -2290,7 +2290,7 @@ async function renderInitialPriceSheet() {
         return;
     }
 
-        const record = await getMySalesmanRecord();
+    const record = await getMySalesmanRecord();
     if (record && record.priceSheetStatus === "pending") {
         container.innerHTML = `
             <div class="bg-orange-50 border-2 border-orange-300 rounded-xl p-4">
@@ -2301,40 +2301,124 @@ async function renderInitialPriceSheet() {
         return;
     }
 
-    container.innerHTML = PRODUCT_CATALOG.map((p, index) => {
-        const catalogPrice = p.isMarketPrice ? null : Number(p.unitPrice);
-        const displayCatalog = p.isMarketPrice
-            ? "Market Price"
-            : "$" + Number(p.unitPrice).toFixed(2);
-        const startVal = p.isMarketPrice ? "" : Number(p.unitPrice).toFixed(2);
-        const safeName = p.name.replace(/"/g, "&quot;");
+    // Group catalog by category (preserve first-seen order)
+    const grouped = {};
+    const categoryOrder = [];
+    PRODUCT_CATALOG.forEach((p, index) => {
+        const cat = p.category || "Other";
+        if (!grouped[cat]) {
+            grouped[cat] = [];
+            categoryOrder.push(cat);
+        }
+        grouped[cat].push({ product: p, index: index });
+    });
 
-        return `
-            <div class="bg-white border border-[#d4b78f] rounded-xl p-3 flex flex-wrap items-center gap-3"
-                 data-initial-index="${index}">
-                <input type="checkbox"
-                       class="initial-sheet-check w-4 h-4"
-                       data-name="${safeName}"
-                       checked>
-                <div class="flex-1 min-w-[180px]">
-                    <p class="text-sm font-semibold brand-green">${p.name}</p>
-                    <p class="text-xs text-[#6B4423]">${p.caseSize || ""} · Catalog: ${displayCatalog}</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <label class="text-xs text-[#6B4423]">Your price</label>
-                    <input type="number"
-                           step="0.01"
-                           min="0"
-                           value="${startVal}"
-                           class="initial-sheet-price w-24 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm"
-                           data-catalog="${catalogPrice === null ? "" : catalogPrice}"
+    if (!window.initialSheetExpanded) window.initialSheetExpanded = {};
+    // First load: expand all categories
+    categoryOrder.forEach(cat => {
+        if (window.initialSheetExpanded[cat] === undefined) {
+            window.initialSheetExpanded[cat] = true;
+        }
+    });
+
+    let html = `
+        <div class="flex flex-wrap gap-2 mb-3">
+            <button type="button" onclick="expandAllInitialCategories(true)"
+                    class="px-3 py-1.5 text-xs font-semibold border-2 border-[#6B4423] rounded-lg hover:bg-[#f8f4eb]">
+                Expand All
+            </button>
+            <button type="button" onclick="expandAllInitialCategories(false)"
+                    class="px-3 py-1.5 text-xs font-semibold border-2 border-[#6B4423] rounded-lg hover:bg-[#f8f4eb]">
+                Collapse All
+            </button>
+        </div>
+    `;
+
+    categoryOrder.forEach(cat => {
+        const items = grouped[cat];
+        const isOpen = !!window.initialSheetExpanded[cat];
+        const safeCat = cat.replace(/'/g, "\\'");
+
+        html += `
+            <div class="mb-3 border-2 border-[#6B4423] rounded-2xl overflow-hidden">
+                <button type="button"
+                        onclick="toggleInitialCategory('${safeCat}')"
+                        class="w-full flex items-center justify-between gap-3 px-4 py-3 bg-[#1E4D2B] text-[#d4b78f] text-left hover:bg-[#254a2f]">
+                    <span class="font-bold text-sm">
+                        <i class="fas fa-chevron-${isOpen ? 'down' : 'right'} text-xs mr-2"></i>
+                        ${cat}
+                    </span>
+                    <span class="text-xs opacity-90">${items.length} product${items.length !== 1 ? 's' : ''}</span>
+                </button>
+                <div class="initial-cat-body ${isOpen ? '' : 'hidden'} space-y-2 p-3 bg-[#f8f4eb]">
+        `;
+
+        items.forEach(({ product: p, index }) => {
+            const catalogPrice = p.isMarketPrice ? null : Number(p.unitPrice);
+            const displayCatalog = p.isMarketPrice
+                ? "Market Price"
+                : "$" + Number(p.unitPrice).toFixed(2);
+            const startVal = p.isMarketPrice ? "" : Number(p.unitPrice).toFixed(2);
+            const safeName = p.name.replace(/"/g, "&quot;");
+
+            html += `
+                <div class="bg-white border border-[#d4b78f] rounded-xl p-3 flex flex-wrap items-center gap-3"
+                     data-initial-index="${index}">
+                    <input type="checkbox"
+                           class="initial-sheet-check w-4 h-4 accent-[#1E4D2B]"
                            data-name="${safeName}"
-                           oninput="flagInitialPrice(this)">
-                    <span class="initial-flag text-xs text-red-600 hidden">Below catalog</span>
+                           checked>
+                    <div class="flex-1 min-w-[160px]">
+                        <p class="text-sm font-semibold brand-green">${p.name}</p>
+                        <p class="text-xs text-[#6B4423]">${p.caseSize || ""} · Catalog: ${displayCatalog}</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-xs text-[#6B4423] whitespace-nowrap">Your price</label>
+                        <div class="relative">
+                            <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#6B4423] pointer-events-none">$</span>
+                            <input type="number"
+                                   step="0.01"
+                                   min="0"
+                                   value="${startVal}"
+                                   class="initial-sheet-price w-28 border-2 border-[#6B4423] rounded-lg pl-6 pr-2 py-1.5 text-sm font-semibold"
+                                   data-catalog="${catalogPrice === null ? "" : catalogPrice}"
+                                   data-name="${safeName}"
+                                   oninput="flagInitialPrice(this)">
+                        </div>
+                        <span class="initial-flag text-xs text-red-600 font-semibold hidden">Below catalog</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `
                 </div>
             </div>
         `;
-    }).join("");
+    });
+
+    container.innerHTML = html;
+}
+
+function toggleInitialCategory(cat) {
+    if (!window.initialSheetExpanded) window.initialSheetExpanded = {};
+    window.initialSheetExpanded[cat] = !window.initialSheetExpanded[cat];
+    renderInitialPriceSheet();
+}
+
+function expandAllInitialCategories(open) {
+    if (!window.initialSheetExpanded) window.initialSheetExpanded = {};
+    Object.keys(window.initialSheetExpanded).forEach(k => {
+        window.initialSheetExpanded[k] = !!open;
+    });
+    // Also set any categories not yet tracked
+    if (typeof PRODUCT_CATALOG !== "undefined") {
+        PRODUCT_CATALOG.forEach(p => {
+            const cat = p.category || "Other";
+            window.initialSheetExpanded[cat] = !!open;
+        });
+    }
+    renderInitialPriceSheet();
 }
 
 function flagInitialPrice(input) {
