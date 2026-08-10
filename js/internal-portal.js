@@ -7017,17 +7017,26 @@ async function showProposalDetail(id) {
 
 function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
     const items = p.items || [];
+    const isCustomerPricing = p.type === 'customerPricing';
     let changedCount = 0;
     let over5Count = 0;
 
     const itemRows = items.map(item => {
-        const catalog = item.catalogPrice != null ? Number(item.catalogPrice) : null;
         const proposed = Number(item.proposedPrice);
-        const hasCatalog = catalog != null && !isNaN(catalog);
-        const isChanged = hasCatalog && !isNaN(proposed) && Math.abs(proposed - catalog) > 0.0001;
-        const below = item.belowCatalog || (hasCatalog && !isNaN(proposed) && proposed < catalog);
-        const over5 = hasCatalog && catalog > 0 && !isNaN(proposed) &&
-            Math.abs(proposed - catalog) / catalog > 0.05;
+
+        // Customer Pricing → compare to salesman basePrice
+        // Other types → compare to catalogPrice
+        const refPrice = isCustomerPricing
+            ? (item.basePrice != null ? Number(item.basePrice) : null)
+            : (item.catalogPrice != null ? Number(item.catalogPrice) : null);
+        const hasRef = refPrice != null && !isNaN(refPrice);
+        const isChanged = hasRef && !isNaN(proposed) && Math.abs(proposed - refPrice) > 0.0001;
+        const below = isCustomerPricing
+            ? (hasRef && !isNaN(proposed) && proposed < refPrice)
+            : (item.belowCatalog || (hasRef && !isNaN(proposed) && proposed < refPrice));
+        const over5 = item.outside5 === true ||
+            (hasRef && refPrice > 0 && !isNaN(proposed) &&
+                Math.abs(proposed - refPrice) / refPrice > 0.05);
 
         if (isChanged) changedCount++;
         if (over5) over5Count++;
@@ -7035,8 +7044,8 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
         if (changesOnly && !isChanged) return "";
 
         let pctBadge = "";
-        if (hasCatalog && catalog > 0 && !isNaN(proposed) && isChanged) {
-            const pct = ((proposed - catalog) / catalog) * 100;
+        if (hasRef && refPrice > 0 && !isNaN(proposed) && isChanged) {
+            const pct = ((proposed - refPrice) / refPrice) * 100;
             const sign = pct >= 0 ? "+" : "";
             if (over5) {
                 pctBadge = `<span class="ml-1 px-2 py-0.5 text-xs font-bold rounded-full bg-red-100 text-red-700">${sign}${pct.toFixed(1)}%</span>`;
@@ -7055,19 +7064,20 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
                     ? "border-2 border-[#1E4D2B] bg-[#f0f7f0]"
                     : "border border-[#d4b78f] bg-[#f8f4eb]"));
 
+        const refLabel = isCustomerPricing ? "Base" : "Catalog";
         const changeLabel = isChanged
             ? (over5
-                ? ' <span class="text-red-700 text-xs font-bold">(±5% from catalog)</span>'
+                ? ` <span class="text-red-700 text-xs font-bold">(±5% from ${refLabel.toLowerCase()})</span>`
                 : (below
-                    ? ' <span class="text-orange-700 text-xs font-semibold">(below catalog)</span>'
+                    ? ` <span class="text-orange-700 text-xs font-semibold">(below ${refLabel.toLowerCase()})</span>`
                     : ' <span class="text-[#1E4D2B] text-xs font-semibold">(changed)</span>'))
-            : ' <span class="text-[#6B4423] text-xs">(same as catalog)</span>';
+            : ` <span class="text-[#6B4423] text-xs">(same as ${refLabel.toLowerCase()})</span>`;
 
         return `
             <div class="rounded-xl p-3 mb-2 ${rowClass}">
                 <p class="font-semibold brand-green">${item.product || "—"}</p>
                 <p class="text-sm text-[#6B4423] mt-1">
-                    Catalog: <strong>${hasCatalog ? "$" + catalog.toFixed(2) : "—"}</strong>
+                    ${refLabel}: <strong>${hasRef ? "$" + refPrice.toFixed(2) : "—"}</strong>
                     → Proposed: <strong class="${over5 ? "text-red-700" : (below ? "text-orange-700" : "text-[#c56134]")}">$${isNaN(proposed) ? "—" : proposed.toFixed(2)}</strong>
                     ${pctBadge}
                     ${changeLabel}
@@ -7081,7 +7091,7 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
     if (over5Count > 0) summaryBits.push(over5Count + " outside ±5%");
     const summaryText = summaryBits.length
         ? summaryBits.join(" · ")
-        : "No price changes from catalog";
+        : (isCustomerPricing ? "No price changes from base sheet" : "No price changes from catalog");
 
     return `
         <button type="button" onclick="showPriceProposalsPanel()"
@@ -7118,7 +7128,7 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
 
             <div class="max-h-72 overflow-y-auto mb-4">
                 ${itemRows || "<p class='text-sm text-[#6B4423]'>No items</p>"}
-                ${changesOnly && changedCount === 0 ? "<p class='text-sm text-[#6B4423]'>No price changes — every selected item matches catalog.</p>" : ""}
+                ${changesOnly && changedCount === 0 ? `<p class='text-sm text-[#6B4423]'>No price changes — every selected item matches ${isCustomerPricing ? "base sheet" : "catalog"}.</p>` : ""}
             </div>
 
             <div class="flex gap-3">
