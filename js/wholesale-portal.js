@@ -29,9 +29,6 @@ let quoteItems = JSON.parse(localStorage.getItem('wholesaleQuote')) || [];
 let portalInventory = {}; // product_name → quantity
 let customerBackOrders = []; // pending + fulfilled for this customer
 
-// ================== MULTI-STORE (shared email) ==================
-window._customerAccounts = []; // all customers rows that share the login email
-
 function resolveActiveCustomer() {
     const accounts = window._customerAccounts || [];
     if (accounts.length === 0) {
@@ -2071,82 +2068,6 @@ function createCategoryRow(parent, categories) {
     parent.appendChild(row);
 }
 
-// Helper for single item rows (All and Packaged Items)
-function createSingleText(parent, text, isAll) {
-    const div = document.createElement('div');
-    div.style.display = 'flex';
-    div.style.justifyContent = 'center';
-    div.style.width = '100%';
-
-    const span = document.createElement('span');
-    span.textContent = text;
-    span.style.cursor = 'pointer';
-    span.style.fontWeight = '700';
-    span.style.fontSize = '0.88rem';                    // Consistent font size
-    span.style.color = currentCategoryFilter === text ? '#1E4D2B' : '#333';
-    span.style.textDecoration = currentCategoryFilter === text ? 'none' : 'underline';
-    span.style.textDecorationColor = '#1E4D2B';
-    span.style.textDecorationThickness = '1.5px';
-
-    span.onclick = () => {
-        currentCategoryFilter = text;
-        renderCategoryFilters();
-        renderPortalProducts();
-    };
-
-    div.appendChild(span);
-    parent.appendChild(div);
-}
-
-// Helper for multi-item rows
-function createCategoryRow(parent, categories) {
-    const row = document.createElement('div');
-    row.style.display = 'flex';
-    row.style.justifyContent = 'center';
-    row.style.flexWrap = 'wrap';
-    row.style.width = '100%';
-    row.style.lineHeight = '1.65';
-
-    categories.forEach((category, index) => {
-        const span = document.createElement('span');
-        span.textContent = category;
-        span.style.cursor = 'pointer';
-        span.style.margin = '0 5px';
-        span.style.fontWeight = '700';
-        span.style.fontSize = '0.9rem';
-        span.style.color = currentCategoryFilter === category ? '#1E4D2B' : '#333';
-        span.style.textDecoration = currentCategoryFilter === category ? 'none' : 'underline';
-        span.style.textDecorationColor = '#1E4D2B';
-        span.style.textDecorationThickness = '1.5px';
-
-        span.onmouseover = () => {
-            if (currentCategoryFilter !== category) span.style.color = '#1E4D2B';
-        };
-        span.onmouseout = () => {
-            if (currentCategoryFilter !== category) span.style.color = '#333';
-        };
-
-        span.onclick = () => {
-            currentCategoryFilter = category;
-            renderCategoryFilters();
-            renderPortalProducts();
-        };
-
-        row.appendChild(span);
-
-        if (index < categories.length - 1) {
-            const comma = document.createElement('span');
-            comma.textContent = ',';
-            comma.style.color = '#888';
-            comma.style.margin = '0 2px';
-            comma.style.fontWeight = '700';
-            row.appendChild(comma);
-        }
-    });
-
-    parent.appendChild(row);
-}
-
 function createTextRow(parent, categories) {
     const row = document.createElement('div');
     row.style.textAlign = 'center';
@@ -2475,16 +2396,6 @@ function addToQuoteFromModal() {
     updateQuoteSidebar();
     closeAddToQuoteModal();
     window._pendingQuoteItem = null;
-}
-
-function showQuoteSidebar() {
-    const el = document.getElementById('quote-sidebar');
-    if (el) el.classList.remove('hidden');
-}
-
-function hideQuoteSidebar() {
-    const el = document.getElementById('quote-sidebar');
-    if (el) el.classList.add('hidden');
 }
 
 function addToQuote(name, price, cs, quantity) {
