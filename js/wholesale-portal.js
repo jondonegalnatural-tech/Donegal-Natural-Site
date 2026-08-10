@@ -58,6 +58,13 @@ function switchActiveCustomer(customerId) {
     localStorage.setItem('activeCustomerId', next.id);
     window._currentCustomer = next;
 
+    // Soft restriction follows the active store
+    if (isCustomerInactive(next)) {
+        applyInactiveSoftRestriction();
+    } else {
+        clearInactiveSoftRestriction();
+    }
+
     // Refresh anything that depends on the active store
     if (typeof updateShippingPolicyCard === 'function') updateShippingPolicyCard();
     if (typeof renderPortalProducts === 'function') renderPortalProducts();
@@ -309,6 +316,92 @@ function buildStoreTabs(section, currentFilter, onSelect) {
         </div>
     `;
 }
+
+// ================== INACTIVE SOFT RESTRICTION ==================
+function isCustomerInactive(c) {
+    return !!c && String(c.status || '').toLowerCase() === 'inactive';
+}
+
+function applyInactiveSoftRestriction() {
+    window._customerIsInactive = true;
+
+    // Banner
+    let banner = document.getElementById('inactive-restriction-banner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'inactive-restriction-banner';
+        banner.className = 'w-full bg-amber-50 border-b-2 border-amber-500 text-amber-900 px-4 py-3 text-sm font-medium flex items-start gap-3 z-40';
+        banner.innerHTML = `
+            <i class="fas fa-exclamation-triangle text-amber-600 text-lg flex-shrink-0 mt-0.5"></i>
+            <div>
+                <strong>Account restricted.</strong>
+                This store is currently marked Inactive. You can view Account details and Order History only.
+                Contact your salesman or Donegal Natural to reactivate ordering.
+            </div>
+        `;
+        const nav = document.querySelector('nav.sticky');
+        if (nav && nav.parentNode) {
+            nav.parentNode.insertBefore(banner, nav.nextSibling);
+        } else {
+            document.body.prepend(banner);
+        }
+    }
+    banner.style.display = 'flex';
+
+    // Hide Products + Quotes nav (desktop sidebar + mobile)
+    document.querySelectorAll(
+        '.sidebar-link[data-target="section-products"], .sidebar-link[data-target="section-quotes"]'
+    ).forEach(el => {
+        el.style.display = 'none';
+    });
+
+    // Hide quote sidebar completely
+    const qs = document.getElementById('quote-sidebar');
+    if (qs) {
+        qs.classList.add('hidden');
+        qs.classList.remove('flex');
+        qs.style.display = 'none';
+    }
+
+    // Force Account section
+    document.querySelectorAll('.portal-section').forEach(s => {
+        s.style.display = 'none';
+    });
+    const accountSec = document.getElementById('section-account');
+    if (accountSec) accountSec.style.display = 'block';
+
+    document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+    const accountLink = document.querySelector('.sidebar-link[data-target="section-account"]');
+    if (accountLink) {
+        accountLink.classList.add('active');
+        accountLink.style.display = ''; // ensure visible
+    }
+
+    if (typeof showAccountInfo === 'function') showAccountInfo();
+}
+
+function clearInactiveSoftRestriction() {
+    window._customerIsInactive = false;
+
+    const banner = document.getElementById('inactive-restriction-banner');
+    if (banner) banner.style.display = 'none';
+
+    document.querySelectorAll(
+        '.sidebar-link[data-target="section-products"], .sidebar-link[data-target="section-quotes"]'
+    ).forEach(el => {
+        el.style.display = '';
+    });
+
+    const qs = document.getElementById('quote-sidebar');
+    if (qs) {
+        qs.style.display = '';
+        // Desktop restores via CSS; mobile stays hidden until user opens it
+        if (window.innerWidth >= 1024) {
+            qs.classList.remove('hidden');
+        }
+    }
+}
+// ================== END INACTIVE SOFT RESTRICTION ==================
 
 function getStoreBadgeForOrder(order) {
     const accounts = window._customerAccounts || [];
@@ -2172,6 +2265,17 @@ function renderPortalProducts() {
     const container = document.getElementById('portal-products');
     if (!container) return;
 
+    if (window._customerIsInactive) {
+        container.innerHTML = `
+            <div class="bg-white border-2 border-amber-400 rounded-2xl p-10 text-center max-w-xl mx-auto">
+                <i class="fas fa-lock text-4xl text-amber-600 mb-4"></i>
+                <h3 class="text-xl font-bold text-amber-900 mb-2">Ordering restricted</h3>
+                <p class="text-[#6B4423] text-sm">This account is currently inactive. Contact your salesman to reactivate.</p>
+            </div>
+        `;
+        return;
+    }
+
     // Gate: no prices until salesman has approved pricing for this customer
     const customer = window._currentCustomer;
     if (!customer || !customer.pricing_approved_at) {
@@ -2299,6 +2403,10 @@ function renderPortalProducts() {
 }
 // ================== ADD TO QUOTE SYSTEM ==================
 function showPackagedItemModal(name, price, cs, category, image = null, healthBenefits = null) {
+    if (window._customerIsInactive) {
+        alert('This account is currently inactive and cannot add items to a quote.');
+        return;
+    }
     const oldModal = document.getElementById('add-to-quote-modal');
     if (oldModal) oldModal.remove();
 
@@ -2602,6 +2710,7 @@ function clearQuote() {
 }
 
 function showQuoteSidebar() {
+    if (window._customerIsInactive) return;
     const sidebar = document.getElementById('quote-sidebar');
     if (sidebar) {
         sidebar.classList.remove('hidden');
@@ -2618,6 +2727,10 @@ function hideQuoteSidebar() {
 }
 
 async function submitQuote() {
+    if (window._customerIsInactive) {
+        alert('This account is currently inactive and cannot submit new quotes.');
+        return;
+    }
     if (quoteItems.length === 0) {
         alert("Your quote is empty!");
         return;
@@ -5306,6 +5419,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!active || !active.onboarding_complete) {
             document.getElementById('onboarding-modal')?.classList.remove('hidden');
             return;
+        }
+
+        // Soft restriction for Inactive stores
+        if (isCustomerInactive(active)) {
+            applyInactiveSoftRestriction();
+        } else {
+            clearInactiveSoftRestriction();
         }
     } catch (err) {
         console.error('Customer load error:', err);
