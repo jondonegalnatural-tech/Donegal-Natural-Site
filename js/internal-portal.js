@@ -7146,7 +7146,8 @@ function toggleProposalChangesOnly(changesOnly) {
     const date = new Date(p.submittedAt).toLocaleDateString();
     const typeLabel = p.type === 'initialPriceSheet'
         ? 'Initial Pricing Sheet'
-        : (p.type === 'newProduct' ? 'New Product' : 'Price Change');
+        : (p.type === 'customerPricing' ? 'Customer Pricing'
+            : (p.type === 'newProduct' ? 'New Product' : 'Price Change'));
 
     list.innerHTML = renderProposalDetailHtml(p, date, typeLabel, !!changesOnly);
 }
@@ -7328,7 +7329,7 @@ async function approvePriceProposal(id) {
             return;
         }
 
-        // 5% catalog-price increase safety check (Initial Pricing Sheet only)
+        // 5% catalog-price safety check (Initial Pricing Sheet only)
         if (proposal.type === 'initialPriceSheet') {
             const over = [];
             (proposal.items || []).forEach(item => {
@@ -7350,7 +7351,7 @@ async function approvePriceProposal(id) {
             }
         }
 
-                // Customer pricing: confirm when items are outside ±5%
+        // Customer pricing: confirm when items are outside ±5%
         if (proposal.type === 'customerPricing') {
             const outside = (proposal.items || []).filter(i => {
                 if (i.outside5) return true;
@@ -7380,20 +7381,62 @@ async function approvePriceProposal(id) {
             }
         }
 
-                // ========== CUSTOMER PRICING PATH ==========
+        // ========== CUSTOMER PRICING PATH ==========
         if (proposal.type === 'customerPricing') {
-            const customerId = proposal.customer_id || proposal.customerId;
+            const items = proposal.items || [];
+            const customerId =
+                proposal.customer_id ||
+                proposal.customerId ||
+                items.find(i => i.customerId)?.customerId ||
+                null;
+
             if (!customerId) {
-                alert('This customer pricing proposal is missing a customer_id.');
+                alert('This customer pricing proposal is missing a customer id.');
                 return;
             }
 
-            // Build full price map
-            const pricesMap = {};
-            (proposal.items || []).forEach(item => {
+            const email = (proposal.salesman_email || '').toLowerCase().trim();
+            const adminUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            const approvedBy = adminUser.fullName || adminUser.name || adminUser.email || 'Admin';
+
+            // Build full prices map in priority order:
+            // 1. salesman base sheet
+            // 2. existing customer sheet
+            // 3. this proposal's items (highest priority)
+            let pricesMap = {};
+
+            if (email) {
+                try {
+                    const { data: baseSheet } = await supabaseClient
+                        .from('salesman_price_sheets')
+                        .select('prices')
+                        .eq('salesman_email', email)
+                        .maybeSingle();
+                    if (baseSheet?.prices && typeof baseSheet.prices === 'object') {
+                        pricesMap = { ...baseSheet.prices };
+                    }
+                } catch (e) {
+                    console.warn('customerPricing base merge:', e);
+                }
+            }
+
+            try {
+                const { data: existingCust } = await supabaseClient
+                    .from('customer_price_sheets')
+                    .select('prices')
+                    .eq('customer_id', customerId)
+                    .maybeSingle();
+                if (existingCust?.prices && typeof existingCust.prices === 'object') {
+                    pricesMap = { ...pricesMap, ...existingCust.prices };
+                }
+            } catch (e) {
+                console.warn('customerPricing existing sheet merge:', e);
+            }
+
+            items.forEach(item => {
                 const name = item.product || item.name;
-                if (name && item.proposedPrice != null) {
-                    pricesMap[name] = parseFloat(item.proposedPrice);
+                if (name && item.proposedPrice != null && !isNaN(Number(item.proposedPrice))) {
+                    pricesMap[name] = Number(item.proposedPrice);
                 }
             });
 
@@ -7402,44 +7445,28 @@ async function approvePriceProposal(id) {
                 return;
             }
 
-            // 1. Upsert into customer_price_sheets (full map)
-            const { data: existing } = await supabaseClient
+            // 1. Upsert full map into customer_price_sheets
+            const { error: sheetErr } = await supabaseClient
                 .from('customer_price_sheets')
-                .select('id')
-                .eq('customer_id', customerId)
-                .maybeSingle();
-
-            if (existing) {
-                const { error: upErr } = await supabaseClient
-                    .from('customer_price_sheets')
-                    .update({
-                        prices: pricesMap,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', existing.id);
-                if (upErr) throw upErr;
-            } else {
-                const { error: insErr } = await supabaseClient
-                    .from('customer_price_sheets')
-                    .insert({
-                        customer_id: customerId,
-                        prices: pricesMap
-                    });
-                if (insErr) throw insErr;
-            }
+                .upsert({
+                    customer_id: customerId,
+                    salesman_email: email || null,
+                    prices: pricesMap,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'customer_id' });
+            if (sheetErr) throw sheetErr;
 
             // 2. Unlock the customer
-            const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
             const { error: custErr } = await supabaseClient
                 .from('customers')
                 .update({
                     pricing_approved_at: new Date().toISOString(),
-                    pricing_approved_by: user.fullName || user.email || 'Admin'
+                    pricing_approved_by: approvedBy
                 })
                 .eq('id', customerId);
             if (custErr) throw custErr;
 
-            // 3. Mark proposal approved
+            // 3. Mark proposal Approved
             const { error: propErr } = await supabaseClient
                 .from('price_proposals')
                 .update({
@@ -7452,10 +7479,12 @@ async function approvePriceProposal(id) {
             alert('Customer pricing approved and unlocked.');
             await updatePriceProposalsBadge();
             hidePriceProposalsPanel();
+            if (typeof loadCustomers === 'function') loadCustomers();
             return; // IMPORTANT – do not fall into the salesman path
         }
         // ========== END CUSTOMER PRICING PATH ==========
 
+        // ========== SALESMAN / INITIAL PRICE SHEET PATH ==========
         // 2. Mark the proposal as Approved
         const { error: updateError } = await supabaseClient
             .from('price_proposals')
@@ -7464,156 +7493,6 @@ async function approvePriceProposal(id) {
                 decided_at: new Date().toISOString()
             })
             .eq('id', id);
-        // 2. Mark the proposal as Approved
-        const { error: updateError } = await supabaseClient
-            .from('price_proposals')
-            .update({
-                status: 'Approved',
-                decided_at: new Date().toISOString()
-            })
-            .eq('id', id);
-
-        if (updateError) {
-            console.error(updateError);
-            alert("Failed to approve proposal.");
-            return;
-        }
-
-        const email = (proposal.salesman_email || "").toLowerCase().trim();
-        const salesmanName = proposal.salesman_name || "";
-        const adminUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        const approvedBy = adminUser.fullName || adminUser.name || adminUser.email || 'Admin';
-
-        // ========== customerPricing: auto-apply full map + unlock customer ==========
-        if (proposal.type === 'customerPricing') {
-            const items = proposal.items || [];
-            const customerId = items.find(i => i.customerId)?.customerId || null;
-
-            if (!customerId) {
-                alert('Proposal approved, but no customerId found on items. Prices were NOT applied. Check the proposal data.');
-                await updatePriceProposalsBadge();
-                hidePriceProposalsPanel();
-                return;
-            }
-
-            // Build full prices map from proposal items
-            let pricesMap = {};
-            items.forEach(item => {
-                if (item.product && item.proposedPrice != null && !isNaN(Number(item.proposedPrice))) {
-                    pricesMap[item.product] = Number(item.proposedPrice);
-                }
-            });
-
-            // Legacy fallback: if only outside items were stored, merge onto salesman base sheet
-            if (Object.keys(pricesMap).length > 0 && Object.keys(pricesMap).length < 20 && email) {
-                try {
-                    const { data: baseSheet } = await supabaseClient
-                        .from('salesman_price_sheets')
-                        .select('prices')
-                        .eq('salesman_email', email)
-                        .maybeSingle();
-                    if (baseSheet && baseSheet.prices && typeof baseSheet.prices === 'object') {
-                        pricesMap = { ...baseSheet.prices, ...pricesMap };
-                    }
-                } catch (e) {
-                    console.warn('customerPricing base merge:', e);
-                }
-            }
-
-            if (Object.keys(pricesMap).length === 0) {
-                alert('Proposal approved, but no prices found to apply.');
-                await updatePriceProposalsBadge();
-                hidePriceProposalsPanel();
-                return;
-            }
-
-            // Upsert customer_price_sheets
-            const { error: sheetErr } = await supabaseClient
-                .from('customer_price_sheets')
-                .upsert({
-                    customer_id: customerId,
-                    salesman_email: email || null,
-                    prices: pricesMap,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: 'customer_id' });
-
-            if (sheetErr) {
-                console.error(sheetErr);
-                alert('Proposal marked Approved, but could not save customer price sheet.\n' + (sheetErr.message || ''));
-                await updatePriceProposalsBadge();
-                hidePriceProposalsPanel();
-                return;
-            }
-
-            // Unlock customer pricing immediately (salesman does NOT re-edit)
-            const { error: custErr } = await supabaseClient
-                .from('customers')
-                .update({
-                    pricing_approved_at: new Date().toISOString(),
-                    pricing_approved_by: approvedBy
-                })
-                .eq('id', customerId);
-
-            if (custErr) {
-                console.error(custErr);
-                alert('Price sheet saved, but could not set pricing_approved_at on customer.\n' + (custErr.message || ''));
-            } else {
-                alert('Customer pricing approved and applied. Customer is unlocked.');
-            }
-
-            await updatePriceProposalsBadge();
-            hidePriceProposalsPanel();
-            if (typeof loadCustomers === 'function') loadCustomers();
-            return;
-        }
-
-        // ========== initialPriceSheet / other: existing salesman sheet path ==========
-        if (email) {
-            await supabaseClient
-                .from('salesmen')
-                .update({ price_sheet_status: 'approved' })
-                .eq('email', email);
-        }
-
-        const pricesMap = {};
-        (proposal.items || []).forEach(item => {
-            if (item.product && item.proposedPrice != null) {
-                pricesMap[item.product] = parseFloat(item.proposedPrice);
-            }
-        });
-
-        if (email && Object.keys(pricesMap).length > 0) {
-            const { data: existing } = await supabaseClient
-                .from('salesman_price_sheets')
-                .select('id, prices')
-                .eq('salesman_email', email)
-                .maybeSingle();
-
-            if (existing) {
-                const merged = { ...(existing.prices || {}), ...pricesMap };
-                await supabaseClient
-                    .from('salesman_price_sheets')
-                    .update({
-                        prices: merged,
-                        salesman_name: salesmanName,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', existing.id);
-            } else {
-                await supabaseClient
-                    .from('salesman_price_sheets')
-                    .insert({
-                        salesman_email: email,
-                        salesman_name: salesmanName,
-                        prices: pricesMap
-                    });
-            }
-        }
-
-        alert("Proposal approved. Prices saved for " + (salesmanName || "salesman") + ".");
-
-        await updatePriceProposalsBadge();
-        hidePriceProposalsPanel();
 
         if (updateError) {
             console.error(updateError);
@@ -7642,7 +7521,6 @@ async function approvePriceProposal(id) {
 
         // 5. Upsert into salesman_price_sheets
         if (email && Object.keys(pricesMap).length > 0) {
-            // First try to find existing sheet
             const { data: existing } = await supabaseClient
                 .from('salesman_price_sheets')
                 .select('id, prices')
@@ -7650,7 +7528,6 @@ async function approvePriceProposal(id) {
                 .maybeSingle();
 
             if (existing) {
-                // Merge with any existing prices
                 const merged = { ...(existing.prices || {}), ...pricesMap };
                 await supabaseClient
                     .from('salesman_price_sheets')
@@ -7661,7 +7538,6 @@ async function approvePriceProposal(id) {
                     })
                     .eq('id', existing.id);
             } else {
-                // Create new sheet
                 await supabaseClient
                     .from('salesman_price_sheets')
                     .insert({
@@ -7673,7 +7549,6 @@ async function approvePriceProposal(id) {
         }
 
         alert("Proposal approved. Prices saved for " + (salesmanName || "salesman") + ".");
-
         await updatePriceProposalsBadge();
         hidePriceProposalsPanel();
 
