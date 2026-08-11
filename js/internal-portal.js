@@ -2862,6 +2862,14 @@ function hasUnpaidPriorOrders(order) {
     });
 }
 
+function unpaidPriorBadgeHTML(order) {
+    if (typeof hasUnpaidPriorOrders !== 'function' || !hasUnpaidPriorOrders(order)) return '';
+    return `<span class="inline-flex items-center gap-0.5 px-1.5 py-0 text-[9px] font-bold rounded-full bg-red-100 text-red-700 border border-red-300 whitespace-nowrap leading-none" title="Customer has an unpaid prior order">
+        <i class="fas fa-exclamation-triangle text-[8px]"></i>
+        Unpaid
+    </span>`;
+}
+
 function renderOrdersTable() {
     const container = document.getElementById('orders-table');
     const empty = document.getElementById('orders-empty');
@@ -2989,48 +2997,42 @@ function renderOrdersTable() {
                 `;
             }
         } else if (statusLower === 'received') {
-            const unpaidPriorReceived = typeof hasUnpaidPriorOrders === 'function' && hasUnpaidPriorOrders(order);
             statusHTML = `
-                <div class="flex flex-col gap-1.5 items-start">
+                <div class="flex flex-col gap-1 items-start">
                     <button onclick="updateOrderStatus('${safeId}', 'processing'); event.stopImmediatePropagation()"
                             class="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">
                         Move to Processing
                     </button>
-                    ${unpaidPriorReceived
-                        ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-full bg-red-100 text-red-700 border border-red-300">
-                               <i class="fas fa-exclamation-triangle text-[10px]"></i>
-                               Unpaid prior order
-                           </span>`
-                        : ''}
+                    ${unpaidPriorBadgeHTML(order)}
                 </div>
             `;
         } else if (statusLower === 'processing') {
-            const unpaidPrior = typeof hasUnpaidPriorOrders === 'function' && hasUnpaidPriorOrders(order);
             statusHTML = `
-    <div class="flex flex-col gap-1.5 items-start">
-        <button onclick="openShipInvoiceModal('${safeId}'); event.stopImmediatePropagation()"
-                class="text-xs px-3 py-1 rounded bg-purple-600 text-white hover:bg-purple-700">
-            Move to Shipped
-        </button>
-        ${unpaidPrior
-            ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-full bg-red-100 text-red-700 border border-red-300">
-                   <i class="fas fa-exclamation-triangle text-[10px]"></i>
-                   Unpaid prior order
-               </span>`
-            : ''}
-    </div>
-`;
+                <div class="flex flex-col gap-1 items-start">
+                    <button onclick="openShipInvoiceModal('${safeId}'); event.stopImmediatePropagation()"
+                            class="text-xs px-3 py-1 rounded bg-purple-600 text-white hover:bg-purple-700">
+                        Move to Shipped
+                    </button>
+                    ${unpaidPriorBadgeHTML(order)}
+                </div>
+            `;
         } else if (statusLower === 'shipped') {
             statusHTML = `
-                <span class="text-xs px-3 py-1 rounded bg-purple-100 text-purple-800 font-medium whitespace-nowrap">
-                    Awaiting Delivery
-                </span>
+                <div class="flex flex-col gap-1 items-start">
+                    <span class="text-xs px-3 py-1 rounded bg-purple-100 text-purple-800 font-medium whitespace-nowrap">
+                        Awaiting Delivery
+                    </span>
+                    ${unpaidPriorBadgeHTML(order)}
+                </div>
             `;
         } else if (statusLower === 'delivered') {
             statusHTML = `
-                <span class="text-xs px-3 py-1 rounded bg-orange-500 text-white">
-                    Delivered
-                </span>
+                <div class="flex flex-col gap-1 items-start">
+                    <span class="text-xs px-3 py-1 rounded bg-orange-500 text-white">
+                        Delivered
+                    </span>
+                    ${unpaidPriorBadgeHTML(order)}
+                </div>
             `;
         } else if (statusLower === 'denied') {
             statusHTML = `
