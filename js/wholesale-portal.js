@@ -2793,6 +2793,15 @@ async function submitQuote() {
             "A member of our team will contact you shortly." +
             (data?.id ? "\n\nReference: " + data.id : "")
         );
+
+        // Close empty quote sidebar and return to Products catalog
+        if (typeof hideQuoteSidebar === 'function') hideQuoteSidebar();
+        document.querySelectorAll('.portal-section').forEach(s => { s.style.display = 'none'; });
+        const productsSec = document.getElementById('section-products');
+        if (productsSec) productsSec.style.display = 'block';
+        document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+        const productsLink = document.querySelector('.sidebar-link[data-target="section-products"]');
+        if (productsLink) productsLink.classList.add('active');
     } catch (err) {
         console.error('Order submit error:', err);
         alert("Could not submit your quote. Please try again.\n" + (err.message || ""));
