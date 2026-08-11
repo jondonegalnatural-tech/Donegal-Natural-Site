@@ -5489,12 +5489,11 @@ async function setAllCustomersActive(enabled) {
         return;
     }
 
-    if (!confirm(`${action} ALL ${ids.length} customer(s)?\n\nThis will set every customer to ${newStatus}.`)) {
-        return;
-    }
+    const message = enabled
+        ? `Enable ALL ${ids.length} customer(s)?\n\nThis will set every customer to Active.`
+        : `Disable ALL ${ids.length} customer(s)?\n\nInactive customers can still log in, but will only see their Account info and Order History. They will not see products, quotes, or the ability to place new orders.\n\nEmail suppression for inactive customers will apply once emails are re-enabled.`;
 
-    // Extra confirm for Disable All
-    if (!enabled && !confirm('Are you sure? Disabled customers will not be able to log in and will not receive emails (once Steps 2–3 are live).')) {
+    if (!confirm(message)) {
         return;
     }
 
