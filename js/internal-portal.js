@@ -22,7 +22,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 // =====================================================
 
 // HARD SAFETY — set to true ONLY right before publishing the live site
-const EMAILS_ENABLED = false;
+const EMAILS_ENABLED = true;
 
 // ================== GLOBAL VARIABLES ==================
 let currentMatrixStartDate = null;
