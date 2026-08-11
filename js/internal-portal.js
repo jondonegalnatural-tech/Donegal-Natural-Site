@@ -2647,7 +2647,7 @@ async function loadOrders() {
     try {
         const { data, error } = await supabaseClient
             .from('orders')
-            .select('id, source, status, submitted_at, customer_name, customer_email, customer_company, salesman_name, salesman_email, notes, shipping_cost, credit, items, tracking_number, carrier, delivered_at')
+            .select('id, source, status, submitted_at, customer_name, customer_email, customer_company, salesman_name, salesman_email, notes, shipping_cost, credit, items, tracking_number, carrier, delivered_at, payment_status, paid_at')
             .order('submitted_at', { ascending: false });
 
         if (error) {
@@ -2671,7 +2671,9 @@ async function loadOrders() {
                 items: o.items || [],
                 trackingNumber: o.tracking_number || null,
                 carrier: o.carrier || 'UPS',
-                deliveredAt: o.delivered_at || null
+                deliveredAt: o.delivered_at || null,
+                paymentStatus: o.payment_status || null,
+                paidAt: o.paid_at || null
             }));
             ordersLoadedAt = Date.now();
         }
@@ -2831,6 +2833,35 @@ function copyOrderId(orderId, event) {
     }
 }
 
+function hasUnpaidPriorOrders(order) {
+    if (!order || !allOrders || allOrders.length < 2) return false;
+
+    const email = String(order.customerEmail || order.customer_email || '').trim().toLowerCase();
+    const name = String(order.customer || order.customer_name || '').trim().toLowerCase();
+    if (!email && !name) return false;
+
+    return allOrders.some(other => {
+        if (String(other.id) === String(order.id)) return false;
+
+        const otherEmail = String(other.customerEmail || other.customer_email || '').trim().toLowerCase();
+        const otherName = String(other.customer || other.customer_name || '').trim().toLowerCase();
+
+        const sameCustomer =
+            (email && otherEmail && email === otherEmail) ||
+            (name && otherName && name === otherName);
+        if (!sameCustomer) return false;
+
+        const pay = String(other.paymentStatus || other.payment_status || '').toLowerCase();
+        if (pay === 'paid') return false;
+
+        const st = String(other.status || '').toLowerCase();
+        // Only count orders that should have been paid (past pending/submitted/denied)
+        if (st === 'pending' || st === 'submitted' || st === 'denied' || st === '') return false;
+
+        return true;
+    });
+}
+
 function renderOrdersTable() {
     const container = document.getElementById('orders-table');
     const empty = document.getElementById('orders-empty');
@@ -2965,11 +2996,20 @@ function renderOrdersTable() {
                 </button>
             `;
         } else if (statusLower === 'processing') {
+            const unpaidPrior = typeof hasUnpaidPriorOrders === 'function' && hasUnpaidPriorOrders(order);
             statusHTML = `
-    <button onclick="openShipInvoiceModal('${safeId}'); event.stopImmediatePropagation()"
-            class="text-xs px-3 py-1 rounded bg-purple-600 text-white hover:bg-purple-700">
-        Move to Shipped
-    </button>
+    <div class="flex flex-col gap-1.5 items-start">
+        <button onclick="openShipInvoiceModal('${safeId}'); event.stopImmediatePropagation()"
+                class="text-xs px-3 py-1 rounded bg-purple-600 text-white hover:bg-purple-700">
+            Move to Shipped
+        </button>
+        ${unpaidPrior
+            ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-bold rounded-full bg-red-100 text-red-700 border border-red-300">
+                   <i class="fas fa-exclamation-triangle text-[10px]"></i>
+                   Unpaid prior order
+               </span>`
+            : ''}
+    </div>
 `;
         } else if (statusLower === 'shipped') {
             statusHTML = `
