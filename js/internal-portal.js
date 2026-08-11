@@ -3511,15 +3511,25 @@ async function confirmApproveOrder() {
     }));
 
     try {
-        const { error } = await supabaseClient
+        console.log('confirmApproveOrder →', { orderId, type: typeof orderId });
+
+        const { data, error } = await supabaseClient
             .from('orders')
             .update({
                 status: 'received',
                 items: itemsPayload
             })
-            .eq('id', orderId);
+            .eq('id', orderId)
+            .select('id, status');
 
         if (error) throw error;
+
+        if (!data || data.length === 0) {
+            throw new Error(
+                'Update matched 0 rows for order ' + orderId +
+                '. Check that the order still exists and RLS allows admin updates on orders.'
+            );
+        }
         // Insert any items marked Out of Stock during this approval
         if (approvePendingBackOrders.length > 0) {
             const { error: boError } = await supabaseClient
