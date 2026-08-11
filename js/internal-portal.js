@@ -2964,7 +2964,12 @@ function renderOrdersTable() {
         if (hasMarketPrice) {
             totalHTML = `<span class="text-orange-600 font-semibold">Needs Pricing</span>`;
         } else {
-            totalHTML = `$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            totalHTML = `
+                <div class="flex flex-col items-start gap-0.5">
+                    <span>$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    ${unpaidPriorBadgeHTML(order)}
+                </div>
+            `;
         }
 
         let statusHTML = '';
@@ -2996,43 +3001,31 @@ function renderOrdersTable() {
                     </div>
                 `;
             }
-        } else if (statusLower === 'received') {
+                } else if (statusLower === 'received') {
             statusHTML = `
-                <div class="flex flex-col gap-1 items-start">
-                    <button onclick="updateOrderStatus('${safeId}', 'processing'); event.stopImmediatePropagation()"
-                            class="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">
-                        Move to Processing
-                    </button>
-                    ${unpaidPriorBadgeHTML(order)}
-                </div>
+                <button onclick="updateOrderStatus('${safeId}', 'processing'); event.stopImmediatePropagation()"
+                        class="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">
+                    Move to Processing
+                </button>
             `;
-        } else if (statusLower === 'processing') {
+                } else if (statusLower === 'processing') {
             statusHTML = `
-                <div class="flex flex-col gap-1 items-start">
-                    <button onclick="openShipInvoiceModal('${safeId}'); event.stopImmediatePropagation()"
-                            class="text-xs px-3 py-1 rounded bg-purple-600 text-white hover:bg-purple-700">
-                        Move to Shipped
-                    </button>
-                    ${unpaidPriorBadgeHTML(order)}
-                </div>
+                <button onclick="openShipInvoiceModal('${safeId}'); event.stopImmediatePropagation()"
+                        class="text-xs px-3 py-1 rounded bg-purple-600 text-white hover:bg-purple-700">
+                    Move to Shipped
+                </button>
             `;
-        } else if (statusLower === 'shipped') {
+                } else if (statusLower === 'shipped') {
             statusHTML = `
-                <div class="flex flex-col gap-1 items-start">
-                    <span class="text-xs px-3 py-1 rounded bg-purple-100 text-purple-800 font-medium whitespace-nowrap">
-                        Awaiting Delivery
-                    </span>
-                    ${unpaidPriorBadgeHTML(order)}
-                </div>
+                <span class="text-xs px-3 py-1 rounded bg-purple-100 text-purple-800 font-medium whitespace-nowrap">
+                    Awaiting Delivery
+                </span>
             `;
-        } else if (statusLower === 'delivered') {
+                } else if (statusLower === 'delivered') {
             statusHTML = `
-                <div class="flex flex-col gap-1 items-start">
-                    <span class="text-xs px-3 py-1 rounded bg-orange-500 text-white">
-                        Delivered
-                    </span>
-                    ${unpaidPriorBadgeHTML(order)}
-                </div>
+                <span class="text-xs px-3 py-1 rounded bg-orange-500 text-white">
+                    Delivered
+                </span>
             `;
         } else if (statusLower === 'denied') {
             statusHTML = `
@@ -3119,7 +3112,6 @@ function renderOrdersTable() {
                     <td class="p-3"></td>
                     <td class="p-3 font-mono pl-6">
                         #${safeId.slice(0, 8)}-BO
-                        <span class="ml-2 px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">BO Fulfilled</span>
                     </td>
                     <td class="p-3">${order.salesman || 'N/A'}</td>
                     <td class="p-3">${order.customer || 'N/A'}</td>
