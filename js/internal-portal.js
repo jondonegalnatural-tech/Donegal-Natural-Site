@@ -3977,6 +3977,29 @@ async function sendOrderStatusEmail({ type, order, denialReason }) {
         return;
     }
 
+    // Only email Active / Approved customers (matches card verbiage)
+    const customerEmail = toEmail.toLowerCase();
+    const customerName = (order.customer || order.customer_name || '').trim().toLowerCase();
+    const customer = (allCustomers || []).find(c => {
+        const cEmail = (c.email || '').trim().toLowerCase();
+        const cName = (c.name || '').trim().toLowerCase();
+        if (customerEmail && cEmail && customerEmail === cEmail) return true;
+        if (customerName && cName && customerName === cName) return true;
+        return false;
+    }) || null;
+
+    if (customer) {
+        const status = String(customer.status || '').trim();
+        const enabled = status === 'Active' || status === 'Approved';
+        if (!enabled) {
+            console.warn(
+                'Order status email skipped — customer is not Active/Approved:',
+                { orderId: order.id, toEmail, status: customer.status }
+            );
+            return;
+        }
+    }
+
     // HARD SAFETY — emails disabled while developing
     if (!EMAILS_ENABLED) {
         console.log('[DEV] Email skipped (EMAILS_ENABLED=false):', {
