@@ -6997,11 +6997,11 @@ async function addNewSalesman(e) {
         return;
     }
 
-    const tempPassword = 'DN' + Math.random().toString(36).slice(2, 8).toUpperCase() + '!';
     const fullName = firstName + ' ' + lastName;
 
     try {
         // 1. Create Auth user + profile + send credentials email
+        // Password is generated server-side only
         const fnUrl = SUPABASE_URL + '/functions/v1/create-salesman-user';
         const fnRes = await fetch(fnUrl, {
             method: 'POST',
@@ -7012,7 +7012,6 @@ async function addNewSalesman(e) {
             },
             body: JSON.stringify({
                 email: email,
-                password: tempPassword,
                 full_name: fullName,
                 territory: territory
             })
@@ -7059,18 +7058,18 @@ async function addNewSalesman(e) {
 
         const emailOk = fnData && fnData.email_sent === true;
         const emailFailReason = (fnData && fnData.email_error) ? String(fnData.email_error) : '';
+        const returnedTemp = (fnData && fnData.temp_password) ? String(fnData.temp_password) : '';
 
         alert(
             'Salesman ' + firstName + ' ' + lastName + ' has been added.\n' +
             'Login account created.\n\n' +
-            'Salesman login (email + temp password):\n' +
-            'Email: ' + email + '\n' +
-            'Password: ' + tempPassword + '\n\n' +
             (emailOk
-                ? 'Credentials email was sent to the salesman.'
+                ? 'Credentials email was sent to the salesman.\nThey must change the password on first login.'
                 : ('Credentials email was NOT sent.\n' +
                    (emailFailReason ? ('Reason: ' + emailFailReason + '\n') : '') +
-                   'Please give the salesman the temp password above.'))
+                   (returnedTemp
+                       ? ('Temporary password (give to salesman):\n' + returnedTemp)
+                       : 'Please check the Edge Function logs.')))
         );
         hideAddSalesmanModal();
         document.getElementById('add-salesman-form').reset();
