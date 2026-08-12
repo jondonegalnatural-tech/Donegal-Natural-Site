@@ -912,6 +912,113 @@ function hideSalesmanModal() {
     modal.classList.add('hidden');
 }
 
+async function deleteSalesman() {
+    const modal = document.getElementById('salesman-modal');
+    const salesmanId = modal?.dataset?.salesmanId;
+    if (!salesmanId) {
+        alert('Could not find salesman id.');
+        return;
+    }
+
+    const salesman = (salesmen || []).find(s => String(s.id) === String(salesmanId));
+    if (!salesman) {
+        alert('Salesman not found.');
+        return;
+    }
+
+    const displayName = salesman.name
+        || [salesman.firstName, salesman.lastName].filter(Boolean).join(' ')
+        || 'this salesman';
+    const email = (salesman.email || '').toLowerCase().trim();
+
+    if (!email) {
+        alert('This salesman has no email on file. Cannot safely delete.');
+        return;
+    }
+
+    // Confirm 1
+    if (!confirm(
+        'PERMANENTLY delete ' + displayName + '?\n\n' +
+        'This will:\n' +
+        '• Remove their login (Auth + profile)\n' +
+        '• Delete their salesmen record and price sheet\n' +
+        '• Unassign every customer currently under them (prices re-lock until a new salesman approves)\n\n' +
+        'Orders and customer records are NEVER deleted.\n\n' +
+        'This cannot be undone.'
+    )) {
+        return;
+    }
+
+    // Confirm 2 — type the exact email
+    const typed = prompt(
+        'Type the salesman email exactly to confirm permanent delete:\n\n' + email
+    );
+    if (typed === null) return;
+    if (typed.toLowerCase().trim() !== email) {
+        alert('Email did not match. Delete cancelled.');
+        return;
+    }
+
+    try {
+        // 1. Unassign customers + re-lock pricing (Option A)
+        const { error: custErr } = await supabaseClient
+            .from('customers')
+            .update({
+                salesman_email: null,
+                assigned_at: null,
+                pricing_approved_at: null,
+                pricing_approved_by: null
+            })
+            .eq('salesman_email', email);
+        if (custErr) throw custErr;
+
+        // 2. Delete price sheet(s)
+        const { error: sheetErr } = await supabaseClient
+            .from('salesman_price_sheets')
+            .delete()
+            .eq('salesman_email', email);
+        if (sheetErr) throw sheetErr;
+
+        // 3. Delete salesmen row
+        const { error: salesErr } = await supabaseClient
+            .from('salesmen')
+            .delete()
+            .eq('id', salesmanId);
+        if (salesErr) throw salesErr;
+
+        // 4. Auth + profiles cleanup via Edge Function (Step 3)
+        try {
+            const fnUrl = SUPABASE_URL + '/functions/v1/delete-salesman-user';
+            const fnRes = await fetch(fnUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                    'apikey': SUPABASE_ANON_KEY
+                },
+                body: JSON.stringify({ email: email })
+            });
+            const fnText = await fnRes.text();
+            let fnData = null;
+            try { fnData = JSON.parse(fnText); } catch (e) { fnData = { error: fnText }; }
+            if (!fnRes.ok || (fnData && fnData.error)) {
+                console.warn('Auth cleanup warning:', fnData?.error || fnRes.status);
+                // Non-blocking — tables are already cleaned
+            }
+        } catch (fnErr) {
+            console.warn('delete-salesman-user call failed (tables already cleaned):', fnErr);
+        }
+
+        hideSalesmanModal();
+        if (typeof renderSalesmen === 'function') await renderSalesmen();
+        if (typeof updateDashboardSalesmen === 'function') updateDashboardSalesmen();
+        alert(displayName + ' has been permanently deleted.\nCustomers under them are now unassigned and prices are locked.');
+    } catch (err) {
+        console.error('deleteSalesman error:', err);
+        alert('Could not delete salesman.\n' + (err.message || ''));
+    }
+}
+
 function renderSalesmanOrdersList(salesman) {
     const container = document.getElementById('salesman-orders-list');
     if (!container) return;
