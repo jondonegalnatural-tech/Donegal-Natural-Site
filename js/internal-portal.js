@@ -6980,24 +6980,7 @@ function updateEditSalesmanProductPrice(index, value) {
     editSalesmanAssignedProducts[index].unitPrice = n;
 }
 
-function applyEditSalesmanBulkPct() {
-    const raw = document.getElementById('edit-salesman-bulk-pct')?.value;
-    const pct = parseFloat(raw);
-    if (isNaN(pct)) {
-        alert('Enter a percentage (e.g. 5 or -3).');
-        return;
-    }
-    if (!editSalesmanAssignedProducts.length) {
-        alert('No products assigned yet.');
-        return;
-    }
 
-    const factor = 1 + (pct / 100);
-    editSalesmanAssignedProducts.forEach(p => {
-        p.unitPrice = Math.round((Number(p.unitPrice) || 0) * factor * 100) / 100;
-    });
-    renderEditSalesmanAssignedList();
-}
 // ================== END ASSIGNED PRODUCTS ==================
 
 function showEditSalesmanModal() {
