@@ -1520,12 +1520,18 @@ body { background: #f8f1e9; }
             </div>
         </div>
         <div class="mt-8 flex flex-wrap justify-between gap-3">
-            <button type="button" onclick="showEditSalesmanModal()"
-                    class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl hover:bg-[#254a2f] flex items-center gap-2 font-semibold">
-                <i class="fas fa-edit"></i>
-                <span>Edit</span>
-            </button>
-            <button onclick="hideSalesmanModal()"
+            <div class="flex flex-wrap gap-2">
+                <button type="button" onclick="showEditSalesmanModal()"
+                        class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl hover:bg-[#254a2f] flex items-center gap-2 font-semibold">
+                    <i class="fas fa-edit"></i>
+                    <span>Edit</span>
+                </button>
+                <button type="button" onclick="deleteSalesman()"
+                        class="px-5 py-2 border-2 border-red-600 text-red-700 rounded-xl hover:bg-red-50 font-semibold">
+                    Delete
+                </button>
+            </div>
+            <button type="button" onclick="hideSalesmanModal()"
                     class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
                 Close
             </button>
