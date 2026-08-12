@@ -7057,8 +7057,7 @@ function showEditSalesmanModal() {
         resultsEl.innerHTML = '';
         resultsEl.classList.add('hidden');
     }
-    const bulkEl = document.getElementById('edit-salesman-bulk-pct');
-    if (bulkEl) bulkEl.value = '';
+
 
     // Wire listeners once (idempotent)
     if (searchEl && !searchEl.dataset.apWired) {
@@ -7069,11 +7068,7 @@ function showEditSalesmanModal() {
         catSelect.dataset.apWired = '1';
         catSelect.addEventListener('change', renderEditSalesmanProductSearch);
     }
-    const bulkBtn = document.getElementById('edit-salesman-bulk-apply');
-    if (bulkBtn && !bulkBtn.dataset.apWired) {
-        bulkBtn.dataset.apWired = '1';
-        bulkBtn.addEventListener('click', applyEditSalesmanBulkPct);
-    }
+
 
     renderEditSalesmanAssignedList();
     // ========== End Assigned Products ==========
@@ -13189,6 +13184,233 @@ if (typeof loadUser === 'function') {
     loadUser();
 }
 
+// ================== COMPANY BASE PRICE SHEET ==================
+function openBasePriceSheetModal() {
+    const modal = document.getElementById('base-price-sheet-modal');
+    if (!modal) return;
+    const searchEl = document.getElementById('base-price-sheet-search');
+    if (searchEl) searchEl.value = '';
+    renderBasePriceSheet();
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+}
+
+function hideBasePriceSheetModal() {
+    const modal = document.getElementById('base-price-sheet-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+}
+
+function renderBasePriceSheet() {
+    const listEl = document.getElementById('base-price-sheet-list');
+    const subEl = document.getElementById('base-price-sheet-subtitle');
+    if (!listEl) return;
+
+    if (typeof PRODUCT_CATALOG === 'undefined' || !PRODUCT_CATALOG.length) {
+        listEl.innerHTML = '<p class="text-sm text-[#6B4423]">Product catalog not loaded.</p>';
+        if (subEl) subEl.textContent = 'No products';
+        return;
+    }
+
+    const search = (document.getElementById('base-price-sheet-search')?.value || '').toLowerCase().trim();
+
+    const filtered = PRODUCT_CATALOG.filter(p => {
+        if (!search) return true;
+        return (p.name || '').toLowerCase().includes(search) ||
+               (p.category || '').toLowerCase().includes(search) ||
+               (p.subCategory || '').toLowerCase().includes(search) ||
+               (p.caseSize || '').toLowerCase().includes(search);
+    });
+
+    if (subEl) {
+        subEl.textContent = filtered.length + ' product' + (filtered.length !== 1 ? 's' : '') +
+            (search ? ' matching “‘ + search + '”' : ' · base unit prices');
+    }
+
+    if (filtered.length === 0) {
+        listEl.innerHTML = '<p class="text-sm text-[#6B4423]">No products match your search.</p>';
+        return;
+    }
+
+    // Group by category
+    const grouped = {};
+    filtered.forEach(p => {
+        const cat = p.category || 'Other';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(p);
+    });
+
+    const categories = Object.keys(grouped).sort();
+
+    let html = '';
+    categories.forEach(cat => {
+        const products = grouped[cat];
+        html += `
+            <div>
+                <h3 class="text-base font-bold brand-green mb-2 border-b border-[#d4b78f] pb-1">${cat}</h3>
+                <div class="overflow-x-auto border border-[#d4b78f] rounded-xl mb-4">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                                <th class="p-2.5 text-left">Product</th>
+                                <th class="p-2.5 text-left w-28">Case Size</th>
+                                <th class="p-2.5 text-right w-28">Unit Price</th>
+                                <th class="p-2.5 text-center w-28">As Of</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+        products.forEach((p, i) => {
+            const bg = i % 2 ? 'bg-[#f8f4eb]' : 'bg-white';
+            const priceText = p.unitPrice != null
+                ? ('$' + Number(p.unitPrice).toFixed(2))
+                : '—';
+            const marketBadge = p.isMarketPrice
+                ? ' <span class="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded bg-orange-100 text-orange-800">Market</span>'
+                : '';
+            html += `
+                <tr class="border-t border-[#e8d9b8] ${bg}">
+                    <td class="p-2.5">${p.name || '—'}${marketBadge}</td>
+                    <td class="p-2.5 text-[#6B4423]">${p.caseSize || '—'}</td>
+                    <td class="p-2.5 text-right font-semibold">${priceText}</td>
+                    <td class="p-2.5 text-center text-xs text-[#6B4423]">${p.priceAsOf || '—'}</td>
+                </tr>
+            `;
+        });
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    });
+
+    listEl.innerHTML = html;
+}
+
+function printBasePriceSheet() {
+    if (typeof PRODUCT_CATALOG === 'undefined' || !PRODUCT_CATALOG.length) {
+        alert('Product catalog not loaded.');
+        return;
+    }
+
+    const search = (document.getElementById('base-price-sheet-search')?.value || '').toLowerCase().trim();
+    const filtered = PRODUCT_CATALOG.filter(p => {
+        if (!search) return true;
+        return (p.name || '').toLowerCase().includes(search) ||
+               (p.category || '').toLowerCase().includes(search) ||
+               (p.subCategory || '').toLowerCase().includes(search);
+    });
+
+    const grouped = {};
+    filtered.forEach(p => {
+        const cat = p.category || 'Other';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(p);
+    });
+
+    const categories = Object.keys(grouped).sort();
+    const today = new Date().toLocaleDateString();
+
+    let body = '';
+    categories.forEach(cat => {
+        body += `<h2 style="margin:18px 0 6px;font-size:15px;color:#1E4D2B;border-bottom:1px solid #1E4D2B;padding-bottom:3px;">${cat}</h2>`;
+        body += `<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px;">
+            <thead>
+                <tr style="background:#1E4D2B;color:#d4b78f;">
+                    <th style="padding:6px 8px;text-align:left;border:1px solid #999;">Product</th>
+                    <th style="padding:6px 8px;text-align:left;border:1px solid #999;width:90px;">Case Size</th>
+                    <th style="padding:6px 8px;text-align:right;border:1px solid #999;width:90px;">Unit Price</th>
+                    <th style="padding:6px 8px;text-align:center;border:1px solid #999;width:90px;">As Of</th>
+                </tr>
+            </thead>
+            <tbody>`;
+        grouped[cat].forEach(p => {
+            const price = p.unitPrice != null ? ('$' + Number(p.unitPrice).toFixed(2)) : '—';
+            const market = p.isMarketPrice ? ' (Market)' : '';
+            body += `<tr>
+                <td style="padding:5px 8px;border:1px solid #ccc;">${p.name || '—'}${market}</td>
+                <td style="padding:5px 8px;border:1px solid #ccc;">${p.caseSize || '—'}</td>
+                <td style="padding:5px 8px;border:1px solid #ccc;text-align:right;font-weight:600;">${price}</td>
+                <td style="padding:5px 8px;border:1px solid #ccc;text-align:center;">${p.priceAsOf || '—'}</td>
+            </tr>`;
+        });
+        body += `</tbody></table>`;
+    });
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+    <title>Company Base Price Sheet – Donegal Natural</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 24px; color: #222; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+        .company { font-size: 20px; font-weight: bold; color: #1E4D2B; }
+        .title { font-size: 18px; font-weight: bold; text-align: right; }
+        .meta { font-size: 12px; margin-top: 4px; color: #555; }
+        hr { border: none; border-top: 2px solid #1E4D2B; margin: 12px 0; }
+        .footer { margin-top: 28px; text-align: center; font-size: 11px; color: #666; }
+        @media print { body { margin: 12px; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <div class="company">Donegal Natural Dog Treats</div>
+            <div class="meta">258 W Front St · Marietta, PA 17547</div>
+            <div class="meta">(800) 223-0017</div>
+        </div>
+        <div class="title">
+            COMPANY BASE PRICE SHEET
+            <div class="meta">Printed: ${today}</div>
+            <div class="meta">${filtered.length} products</div>
+        </div>
+    </div>
+    <hr>
+    ${body}
+    <div class="footer">Donegal Natural Dog Treats — Internal Use Only · Base prices as of catalog</div>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank');
+    if (!win) {
+        alert('Please allow pop-ups to print the price sheet.');
+        return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 350);
+}
+
+function exportBasePriceSheetExcel() {
+    if (typeof PRODUCT_CATALOG === 'undefined' || !PRODUCT_CATALOG.length) {
+        alert('Product catalog not loaded.');
+        return;
+    }
+    if (typeof XLSX === 'undefined') {
+        alert('Excel library not loaded.');
+        return;
+    }
+
+    const rows = PRODUCT_CATALOG.map(p => ({
+        Category: p.category || '',
+        'Sub Category': p.subCategory || '',
+        Product: p.name || '',
+        'Case Size': p.caseSize || '',
+        'Unit Price': p.unitPrice != null ? Number(p.unitPrice) : '',
+        'Market Price': p.isMarketPrice ? 'Yes' : 'No',
+        'Market Note': p.marketPriceNote || '',
+        'Price As Of': p.priceAsOf || ''
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Base Price Sheet');
+    XLSX.writeFile(wb, `Company_Base_Price_Sheet_${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+// ================== END COMPANY BASE PRICE SHEET ==================
 
 // ================== FINAL NOTE ==================
 // All major systems have been included and updated.

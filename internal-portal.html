@@ -1216,6 +1216,36 @@ body { background: #f8f1e9; }
                 </div>
                 <!-- ========== END CUSTOMER INSIGHTS ========== -->
 
+                <!-- ========== COMPANY BASE PRICE SHEET ========== -->
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 class="text-xl font-bold brand-green">Company Base Price Sheet</h3>
+                            <p class="text-sm text-[#6B4423]">Read-only company catalog · base unit prices</p>
+                        </div>
+                        <i class="fas fa-file-invoice-dollar text-3xl text-[#6B4423]"></i>
+                    </div>
+                    <p class="text-sm text-[#6B4423] mb-5">
+                        Source of truth for all base prices. Salesmen and customers receive adjusted sheets from this catalog.
+                    </p>
+                    <div class="flex flex-wrap gap-3">
+                        <button type="button" onclick="openBasePriceSheetModal()"
+                                class="px-4 py-2 text-sm bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
+                            <i class="fas fa-eye mr-2"></i> View / Print Sheet
+                        </button>
+                        <button type="button" onclick="exportBasePriceSheetExcel()"
+                                class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                            <i class="fas fa-file-excel mr-2"></i> Export Excel
+                        </button>
+                        <button type="button" disabled
+                                class="px-4 py-2 text-sm border-2 border-gray-300 text-gray-400 rounded-xl cursor-not-allowed"
+                                title="Coming in a later step">
+                            <i class="fas fa-percentage mr-2"></i> Bulk % Adjustments
+                        </button>
+                    </div>
+                </div>
+                <!-- ========== END COMPANY BASE PRICE SHEET ========== -->
+
                 
 
             </div>
@@ -3280,6 +3310,48 @@ body { background: #f8f1e9; }
         <div class="mt-6 flex justify-end">
             <button type="button" onclick="hideSalesmanPriceSheetModal()"
                     class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Company Base Price Sheet Modal -->
+<div id="base-price-sheet-modal"
+     onclick="hideBasePriceSheetModal()"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+    <div onclick="event.stopImmediatePropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-4xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
+        <div class="flex flex-wrap justify-between items-start gap-3 mb-4">
+            <div>
+                <h2 class="text-xl font-bold brand-green">Company Base Price Sheet</h2>
+                <p class="text-sm text-[#6B4423]" id="base-price-sheet-subtitle">Loading…</p>
+            </div>
+            <button type="button" onclick="hideBasePriceSheetModal()"
+                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+
+        <div class="mb-4">
+            <input type="text" id="base-price-sheet-search" placeholder="Search products…"
+                   class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-full max-w-md"
+                   oninput="renderBasePriceSheet()">
+        </div>
+
+        <div id="base-price-sheet-list" class="space-y-4 mb-6">
+            <p class="text-sm text-[#6B4423]">Loading…</p>
+        </div>
+
+        <div class="flex flex-wrap justify-end gap-3 pt-2 border-t border-[#d4b78f]">
+            <button type="button" onclick="printBasePriceSheet()"
+                    class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
+                <i class="fas fa-print mr-2"></i> Print
+            </button>
+            <button type="button" onclick="exportBasePriceSheetExcel()"
+                    class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                <i class="fas fa-file-excel mr-2"></i> Export Excel
+            </button>
+            <button type="button" onclick="hideBasePriceSheetModal()"
+                    class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
                 Close
             </button>
         </div>
