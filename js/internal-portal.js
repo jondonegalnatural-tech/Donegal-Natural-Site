@@ -5013,18 +5013,40 @@ async function loadCustomers() {
     renderCustomers();
 }
 
+function salesmanHasApprovedSheet(email) {
+    const e = (email || '').toLowerCase().trim();
+    if (!e) return false;
+    const s = (salesmen || []).find(x => (x.email || '').toLowerCase().trim() === e);
+    return !!(s && String(s.priceSheetStatus || '').toLowerCase() === 'approved');
+}
+
+let customerMassFilter = 'all'; // 'all' | 'unassigned'
+
+function setCustomerMassFilter(filter) {
+    customerMassFilter = filter || 'all';
+    renderCustomers();
+}
+
 function renderCustomers() {
     const container = document.getElementById('customer-list');
     if (!container) return;
 
     const searchTerm = (document.getElementById('customer-search')?.value || '').toLowerCase().trim();
 
-    let filteredCustomers = allCustomers;
+    let filteredCustomers = allCustomers || [];
     if (searchTerm) {
-        filteredCustomers = allCustomers.filter(c =>
-            c.name.toLowerCase().includes(searchTerm) ||
+        filteredCustomers = filteredCustomers.filter(c =>
+            (c.name || '').toLowerCase().includes(searchTerm) ||
             (c.company && c.company.toLowerCase().includes(searchTerm))
         );
+    }
+
+    if (customerMassFilter === 'unassigned') {
+        filteredCustomers = filteredCustomers.filter(c => !(c.salesmanEmail || '').trim());
+    }
+
+    if ((!salesmen || salesmen.length === 0) && typeof loadSalesmen === 'function') {
+        loadSalesmen().then(() => renderCustomers());
     }
 
     if (filteredCustomers.length === 0) {
@@ -5037,7 +5059,45 @@ function renderCustomers() {
         return;
     }
 
+    const salesmanOptions = (salesmen || [])
+        .filter(s => s.active !== false)
+        .map(s => {
+            const name = s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || s.email || '';
+            const email = (s.email || '').toLowerCase().trim();
+            return `<option value="${email}">${name}${s.territory ? ' — ' + s.territory : ''}</option>`;
+        }).join('');
+
     let html = `
+        <div class="col-span-full bg-[#f8f4eb] border-2 border-[#6B4423] rounded-2xl p-4 mb-4">
+            <div class="flex flex-wrap items-center gap-3 mb-3">
+                <label class="flex items-center gap-2 text-sm font-semibold text-[#1E4D2B] cursor-pointer">
+                    <input type="checkbox" id="customer-select-all" onchange="toggleSelectAllCustomers(this)" class="w-4 h-4 accent-[#1E4D2B]">
+                    Select all
+                </label>
+                <div class="flex gap-2">
+                    <button type="button" onclick="setCustomerMassFilter('all')"
+                            class="px-3 py-1 text-xs font-semibold rounded-full border-2 ${customerMassFilter === 'all' ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]' : 'border-[#6B4423] text-[#6B4423] hover:bg-white'}">
+                        All
+                    </button>
+                    <button type="button" onclick="setCustomerMassFilter('unassigned')"
+                            class="px-3 py-1 text-xs font-semibold rounded-full border-2 ${customerMassFilter === 'unassigned' ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]' : 'border-[#6B4423] text-[#6B4423] hover:bg-white'}">
+                        Unassigned
+                    </button>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <select id="mass-assign-salesman"
+                        class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm min-w-[200px]">
+                    <option value="">— Select salesman —</option>
+                    ${salesmanOptions}
+                </select>
+                <button type="button" onclick="massAssignSelectedCustomers()"
+                        class="px-4 py-2 text-sm font-semibold rounded-xl bg-[#1E4D2B] text-[#d4b78f] hover:bg-[#254a2f]">
+                    Assign selected
+                </button>
+                <span id="mass-assign-count" class="text-xs text-[#6B4423]"></span>
+            </div>
+        </div>
         <div class="col-span-full flex flex-wrap gap-3 mb-2">
             <button type="button" onclick="setAllCustomersActive(true)"
                     class="px-4 py-2 text-sm font-semibold rounded-xl bg-green-700 text-white hover:bg-green-800">
@@ -5049,59 +5109,157 @@ function renderCustomers() {
             </button>
         </div>
     `;
+
     filteredCustomers.forEach(customer => {
         const balanceClass = customer.balance > 0 ? 'text-red-600' : 'text-green-600';
         const isAchApproved =
             String(customer.payment_method || '').toLowerCase() === 'ach' &&
             String(customer.payment_method_status || '').toLowerCase() === 'approved';
-
-        if (isAchApproved) {
-            console.log('ACH badge for:', customer.name, customer.payment_method, customer.payment_method_status);
-        }
+        const safeId = String(customer.id || '').replace(/'/g, "\\'");
+        const safeName = (customer.name || '').replace(/'/g, "\\'");
 
         html += `
-            <div onclick="showCustomerDetail('${customer.name}')" class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition">
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <h3 class="text-xl font-bold brand-green">
-                            ${customer.name}
-                        </h3>
-                        <p class="text-sm text-[#6B4423]">${customer.company || 'Individual'}</p>
-                    </div>
-                    <div class="flex flex-col items-end gap-1">
-                        <button type="button"
-                                title="${isCustomerEnabled(customer.status) ? 'Click to disable' : 'Click to enable'}"
-                                onclick="toggleCustomerActive('${customer.id}', event)"
-                                class="px-3 py-1 text-xs font-semibold rounded-full cursor-pointer transition
-                                       ${isCustomerEnabled(customer.status)
-                                           ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                                           : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}">
-                            ${isCustomerEnabled(customer.status) ? 'Active' : 'Inactive'}
-                        </button>
-                        ${!customer.password_changed
-                            ?`<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">Needs Password</span>`
-                            : ''}
-                        ${!(customer.onboarding_complete || customer.payment_method)
-                            ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">Payment Pending</span>`
-                            : ''}
-                        ${isAchApproved ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-100 text-blue-800">ACH Approved</span>` : ''}
-                    </div>
+            <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 hover:shadow-lg transition relative">
+                <div class="absolute top-3 left-3" onclick="event.stopPropagation()">
+                    <input type="checkbox" class="customer-mass-checkbox w-4 h-4 accent-[#1E4D2B]"
+                           value="${safeId}" onchange="updateMassAssignCount()">
                 </div>
-                <div class="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <p class="text-[#6B4423] text-xs">Territory</p>
-                        <p class="font-semibold">${customer.territory || 'N/A'}</p>
+                <div onclick="showCustomerDetail('${safeName}')" class="cursor-pointer pl-6">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-xl font-bold brand-green">${customer.name}</h3>
+                            <p class="text-sm text-[#6B4423]">${customer.company || 'Individual'}</p>
+                        </div>
+                        <div class="flex flex-col items-end gap-1">
+                            <button type="button"
+                                    title="${isCustomerEnabled(customer.status) ? 'Click to disable' : 'Click to enable'}"
+                                    onclick="toggleCustomerActive('${safeId}', event)"
+                                    class="px-3 py-1 text-xs font-semibold rounded-full cursor-pointer transition
+                                           ${isCustomerEnabled(customer.status)
+                                               ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                               : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}">
+                                ${isCustomerEnabled(customer.status) ? 'Active' : 'Inactive'}
+                            </button>
+                            ${!customer.password_changed
+                                ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">Needs Password</span>`
+                                : ''}
+                            ${!(customer.onboarding_complete || customer.payment_method)
+                                ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">Payment Pending</span>`
+                                : ''}
+                            ${isAchApproved ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-100 text-blue-800">ACH Approved</span>` : ''}
+                        </div>
                     </div>
-                    <div class="text-right">
-                        <p class="text-[#6B4423] text-xs">Balance Owed</p>
-                        <p class="font-bold ${balanceClass}">$${(customer.balance || 0).toLocaleString()}</p>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-[#6B4423] text-xs">Territory</p>
+                            <p class="font-semibold">${customer.territory || 'N/A'}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[#6B4423] text-xs">Balance Owed</p>
+                            <p class="font-bold ${balanceClass}">$${(customer.balance || 0).toLocaleString()}</p>
+                        </div>
                     </div>
+                    ${customer.salesmanEmail
+                        ? `<p class="text-xs text-[#6B4423] mt-2">Salesman: ${customer.salesmanEmail}</p>`
+                        : `<p class="text-xs text-orange-600 mt-2">Unassigned</p>`}
                 </div>
             </div>
         `;
     });
 
     container.innerHTML = html;
+    updateMassAssignCount();
+}
+
+function toggleSelectAllCustomers(checkbox) {
+    document.querySelectorAll('.customer-mass-checkbox').forEach(cb => {
+        cb.checked = checkbox.checked;
+    });
+    updateMassAssignCount();
+}
+
+function updateMassAssignCount() {
+    const n = document.querySelectorAll('.customer-mass-checkbox:checked').length;
+    const el = document.getElementById('mass-assign-count');
+    if (el) el.textContent = n > 0 ? n + ' selected' : '';
+}
+
+async function massAssignSelectedCustomers() {
+    const checked = Array.from(document.querySelectorAll('.customer-mass-checkbox:checked'));
+    if (checked.length === 0) {
+        alert('Select at least one customer.');
+        return;
+    }
+
+    const salesmanEmail = (document.getElementById('mass-assign-salesman')?.value || '').trim().toLowerCase();
+    if (!salesmanEmail) {
+        alert('Choose a salesman first.');
+        return;
+    }
+
+    if ((!salesmen || salesmen.length === 0) && typeof loadSalesmen === 'function') {
+        await loadSalesmen();
+    }
+
+    const salesman = (salesmen || []).find(s => (s.email || '').toLowerCase().trim() === salesmanEmail);
+    const salesmanName = salesman
+        ? (salesman.name || [salesman.firstName, salesman.lastName].filter(Boolean).join(' ') || salesmanEmail)
+        : salesmanEmail;
+
+    const hasSheet = salesmanHasApprovedSheet(salesmanEmail);
+    const ids = checked.map(cb => cb.value).filter(Boolean);
+
+    if (!confirm(
+        `Assign ${ids.length} customer(s) to ${salesmanName}?\n\n` +
+        (hasSheet
+            ? 'This salesman has an approved price sheet — customers without pricing access will be unlocked immediately.'
+            : 'This salesman does not yet have an approved price sheet — pricing will stay locked until approved.')
+    )) return;
+
+    const admin = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    const approvedBy = admin.fullName || admin.name || admin.email || 'Admin';
+    const now = new Date().toISOString();
+
+    try {
+        const { error: assignErr } = await supabaseClient
+            .from('customers')
+            .update({
+                salesman_email: salesmanEmail,
+                assigned_at: now,
+                updated_at: now
+            })
+            .in('id', ids);
+
+        if (assignErr) throw assignErr;
+
+        if (hasSheet) {
+            const needUnlock = (allCustomers || []).filter(c =>
+                ids.includes(String(c.id)) && !c.pricingApprovedAt
+            ).map(c => c.id);
+
+            if (needUnlock.length > 0) {
+                const { error: unlockErr } = await supabaseClient
+                    .from('customers')
+                    .update({
+                        pricing_approved_at: now,
+                        pricing_approved_by: approvedBy,
+                        updated_at: now
+                    })
+                    .in('id', needUnlock);
+
+                if (unlockErr) throw unlockErr;
+            }
+        }
+
+        await loadCustomers();
+        alert(
+            `Assigned ${ids.length} customer(s) to ${salesmanName}.` +
+            (hasSheet ? '\nPricing unlocked for any that were still locked.' : '')
+        );
+    } catch (err) {
+        console.error('massAssignSelectedCustomers error:', err);
+        alert('Could not assign customers.\n' + (err.message || ''));
+    }
 }
 
 function updateTotalOrdersBadge() {
@@ -5575,18 +5733,30 @@ async function saveEditedCustomer(e) {
     try {
         const { error } = await supabaseClient
             .from('customers')
-            .update({
-                name: name,
-                company: company || null,
-                email: email || null,
-                phone: phone || null,
-                territory: territory || null,
-                shipping_address: address || null,
-                notes: notes || null,
-                salesman_email: salesmanEmail,
-                assigned_at: salesmanEmail ? new Date().toISOString() : null,
-                updated_at: new Date().toISOString()
-            })
+            .update((() => {
+                const payload = {
+                    name: name,
+                    company: company || null,
+                    email: email || null,
+                    phone: phone || null,
+                    territory: territory || null,
+                    shipping_address: address || null,
+                    notes: notes || null,
+                    salesman_email: salesmanEmail,
+                    assigned_at: salesmanEmail ? new Date().toISOString() : null,
+                    updated_at: new Date().toISOString()
+                };
+                // Auto-unlock only if currently locked AND salesman has approved sheet
+                if (salesmanEmail && salesmanHasApprovedSheet(salesmanEmail)) {
+                    const existing = allCustomers.find(c => String(c.id) === String(customerId));
+                    if (existing && !existing.pricingApprovedAt) {
+                        payload.pricing_approved_at = new Date().toISOString();
+                        const admin = JSON.parse(localStorage.getItem('currentUser') || '{}');
+                        payload.pricing_approved_by = admin.fullName || admin.email || 'Admin';
+                    }
+                }
+                return payload;
+            })())
             .eq('id', customerId);
 
         if (error) {
