@@ -13225,7 +13225,7 @@ function renderBasePriceSheet() {
 
     if (subEl) {
         subEl.textContent = filtered.length + ' product' + (filtered.length !== 1 ? 's' : '') +
-            (search ? ' matching “‘ + search + '”' : ' · base unit prices');
+        (search ? ' matching "' + search + '"' : ' · base unit prices');
     }
 
     if (filtered.length === 0) {
