@@ -2556,6 +2556,13 @@ async function renderPriceSheet() {
                 : "";
         }
 
+        // Cache for Print / Export
+        window._currentSalesmanPriceSheet = {
+            prices: sheet.prices || {},
+            updated_at: sheet.updated_at || null,
+            salesman_email: email
+        };
+
         const rows = Object.keys(sheet.prices).sort().map(name => {
             const price = sheet.prices[name];
             return `
@@ -2574,8 +2581,291 @@ async function renderPriceSheet() {
     }
 }
 
-function exportPriceSheetPdf() {
-    alert("PDF export will be added next. For now, use the on-screen price sheet.");
+async function exportPriceSheetPdf() {
+    const user = getCurrentUser() || currentUser;
+    if (!user) {
+        alert("You must be logged in.");
+        return;
+    }
+
+    const email = (user.email || "").toLowerCase().trim();
+    let prices = null;
+    let updatedAt = null;
+
+    // Prefer the sheet already loaded on the Account tab
+    if (window._currentSalesmanPriceSheet &&
+        window._currentSalesmanPriceSheet.prices &&
+        Object.keys(window._currentSalesmanPriceSheet.prices).length > 0) {
+        prices = window._currentSalesmanPriceSheet.prices;
+        updatedAt = window._currentSalesmanPriceSheet.updated_at;
+    } else {
+        // Fallback: fetch fresh
+        try {
+            const { data: sheet, error } = await supabaseClient
+                .from("salesman_price_sheets")
+                .select("prices, updated_at")
+                .eq("salesman_email", email)
+                .maybeSingle();
+
+            if (error) throw error;
+            if (!sheet || !sheet.prices || Object.keys(sheet.prices).length === 0) {
+                alert("No approved price sheet found to print.");
+                return;
+            }
+            prices = sheet.prices;
+            updatedAt = sheet.updated_at;
+        } catch (err) {
+            console.error(err);
+            alert("Could not load price sheet for printing.\n" + (err.message || ""));
+            return;
+        }
+    }
+
+    // Build category-grouped rows using PRODUCT_CATALOG order
+    const catalogByName = {};
+    if (typeof PRODUCT_CATALOG !== "undefined") {
+        PRODUCT_CATALOG.forEach(p => {
+            catalogByName[p.name] = p;
+        });
+    }
+
+    const grouped = {};
+    const categoryOrder = [];
+    const unmatched = [];
+
+    Object.keys(prices).forEach(name => {
+        const p = catalogByName[name];
+        if (p) {
+            const cat = p.category || "Other";
+            if (!grouped[cat]) {
+                grouped[cat] = [];
+                categoryOrder.push(cat);
+            }
+            grouped[cat].push({
+                name,
+                caseSize: p.caseSize || "",
+                price: Number(prices[name])
+            });
+        } else {
+            unmatched.push({
+                name,
+                caseSize: "",
+                price: Number(prices[name])
+            });
+        }
+    });
+
+    // Sort products inside each category
+    categoryOrder.forEach(cat => {
+        grouped[cat].sort((a, b) => a.name.localeCompare(b.name));
+    });
+    unmatched.sort((a, b) => a.name.localeCompare(b.name));
+
+    const salesmanName = user.fullName || user.name || "Sales Representative";
+    const generated = new Date().toLocaleString();
+    const lastUpdated = updatedAt
+        ? new Date(updatedAt).toLocaleString()
+        : "—";
+
+    // Build table HTML
+    let tableHtml = "";
+    categoryOrder.forEach(cat => {
+        tableHtml += `
+            <tr class="cat-row">
+                <td colspan="3" class="cat-header">${cat}</td>
+            </tr>
+        `;
+        grouped[cat].forEach(row => {
+            tableHtml += `
+                <tr>
+                    <td>${row.name}</td>
+                    <td class="case">${row.caseSize || "—"}</td>
+                    <td class="price">$${row.price.toFixed(2)}</td>
+                </tr>
+            `;
+        });
+    });
+
+    if (unmatched.length) {
+        tableHtml += `
+            <tr class="cat-row">
+                <td colspan="3" class="cat-header">Other</td>
+            </tr>
+        `;
+        unmatched.forEach(row => {
+            tableHtml += `
+                <tr>
+                    <td>${row.name}</td>
+                    <td class="case">—</td>
+                    <td class="price">$${row.price.toFixed(2)}</td>
+                </tr>
+            `;
+        });
+    }
+
+    const disclaimer = `
+        <div class="disclaimer">
+            <strong>CONFIDENTIAL — AUTHORIZED SALES USE ONLY</strong><br>
+            This pricing sheet contains proprietary and confidential information of Donegal Natural Dog Treats.
+            It is provided solely for the authorized sales representative named above for use in the ordinary
+            course of business with approved wholesale customers. Unauthorized disclosure, distribution,
+            reproduction, or sharing with any third party is strictly prohibited. Prices are subject to change
+            without notice and do not constitute a binding offer or contract.
+        </div>
+    `;
+
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Donegal Natural — Salesman Price Sheet</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+            color: #1a1a1a;
+            margin: 0;
+            padding: 24px 32px;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 3px solid #1E4D2B;
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+        }
+        .header-left h1 {
+            margin: 0 0 4px;
+            font-size: 20px;
+            color: #1E4D2B;
+        }
+        .header-left p {
+            margin: 0;
+            color: #6B4423;
+            font-size: 11px;
+        }
+        .header-right img {
+            height: 64px;
+            width: auto;
+        }
+        .meta {
+            margin-bottom: 14px;
+            font-size: 12px;
+        }
+        .meta strong { color: #1E4D2B; }
+        .disclaimer {
+            background: #fef3c7;
+            border: 2px solid #b45309;
+            color: #78350f;
+            padding: 10px 14px;
+            margin: 12px 0 18px;
+            font-size: 10.5px;
+            line-height: 1.45;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th {
+            background: #1E4D2B;
+            color: #d4b78f;
+            text-align: left;
+            padding: 8px 10px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+        td {
+            padding: 6px 10px;
+            border-bottom: 1px solid #e5d5c0;
+            vertical-align: top;
+        }
+        .cat-header {
+            background: #f8f4eb;
+            color: #1E4D2B;
+            font-weight: 700;
+            font-size: 12px;
+            padding: 8px 10px;
+            border-bottom: 2px solid #6B4423;
+        }
+        .case { width: 110px; color: #555; }
+        .price { width: 80px; text-align: right; font-weight: 700; color: #1E4D2B; }
+        tr { page-break-inside: avoid; }
+        .footer-note {
+            margin-top: 8px;
+            font-size: 10px;
+            color: #6B4423;
+            text-align: center;
+        }
+        @media print {
+            body { padding: 12px 18px; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">
+            <h1>Donegal Natural Dog Treats</h1>
+            <p>258 W Front St · Marietta, PA 17547</p>
+            <p>(800) 223-0017 · donegalnaturaldogtreats.com</p>
+        </div>
+        <div class="header-right">
+            <img src="media/logo.png" alt="Donegal Natural" onerror="this.style.display='none'">
+        </div>
+    </div>
+
+    <h2 style="margin:0 0 6px; color:#1E4D2B; font-size:16px;">Sales Representative Price Sheet</h2>
+    <div class="meta">
+        <div><strong>Salesman:</strong> ${salesmanName}</div>
+        <div><strong>Email:</strong> ${email || "—"}</div>
+        <div><strong>Generated:</strong> ${generated}</div>
+        <div><strong>Sheet last updated:</strong> ${lastUpdated}</div>
+    </div>
+
+    ${disclaimer}
+
+    <table>
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th class="case">Case Size</th>
+                <th class="price">Unit Price</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${tableHtml}
+        </tbody>
+    </table>
+
+    ${disclaimer}
+
+    <p class="footer-note">
+        Donegal Natural Dog Treats · Confidential pricing for authorized sales use only
+    </p>
+
+    <script>
+        window.onload = function () {
+            setTimeout(function () { window.print(); }, 350);
+        };
+    </script>
+</body>
+</html>
+    `;
+
+    const printWin = window.open("", "_blank", "width=900,height=700");
+    if (!printWin) {
+        alert("Please allow pop-ups to print the price sheet.");
+        return;
+    }
+    printWin.document.open();
+    printWin.document.write(html);
+    printWin.document.close();
 }
 
 // ================== INITIAL PRICING SHEET ==================
