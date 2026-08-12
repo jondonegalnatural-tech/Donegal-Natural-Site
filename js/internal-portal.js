@@ -6988,12 +6988,51 @@ async function addNewSalesman(e) {
         ? buildAddressFromParts(mailStreet, mailApt, mailCity, mailState, mailZip)
         : [mailStreet, mailApt, [mailCity, mailState, mailZip].filter(Boolean).join(', ')].filter(Boolean).join('\n');
 
-    if (!firstName || !lastName || !territory) {
+        if (!firstName || !lastName || !territory) {
         alert("Please fill in First Name, Last Name, and Territory.");
         return;
     }
+    if (!email || !email.includes('@')) {
+        alert("A valid email is required so the salesman can log in and receive credentials.");
+        return;
+    }
+
+    const tempPassword = 'DN' + Math.random().toString(36).slice(2, 8).toUpperCase() + '!';
+    const fullName = firstName + ' ' + lastName;
 
     try {
+        // 1. Create Auth user + profile + send credentials email
+        const fnUrl = SUPABASE_URL + '/functions/v1/create-salesman-user';
+        const fnRes = await fetch(fnUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                'apikey': SUPABASE_ANON_KEY
+            },
+            body: JSON.stringify({
+                email: email,
+                password: tempPassword,
+                full_name: fullName,
+                territory: territory
+            })
+        });
+
+        const fnText = await fnRes.text();
+        let fnData = null;
+        try {
+            fnData = JSON.parse(fnText);
+        } catch (e) {
+            fnData = { error: fnText || 'Empty response' };
+        }
+
+        if (!fnRes.ok || (fnData && fnData.error)) {
+            throw new Error(
+                (fnData && fnData.error) ? fnData.error : ('Function HTTP ' + fnRes.status)
+            );
+        }
+
+        // 2. Insert salesman row
         const { data, error } = await supabaseClient
             .from('salesmen')
             .insert({
@@ -7018,7 +7057,21 @@ async function addNewSalesman(e) {
             return;
         }
 
-        alert(`Salesman ${firstName} ${lastName} has been added successfully!`);
+        const emailOk = fnData && fnData.email_sent === true;
+        const emailFailReason = (fnData && fnData.email_error) ? String(fnData.email_error) : '';
+
+        alert(
+            'Salesman ' + firstName + ' ' + lastName + ' has been added.\n' +
+            'Login account created.\n\n' +
+            'Salesman login (email + temp password):\n' +
+            'Email: ' + email + '\n' +
+            'Password: ' + tempPassword + '\n\n' +
+            (emailOk
+                ? 'Credentials email was sent to the salesman.'
+                : ('Credentials email was NOT sent.\n' +
+                   (emailFailReason ? ('Reason: ' + emailFailReason + '\n') : '') +
+                   'Please give the salesman the temp password above.'))
+        );
         hideAddSalesmanModal();
         document.getElementById('add-salesman-form').reset();
 
