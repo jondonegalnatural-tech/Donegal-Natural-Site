@@ -13410,6 +13410,312 @@ function exportBasePriceSheetExcel() {
     XLSX.utils.book_append_sheet(wb, ws, 'Base Price Sheet');
     XLSX.writeFile(wb, `Company_Base_Price_Sheet_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
+
+// ================== BULK % ADJUSTMENTS ==================
+let bulkPctSalesmanEmail = null;
+let bulkPctSalesmanName = null;
+let bulkPctCurrentPrices = {};   // product → current salesman price
+let bulkPctCustomCustomerCounts = {}; // product → number of customers with different price
+
+async function openBulkPercentAdjustModal() {
+    const modal = document.getElementById('bulk-percent-adjust-modal');
+    if (!modal) return;
+
+    // Ensure salesmen are loaded
+    if (!Array.isArray(salesmen) || salesmen.length === 0) {
+        if (typeof loadSalesmen === 'function') await loadSalesmen();
+    }
+
+    const select = document.getElementById('bulk-pct-salesman');
+    if (select) {
+        const active = (salesmen || []).filter(s => s.active !== false && (s.email || '').trim());
+        select.innerHTML = '<option value="">— Choose an active salesman —</option>' +
+            active.map(s => {
+                const name = s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || s.email;
+                const email = (s.email || '').toLowerCase().trim();
+                return `<option value="${email}">${name}${s.territory ? ' — ' + s.territory : ''}</option>`;
+            }).join('');
+    }
+
+    // Reset state
+    bulkPctSalesmanEmail = null;
+    bulkPctSalesmanName = null;
+    bulkPctCurrentPrices = {};
+    bulkPctCustomCustomerCounts = {};
+    document.getElementById('bulk-pct-controls')?.classList.add('hidden');
+    document.getElementById('bulk-pct-table-wrap')?.classList.add('hidden');
+    const valEl = document.getElementById('bulk-pct-value');
+    if (valEl) valEl.value = '0';
+    const confirmBtn = document.getElementById('bulk-pct-confirm-btn');
+    if (confirmBtn) confirmBtn.disabled = true;
+
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+}
+
+function hideBulkPercentAdjustModal() {
+    const modal = document.getElementById('bulk-percent-adjust-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+}
+
+async function onBulkPercentSalesmanChange() {
+    const select = document.getElementById('bulk-pct-salesman');
+    const email = (select?.value || '').toLowerCase().trim();
+    if (!email) {
+        document.getElementById('bulk-pct-controls')?.classList.add('hidden');
+        document.getElementById('bulk-pct-table-wrap')?.classList.add('hidden');
+        const confirmBtn = document.getElementById('bulk-pct-confirm-btn');
+        if (confirmBtn) confirmBtn.disabled = true;
+        return;
+    }
+
+    bulkPctSalesmanEmail = email;
+    const salesman = (salesmen || []).find(s => (s.email || '').toLowerCase().trim() === email);
+    bulkPctSalesmanName = salesman
+        ? (salesman.name || [salesman.firstName, salesman.lastName].filter(Boolean).join(' ') || email)
+        : email;
+
+    const tbody = document.getElementById('bulk-pct-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-[#6B4423]"><i class="fas fa-spinner fa-spin mr-2"></i>Loading sheet…</td></tr>';
+    document.getElementById('bulk-pct-controls')?.classList.remove('hidden');
+    document.getElementById('bulk-pct-table-wrap')?.classList.remove('hidden');
+
+    try {
+        // Load salesman sheet
+        const { data: sheet } = await supabaseClient
+            .from('salesman_price_sheets')
+            .select('prices')
+            .eq('salesman_email', email)
+            .maybeSingle();
+
+        bulkPctCurrentPrices = (sheet && sheet.prices && typeof sheet.prices === 'object')
+            ? { ...sheet.prices }
+            : {};
+
+        // Count customers who have a custom price different from this salesman’s sheet
+        bulkPctCustomCustomerCounts = {};
+        const { data: custSheets } = await supabaseClient
+            .from('customer_price_sheets')
+            .select('customer_id, prices')
+            .eq('salesman_email', email);
+
+        (custSheets || []).forEach(cs => {
+            if (!cs.prices || typeof cs.prices !== 'object') return;
+            Object.keys(cs.prices).forEach(prod => {
+                const custPrice = Number(cs.prices[prod]);
+                const salesPrice = bulkPctCurrentPrices[prod] != null
+                    ? Number(bulkPctCurrentPrices[prod])
+                    : null;
+                if (salesPrice != null && !isNaN(custPrice) && Math.abs(custPrice - salesPrice) > 0.001) {
+                    bulkPctCustomCustomerCounts[prod] = (bulkPctCustomCustomerCounts[prod] || 0) + 1;
+                }
+            });
+        });
+
+        renderBulkPercentTable();
+        previewBulkPercentAdjust();
+    } catch (err) {
+        console.error('onBulkPercentSalesmanChange error:', err);
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-600">Could not load sheet.<br>${err.message || ''}</td></tr>`;
+    }
+}
+
+function renderBulkPercentTable() {
+    const tbody = document.getElementById('bulk-pct-tbody');
+    if (!tbody || typeof PRODUCT_CATALOG === 'undefined') return;
+
+    // Exclude market-price items; baseline = PRODUCT_CATALOG.unitPrice
+    const products = PRODUCT_CATALOG.filter(p => !p.isMarketPrice && p.unitPrice != null);
+
+    if (products.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-[#6B4423]">No non-market products in catalog.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = products.map((p, i) => {
+        const catalog = Number(p.unitPrice) || 0;
+        const current = bulkPctCurrentPrices[p.name] != null
+            ? Number(bulkPctCurrentPrices[p.name])
+            : catalog;
+        const delta = catalog > 0 ? ((current - catalog) / catalog * 100) : 0;
+        const deltaText = (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%';
+        const deltaClass = Math.abs(delta) > 0.05
+            ? (delta > 0 ? 'text-green-700' : 'text-red-700')
+            : 'text-[#6B4423]';
+        const alreadyAdjusted = Math.abs(current - catalog) > 0.001;
+        const custCount = bulkPctCustomCustomerCounts[p.name] || 0;
+        const safeName = p.name.replace(/"/g, '&quot;').replace(/'/g, "\\'");
+
+        return `
+            <tr class="border-t border-[#e8d9b8] ${i % 2 ? 'bg-[#f8f4eb]' : 'bg-white'}" data-product="${safeName}">
+                <td class="p-2 text-center">
+                    <input type="checkbox" class="bulk-pct-cb accent-[#1E4D2B]"
+                           data-product="${safeName}"
+                           onchange="updateBulkPercentSelectedCount(); previewBulkPercentAdjust();">
+                </td>
+                <td class="p-2">
+                    <span class="font-medium">${p.name}</span>
+                    ${alreadyAdjusted ? '<span class="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-100 text-blue-800">adjusted</span>' : ''}
+                    ${p.caseSize ? `<span class="block text-xs text-[#6B4423]">${p.caseSize}</span>` : ''}
+                </td>
+                <td class="p-2 text-right">$${catalog.toFixed(2)}</td>
+                <td class="p-2 text-right font-semibold">$${current.toFixed(2)}</td>
+                <td class="p-2 text-right ${deltaClass}">${deltaText}</td>
+                <td class="p-2 text-right font-semibold bulk-pct-new-price">—</td>
+                <td class="p-2 text-center">
+                    ${custCount > 0
+                        ? `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-800" title="Customers with a custom price different from this sheet">${custCount}</span>`
+                        : '<span class="text-[#6B4423]">—</span>'}
+                </td>
+            </tr>
+        `;
+    }).join('');
+
+    updateBulkPercentSelectedCount();
+}
+
+function toggleBulkPercentSelectAll() {
+    const master = document.getElementById('bulk-pct-select-all');
+    const checked = master?.checked === true;
+    document.querySelectorAll('.bulk-pct-cb').forEach(cb => {
+        cb.checked = checked;
+    });
+    updateBulkPercentSelectedCount();
+    previewBulkPercentAdjust();
+}
+
+function updateBulkPercentSelectedCount() {
+    const checked = document.querySelectorAll('.bulk-pct-cb:checked').length;
+    const total = document.querySelectorAll('.bulk-pct-cb').length;
+    const el = document.getElementById('bulk-pct-selected-count');
+    if (el) el.textContent = checked > 0 ? `${checked} of ${total} selected` : '';
+    const confirmBtn = document.getElementById('bulk-pct-confirm-btn');
+    if (confirmBtn) confirmBtn.disabled = checked === 0;
+}
+
+function previewBulkPercentAdjust() {
+    const pct = parseFloat(document.getElementById('bulk-pct-value')?.value) || 0;
+    const factor = 1 + (pct / 100);
+
+    document.querySelectorAll('#bulk-pct-tbody tr[data-product]').forEach(row => {
+        const product = row.getAttribute('data-product');
+        const cb = row.querySelector('.bulk-pct-cb');
+        const newCell = row.querySelector('.bulk-pct-new-price');
+        if (!newCell) return;
+
+        if (!cb || !cb.checked) {
+            newCell.textContent = '—';
+            newCell.classList.remove('text-green-700', 'text-red-700');
+            return;
+        }
+
+        const catalogItem = (PRODUCT_CATALOG || []).find(p => p.name === product);
+        const catalog = catalogItem ? Number(catalogItem.unitPrice) || 0 : 0;
+        const current = bulkPctCurrentPrices[product] != null
+            ? Number(bulkPctCurrentPrices[product])
+            : catalog;
+
+        // Apply % to the salesman’s current price (not catalog)
+        const newPrice = Math.round(current * factor * 100) / 100;
+        newCell.textContent = '$' + newPrice.toFixed(2);
+        if (newPrice > current) newCell.classList.add('text-green-700');
+        else if (newPrice < current) newCell.classList.add('text-red-700');
+        else newCell.classList.remove('text-green-700', 'text-red-700');
+    });
+}
+
+async function confirmBulkPercentAdjust() {
+    if (!bulkPctSalesmanEmail) {
+        alert('Select a salesman first.');
+        return;
+    }
+
+    const pct = parseFloat(document.getElementById('bulk-pct-value')?.value) || 0;
+    if (pct === 0) {
+        alert('Enter a non-zero percentage.');
+        return;
+    }
+
+    const checked = Array.from(document.querySelectorAll('.bulk-pct-cb:checked'));
+    if (checked.length === 0) {
+        alert('Select at least one product.');
+        return;
+    }
+
+    const factor = 1 + (pct / 100);
+    const updates = {};
+
+    checked.forEach(cb => {
+        const product = cb.getAttribute('data-product');
+        if (!product) return;
+        const catalogItem = (PRODUCT_CATALOG || []).find(p => p.name === product);
+        const catalog = catalogItem ? Number(catalogItem.unitPrice) || 0 : 0;
+        const current = bulkPctCurrentPrices[product] != null
+            ? Number(bulkPctCurrentPrices[product])
+            : catalog;
+        const newPrice = Math.round(current * factor * 100) / 100;
+        updates[product] = newPrice;
+    });
+
+    const productCount = Object.keys(updates).length;
+    const direction = pct > 0 ? 'increase' : 'decrease';
+    if (!confirm(
+        `Apply ${pct > 0 ? '+' : ''}${pct}% ${direction} to ${productCount} product(s) on ${bulkPctSalesmanName}'s price sheet?\n\n` +
+        `This writes only to salesman_price_sheets.\nCustomer price sheets are NOT changed.`
+    )) return;
+
+    const confirmBtn = document.getElementById('bulk-pct-confirm-btn');
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Saving…';
+    }
+
+    try {
+        // Merge with existing sheet
+        const { data: existing } = await supabaseClient
+            .from('salesman_price_sheets')
+            .select('id, prices')
+            .eq('salesman_email', bulkPctSalesmanEmail)
+            .maybeSingle();
+
+        const merged = { ...(existing?.prices || {}), ...updates };
+
+        if (existing) {
+            const { error } = await supabaseClient
+                .from('salesman_price_sheets')
+                .update({
+                    prices: merged,
+                    salesman_name: bulkPctSalesmanName,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', existing.id);
+            if (error) throw error;
+        } else {
+            const { error } = await supabaseClient
+                .from('salesman_price_sheets')
+                .insert({
+                    salesman_email: bulkPctSalesmanEmail,
+                    salesman_name: bulkPctSalesmanName,
+                    prices: merged
+                });
+            if (error) throw error;
+        }
+
+        alert(`Done. ${productCount} product(s) updated on ${bulkPctSalesmanName}'s sheet.`);
+        hideBulkPercentAdjustModal();
+    } catch (err) {
+        console.error('confirmBulkPercentAdjust error:', err);
+        alert('Could not save changes.\n' + (err.message || ''));
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Apply to Salesman Sheet';
+        }
+    }
+}
+// ================== END BULK % ADJUSTMENTS ==================
+
 // ================== END COMPANY BASE PRICE SHEET ==================
 
 // ================== FINAL NOTE ==================
