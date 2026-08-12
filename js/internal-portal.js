@@ -8349,6 +8349,9 @@ async function confirmInquiryApproval() {
         hideInquiryApprovalModal();
         await renderInquiries();
 
+        const emailOk = fnData && fnData.email_sent === true;
+        const emailFailReason = (fnData && fnData.email_error) ? String(fnData.email_error) : '';
+
         alert(
             'Inquiry approved.\n' +
             'Customer created.\n' +
@@ -8357,7 +8360,11 @@ async function confirmInquiryApproval() {
             'Customer login (email + temp password):\n' +
             'Email: ' + email + '\n' +
             'Password: ' + tempPassword + '\n\n' +
-            'Credentials email has been sent to the customer.'
+            (emailOk
+                ? 'Credentials email was sent to the customer.'
+                : ('Credentials email was NOT sent.\n' +
+                   (emailFailReason ? ('Reason: ' + emailFailReason + '\n') : '') +
+                   'Please give the customer the temp password above.'))
         );
     } catch (err) {
         console.error('Confirm approval error:', err);
