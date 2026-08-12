@@ -7081,7 +7081,7 @@ async function addNewSalesman(e) {
 
     } catch (err) {
         console.error(err);
-        alert("Something went wrong while adding the salesman.");
+        alert("Something went wrong while adding the salesman.\n\n" + (err.message || String(err)));
     }
 }
 

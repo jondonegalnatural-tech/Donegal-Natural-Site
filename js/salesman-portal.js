@@ -275,6 +275,58 @@ function getCurrentUser() {
     }
 }
 
+async function submitPasswordChange() {
+    const p1 = document.getElementById('new-password')?.value || '';
+    const p2 = document.getElementById('confirm-password')?.value || '';
+    const errEl = document.getElementById('password-change-error');
+
+    if (p1.length < 8) {
+        if (errEl) {
+            errEl.textContent = 'Password must be at least 8 characters.';
+            errEl.classList.remove('hidden');
+        }
+        return;
+    }
+    if (p1 !== p2) {
+        if (errEl) {
+            errEl.textContent = 'Passwords do not match.';
+            errEl.classList.remove('hidden');
+        }
+        return;
+    }
+
+    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+
+    try {
+        const { error: authError } = await supabaseClient.auth.updateUser({ password: p1 });
+        if (authError) throw authError;
+
+        // Best-effort clear of the flag (RLS may block this — do not throw)
+        if (user.id) {
+            const { error: profileError } = await supabaseClient
+                .from('profiles')
+                .update({ must_change_password: false })
+                .eq('id', user.id);
+            if (profileError) {
+                console.warn('profiles.must_change_password update blocked:', profileError.message);
+            }
+        }
+
+        // Clear local flag so this session continues
+        user.mustChangePassword = false;
+        localStorage.setItem('currentUser', JSON.stringify(user));
+
+        document.getElementById('password-change-modal')?.classList.add('hidden');
+        location.reload();
+    } catch (err) {
+        console.error(err);
+        if (errEl) {
+            errEl.textContent = err.message || 'Could not update password.';
+            errEl.classList.remove('hidden');
+        }
+    }
+}
+
 function goToAdminView() {
     try {
         const original = JSON.parse(localStorage.getItem('originalAdminUser') || 'null');
@@ -3323,6 +3375,13 @@ window.onload = function() {
     }
 
     currentUser = user;
+
+    // Force password change on first login
+    if (user.mustChangePassword) {
+        document.getElementById('password-change-modal')?.classList.remove('hidden');
+        return; // stop portal init until password is changed
+    }
+
     showPortal();
 
     if (typeof checkNewAssignedCustomers === 'function') {
