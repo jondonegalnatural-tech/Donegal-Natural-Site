@@ -1237,10 +1237,9 @@ body { background: #f8f1e9; }
                                 class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
                             <i class="fas fa-file-excel mr-2"></i> Export Excel
                         </button>
-                        <button type="button" disabled
-                                class="px-4 py-2 text-sm border-2 border-gray-300 text-gray-400 rounded-xl cursor-not-allowed"
-                                title="Coming in a later step">
-                            <i class="fas fa-percentage mr-2"></i> Bulk % Adjustments
+                        <button type="button" onclick="openBulkPercentAdjustModal()"
+                                class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                                <i class="fas fa-percentage mr-2"></i> Bulk % Adjustments
                         </button>
                     </div>
                 </div>
@@ -3353,6 +3352,103 @@ body { background: #f8f1e9; }
             <button type="button" onclick="hideBasePriceSheetModal()"
                     class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
                 Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk % Adjustments Modal -->
+<div id="bulk-percent-adjust-modal"
+     onclick="hideBulkPercentAdjustModal()"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+    <div onclick="event.stopImmediatePropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-5xl mx-4 p-6 max-h-[92vh] overflow-y-auto">
+
+        <div class="flex flex-wrap justify-between items-start gap-3 mb-4">
+            <div>
+                <h2 class="text-xl font-bold brand-green">Bulk % Adjustments</h2>
+                <p class="text-sm text-[#6B4423]">Applies only to the selected salesman’s price sheet · does not change customer sheets</p>
+            </div>
+            <button type="button" onclick="hideBulkPercentAdjustModal()"
+                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+
+        <!-- Salesman selector -->
+        <div class="mb-5">
+            <label class="block text-sm font-semibold text-[#6B4423] mb-1">Select Salesman</label>
+            <select id="bulk-pct-salesman"
+                    class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-full max-w-md"
+                    onchange="onBulkPercentSalesmanChange()">
+                <option value="">— Choose an active salesman —</option>
+            </select>
+        </div>
+
+        <!-- % controls + live preview -->
+        <div id="bulk-pct-controls" class="hidden mb-5">
+            <div class="flex flex-wrap items-end gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-1">% Change</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="bulk-pct-value" step="0.1" value="0"
+                               class="w-28 border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm text-center"
+                               oninput="previewBulkPercentAdjust()">
+                        <span class="text-sm font-semibold text-[#6B4423]">%</span>
+                    </div>
+                    <p class="text-xs text-[#6B4423] mt-1">Positive = increase · Negative = decrease</p>
+                </div>
+                <div class="flex gap-2">
+                    <button type="button" onclick="document.getElementById('bulk-pct-value').value='5'; previewBulkPercentAdjust();"
+                            class="px-3 py-2 text-xs border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">+5%</button>
+                    <button type="button" onclick="document.getElementById('bulk-pct-value').value='10'; previewBulkPercentAdjust();"
+                            class="px-3 py-2 text-xs border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">+10%</button>
+                    <button type="button" onclick="document.getElementById('bulk-pct-value').value='-5'; previewBulkPercentAdjust();"
+                            class="px-3 py-2 text-xs border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">−5%</button>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3 mb-3">
+                <label class="flex items-center gap-2 text-sm font-semibold text-[#6B4423] cursor-pointer">
+                    <input type="checkbox" id="bulk-pct-select-all" onchange="toggleBulkPercentSelectAll()" class="accent-[#1E4D2B]">
+                    Select all visible products
+                </label>
+                <span id="bulk-pct-selected-count" class="text-xs text-[#6B4423]"></span>
+            </div>
+        </div>
+
+        <!-- Product table -->
+        <div id="bulk-pct-table-wrap" class="hidden mb-6">
+            <div class="overflow-x-auto border border-[#d4b78f] rounded-xl max-h-[420px] overflow-y-auto">
+                <table class="w-full text-sm">
+                    <thead class="sticky top-0 z-10">
+                        <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                            <th class="p-2.5 text-center w-10"></th>
+                            <th class="p-2.5 text-left">Product</th>
+                            <th class="p-2.5 text-right w-24">Catalog</th>
+                            <th class="p-2.5 text-right w-28">Salesman</th>
+                            <th class="p-2.5 text-right w-20">Delta</th>
+                            <th class="p-2.5 text-right w-28">New Price</th>
+                            <th class="p-2.5 text-center w-24">Customers</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bulk-pct-tbody">
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-xs text-[#6B4423] mt-2">
+                Market-price items are excluded. “Customers” shows how many customers already have a custom price different from this salesman’s sheet.
+            </p>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex flex-wrap justify-end gap-3 pt-2 border-t border-[#d4b78f]">
+            <button type="button" onclick="hideBulkPercentAdjustModal()"
+                    class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                Cancel
+            </button>
+            <button type="button" id="bulk-pct-confirm-btn" onclick="confirmBulkPercentAdjust()"
+                    class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f] disabled:opacity-40 disabled:cursor-not-allowed"
+                    disabled>
+                Apply to Salesman Sheet
             </button>
         </div>
     </div>
