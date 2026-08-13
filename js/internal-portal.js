@@ -747,6 +747,18 @@ function showSection(section) {
         if (typeof refreshCustomerInsights === 'function') {
             setTimeout(() => refreshCustomerInsights(), 80);
         }
+        // Populate salesman selector for price-sheet drill-down
+        (async () => {
+            if ((!salesmen || salesmen.length === 0) && typeof loadSalesmen === 'function') {
+                await loadSalesmen();
+            }
+            if ((!allCustomers || allCustomers.length === 0) && typeof loadCustomers === 'function') {
+                await loadCustomers();
+            }
+            if (typeof populateReportsSalesmanSelect === 'function') {
+                await populateReportsSalesmanSelect();
+            }
+        })();
     }
 
     // === Dashboard ===
@@ -6753,6 +6765,185 @@ function hideSalesmanPriceSheetModal() {
     if (!modal) return;
     modal.classList.add('hidden');
     modal.style.display = 'none';
+}
+
+// ========== Reports: Salesman → Customers price-sheet drill-down ==========
+async function populateReportsSalesmanSelect() {
+    const select = document.getElementById('reports-salesman-select');
+    if (!select) return;
+
+    if (!Array.isArray(salesmen) || salesmen.length === 0) {
+        if (typeof loadSalesmen === 'function') await loadSalesmen();
+    }
+
+    const active = (salesmen || []).filter(s => s.active !== false && (s.email || '').trim());
+    const current = select.value;
+    select.innerHTML = '<option value="">— Choose a salesman —</option>' +
+        active.map(s => {
+            const name = s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || s.email;
+            const email = (s.email || '').toLowerCase().trim();
+            return `<option value="${email}">${name}${s.territory ? ' — ' + s.territory : ''}</option>`;
+        }).join('');
+
+    // Restore previous selection if still valid
+    if (current && Array.from(select.options).some(o => o.value === current)) {
+        select.value = current;
+    }
+}
+
+async function onReportsSalesmanChange() {
+    const select = document.getElementById('reports-salesman-select');
+    const container = document.getElementById('reports-salesman-customers');
+    if (!container) return;
+
+    const email = (select?.value || '').toLowerCase().trim();
+    if (!email) {
+        container.innerHTML = '';
+        return;
+    }
+
+    // Ensure customers are loaded
+    if ((!allCustomers || allCustomers.length === 0) && typeof loadCustomers === 'function') {
+        await loadCustomers();
+    }
+
+    const filtered = (allCustomers || []).filter(c =>
+        (c.salesmanEmail || '').toLowerCase().trim() === email
+    );
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<p class="text-sm text-[#6B4423]">No customers currently assigned to this salesman.</p>';
+        return;
+    }
+
+    container.innerHTML = filtered.map(c => {
+        const name = (c.name || '—').replace(/"/g, '&quot;');
+        const company = (c.company || c.email || '').replace(/"/g, '&quot;');
+        const id = c.id || '';
+        return `
+            <div class="flex items-center justify-between gap-3 p-3 border border-[#d4b78f] rounded-xl bg-[#f8f4eb]">
+                <div class="min-w-0">
+                    <p class="font-semibold brand-green truncate">${name}</p>
+                    <p class="text-xs text-[#6B4423] truncate">${company}</p>
+                </div>
+                <button type="button"
+                        onclick="openReportsCustomerPriceSheet('${id}')"
+                        class="px-3 py-1.5 text-xs bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-lg hover:bg-[#254a2f] flex-shrink-0">
+                    <i class="fas fa-file-invoice-dollar mr-1"></i> View Price Sheet
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+async function openReportsCustomerPriceSheet(customerId) {
+    if (!customerId) {
+        alert('Missing customer id.');
+        return;
+    }
+
+    const customer = (allCustomers || []).find(c => String(c.id) === String(customerId));
+    if (!customer) {
+        alert('Customer not found in current list.');
+        return;
+    }
+
+    const salesmanEmail = (customer.salesmanEmail || '').toLowerCase().trim();
+    const titleEl = document.getElementById('price-sheet-modal-title');
+    const subEl = document.getElementById('price-sheet-modal-subtitle');
+    const listEl = document.getElementById('price-sheet-modal-list');
+    const modal = document.getElementById('salesman-price-sheet-modal');
+
+    if (titleEl) titleEl.textContent = 'Customer Price Sheet';
+    if (subEl) subEl.textContent = (customer.name || customer.email || customerId) + (customer.company ? ' · ' + customer.company : '');
+    if (listEl) listEl.innerHTML = '<p class="text-sm text-[#6B4423]"><i class="fas fa-spinner fa-spin mr-2"></i>Loading…</p>';
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+    }
+
+    try {
+        let prices = null;
+        let sourceLabel = '';
+        let updatedAt = null;
+
+        // 1. Prefer customer_price_sheets
+        const { data: custSheet, error: custErr } = await supabaseClient
+            .from('customer_price_sheets')
+            .select('prices, updated_at')
+            .eq('customer_id', customerId)
+            .maybeSingle();
+        if (custErr) throw custErr;
+
+        if (custSheet && custSheet.prices && typeof custSheet.prices === 'object' && Object.keys(custSheet.prices).length > 0) {
+            prices = custSheet.prices;
+            sourceLabel = 'Customer-specific sheet';
+            updatedAt = custSheet.updated_at;
+        } else if (salesmanEmail) {
+            // 2. Fallback to salesman_price_sheets
+            const { data: salesSheet, error: salesErr } = await supabaseClient
+                .from('salesman_price_sheets')
+                .select('prices, updated_at, salesman_name')
+                .eq('salesman_email', salesmanEmail)
+                .maybeSingle();
+            if (salesErr) throw salesErr;
+
+            if (salesSheet && salesSheet.prices && typeof salesSheet.prices === 'object' && Object.keys(salesSheet.prices).length > 0) {
+                prices = salesSheet.prices;
+                sourceLabel = 'Salesman base sheet' + (salesSheet.salesman_name ? ' (' + salesSheet.salesman_name + ')' : '');
+                updatedAt = salesSheet.updated_at;
+            }
+        }
+
+        if (!prices) {
+            if (listEl) listEl.innerHTML = '<p class="text-sm text-[#6B4423]">No price sheet found for this customer (and no salesman base sheet available).</p>';
+            return;
+        }
+
+        const entries = Object.entries(prices)
+            .map(([product, price]) => ({ product, price: Number(price) }))
+            .filter(e => e.product)
+            .sort((a, b) => a.product.localeCompare(b.product));
+
+        if (entries.length === 0) {
+            if (listEl) listEl.innerHTML = '<p class="text-sm text-[#6B4423]">Price sheet is empty.</p>';
+            return;
+        }
+
+        if (subEl) {
+            const updated = updatedAt ? new Date(updatedAt).toLocaleString() : '';
+            subEl.textContent = (customer.name || customer.email || customerId)
+                + ' · ' + sourceLabel
+                + ' · ' + entries.length + ' products'
+                + (updated ? ' · Updated ' + updated : '');
+        }
+
+        if (listEl) {
+            listEl.innerHTML = `
+                <div class="overflow-x-auto border border-[#d4b78f] rounded-xl">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                                <th class="p-3 text-left">Product</th>
+                                <th class="p-3 text-right">Unit Price</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${entries.map((e, i) => `
+                                <tr class="border-t border-[#e8d9b8] ${i % 2 ? 'bg-[#f8f4eb]' : 'bg-white'}">
+                                    <td class="p-3">${e.product}</td>
+                                    <td class="p-3 text-right font-semibold">$${e.price.toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+    } catch (err) {
+        console.error('openReportsCustomerPriceSheet error:', err);
+        if (listEl) listEl.innerHTML = `<p class="text-sm text-red-600">Could not load price sheet.<br>${err.message || ''}</p>`;
+    }
 }
 
 async function resetSalesmanPriceSheet() {
