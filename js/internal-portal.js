@@ -6676,6 +6676,150 @@ function showSalesmanDetail(salesmanId = null) {
     modal.classList.remove('hidden');
 }
 
+/**
+ * Shared categorized price-sheet table for the #salesman-price-sheet-modal.
+ * Mirrors exportPriceSheetPdf grouping:
+ *   - PRODUCT_CATALOG category order (first-seen)
+ *   - alphabetical within category
+ *   - unmatched products under "Other"
+ * Columns: Product | Case Size | Unit Price
+ * @param {Object} prices  { productName: number }
+ * @param {HTMLElement} listEl
+ * @returns {number} number of products rendered
+ */
+function renderCategorizedPriceSheetTable(prices, listEl) {
+    if (!listEl) return 0;
+    if (!prices || typeof prices !== 'object') {
+        listEl.innerHTML = '<p class="text-sm text-[#6B4423]">No price sheet data.</p>';
+        return 0;
+    }
+
+    const catalogByName = {};
+    if (typeof PRODUCT_CATALOG !== 'undefined') {
+        PRODUCT_CATALOG.forEach(p => {
+            catalogByName[p.name] = p;
+        });
+    }
+
+    // Preserve PRODUCT_CATALOG category order
+    const categoryOrder = [];
+    const seenCats = new Set();
+    if (typeof PRODUCT_CATALOG !== 'undefined') {
+        PRODUCT_CATALOG.forEach(p => {
+            const cat = p.category || 'Other';
+            if (!seenCats.has(cat)) {
+                seenCats.add(cat);
+                categoryOrder.push(cat);
+            }
+        });
+    }
+
+    const grouped = {};
+    const unmatched = [];
+
+    Object.keys(prices).forEach(name => {
+        const price = Number(prices[name]);
+        if (!name || isNaN(price)) return;
+        const p = catalogByName[name];
+        if (p) {
+            const cat = p.category || 'Other';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push({
+                name,
+                caseSize: p.caseSize || '',
+                price
+            });
+        } else {
+            unmatched.push({
+                name,
+                caseSize: '',
+                price
+            });
+        }
+    });
+
+    // Alphabetical within each category
+    Object.keys(grouped).forEach(cat => {
+        grouped[cat].sort((a, b) => a.name.localeCompare(b.name));
+    });
+    unmatched.sort((a, b) => a.name.localeCompare(b.name));
+
+    let total = 0;
+    categoryOrder.forEach(cat => {
+        if (grouped[cat]) total += grouped[cat].length;
+    });
+    total += unmatched.length;
+
+    if (total === 0) {
+        listEl.innerHTML = '<p class="text-sm text-[#6B4423]">Price sheet is empty.</p>';
+        return 0;
+    }
+
+    let tbodyHtml = '';
+    let rowIndex = 0;
+
+    categoryOrder.forEach(cat => {
+        const rows = grouped[cat];
+        if (!rows || rows.length === 0) return;
+
+        tbodyHtml += `
+            <tr class="bg-[#f8f4eb]">
+                <td colspan="3" class="p-2.5 font-bold brand-green border-b-2 border-[#6B4423]">${cat}</td>
+            </tr>
+        `;
+        rows.forEach(row => {
+            const bg = rowIndex % 2 ? 'bg-[#f8f4eb]' : 'bg-white';
+            tbodyHtml += `
+                <tr class="border-t border-[#e8d9b8] ${bg}">
+                    <td class="p-3">${row.name}</td>
+                    <td class="p-3 text-[#6B4423]">${row.caseSize || '—'}</td>
+                    <td class="p-3 text-right font-semibold">$${row.price.toFixed(2)}</td>
+                </tr>
+            `;
+            rowIndex++;
+        });
+    });
+
+    if (unmatched.length) {
+        tbodyHtml += `
+            <tr class="bg-[#f8f4eb]">
+                <td colspan="3" class="p-2.5 font-bold brand-green border-b-2 border-[#6B4423]">Other</td>
+            </tr>
+        `;
+        unmatched.forEach(row => {
+            const bg = rowIndex % 2 ? 'bg-[#f8f4eb]' : 'bg-white';
+            tbodyHtml += `
+                <tr class="border-t border-[#e8d9b8] ${bg}">
+                    <td class="p-3">${row.name}</td>
+                    <td class="p-3 text-[#6B4423]">—</td>
+                    <td class="p-3 text-right font-semibold">$${row.price.toFixed(2)}</td>
+                </tr>
+            `;
+            rowIndex++;
+        });
+    }
+
+    listEl.innerHTML = `
+        <div class="overflow-x-auto border border-[#d4b78f] rounded-xl">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                        <th class="p-3 text-left">Product</th>
+                        <th class="p-3 text-left w-28">Case Size</th>
+                        <th class="p-3 text-right w-28">Unit Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tbodyHtml}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    return total;
+}
+
+
 async function openSalesmanPriceSheetModal() {
     const detailModal = document.getElementById('salesman-modal');
     const salesmanId = detailModal?.dataset?.salesmanId;
@@ -6716,43 +6860,12 @@ async function openSalesmanPriceSheetModal() {
             return;
         }
 
-        const entries = Object.entries(data.prices)
-            .map(([product, price]) => ({ product, price: Number(price) }))
-            .filter(e => e.product)
-            .sort((a, b) => a.product.localeCompare(b.product));
-
-        if (entries.length === 0) {
-            if (listEl) listEl.innerHTML = '<p class="text-sm text-[#6B4423]">Price sheet is empty.</p>';
-            return;
-        }
+         const count = renderCategorizedPriceSheetTable(data.prices, listEl);
 
         if (subEl) {
             const updated = data.updated_at ? new Date(data.updated_at).toLocaleString() : '';
-            subEl.textContent = (salesman.name || email) + ' · ' + entries.length + ' products'
+            subEl.textContent = (salesman.name || email) + ' · ' + count + ' products'
                 + (updated ? ' · Updated ' + updated : '');
-        }
-
-        if (listEl) {
-            listEl.innerHTML = `
-                <div class="overflow-x-auto border border-[#d4b78f] rounded-xl">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="bg-[#1E4D2B] text-[#d4b78f]">
-                                <th class="p-3 text-left">Product</th>
-                                <th class="p-3 text-right w-28">Price</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${entries.map((e, i) => `
-                                <tr class="border-t border-[#e8d9b8] ${i % 2 ? 'bg-[#f8f4eb]' : 'bg-white'}">
-                                    <td class="p-3">${e.product}</td>
-                                    <td class="p-3 text-right font-semibold">$${e.price.toFixed(2)}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
         }
     } catch (err) {
         console.error('openSalesmanPriceSheetModal error:', err);
@@ -6900,45 +7013,14 @@ async function openReportsCustomerPriceSheet(customerId) {
             return;
         }
 
-        const entries = Object.entries(prices)
-            .map(([product, price]) => ({ product, price: Number(price) }))
-            .filter(e => e.product)
-            .sort((a, b) => a.product.localeCompare(b.product));
-
-        if (entries.length === 0) {
-            if (listEl) listEl.innerHTML = '<p class="text-sm text-[#6B4423]">Price sheet is empty.</p>';
-            return;
-        }
+        const count = renderCategorizedPriceSheetTable(prices, listEl);
 
         if (subEl) {
             const updated = updatedAt ? new Date(updatedAt).toLocaleString() : '';
             subEl.textContent = (customer.name || customer.email || customerId)
                 + ' · ' + sourceLabel
-                + ' · ' + entries.length + ' products'
+                + ' · ' + count + ' products'
                 + (updated ? ' · Updated ' + updated : '');
-        }
-
-        if (listEl) {
-            listEl.innerHTML = `
-                <div class="overflow-x-auto border border-[#d4b78f] rounded-xl">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="bg-[#1E4D2B] text-[#d4b78f]">
-                                <th class="p-3 text-left">Product</th>
-                                <th class="p-3 text-right">Unit Price</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${entries.map((e, i) => `
-                                <tr class="border-t border-[#e8d9b8] ${i % 2 ? 'bg-[#f8f4eb]' : 'bg-white'}">
-                                    <td class="p-3">${e.product}</td>
-                                    <td class="p-3 text-right font-semibold">$${e.price.toFixed(2)}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
         }
     } catch (err) {
         console.error('openReportsCustomerPriceSheet error:', err);
