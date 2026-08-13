@@ -1241,12 +1241,34 @@ body { background: #f8f1e9; }
                                 class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
                                 <i class="fas fa-percentage mr-2"></i> Bulk % Adjustments
                         </button>
+                                            <div class="flex flex-wrap gap-3">
+                        <button type="button" onclick="openBasePriceSheetModal()"
+                                class="px-4 py-2 text-sm bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
+                            <i class="fas fa-eye mr-2"></i> View / Print Sheet
+                        </button>
+                        <button type="button" onclick="exportBasePriceSheetExcel()"
+                                class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                            <i class="fas fa-file-excel mr-2"></i> Export Excel
+                        </button>
+                        <button type="button" onclick="openBulkPercentAdjustModal()"
+                                class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                                <i class="fas fa-percentage mr-2"></i> Bulk % Adjustments
+                        </button>
+                    </div>
+
+                    <!-- Salesman → Customers drill-down (view-only) -->
+                    <div class="mt-6 pt-5 border-t border-[#d4b78f]">
+                        <label class="block text-sm font-semibold text-[#6B4423] mb-2">Select Salesman to view customers & price sheets</label>
+                        <select id="reports-salesman-select"
+                                class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-full max-w-md mb-4">
+                            <option value="">— Choose a salesman —</option>
+                        </select>
+                        <div id="reports-salesman-customers" class="space-y-2">
+                            <!-- populated by JS -->
+                        </div>
                     </div>
                 </div>
                 <!-- ========== END COMPANY BASE PRICE SHEET ========== -->
-
-                
-
             </div>
             <!-- ========== END OTHER REPORT CATEGORIES ========== -->
 <!-- Free Shipping Legend -->
