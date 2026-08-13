@@ -878,8 +878,6 @@ function getSalesmanOrderTotals(salesman) {
 }
 
 let currentSalesmanOrdersId = null;
-// Working copy of assigned products while the Edit Salesman modal is open
-let editSalesmanAssignedProducts = [];
 
 function openSalesmanOrdersModal() {
     const detailModal = document.getElementById('salesman-modal');
@@ -1447,7 +1445,6 @@ async function loadSalesmen() {
             active: s.active !== false,
             notes: s.notes || '',
             mailingAddress: s.mailing_address || '',
-            assignedProducts: Array.isArray(s.assigned_products) ? s.assigned_products : []
         }));
     } catch (err) {
         console.error('loadSalesmen error:', err);
@@ -6701,19 +6698,6 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
         });
     }
 
-    // Preserve PRODUCT_CATALOG category order
-    const categoryOrder = [];
-    const seenCats = new Set();
-    if (typeof PRODUCT_CATALOG !== 'undefined') {
-        PRODUCT_CATALOG.forEach(p => {
-            const cat = p.category || 'Other';
-            if (!seenCats.has(cat)) {
-                seenCats.add(cat);
-                categoryOrder.push(cat);
-            }
-        });
-    }
-
     const grouped = {};
     const unmatched = [];
 
@@ -6727,13 +6711,15 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
             grouped[cat].push({
                 name,
                 caseSize: p.caseSize || '',
-                price
+                price,
+                priceAsOf: p.priceAsOf || '—'
             });
         } else {
             unmatched.push({
                 name,
                 caseSize: '',
-                price
+                price,
+                priceAsOf: '—'
             });
         }
     });
@@ -6744,78 +6730,64 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
     });
     unmatched.sort((a, b) => a.name.localeCompare(b.name));
 
+    // Same category order style as Company Base (alphabetical)
+    const categories = Object.keys(grouped).sort();
+    if (unmatched.length) categories.push('Other');
+
     let total = 0;
-    categoryOrder.forEach(cat => {
-        if (grouped[cat]) total += grouped[cat].length;
+    categories.forEach(cat => {
+        if (cat === 'Other') total += unmatched.length;
+        else total += (grouped[cat] || []).length;
     });
-    total += unmatched.length;
 
     if (total === 0) {
         listEl.innerHTML = '<p class="text-sm text-[#6B4423]">Price sheet is empty.</p>';
         return 0;
     }
 
-    let tbodyHtml = '';
-    let rowIndex = 0;
+    let html = '';
 
-    categoryOrder.forEach(cat => {
-        const rows = grouped[cat];
+    categories.forEach(cat => {
+        const rows = cat === 'Other' ? unmatched : grouped[cat];
         if (!rows || rows.length === 0) return;
 
-        tbodyHtml += `
-            <tr class="bg-[#f8f4eb]">
-                <td colspan="3" class="p-2.5 font-bold brand-green border-b-2 border-[#6B4423]">${cat}</td>
-            </tr>
+        html += `
+            <div>
+                <h3 class="text-base font-bold brand-green mb-2 border-b border-[#d4b78f] pb-1">${cat}</h3>
+                <div class="overflow-x-auto border border-[#d4b78f] rounded-xl mb-4">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                                <th class="p-2.5 text-left">Product</th>
+                                <th class="p-2.5 text-left w-28">Case Size</th>
+                                <th class="p-2.5 text-right w-28">Unit Price</th>
+                                <th class="p-2.5 text-center w-28">As Of</th>
+                            </tr>
+                        </thead>
+                        <tbody>
         `;
-        rows.forEach(row => {
-            const bg = rowIndex % 2 ? 'bg-[#f8f4eb]' : 'bg-white';
-            tbodyHtml += `
+
+        rows.forEach((row, i) => {
+            const bg = i % 2 ? 'bg-[#f8f4eb]' : 'bg-white';
+            html += `
                 <tr class="border-t border-[#e8d9b8] ${bg}">
-                    <td class="p-3">${row.name}</td>
-                    <td class="p-3 text-[#6B4423]">${row.caseSize || '—'}</td>
-                    <td class="p-3 text-right font-semibold">$${row.price.toFixed(2)}</td>
+                    <td class="p-2.5">${row.name}</td>
+                    <td class="p-2.5 text-[#6B4423]">${row.caseSize || '—'}</td>
+                    <td class="p-2.5 text-right font-semibold">$${row.price.toFixed(2)}</td>
+                    <td class="p-2.5 text-center text-xs text-[#6B4423]">${row.priceAsOf || '—'}</td>
                 </tr>
             `;
-            rowIndex++;
         });
+
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
     });
 
-    if (unmatched.length) {
-        tbodyHtml += `
-            <tr class="bg-[#f8f4eb]">
-                <td colspan="3" class="p-2.5 font-bold brand-green border-b-2 border-[#6B4423]">Other</td>
-            </tr>
-        `;
-        unmatched.forEach(row => {
-            const bg = rowIndex % 2 ? 'bg-[#f8f4eb]' : 'bg-white';
-            tbodyHtml += `
-                <tr class="border-t border-[#e8d9b8] ${bg}">
-                    <td class="p-3">${row.name}</td>
-                    <td class="p-3 text-[#6B4423]">—</td>
-                    <td class="p-3 text-right font-semibold">$${row.price.toFixed(2)}</td>
-                </tr>
-            `;
-            rowIndex++;
-        });
-    }
-
-    listEl.innerHTML = `
-        <div class="overflow-x-auto border border-[#d4b78f] rounded-xl">
-            <table class="w-full text-sm">
-                <thead>
-                    <tr class="bg-[#1E4D2B] text-[#d4b78f]">
-                        <th class="p-3 text-left">Product</th>
-                        <th class="p-3 text-left w-28">Case Size</th>
-                        <th class="p-3 text-right w-28">Unit Price</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${tbodyHtml}
-                </tbody>
-            </table>
-        </div>
-    `;
-
+    listEl.innerHTML = html;
     return total;
 }
 
@@ -7132,130 +7104,6 @@ function hideEditSalesmanModal() {
     modal.style.display = 'none';
 }
 
-// ================== ASSIGNED PRODUCTS (Edit Salesman) ==================
-function renderEditSalesmanAssignedList() {
-    const listEl = document.getElementById('edit-salesman-assigned-list');
-    const countEl = document.getElementById('edit-salesman-assigned-count');
-    const emptyEl = document.getElementById('edit-salesman-assigned-empty');
-    if (!listEl) return;
-
-    if (countEl) countEl.textContent = '(' + editSalesmanAssignedProducts.length + ')';
-
-    if (!editSalesmanAssignedProducts.length) {
-        listEl.innerHTML = `<p class="text-sm text-[#6B4423]" id="edit-salesman-assigned-empty">
-            No products assigned yet. Search above to add items.
-        </p>`;
-        return;
-    }
-
-    listEl.innerHTML = editSalesmanAssignedProducts.map((p, index) => {
-        const price = Number(p.unitPrice) || 0;
-        return `
-            <div class="flex flex-wrap items-center gap-2 bg-white border border-[#6B4423] rounded-xl px-3 py-2">
-                <div class="flex-1 min-w-[140px]">
-                    <p class="text-sm font-medium text-[#1E4D2B]">${p.product}</p>
-                    <p class="text-xs text-[#6B4423]">${p.caseSize || '—'} · ${p.category || ''}</p>
-                </div>
-                <label class="text-xs text-[#6B4423]">$</label>
-                <input type="number" step="0.01" min="0" value="${price.toFixed(2)}"
-                       class="w-24 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm text-center"
-                       onchange="updateEditSalesmanProductPrice(${index}, this.value)">
-                <button type="button" onclick="removeEditSalesmanProduct(${index})"
-                        class="text-red-600 text-sm px-2 py-1 hover:bg-red-50 rounded-lg">
-                    Remove
-                </button>
-            </div>
-        `;
-    }).join('');
-}
-
-function renderEditSalesmanProductSearch() {
-    const search = (document.getElementById('edit-salesman-product-search')?.value || '').toLowerCase().trim();
-    const category = document.getElementById('edit-salesman-product-category')?.value || 'all';
-    const resultsEl = document.getElementById('edit-salesman-product-results');
-    if (!resultsEl || typeof PRODUCT_CATALOG === 'undefined') return;
-
-    if (search.length < 1) {
-        resultsEl.innerHTML = '';
-        resultsEl.classList.add('hidden');
-        return;
-    }
-
-    const already = new Set(editSalesmanAssignedProducts.map(p => p.product));
-
-    const matches = PRODUCT_CATALOG.filter(p => {
-        if (already.has(p.name)) return false;
-        if (category !== 'all' && p.category !== category) return false;
-        return p.name.toLowerCase().includes(search) ||
-               (p.category || '').toLowerCase().includes(search);
-    }).slice(0, 25);
-
-    if (!matches.length) {
-        resultsEl.innerHTML = `<p class="px-4 py-3 text-sm text-[#6B4423]">No matching products (or already assigned).</p>`;
-        resultsEl.classList.remove('hidden');
-        return;
-    }
-
-    resultsEl.innerHTML = matches.map(p => {
-        const safeName = p.name.replace(/'/g, "\\'");
-        const priceText = p.isMarketPrice
-            ? 'Market'
-            : (p.unitPrice != null ? ('$' + Number(p.unitPrice).toFixed(2)) : '—');
-        return `
-            <button type="button"
-                    onclick="addEditSalesmanProduct('${safeName}')"
-                    class="w-full text-left px-4 py-2 text-sm hover:bg-[#f8f4eb] border-b border-[#f0e6d9] last:border-0">
-                <span class="font-medium text-[#1E4D2B]">${p.name}</span>
-                <span class="block text-xs text-[#6B4423]">${p.caseSize || ''} · ${priceText} · ${p.category || ''}</span>
-            </button>
-        `;
-    }).join('');
-    resultsEl.classList.remove('hidden');
-}
-
-function addEditSalesmanProduct(productName) {
-    if (!productName) return;
-    if (editSalesmanAssignedProducts.some(p => p.product === productName)) {
-        alert('That product is already assigned.');
-        return;
-    }
-
-    const catalog = (PRODUCT_CATALOG || []).find(p => p.name === productName);
-    editSalesmanAssignedProducts.push({
-        product: productName,
-        unitPrice: catalog && !catalog.isMarketPrice ? Number(catalog.unitPrice) || 0 : 0,
-        caseSize: catalog?.caseSize || '',
-        category: catalog?.category || ''
-    });
-
-    // Clear search UI
-    const searchEl = document.getElementById('edit-salesman-product-search');
-    if (searchEl) searchEl.value = '';
-    const resultsEl = document.getElementById('edit-salesman-product-results');
-    if (resultsEl) {
-        resultsEl.innerHTML = '';
-        resultsEl.classList.add('hidden');
-    }
-
-    renderEditSalesmanAssignedList();
-}
-
-function removeEditSalesmanProduct(index) {
-    if (index < 0 || index >= editSalesmanAssignedProducts.length) return;
-    editSalesmanAssignedProducts.splice(index, 1);
-    renderEditSalesmanAssignedList();
-}
-
-function updateEditSalesmanProductPrice(index, value) {
-    if (!editSalesmanAssignedProducts[index]) return;
-    const n = parseFloat(value);
-    if (isNaN(n) || n < 0) return;
-    editSalesmanAssignedProducts[index].unitPrice = n;
-}
-
-
-// ================== END ASSIGNED PRODUCTS ==================
-
 function showEditSalesmanModal() {
     const detailModal = document.getElementById('salesman-modal');
     const salesmanId = detailModal?.dataset?.salesmanId;
@@ -7302,50 +7150,6 @@ function showEditSalesmanModal() {
     document.getElementById('edit-salesman-mail-city').value = parts.city || '';
     document.getElementById('edit-salesman-mail-state').value = parts.state || '';
     document.getElementById('edit-salesman-mail-zip').value = parts.zip || '';
-
-    // ========== Assigned Products (Phase B) ==========
-    editSalesmanAssignedProducts = Array.isArray(salesman.assignedProducts)
-        ? salesman.assignedProducts.map(p => ({
-            product: p.product || p.name || '',
-            unitPrice: p.unitPrice != null ? Number(p.unitPrice) : 0,
-            caseSize: p.caseSize || '',
-            category: p.category || ''
-          }))
-        : [];
-
-    // Populate category dropdown from PRODUCT_CATALOG
-    const catSelect = document.getElementById('edit-salesman-product-category');
-    if (catSelect) {
-        const categories = [...new Set((PRODUCT_CATALOG || []).map(p => p.category).filter(Boolean))].sort();
-        catSelect.innerHTML = '<option value="all">All Categories</option>' +
-            categories.map(c => `<option value="${c}">${c}</option>`).join('');
-        catSelect.value = 'all';
-    }
-
-    // Clear search + results
-    const searchEl = document.getElementById('edit-salesman-product-search');
-    if (searchEl) searchEl.value = '';
-    const resultsEl = document.getElementById('edit-salesman-product-results');
-    if (resultsEl) {
-        resultsEl.innerHTML = '';
-        resultsEl.classList.add('hidden');
-    }
-
-
-    // Wire listeners once (idempotent)
-    if (searchEl && !searchEl.dataset.apWired) {
-        searchEl.dataset.apWired = '1';
-        searchEl.addEventListener('input', renderEditSalesmanProductSearch);
-    }
-    if (catSelect && !catSelect.dataset.apWired) {
-        catSelect.dataset.apWired = '1';
-        catSelect.addEventListener('change', renderEditSalesmanProductSearch);
-    }
-
-
-    renderEditSalesmanAssignedList();
-    // ========== End Assigned Products ==========
-
     modal.classList.remove('hidden');
     modal.style.display = 'flex';
 }
@@ -7446,8 +7250,7 @@ async function saveEditedSalesman(event) {
                 commission: commission,
                 market_commission: marketCommission,
                 notes: notes || null,
-                mailing_address: mailingAddress || null,
-                assigned_products: editSalesmanAssignedProducts
+                mailing_address: mailingAddress || null
             })
             .eq('id', salesmanId);
 
@@ -11184,7 +10987,6 @@ async function updateDashboardSalesmen() {
                 active: s.active !== false,
                 notes: s.notes || '',
                 mailingAddress: s.mailing_address || '',
-                assignedProducts: Array.isArray(s.assigned_products) ? s.assigned_products : []
             }));
         }
     } catch (err) {
