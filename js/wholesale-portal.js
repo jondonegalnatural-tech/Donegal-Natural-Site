@@ -5583,29 +5583,33 @@ function showBrandedInvoice(order) {
                 <div class="flex items-center gap-3">
                     <img src="media/logo.png" alt="Donegal Natural" class="h-12 w-auto bg-white rounded-lg p-1">
                     <div>
-                        <h2 class="text-2xl font-bold">Invoice</h2>
+                        <h2 class="text-2xl font-bold">PRO FORMA INVOICE</h2>
                         <p class="text-sm opacity-90">Donegal Natural Dog Treats</p>
                     </div>
                 </div>
-                <button onclick="document.getElementById('branded-invoice-modal').remove()" 
-                        class="text-2xl hover:text-white leading-none">&times;</button>
+                <div class="flex items-center gap-3">
+                    <button type="button"
+                            onclick="window.print()"
+                            class="text-sm font-semibold border border-[#d4b78f] text-[#d4b78f] px-3 py-1.5 rounded-lg hover:bg-[#254a2f] print:hidden">
+                        Print
+                    </button>
+                    <button onclick="document.getElementById('branded-invoice-modal').remove()" 
+                            class="text-2xl hover:text-white leading-none print:hidden">&times;</button>
+                </div>
             </div>
 
             <div class="p-6 space-y-6">
                 <!-- Invoice meta -->
                 <div class="flex flex-wrap justify-between gap-4 text-sm">
                     <div>
-                        <p class="text-[#6B4423] font-semibold">Invoice #</p>
+                        <p class="text-[#6B4423] font-semibold">Pro Forma #</p>
                         <p class="font-mono text-xs break-all">${order.id}</p>
                     </div>
                     <div>
                         <p class="text-[#6B4423] font-semibold">Date</p>
                         <p>${new Date(order.submitted_at || order.created_at || Date.now()).toLocaleDateString()}</p>
                     </div>
-                    <div>
-                        <p class="text-[#6B4423] font-semibold">Status</p>
-                        <p class="capitalize">${order.status || '—'}</p>
-                    </div>
+                    ${'' /* Phase 1: status hidden on pro forma */}
                     ${(order.tracking_number || '').trim() ? `
                     <div>
                         <p class="text-[#6B4423] font-semibold">${order.carrier || 'UPS'} Tracking</p>
