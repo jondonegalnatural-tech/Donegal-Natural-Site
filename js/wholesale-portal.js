@@ -3061,12 +3061,8 @@ async function loadOrderHistory() {
 
         if (error) throw error;
 
-        // Order History = paid OR denied
-        const completed = (data || []).filter(order => {
-            const p = (order.payment_status || '').toLowerCase();
-            const s = (order.status || '').toLowerCase();
-            return p === 'paid' || s === 'denied';
-        });
+        // Phase 1: Order History shows all orders (status/payment UI hidden)
+        const completed = data || [];
 
                 // Cache for search + click-to-invoice
         window._orderHistoryCache = completed;
@@ -3087,7 +3083,7 @@ async function loadOrderHistory() {
                 <h2 class="text-2xl font-bold brand-green mb-4">Order History</h2>
                 ${tabsHtml}
                 <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-8 text-center">
-                    <p class="text-[#6B4423]">No paid or denied orders for this store.</p>
+                          <p class="text-[#6B4423]">No orders yet for this store.</p>              <p class="text-[#6B4423]">No paid or denied orders for this store.</p>
                 </div>
             `;
             return;
@@ -3157,9 +3153,7 @@ async function loadOrderHistory() {
                                 </a>
                             </p>` : ''}
                         </div>
-                        <span class="px-3 py-1 text-xs font-semibold rounded-full ${badgeClass}">
-                            ${badgeText}
-                        </span>
+                        ${'' /* Phase 1: status badge hidden */}
                     </div>
 
                     <ul class="text-sm space-y-1 mb-4">
@@ -3207,36 +3201,7 @@ async function loadOrderHistory() {
                         </div>
                     </div>
 
-                    ${(() => {
-                        const pStatus = (order.payment_status || '').toLowerCase();
-                        const method = (order.payment_method_type || '').toLowerCase();
-                        const isAchPending = pStatus !== 'paid' && (method === 'us_bank_account' || method === 'customer_balance');
-
-                        if (pStatus === 'paid') {
-                            return `
-                            <div class="w-full bg-green-100 text-green-800 font-semibold py-3 rounded-xl text-center">
-                                Paid ✓
-                            </div>`;
-                        }
-                        if (isAchPending) {
-                            return `
-                            <div class="w-full bg-blue-50 border border-blue-200 text-blue-800 font-semibold py-3 rounded-xl text-center text-sm">
-                                ACH Processing<br>
-                                <span class="font-normal text-xs">Typically clears in 3–5 business days</span>
-                            </div>`;
-                        }
-                        if (!order.invoice_ready_at) {
-                            return `
-                            <div class="w-full bg-[#f8f4eb] border border-[#d4b78f] text-[#6B4423] font-semibold py-3 rounded-xl text-center text-sm">
-                                Awaiting invoice from Donegal.
-                            </div>`;
-                        }
-                        return `
-                            <button onclick="event.stopPropagation(); payInvoice('${order.id}')"
-                                    class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">
-                                Pay Invoice
-                            </button>`;
-                    })()}
+                    ${'' /* Phase 1: payment UI hidden */}
                 </div>
             `;
         });
@@ -3398,37 +3363,14 @@ function renderOrderHistoryCards(orders, listEl) {
         const shipping = parseFloat(order.shipping_cost) || 0;
         const finalTotal = subtotal + shipping;
 
-        let badgeClass = 'bg-gray-100 text-gray-700';
-        let badgeText = status || 'Unknown';
-        if (status === 'denied') {
-            badgeClass = 'bg-red-100 text-red-700';
-            badgeText = 'Denied';
-        } else if (status === 'shipped') {
-            badgeClass = 'bg-purple-100 text-purple-800';
-            badgeText = 'Shipped';
-        } else if (status === 'delivered') {
-            badgeClass = 'bg-green-100 text-green-700';
-            badgeText = 'Delivered';
-        } else if (status === 'processing' || (order.payment_status || '').toLowerCase() === 'paid') {
-            badgeClass = 'bg-blue-100 text-blue-800';
-            badgeText = 'Paid';
-        }
+        // Phase 1: status badge hidden
+        let badgeClass = '';
+        let badgeText = '';
 
         const pStatus = (order.payment_status || '').toLowerCase();
         const method = (order.payment_method_type || '').toLowerCase();
         const isAchPending = pStatus !== 'paid' && (method === 'us_bank_account' || method === 'customer_balance');
-                let payBlock = '';
-        if (pStatus === 'paid') {
-            payBlock = `<div class="w-full bg-green-100 text-green-800 font-semibold py-3 rounded-xl text-center">Paid ✓</div>`;
-        } else if (isAchPending) {
-            payBlock = `<div class="w-full bg-blue-50 border border-blue-200 text-blue-800 font-semibold py-3 rounded-xl text-center text-sm">ACH Processing<br><span class="font-normal text-xs">Typically clears in 3–5 business days</span></div>`;
-        } else if (status !== 'denied') {
-            if (!order.invoice_ready_at) {
-                payBlock = `<div class="w-full bg-[#f8f4eb] border border-[#d4b78f] text-[#6B4423] font-semibold py-3 rounded-xl text-center text-sm">Awaiting invoice from Donegal.</div>`;
-            } else {
-                payBlock = `<button onclick="event.stopPropagation(); payInvoice('${order.id}')" class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">Pay Invoice</button>`;
-            }
-        }
+                let payBlock = ''; // Phase 1: payment UI hidden
 
         html += `
             <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mb-4 cursor-pointer hover:shadow-md transition"
