@@ -2769,24 +2769,39 @@ async function submitQuote() {
 
         if (error) throw error;
 
-        quoteItems = [];
+                quoteItems = [];
         localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
         updateQuoteSidebar();
 
-        alert(
-            "Thank you! Your quote request has been submitted.\n\n" +
-            "A member of our team will contact you shortly." +
-            (data?.id ? "\n\nReference: " + data.id : "")
-        );
+        // Phase 1: open pro forma immediately with the new order
+        const newOrder = {
+            id: data?.id,
+            customer_name: payload.customer_name,
+            customer_company: payload.customer_company,
+            customer_email: payload.customer_email,
+            items: payload.items,
+            shipping_cost: payload.shipping_cost || 0,
+            credit: 0,
+            status: payload.status,
+            submitted_at: payload.submitted_at,
+            notes: payload.notes
+        };
+        if (typeof showBrandedInvoice === 'function') {
+            showBrandedInvoice(newOrder);
+        }
 
-        // Close empty quote sidebar and return to Products catalog
+        // Short confirmation (optional — remove the alert entirely if you prefer none)
+        alert("Thank you, your quote has been submitted.");
+
+        // Close quote sidebar and go to Order History
         if (typeof hideQuoteSidebar === 'function') hideQuoteSidebar();
         document.querySelectorAll('.portal-section').forEach(s => { s.style.display = 'none'; });
-        const productsSec = document.getElementById('section-products');
-        if (productsSec) productsSec.style.display = 'block';
+        const ordersSec = document.getElementById('section-orders');
+        if (ordersSec) ordersSec.style.display = 'block';
         document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
-        const productsLink = document.querySelector('.sidebar-link[data-target="section-products"]');
-        if (productsLink) productsLink.classList.add('active');
+        const ordersLink = document.querySelector('.sidebar-link[data-target="section-orders"]');
+        if (ordersLink) ordersLink.classList.add('active');
+        if (typeof loadOrderHistory === 'function') loadOrderHistory();
     } catch (err) {
         console.error('Order submit error:', err);
         alert("Could not submit your quote. Please try again.\n" + (err.message || ""));
@@ -5701,7 +5716,7 @@ function showBrandedInvoice(order) {
                 </div>
 
                 <div class="text-center text-xs text-[#6B4423] pt-4 border-t border-[#e8d9c2]">
-                    Thank you for your business · Terms: Net 10 days
+                    Thank you                     This is a pro forma invoice · Final invoice will be issued through QuickBooksfor your business · Terms: Net 10 days
                 </div>
             </div>
         </div>
