@@ -2362,27 +2362,12 @@ function renderPortalProducts() {
                 displayPrice += '/ea';
             }
 
-            const row = document.createElement('tr');
+                        const row = document.createElement('tr');
             row.style.borderBottom = '1px solid #6B4423';
             row.innerHTML = `
-                                <td style="border:1px solid #6B4423; padding:0.5rem; font-weight:600; color:#1E4D2B;">
+                <td style="border:1px solid #6B4423; padding:0.5rem; font-weight:600; color:#1E4D2B;">
                     ${product.name}
-                    ${(() => {
-                        let badges = '';
-                        const qty = portalInventory[product.name];
-                        if (qty !== undefined) {
-                            if (qty <= 0) badges += ' <span style="display:inline-block;margin-left:6px;padding:1px 6px;font-size:0.7rem;font-weight:700;border-radius:999px;background:#fee2e2;color:#b91c1c;">Out of Stock</span>';
-                            else if (qty < 50) badges += ' <span style="display:inline-block;margin-left:6px;padding:1px 6px;font-size:0.7rem;font-weight:700;border-radius:999px;background:#ffedd5;color:#c2410c;">Low Stock</span>';
-                        }
-                        const hasPendingBO = (customerBackOrders || []).some(b =>
-                            (b.status || '').toLowerCase() === 'pending' &&
-                            (b.product_name || '') === product.name
-                        );
-                        if (hasPendingBO) {
-                            badges += ' <span style="display:inline-block;margin-left:6px;padding:1px 6px;font-size:0.7rem;font-weight:700;border-radius:999px;background:#ffedd5;color:#c2410c;" title="You have this item on back order">BO</span>';
-                        }
-                        return badges;
-                    })()}
+                    ${'' /* Phase 1: inventory badges hidden */}
                 </td>
                 <td style="border:1px solid #6B4423; padding:0.5rem; color:#6B4423; text-align:center; width:90px;">
                     ${product.cs || ""}
@@ -2942,7 +2927,7 @@ async function loadMyQuotes() {
                         `).join('')}
                         ${(() => {
                             const fulfilledBOs = (customerBackOrders || []).filter(b =>
-                                (b.status || '').toLowerCase() === 'fulfilled' &&
+                                false && (b.status || '').toLowerCase() === 'fulfilled' &&
                                 (String(b.original_order_id) === String(quote.id) ||
                                  String(b.invoice_number) === String(quote.id))
                             );
@@ -3186,7 +3171,7 @@ async function loadOrderHistory() {
                         `).join('')}
                         ${(() => {
                             const fulfilledBOs = (customerBackOrders || []).filter(b =>
-                                (b.status || '').toLowerCase() === 'fulfilled' &&
+                                false && (b.status || '').toLowerCase() === 'fulfilled' &&
                                 (String(b.original_order_id) === String(order.id) ||
                                  String(b.invoice_number) === String(order.id))
                             );
@@ -3475,7 +3460,7 @@ function renderOrderHistoryCards(orders, listEl) {
                     `).join('')}
                     ${(() => {
                         const fulfilledBOs = (customerBackOrders || []).filter(b =>
-                            (b.status || '').toLowerCase() === 'fulfilled' &&
+                            false && (b.status || '').toLowerCase() === 'fulfilled' &&
                             (String(b.original_order_id) === String(order.id) ||
                              String(b.invoice_number) === String(order.id))
                         );
@@ -5723,7 +5708,7 @@ function showBrandedInvoice(order) {
                             }).join('')}
                             ${(() => {
                                 const fulfilledBOs = (customerBackOrders || []).filter(b =>
-                                    (b.status || '').toLowerCase() === 'fulfilled' &&
+                                    false && (b.status || '').toLowerCase() === 'fulfilled' &&
                                     (String(b.original_order_id) === String(order.id) ||
                                      String(b.invoice_number) === String(order.id))
                                 );

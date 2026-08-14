@@ -88,8 +88,10 @@
            class="sidebar-link flex items-center gap-2 px-3 py-2 text-sm font-medium brand-brown border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] active">
             <i class="fas fa-boxes"></i> Products
         </a>
+                <!-- Phase 1: My Quotes hidden — all orders go to Order History -->
                 <a href="#" data-target="section-quotes"
-           class="sidebar-link flex items-center gap-2 px-3 py-2 text-sm font-medium brand-brown border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+           class="sidebar-link flex items-center gap-2 px-3 py-2 text-sm font-medium brand-brown border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]"
+           style="display: none;">
             <i class="fas fa-file-invoice-dollar"></i> Quotes
             <span id="my-quotes-badge-mobile"
                   class="hidden bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full"></span>
@@ -118,8 +120,10 @@
                         <i class="fas fa-boxes w-5"></i>
                         <span>Browse Products</span>
                     </a>
+                                        <!-- Phase 1: My Quotes hidden — all orders go to Order History -->
                                         <a href="#" data-target="section-quotes"
-                       class="sidebar-link flex items-center gap-3 px-4 py-3 text-sm font-medium brand-brown hover:bg-[#f8f4eb]">
+                       class="sidebar-link flex items-center gap-3 px-4 py-3 text-sm font-medium brand-brown hover:bg-[#f8f4eb]"
+                       style="display: none;">
                         <i class="fas fa-file-invoice-dollar w-5"></i>
                         <span>My Quotes</span>
                         <span id="my-quotes-badge"
@@ -155,8 +159,8 @@
                 </div>
             </div>
 
-            <!-- Items on Back Order -->
-            <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-2xl p-4 text-sm">
+            <!-- Phase 1: Items on Back Order hidden (inventory UI) -->
+            <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-2xl p-4 text-sm" style="display: none;">
                 <div class="flex items-start gap-2 mb-2">
                     <i class="fas fa-box-open text-orange-600 mt-0.5"></i>
                     <p class="font-semibold text-[#1E4D2B] text-sm">Items on Back Order</p>
