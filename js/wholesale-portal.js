@@ -3872,31 +3872,6 @@ function showAccountInfo() {
     }
 
     const pricingOk = !!active.pricing_approved_at;
-    const payMethod = (() => {
-        const m = (active.payment_method || '').toLowerCase();
-        if (m === 'check') return 'Check';
-        if (m === 'credit_card') return 'Credit Card';
-        if (m === 'ach') return 'ACH / Bank Account';
-        return m || '—';
-    })();
-    const paymentDetailLabel = (() => {
-        const m = (active.payment_method || '').toLowerCase();
-        if (m === 'check') return 'Bank Account';
-        if (m === 'credit_card' || m === 'ach') return 'Payment details';
-        return 'Details';
-    })();
-    const paymentDetailInitial = (() => {
-        const m = (active.payment_method || '').toLowerCase();
-        if (m === 'check') {
-            const acct = (active.bank_account_number || '').trim();
-            return acct ? ('••••' + acct.slice(-4)) : '—';
-        }
-        if (m === 'credit_card' || m === 'ach') {
-            if (active.stripe_payment_method_id) return 'Loading…';
-            return 'Not on file';
-        }
-        return '—';
-    })();
 
     // ========== STORE DETAILS ==========
     html += `
@@ -3941,28 +3916,7 @@ function showAccountInfo() {
         </div>
     `;
 
-    // ========== PAYMENT METHOD ==========
-    html += `
-        <div class="border-t border-[#d4b78f] pt-6 mt-6">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="font-bold brand-green">Payment Method</h3>
-                <button onclick=
-                        class="px-4 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold text-[#1E4D2B]">
-                    Edit
-                </button>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
-                <div>
-                    <p class="text-[#6B4423] font-semibold">Method</p>
-                    <p>${payMethod}</p>
-                </div>
-                <div>
-                    <p class="text-[#6B4423] font-semibold">${paymentDetailLabel}</p>
-                    <p id="account-payment-detail">${paymentDetailInitial}</p>
-                </div>
-            </div>
-        </div>
-    `;
+
 
     // ========== RESALE CERTIFICATE ==========
     html += `
@@ -3986,7 +3940,7 @@ function showAccountInfo() {
     loadAccountResaleSummary();
 
     // Load Stripe card/bank display details when on file
-    loadAccountPaymentDetail(active);
+    
     loadAssignedSalesmanDisplay(active);
 }
 
@@ -4952,15 +4906,7 @@ function showBrandedInvoice(order) {
     document.body.appendChild(modal);
 }
 
-// Onboarding Stripe state
-let onboardStripe = null;
-let onboardElements = null;
-let onboardSetupClientSecret = null;
-let onboardStripeCustomerId = null;
-let editStripe = null;
-let editElements = null;
-let editSetupClientSecret = null;
-let editStripeCustomerId = null;
+
 
 
 
@@ -4974,11 +4920,7 @@ async function submitOnboarding() {
     const zip    = document.getElementById('onboard-bill-zip')?.value.trim() || '';
 
     const billing = [street, apt, city, state, zip].filter(Boolean).join(', ');
-    const method = document.querySelector('input[name="payment-method"]:checked')?.value || '';
-    const routing = document.getElementById('onboard-routing')?.value.trim() || '';
-    const account = document.getElementById('onboard-account')?.value.trim() || '';
     const errEl = document.getElementById('onboarding-error');
-    const stripeMsg = document.getElementById('onboard-stripe-message');
 
     if (!street || !city || !state || !zip) {
         if (errEl) {
@@ -4987,88 +4929,16 @@ async function submitOnboarding() {
         }
         return;
     }
-    if (!method) {
-        if (errEl) {
-            errEl.textContent = 'Please select a payment method.';
-            errEl.classList.remove('hidden');
-        }
-        return;
-    }
-    if (method === 'check' && (!routing || !account)) {
-        if (errEl) {
-            errEl.textContent = 'Routing number and account number are required when paying by Check.';
-            errEl.classList.remove('hidden');
-        }
-        return;
-    }
-
-    // Card / ACH: require Stripe SetupIntent confirmation first
-    let stripePaymentMethodId = null;
-    if (method === 'credit_card' || method === 'ach') {
-        if (!onboardStripe || !onboardElements || !onboardSetupClientSecret) {
-            if (errEl) {
-                errEl.textContent = 'Payment form is still loading. Please wait a moment and try again.';
-                errEl.classList.remove('hidden');
-            }
-            return;
-        }
-
-        const { error: setupError, setupIntent } = await onboardStripe.confirmSetup({
-            elements: onboardElements,
-            redirect: 'if_required',
-            confirmParams: {
-                return_url: window.location.href
-            }
-        });
-
-        if (setupError) {
-            if (stripeMsg) {
-                stripeMsg.textContent = setupError.message || 'Could not save payment method.';
-                stripeMsg.classList.remove('hidden');
-            }
-            if (errEl) {
-                errEl.textContent = setupError.message || 'Could not save payment method.';
-                errEl.classList.remove('hidden');
-            }
-            return;
-        }
-
-        if (!setupIntent || (setupIntent.status !== 'succeeded' && setupIntent.status !== 'processing')) {
-            if (errEl) {
-                errEl.textContent = 'Payment method was not confirmed. Please try again.';
-                errEl.classList.remove('hidden');
-            }
-            return;
-        }
-
-        stripePaymentMethodId = setupIntent.payment_method || null;
-    }
 
     const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
     const email = (user.email || '').toLowerCase().trim();
-
-    // ACH via Stripe is active (no pending_admin). Check keeps local bank fields.
-    const paymentStatus = 'active';
 
     try {
         const activeId = window._currentCustomer?.id;
         const updatePayload = {
             billing_address: billing,
-            payment_method: method,
-            payment_method_status: paymentStatus,
-            bank_routing_number: method === 'check' ? routing : null,
-            bank_account_number: method === 'check' ? account : null,
             onboarding_complete: true
         };
-
-        if (method === 'credit_card' || method === 'ach') {
-            if (onboardStripeCustomerId) {
-                updatePayload.stripe_customer_id = onboardStripeCustomerId;
-            }
-            if (stripePaymentMethodId) {
-                updatePayload.stripe_payment_method_id = stripePaymentMethodId;
-            }
-        }
 
         let query = supabaseClient
             .from('customers')
