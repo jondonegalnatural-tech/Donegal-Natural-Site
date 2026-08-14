@@ -386,10 +386,16 @@ function clearInactiveSoftRestriction() {
     const banner = document.getElementById('inactive-restriction-banner');
     if (banner) banner.style.display = 'none';
 
+    // Phase 1: restore Products only — Quotes nav stays hidden
     document.querySelectorAll(
-        '.sidebar-link[data-target="section-products"], .sidebar-link[data-target="section-quotes"]'
+        '.sidebar-link[data-target="section-products"]'
     ).forEach(el => {
         el.style.display = '';
+    });
+    document.querySelectorAll(
+        '.sidebar-link[data-target="section-quotes"]'
+    ).forEach(el => {
+        el.style.display = 'none';
     });
 
     const qs = document.getElementById('quote-sidebar');
@@ -5396,6 +5402,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateOrderingAsIndicator();
     refreshOrderHistoryBadge();
     refreshMyQuotesBadge();
+
+    // Phase 1: always hide My Quotes / Quotes nav
+    document.querySelectorAll('.sidebar-link[data-target="section-quotes"]').forEach(el => {
+        el.style.display = 'none';
+    });
 
     const sidebarLinks = document.querySelectorAll('.sidebar-link');
     sidebarLinks.forEach(link => {
