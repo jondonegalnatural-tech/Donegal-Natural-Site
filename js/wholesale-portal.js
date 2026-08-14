@@ -3937,10 +3937,7 @@ function showAccountInfo() {
     container.innerHTML = html;
 
     // Load resale cert summary asynchronously
-    loadAccountResaleSummary();
-
-    // Load Stripe card/bank display details when on file
-    
+    loadAccountResaleSummary();    
     loadAssignedSalesmanDisplay(active);
 }
 
