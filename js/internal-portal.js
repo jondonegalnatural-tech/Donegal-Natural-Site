@@ -3032,11 +3032,9 @@ function renderOrdersTable() {
                 <th class="p-3 text-center w-10">
                     <input type="checkbox" id="select-all-orders" onchange="toggleSelectAllOrders(this)">
                 </th>
-                <th class="p-3 text-left">Order ID</th>
                 <th class="p-3 text-left">Salesman</th>
                 <th class="p-3 text-left">Customer</th>
                 <th class="p-3 text-left">Total</th>
-                <th class="p-3 text-left">Status</th>
                 <th class="p-3 text-left">Date</th>
             </tr>
         </thead>
@@ -3056,79 +3054,12 @@ function renderOrdersTable() {
             totalHTML = `
                 <div class="flex flex-col items-start gap-0.5">
                     <span>$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                    ${unpaidPriorBadgeHTML(order)}
+
                 </div>
             `;
         }
 
-        let statusHTML = '';
-        if (statusLower === 'pending' || statusLower === 'submitted' || statusLower === '') {
-            if (hasMarketPrice) {
-                statusHTML = `
-                    <div class="flex flex-wrap gap-2">
-                        <button onclick="openMarketPriceModal('${safeId}'); event.stopImmediatePropagation()"
-                                class="text-xs px-3 py-1 rounded bg-orange-500 text-white hover:bg-orange-600">
-                            Set Market Prices
-                        </button>
-                        <button onclick="denyOrder('${safeId}'); event.stopImmediatePropagation()"
-                                class="text-xs px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700">
-                            Deny
-                        </button>
-                    </div>
-                `;
-            } else {
-                statusHTML = `
-                    <div class="flex gap-2">
-                        <button onclick="openApproveOrderModal('${safeId}'); event.stopImmediatePropagation()"
-                                class="text-xs px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700">
-                            Approve
-                        </button>
-                        <button onclick="denyOrder('${safeId}'); event.stopImmediatePropagation()"
-                                class="text-xs px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700">
-                            Deny
-                        </button>
-                    </div>
-                `;
-            }
-                } else if (statusLower === 'received') {
-            statusHTML = `
-                <button onclick="updateOrderStatus('${safeId}', 'processing'); event.stopImmediatePropagation()"
-                        class="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">
-                    Move to Processing
-                </button>
-            `;
-                } else if (statusLower === 'processing') {
-            statusHTML = `
-                <button onclick="openShipInvoiceModal('${safeId}'); event.stopImmediatePropagation()"
-                        class="text-xs px-3 py-1 rounded bg-purple-600 text-white hover:bg-purple-700">
-                    Move to Shipped
-                </button>
-            `;
-                } else if (statusLower === 'shipped') {
-            statusHTML = `
-                <span class="text-xs px-3 py-1 rounded bg-purple-100 text-purple-800 font-medium whitespace-nowrap">
-                    Awaiting Delivery
-                </span>
-            `;
-                } else if (statusLower === 'delivered') {
-            statusHTML = `
-                <span class="text-xs px-3 py-1 rounded bg-orange-500 text-white">
-                    Delivered
-                </span>
-            `;
-        } else if (statusLower === 'denied') {
-            statusHTML = `
-                <span class="text-xs px-3 py-1 rounded bg-red-600 text-white">
-                    Denied
-                </span>
-            `;
-        } else {
-            statusHTML = `
-                <span class="text-xs px-3 py-1 rounded bg-gray-200">
-                    ${currentStatus}
-                </span>
-            `;
-        }
+        
 
         // Fulfilled BOs for this order (used for badge + collapsible child)
         const fulfilledBOs = (allBackOrders || []).filter(b =>
@@ -3150,25 +3081,14 @@ function renderOrdersTable() {
                </button>`
             : '';
 
-        html += `
+                html += `
             <tr class="border-t border-[#6B4423] hover:bg-[#f8f4eb]">
                 <td class="p-3 text-center" onclick="event.stopPropagation()">
                     <input type="checkbox" class="order-checkbox" value="${safeId}" onchange="updatePrintSelectedButton()">
                 </td>
-                <td class="p-3 font-mono">
-                    <span class="cursor-pointer hover:underline" onclick="showOrderDetails('${safeId}')">#${safeId.slice(0, 8)}</span>
-                    <button type="button"
-                            title="Copy full order ID"
-                            onclick="copyOrderId('${safeId}', event)"
-                            class="ml-1 inline-flex items-center justify-center w-6 h-6 rounded text-[#6B4423] hover:bg-[#e8d9c2] hover:text-[#1E4D2B]">
-                        <i class="fas fa-copy text-xs"></i>
-                    </button>
-                    ${boBadgeHTML}
-                </td>
                 <td class="p-3">${order.salesman || 'N/A'}</td>
                 <td class="p-3">${order.customer || 'N/A'}</td>
                 <td class="p-3">${totalHTML}</td>
-                <td class="p-3">${statusHTML}</td>
                 <td class="p-3 text-sm">${order.submittedAt ? new Date(order.submittedAt).toLocaleDateString() : '—'}</td>
             </tr>
         `;
