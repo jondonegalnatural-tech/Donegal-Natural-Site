@@ -882,19 +882,7 @@ body { background: #f8f1e9; }
                         <div>
                             <h2 class="text-xl font-bold brand-green">Payment Log</h2>
                             <p class="text-sm text-[#6B4423]">Card, ACH, and bank payments by month. Click a month to expand details.</p>
-                            <div class="mt-3 p-3 bg-[#f8f4eb] border border-[#d4b78f] rounded-xl text-xs text-[#6B4423]">
-                                <p class="font-semibold brand-green mb-1">Stripe fee reference (standard US)</p>
-                                <ul class="list-disc list-inside space-y-0.5 mb-2">
-                                    <li><strong>Card</strong> — 2.9% + $0.30 per successful charge</li>
-                                    <li><strong>ACH</strong> (bank debit) — 0.8%, capped at $5.00</li>
-                                    <li><strong>Balance / bank-like</strong> — estimated as ACH (0.8%, max $5)</li>
-                                </ul>
-                                <p class="italic">
-                                    <strong>Deposit amount*</strong> is an estimate after those fees.
-                                    Actual deposits can differ (custom Stripe pricing, international cards, disputes, timing).
-                                    Confirm with bank statements and the Stripe Dashboard.
-                                </p>
-                            </div>
+                            
                         </div>
                         <div class="flex items-center gap-2">
                             <button type="button" id="bank-log-prev-year" onclick="changeBankLogYear(-1)"

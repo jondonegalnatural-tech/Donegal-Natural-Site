@@ -246,19 +246,7 @@ function fmtMoney(n) {
     return '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-/** Approximate Stripe US fee for deposit estimate (standard pricing). */
-function estimateStripeFee(gross, methodType) {
-    const amt = Number(gross) || 0;
-    if (amt <= 0) return 0;
-    const m = (methodType || '').toLowerCase();
-    if (m === 'us_bank_account' || m === 'ach_debit') {
-        return Math.min(amt * 0.008, 5);
-    }
-    if (m === 'customer_balance') {
-        return Math.min(amt * 0.008, 5);
-    }
-    return amt * 0.029 + 0.30;
-}
+
 
 function fmtDate(iso) {
     if (!iso) return '—';
@@ -284,7 +272,7 @@ async function loadAchBankLog() {
     try {
         const { data, error } = await supabaseClient
             .from('orders')
-            .select('id, payment_status, payment_method_type, payment_initiated_at, paid_at, amount_paid, refund_amount, stripe_payment_intent_id, items, shipping_cost, credit, customer_name, customer_company, submitted_at')
+            .select('id, payment_status, payment_method_type, payment_initiated_at, paid_at, amount_paid, refund_amount,items, shipping_cost, credit, customer_name, customer_company, submitted_at')
             .or('payment_method_type.eq.us_bank_account,payment_method_type.eq.customer_balance,payment_method_type.eq.card,payment_status.eq.paid,payment_initiated_at.not.is.null')
             .order('payment_initiated_at', { ascending: false, nullsFirst: false })
             .limit(1000);
