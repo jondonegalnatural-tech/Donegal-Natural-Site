@@ -181,11 +181,13 @@ body { background: #f8f1e9; }
                 <i class="fas fa-home w-6 text-center"></i>
                 <span class="ml-3 nav-text">Dashboard</span>
             </a>
-            <a href="#" onclick="showVendorsSection()" class="nav-link flex items-center px-4 py-3">
+            <!-- Phase 2: Vendors hidden -->
+            <a href="#" onclick="showVendorsSection()" class="nav-link flex items-center px-4 py-3" style="display: none;">
                 <i class="fas fa-truck w-6 text-center"></i>
                 <span class="ml-3 nav-text">Vendors</span>
             </a>
-            <a href="#" onclick="showInventorySection()" class="nav-link flex items-center px-4 py-3">
+            <!-- Phase 2: Inventory hidden -->
+            <a href="#" onclick="showInventorySection()" class="nav-link flex items-center px-4 py-3" style="display: none;">
                 <i class="fas fa-boxes w-6 text-center"></i>
                 <span class="ml-3 nav-text">Inventory</span>
             </a>
@@ -209,7 +211,7 @@ body { background: #f8f1e9; }
         0
     </span>
 </a>
-            <a href="#" onclick="showSection('financials'); setTimeout(function(){ showFinancialsSub('ach-log'); }, 50)" class="nav-link flex items-center px-4 py-3">
+            <a href="#" onclick="showSection('financials'); setTimeout(function(){ showFinancialsSub('sales'); }, 50)" class="nav-link flex items-center px-4 py-3">
                 <i class="fas fa-dollar-sign w-6 text-center"></i>
                 <span class="ml-3 nav-text">Financials</span>
             </a>
@@ -432,6 +434,7 @@ body { background: #f8f1e9; }
 
                 <!-- Vendors Card -->
                 <div data-card-id="vendors"
+                     style="display: none;"
                      onclick="dashboardCardClick(event, 'vendors')"
                      class="dashboard-card bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition"
                      draggable="false">
@@ -463,6 +466,7 @@ body { background: #f8f1e9; }
 
                 <!-- Financials Card -->
                 <div data-card-id="financials"
+                     style="display: none;"
                      onclick="dashboardCardClick(event, 'financials')"
                      class="dashboard-card bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition"
                      draggable="false">
@@ -493,7 +497,7 @@ body { background: #f8f1e9; }
                     <!-- Phase 2: Pending ACH hidden — online payments removed -->
                     <div class="bg-[#f8f4eb] rounded-xl px-3 py-2 text-center">
                         <p class="text-xs text-[#6B4423] mb-1">Open Financials →</p>
-                        <p class="text-sm font-semibold brand-green">Payment Log · Sales · Profit</p>
+                        <p class="text-sm font-semibold brand-green">Sales · Profit</p>
                     </div>
                 </div>
                 
@@ -530,6 +534,7 @@ body { background: #f8f1e9; }
 
                                                 <!-- Inventory & Projections Card -->
                 <div data-card-id="inventory"
+                     style="display: none;"
                      onclick="dashboardCardClick(event, 'inventory')"
                      class="dashboard-card bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition"
                      draggable="false">
@@ -846,7 +851,7 @@ body { background: #f8f1e9; }
             <div class="flex flex-wrap items-start justify-between gap-3 mb-6 md:mb-8">
                 <div>
                     <h1 class="text-2xl md:text-3xl font-bold brand-green">Financials</h1>
-                    <p class="text-[#6B4423]">Payments, payment log, and financial reports</p>
+                    <p class="text-[#6B4423]">Sales reports and profit margin</p>
                 </div>
                 <button onclick="showSection('dashboard')"
                         class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] flex items-center gap-2">
