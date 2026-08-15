@@ -3026,11 +3026,7 @@ async function loadMyQuotes() {
                                 Awaiting invoice from Donegal.
                             </div>`;
                         }
-                        return editBtn + `
-                            <button onclick="event.stopPropagation();
-                                    class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-xl">
-                                Pay Invoice
-                            </button>`;
+                        return editBtn;
                     })()}
                 </div>
             `;
