@@ -711,7 +711,7 @@ function showSection(section) {
 // === Financials ===
     if (section === 'financials') {
         setTimeout(() => {
-            if (typeof showFinancialsSub === 'function') showFinancialsSub('ach-log');
+            if (typeof showFinancialsSub === 'function') showFinancialsSub('sales');
         }, 40);
     }
 
