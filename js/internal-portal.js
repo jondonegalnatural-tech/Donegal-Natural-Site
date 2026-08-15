@@ -434,7 +434,7 @@ function renderBankLogTable() {
                 return db - da;
             });
 
-            detailRows.forEach(o => {
+                        detailRows.forEach(o => {
                 const calcAmt = calcOrderAmount(o);
                 const paidAmt = Number(o.amount_paid);
                 const clearedAmt = (!Number.isNaN(paidAmt) && paidAmt > 0) ? paidAmt : calcAmt;
@@ -442,7 +442,6 @@ function renderBankLogTable() {
                 const isPaid = (o.payment_status || '').toLowerCase() === 'paid';
                 const customer = o.customer_company || o.customer_name || '—';
                 const inv = String(o.id || '').slice(0, 8);
-
                 const method = (o.payment_method_type || '').toLowerCase();
                 let methodBadge;
                 if (method === 'us_bank_account') {
@@ -456,25 +455,11 @@ function renderBankLogTable() {
                 } else {
                     methodBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-500">—</span>`;
                 }
-                const piId = (o.stripe_payment_intent_id || '').trim();
-                const fullyRefunded = isPaid && refundAmt > 0 && clearedAmt > 0 && refundAmt >= clearedAmt;
-                                // Deposited $ ≈ amount_paid minus estimated Stripe fee (standard US rates)
-                let depositDisplay = '—';
-                let depositClass = 'text-gray-400';
-                if (isPaid) {
-                    const fee = estimateStripeFee(clearedAmt, o.payment_method_type);
-                    const depositAmt = Math.max(0, clearedAmt - fee);
-                    depositDisplay = fmtMoney(depositAmt);
-                    depositClass = depositAmt > 0 ? 'text-[#1E4D2B] font-semibold' : 'text-gray-400';
-                }
-                const canRefund = isPaid && piId && !fullyRefunded;
-                // Stripe Dashboard (use /test/payments/ while in test mode)
-                const refundBtn = canRefund
-                    ? `<a href="https://dashboard.stripe.com/payments/${piId}" target="_blank" rel="noopener"
-                            class="inline-block px-2.5 py-1 text-xs font-semibold rounded-lg bg-red-600 text-black border border-red-700 hover:bg-red-500 transition"
-                            onclick="event.stopPropagation();">Refund</a>`
-                    : `<span class="text-gray-300">—</span>`;
 
+                // Phase 2: Stripe fee estimates and Dashboard refund links removed
+                let depositDisplay = isPaid ? fmtMoney(clearedAmt) : '—';
+                let depositClass = isPaid && clearedAmt > 0 ? 'text-[#1E4D2B] font-semibold' : 'text-gray-400';
+                const refundBtn = `<span class="text-gray-300">—</span>`;
                 let statusBadge;
                 if (refundAmt > 0) {
                     statusBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">Refunded</span>`;
