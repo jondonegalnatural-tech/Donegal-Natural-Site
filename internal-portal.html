@@ -662,9 +662,9 @@ body { background: #f8f1e9; }
                 </div>
             </div>
 
-                        <!-- All Orders / Back Orders tabs + Search -->
+                        <!-- All Orders tab + Search (Back Orders hidden) -->
             <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
-                <div class="flex flex-wrap gap-2" style="display: none;">
+                <div class="flex flex-wrap gap-2">
                     <button id="btn-all-orders" onclick="showAllOrders()"
                             class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold bg-[#1E4D2B] text-[#d4b78f] rounded-xl hover:bg-[#254a2f] transition">
                         All Orders
@@ -675,22 +675,6 @@ body { background: #f8f1e9; }
                     </button>
                     <button id="btn-back-orders" onclick="showBackOrders()"
                             style="display: none;"
-                            class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold border-2 border-orange-500 text-orange-700 bg-white rounded-xl hover:bg-orange-50 transition">
-                        Back Orders
-                        <span id="back-orders-count"
-                              class="inline-flex items-center justify-center min-w-[24px] h-6 px-2 text-xs font-bold bg-orange-500 text-white rounded-full">
-                            0
-                        </span>
-                    </button>
-                </div>
-                            class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold bg-[#1E4D2B] text-[#d4b78f] rounded-xl hover:bg-[#254a2f] transition">
-                        All Orders
-                        <span id="orders-total-count"
-                              class="inline-flex items-center justify-center min-w-[24px] h-6 px-2 text-xs font-bold bg-[#d4b78f] text-[#1E4D2B] rounded-full">
-                            0
-                        </span>
-                    </button>
-                    <button id="btn-back-orders" onclick="showBackOrders()"
                             class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold border-2 border-orange-500 text-orange-700 bg-white rounded-xl hover:bg-orange-50 transition">
                         Back Orders
                         <span id="back-orders-count"
