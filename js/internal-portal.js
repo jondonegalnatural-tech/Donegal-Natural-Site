@@ -1763,6 +1763,7 @@ async function loadProductCatalog() {
             marketPriceNote: null,
             landedCost: null,
             grossProfit: null,
+            updatedAt: row.updated_at || null,
             priceAsOf: row.updated_at
                 ? new Date(row.updated_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
                 : null
@@ -13140,11 +13141,43 @@ if (typeof loadUser === 'function') {
 }
 
 // ================== COMPANY BASE PRICE SHEET ==================
+let basePriceSheetEditMode = false;
+
+function toggleBasePriceSheetEdit() {
+    basePriceSheetEditMode = !basePriceSheetEditMode;
+    const editBtn = document.getElementById('bps-edit-btn');
+    const saveBtn = document.getElementById('bps-save-btn');
+    if (editBtn) editBtn.textContent = basePriceSheetEditMode ? 'Cancel' : 'Edit';
+    if (saveBtn) {
+        if (basePriceSheetEditMode) saveBtn.classList.remove('hidden');
+        else saveBtn.classList.add('hidden');
+    }
+    renderBasePriceSheet();
+}
+
+function formatBpsEditedAt(iso) {
+    if (!iso) return '—';
+    try {
+        return new Date(iso).toLocaleString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric',
+            hour: 'numeric', minute: '2-digit'
+        });
+    } catch {
+        return '—';
+    }
+}
+
+
 function openBasePriceSheetModal() {
     const modal = document.getElementById('base-price-sheet-modal');
     if (!modal) return;
     const searchEl = document.getElementById('base-price-sheet-search');
     if (searchEl) searchEl.value = '';
+    basePriceSheetEditMode = false;
+    const editBtn = document.getElementById('bps-edit-btn');
+    const saveBtn = document.getElementById('bps-save-btn');
+    if (editBtn) editBtn.textContent = 'Edit';
+    if (saveBtn) saveBtn.classList.add('hidden');
     renderBasePriceSheet();
     modal.classList.remove('hidden');
     modal.style.display = 'flex';
@@ -13207,11 +13240,11 @@ function renderBasePriceSheet() {
                 <div class="overflow-x-auto border border-[#d4b78f] rounded-xl mb-4">
                     <table class="w-full text-sm">
                         <thead>
+                            <tr class="bg-[#1E4D2B] text-[#d4b78f]">
                                 <th class="p-2.5 text-left">Product</th>
                                 <th class="p-2.5 text-left w-28">Case Size</th>
                                 <th class="p-2.5 text-right w-28">Unit Price</th>
-                                <th class="p-2.5 text-center w-28">As Of</th>
-                                <th class="p-2.5 text-center w-20"></th>
+                                <th class="p-2.5 text-center w-40">Last Edited</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -13263,60 +13296,82 @@ function renderBasePriceSheet() {
     listEl.innerHTML = html;
 }
 
-async function saveBasePriceSheetRow(btn) {
-    const id = btn?.getAttribute('data-id') || '';
-    const name = btn?.getAttribute('data-name') || '';
-    const row = btn?.closest('tr');
-    if (!row) return;
+async function saveBasePriceSheetEdits() {
+    const rows = document.querySelectorAll('#base-price-sheet-list tr.bps-row');
+    if (!rows.length) return;
 
-    const caseEl = row.querySelector('.bps-case');
-    const priceEl = row.querySelector('.bps-price');
-    const caseSize = (caseEl?.value || '').trim();
-    const unitPrice = parseFloat(priceEl?.value);
+    const updates = [];
+    rows.forEach(row => {
+        const id = row.getAttribute('data-id') || '';
+        const name = row.getAttribute('data-name') || '';
+        const caseEl = row.querySelector('.bps-case');
+        const priceEl = row.querySelector('.bps-price');
+        if (!id || !caseEl || !priceEl) return;
 
-    if (!id) {
-        alert('This product has no database id. Reload the portal and try again.');
-        return;
-    }
-    if (Number.isNaN(unitPrice) || unitPrice < 0) {
-        alert('Enter a valid unit price.');
-        return;
-    }
-
-    btn.disabled = true;
-    btn.textContent = 'Saving…';
-
-    try {
-        const { error } = await supabaseClient
-            .from('products')
-            .update({
-                case_size: caseSize || null,
-                unit_price: unitPrice,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', id);
-
-        if (error) throw error;
+        const caseSize = (caseEl.value || '').trim();
+        const unitPrice = parseFloat(priceEl.value);
+        if (Number.isNaN(unitPrice) || unitPrice < 0) return;
 
         const item = (PRODUCT_CATALOG || []).find(p => p.id === id || p.name === name);
-        if (item) {
-            item.caseSize = caseSize;
-            item.unitPrice = unitPrice;
-            item.priceAsOf = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        const oldCase = item ? (item.caseSize || '') : '';
+        const oldPrice = item && item.unitPrice != null ? Number(item.unitPrice) : null;
+        if (caseSize === oldCase && oldPrice === unitPrice) return;
+
+        updates.push({ id, name, caseSize, unitPrice });
+    });
+
+    if (updates.length === 0) {
+        alert('No changes to save.');
+        return;
+    }
+
+    const saveBtn = document.getElementById('bps-save-btn');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
+    }
+
+    try {
+        const nowIso = new Date().toISOString();
+        for (const u of updates) {
+            const { error } = await supabaseClient
+                .from('products')
+                .update({
+                    case_size: u.caseSize || null,
+                    unit_price: u.unitPrice,
+                    updated_at: nowIso
+                })
+                .eq('id', u.id);
+            if (error) throw error;
+
+            const item = (PRODUCT_CATALOG || []).find(p => p.id === u.id || p.name === u.name);
+            if (item) {
+                item.caseSize = u.caseSize;
+                item.unitPrice = u.unitPrice;
+                item.updatedAt = nowIso;
+                item.priceAsOf = formatBpsEditedAt(nowIso);
+            }
         }
 
-        btn.textContent = 'Saved';
-        setTimeout(() => {
-            btn.disabled = false;
-            btn.textContent = 'Save';
-        }, 1200);
+        basePriceSheetEditMode = false;
+        const editBtn = document.getElementById('bps-edit-btn');
+        if (editBtn) editBtn.textContent = 'Edit';
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+            saveBtn.classList.add('hidden');
+        }
+        renderBasePriceSheet();
     } catch (err) {
-        console.error('saveBasePriceSheetRow error:', err);
+        console.error('saveBasePriceSheetEdits error:', err);
         alert('Could not save.\n' + (err.message || ''));
-        btn.disabled = false;
-        btn.textContent = 'Save';
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+        }
     }
 }
+
 
 
 function printBasePriceSheet() {

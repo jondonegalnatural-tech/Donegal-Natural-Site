@@ -3298,10 +3298,28 @@ body { background: #f8f1e9; }
                     class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
         </div>
 
-        <div class="mb-4">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
             <input type="text" id="base-price-sheet-search" placeholder="Search products…"
                    class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-full max-w-md"
                    oninput="renderBasePriceSheet()">
+            <div class="flex flex-wrap gap-2">
+                <button type="button" onclick="printBasePriceSheet()"
+                        class="px-4 py-2 text-sm bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
+                    <i class="fas fa-print mr-2"></i> Print
+                </button>
+                <button type="button" onclick="exportBasePriceSheetExcel()"
+                        class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                    <i class="fas fa-file-excel mr-2"></i> Export
+                </button>
+                <button type="button" id="bps-edit-btn" onclick="toggleBasePriceSheetEdit()"
+                        class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                    Edit
+                </button>
+                <button type="button" id="bps-save-btn" onclick="saveBasePriceSheetEdits()"
+                        class="hidden px-4 py-2 text-sm bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
+                    Save
+                </button>
+            </div>
         </div>
 
         <div id="base-price-sheet-list" class="space-y-4 mb-6">
@@ -3309,14 +3327,6 @@ body { background: #f8f1e9; }
         </div>
 
         <div class="flex flex-wrap justify-end gap-3 pt-2 border-t border-[#d4b78f]">
-            <button type="button" onclick="printBasePriceSheet()"
-                    class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
-                <i class="fas fa-print mr-2"></i> Print
-            </button>
-            <button type="button" onclick="exportBasePriceSheetExcel()"
-                    class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
-                <i class="fas fa-file-excel mr-2"></i> Export Excel
-            </button>
             <button type="button" onclick="hideBasePriceSheetModal()"
                     class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
                 Close
