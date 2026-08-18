@@ -13249,7 +13249,7 @@ function renderBasePriceSheet() {
                         </thead>
                         <tbody>
         `;
-        products.forEach((p, i) => {
+                products.forEach((p, i) => {
             const bg = i % 2 ? 'bg-[#f8f4eb]' : 'bg-white';
             const priceText = p.unitPrice != null
                 ? ('$' + Number(p.unitPrice).toFixed(2))
@@ -13267,26 +13267,6 @@ function renderBasePriceSheet() {
             const caseCell = basePriceSheetEditMode
                 ? `<input type="text" class="bps-case border border-[#d4b78f] rounded-lg px-2 py-1 w-28 text-sm" value="${caseVal}">`
                 : `<span>${p.caseSize || '—'}</span>`;
-            const priceCell = basePriceSheetEditMode
-                ? `<input type="number" step="0.01" min="0" class="bps-price border border-[#d4b78f] rounded-lg px-2 py-1 w-24 text-sm text-right" value="${priceVal}">`
-                : `<span class="font-semibold">${priceText}</span>`;
-
-            html += `
-                <tr class="border-t border-[#e8d9b8] ${bg} bps-row"
-                    data-id="${p.id || ''}"
-                    data-name="${(p.name || '').replace(/"/g, '&quot;')}">
-                    <td class="p-2.5">${nameCell}</td>
-                    <td class="p-2.5">${caseCell}</td>
-                    <td class="p-2.5 text-right">${priceCell}</td>
-                    <td class="p-2.5 text-center text-xs text-[#6B4423]">${editedText}</td>
-                </tr>
-            `;
-            const priceVal = p.unitPrice != null ? Number(p.unitPrice).toFixed(2) : '';
-            const editedText = formatBpsEditedAt(p.updatedAt);
-            const nameVal = (p.name || '').replace(/"/g, '&quot;');
-            const nameCell = basePriceSheetEditMode
-                ? `<input type="text" class="bps-name border border-[#d4b78f] rounded-lg px-2 py-1 w-full text-sm" value="${nameVal}">`
-                : `${p.name || '—'}${marketBadge}`;
             const priceCell = basePriceSheetEditMode
                 ? `<input type="number" step="0.01" min="0" class="bps-price border border-[#d4b78f] rounded-lg px-2 py-1 w-24 text-sm text-right" value="${priceVal}">`
                 : `<span class="font-semibold">${priceText}</span>`;
