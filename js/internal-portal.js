@@ -8876,14 +8876,10 @@ async function saveNewProduct(event) {
         if (typeof showCurrentInventory === 'function') showCurrentInventory();
         if (typeof updatePriceProposalsBadge === 'function') updatePriceProposalsBadge();
 
-                alert(
-            'Product added: ' + name + '\n' +
-            'Inventory started at 0.\n' +
         alert(
             'Product added: ' + name + '\n' +
             'It is on the company price sheet and in the products table.\n' +
             'Recommended price was written to salesman sheets.'
-        );
         );
     } catch (err) {
         console.error('saveNewProduct error:', err);
