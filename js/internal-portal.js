@@ -8864,13 +8864,26 @@ async function saveNewProduct(event) {
 
         hideAddProductModal();
 
+        if (typeof loadProductCatalog === 'function') {
+            await loadProductCatalog();
+        }
+        if (typeof applyRecommendedPriceToSalesmen === 'function') {
+            await applyRecommendedPriceToSalesmen(name, unitPrice);
+        }
+        if (typeof renderBasePriceSheet === 'function') {
+            renderBasePriceSheet();
+        }
         if (typeof showCurrentInventory === 'function') showCurrentInventory();
         if (typeof updatePriceProposalsBadge === 'function') updatePriceProposalsBadge();
 
                 alert(
             'Product added: ' + name + '\n' +
             'Inventory started at 0.\n' +
-            'Salesmen can set their price via a Price Change proposal when ready.'
+        alert(
+            'Product added: ' + name + '\n' +
+            'It is on the company price sheet and in the products table.\n' +
+            'Recommended price was written to salesman sheets.'
+        );
         );
     } catch (err) {
         console.error('saveNewProduct error:', err);
