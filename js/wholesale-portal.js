@@ -447,7 +447,7 @@ const MAIN_CATEGORIES = [
 ];
 
 // ================== WHOLESALE PRICES (Full Structure with Duplication) ==================
-const WHOLESALE_PRICES = [
+let WHOLESALE_PRICES = [
     // ================== BULLY STICKS ==================
     { category: "Bully Sticks", subCategory: "Green Line", name: "6” Thin Green Line Bully Sticks (Bulk)", cs: "1000/cs", price: "$0.54" },
     { category: "Bully Sticks", subCategory: "Green Line", name: "12” Thin Green Line Bully Sticks (Bulk)", cs: "500/cs", price: "$1.10" },
@@ -4495,6 +4495,43 @@ function displayWelcome() {
 }
 
 // ================== INITIALIZATION ==================
+async function loadWholesaleCatalog() {
+    try {
+        if (typeof supabaseClient === 'undefined' || !supabaseClient) {
+            console.warn('loadWholesaleCatalog: supabaseClient not ready — keeping hardcoded list');
+            return;
+        }
+
+        const { data, error } = await supabaseClient
+            .from('products')
+            .select('id, name, category, sub_category, case_size, unit_price, active')
+            .eq('active', true)
+            .order('category', { ascending: true })
+            .order('name', { ascending: true });
+
+        if (error) throw error;
+        if (!data || data.length === 0) {
+            console.warn('loadWholesaleCatalog: no active products — keeping hardcoded list');
+            return;
+        }
+
+        WHOLESALE_PRICES = data.map(row => ({
+            id: row.id,
+            category: row.category || 'Other',
+            subCategory: row.sub_category || '',
+            name: row.name || '',
+            cs: row.case_size || '',
+            price: row.unit_price != null
+                ? ('$' + Number(row.unit_price).toFixed(2))
+                : ''
+        }));
+
+        console.log('loadWholesaleCatalog: loaded', WHOLESALE_PRICES.length, 'products from Supabase');
+    } catch (err) {
+        console.error('loadWholesaleCatalog error — keeping hardcoded list:', err);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
 
@@ -4552,6 +4589,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Normal portal init
+    await loadWholesaleCatalog();
     await loadPortalInventory();
     await loadCustomerBackOrders();
     renderCategoryFilters();
