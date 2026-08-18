@@ -13207,11 +13207,11 @@ function renderBasePriceSheet() {
                 <div class="overflow-x-auto border border-[#d4b78f] rounded-xl mb-4">
                     <table class="w-full text-sm">
                         <thead>
-                            <tr class="bg-[#1E4D2B] text-[#d4b78f]">
                                 <th class="p-2.5 text-left">Product</th>
                                 <th class="p-2.5 text-left w-28">Case Size</th>
                                 <th class="p-2.5 text-right w-28">Unit Price</th>
                                 <th class="p-2.5 text-center w-28">As Of</th>
+                                <th class="p-2.5 text-center w-20"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -13227,9 +13227,28 @@ function renderBasePriceSheet() {
             html += `
                 <tr class="border-t border-[#e8d9b8] ${bg}">
                     <td class="p-2.5">${p.name || '—'}${marketBadge}</td>
-                    <td class="p-2.5 text-[#6B4423]">${p.caseSize || '—'}</td>
-                    <td class="p-2.5 text-right font-semibold">${priceText}</td>
+                    <td class="p-2.5">
+                        <input type="text"
+                               class="bps-case border border-[#d4b78f] rounded-lg px-2 py-1 w-28 text-sm"
+                               value="${(p.caseSize || '').replace(/"/g, '&quot;')}"
+                               data-id="${p.id || ''}">
+                    </td>
+                    <td class="p-2.5 text-right">
+                        <input type="number" step="0.01" min="0"
+                               class="bps-price border border-[#d4b78f] rounded-lg px-2 py-1 w-24 text-sm text-right"
+                               value="${p.unitPrice != null ? Number(p.unitPrice).toFixed(2) : ''}"
+                               data-id="${p.id || ''}">
+                    </td>
                     <td class="p-2.5 text-center text-xs text-[#6B4423]">${p.priceAsOf || '—'}</td>
+                    <td class="p-2.5 text-center">
+                        <button type="button"
+                                onclick="saveBasePriceSheetRow(this)"
+                                data-id="${p.id || ''}"
+                                data-name="${(p.name || '').replace(/"/g, '&quot;')}"
+                                class="text-xs px-2.5 py-1 bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-lg hover:bg-[#254a2f]">
+                            Save
+                        </button>
+                    </td>
                 </tr>
             `;
         });
@@ -13243,6 +13262,62 @@ function renderBasePriceSheet() {
 
     listEl.innerHTML = html;
 }
+
+async function saveBasePriceSheetRow(btn) {
+    const id = btn?.getAttribute('data-id') || '';
+    const name = btn?.getAttribute('data-name') || '';
+    const row = btn?.closest('tr');
+    if (!row) return;
+
+    const caseEl = row.querySelector('.bps-case');
+    const priceEl = row.querySelector('.bps-price');
+    const caseSize = (caseEl?.value || '').trim();
+    const unitPrice = parseFloat(priceEl?.value);
+
+    if (!id) {
+        alert('This product has no database id. Reload the portal and try again.');
+        return;
+    }
+    if (Number.isNaN(unitPrice) || unitPrice < 0) {
+        alert('Enter a valid unit price.');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+        const { error } = await supabaseClient
+            .from('products')
+            .update({
+                case_size: caseSize || null,
+                unit_price: unitPrice,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', id);
+
+        if (error) throw error;
+
+        const item = (PRODUCT_CATALOG || []).find(p => p.id === id || p.name === name);
+        if (item) {
+            item.caseSize = caseSize;
+            item.unitPrice = unitPrice;
+            item.priceAsOf = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        }
+
+        btn.textContent = 'Saved';
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.textContent = 'Save';
+        }, 1200);
+    } catch (err) {
+        console.error('saveBasePriceSheetRow error:', err);
+        alert('Could not save.\n' + (err.message || ''));
+        btn.disabled = false;
+        btn.textContent = 'Save';
+    }
+}
+
 
 function printBasePriceSheet() {
     if (typeof PRODUCT_CATALOG === 'undefined' || !PRODUCT_CATALOG.length) {
