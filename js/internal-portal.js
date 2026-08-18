@@ -1730,6 +1730,50 @@ let PRODUCT_CATALOG = [
     { name: "10-Pack of Duck Heads", category: "Packaged Items", subCategory: "Duck and Goose", caseSize: "50bags/cs", unitPrice: 7.91, isMarketPrice: false, marketPriceNote: null, landedCost: null, grossProfit: null, priceAsOf: "July 2026" }
 ];
 
+// ================== LOAD PRODUCT CATALOG FROM SUPABASE ==================
+async function loadProductCatalog() {
+    try {
+        if (typeof supabaseClient === 'undefined' || !supabaseClient) {
+            console.warn('loadProductCatalog: supabaseClient not ready — keeping hardcoded catalog');
+            return;
+        }
+
+        const { data, error } = await supabaseClient
+            .from('products')
+            .select('id, name, category, sub_category, case_size, unit_price, is_market_price, active, updated_at')
+            .eq('active', true)
+            .order('category', { ascending: true })
+            .order('name', { ascending: true });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            console.warn('loadProductCatalog: no active products in DB — keeping hardcoded catalog');
+            return;
+        }
+
+        PRODUCT_CATALOG = data.map(row => ({
+            id: row.id,
+            name: row.name || '',
+            category: row.category || 'Other',
+            subCategory: row.sub_category || '',
+            caseSize: row.case_size || '',
+            unitPrice: row.unit_price != null ? Number(row.unit_price) : null,
+            isMarketPrice: !!row.is_market_price,
+            marketPriceNote: null,
+            landedCost: null,
+            grossProfit: null,
+            priceAsOf: row.updated_at
+                ? new Date(row.updated_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                : null
+        }));
+
+        console.log('loadProductCatalog: loaded', PRODUCT_CATALOG.length, 'products from Supabase');
+    } catch (err) {
+        console.error('loadProductCatalog error — keeping hardcoded catalog:', err);
+    }
+}
+// ================== END LOAD PRODUCT CATALOG ==================
 
 
 // ================== USER & AUTHENTICATION ==================
@@ -3061,27 +3105,7 @@ function renderOrdersTable() {
 
         
 
-        // Fulfilled BOs for this order (used for badge + collapsible child)
-        const fulfilledBOs = (allBackOrders || []).filter(b =>
-            (b.status || '').toLowerCase() === 'fulfilled' &&
-            (String(b.original_order_id) === String(order.id) ||
-             String(b.invoice_number) === String(order.id))
-        );
-        const hasFulfilledBO = fulfilledBOs.length > 0;
-        if (!window.expandedOrderBOs) window.expandedOrderBOs = {};
-        const boExpanded = !!window.expandedOrderBOs[safeId];
-
-        const boBadgeHTML = hasFulfilledBO
-            ? `<button type="button"
-                       title="${boExpanded ? 'Hide' : 'Show'} fulfilled back order"
-                       onclick="toggleOrderBOExpand('${safeId}', event)"
-                       class="ml-1 inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-green-100 text-green-800 hover:bg-green-200">
-                   BO
-                   <i class="fas fa-chevron-${boExpanded ? 'up' : 'down'} text-[9px]"></i>
-               </button>`
-            : '';
-
-                html += `
+        html += `
             <tr class="border-t border-[#6B4423] hover:bg-[#f8f4eb]">
                 <td class="p-3 text-center" onclick="event.stopPropagation()">
                     <input type="checkbox" class="order-checkbox" value="${safeId}" onchange="updatePrintSelectedButton()">
@@ -3093,45 +3117,7 @@ function renderOrdersTable() {
             </tr>
         `;
 
-        // Nested fulfilled BO child row — only when expanded
-        if (hasFulfilledBO && boExpanded) {
-            let boTotal = 0;
-            fulfilledBOs.forEach(b => {
-                const qty = parseInt(b.quantity, 10) || 0;
-                const unit = b.unit_price != null ? Number(b.unit_price) : 0;
-                boTotal += qty * unit;
-            });
 
-            const fulfilledDate = fulfilledBOs
-                .map(b => b.fulfilled_at)
-                .filter(Boolean)
-                .sort()
-                .pop();
-
-            const dateText = fulfilledDate
-                ? new Date(fulfilledDate).toLocaleDateString()
-                : '—';
-
-            const boTotalHTML = boTotal > 0
-                ? `$${boTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                : `${fulfilledBOs.length} item${fulfilledBOs.length > 1 ? 's' : ''}`;
-
-            html += `
-                <tr class="bg-[#f8f1e9] border-t border-[#e8d9b8]">
-                    <td class="p-3"></td>
-                    <td class="p-3 font-mono pl-6">
-                        #${safeId.slice(0, 8)}-BO
-                    </td>
-                    <td class="p-3">${order.salesman || 'N/A'}</td>
-                    <td class="p-3">${order.customer || 'N/A'}</td>
-                    <td class="p-3">${boTotalHTML}</td>
-                    <td class="p-3">
-                        <span class="text-xs px-3 py-1 rounded bg-green-100 text-green-800 font-medium">BO Fulfilled</span>
-                    </td>
-                    <td class="p-3 text-sm">${dateText}</td>
-                </tr>
-            `;
-        }
     });
 
     html += `</tbody></table>`;
@@ -10099,6 +10085,7 @@ window.onload = async function() {
     }
     // Parallel independent loads for faster first paint
     const loads = [];
+    if (typeof loadProductCatalog === 'function') loads.push(loadProductCatalog());
     if (typeof loadOrders === 'function') loads.push(loadOrders());
     if (typeof loadInventory === 'function') loads.push(loadInventory());
     if (typeof loadInquiries === 'function') loads.push(loadInquiries());
