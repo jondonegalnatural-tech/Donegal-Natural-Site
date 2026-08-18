@@ -13257,31 +13257,24 @@ function renderBasePriceSheet() {
             const marketBadge = p.isMarketPrice
                 ? ' <span class="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded bg-orange-100 text-orange-800">Market</span>'
                 : '';
+            const caseVal = (p.caseSize || '').replace(/"/g, '&quot;');
+            const priceVal = p.unitPrice != null ? Number(p.unitPrice).toFixed(2) : '';
+            const editedText = formatBpsEditedAt(p.updatedAt);
+            const caseCell = basePriceSheetEditMode
+                ? `<input type="text" class="bps-case border border-[#d4b78f] rounded-lg px-2 py-1 w-28 text-sm" value="${caseVal}">`
+                : `<span>${p.caseSize || '—'}</span>`;
+            const priceCell = basePriceSheetEditMode
+                ? `<input type="number" step="0.01" min="0" class="bps-price border border-[#d4b78f] rounded-lg px-2 py-1 w-24 text-sm text-right" value="${priceVal}">`
+                : `<span class="font-semibold">${priceText}</span>`;
+
             html += `
-                <tr class="border-t border-[#e8d9b8] ${bg}">
+                <tr class="border-t border-[#e8d9b8] ${bg} bps-row"
+                    data-id="${p.id || ''}"
+                    data-name="${(p.name || '').replace(/"/g, '&quot;')}">
                     <td class="p-2.5">${p.name || '—'}${marketBadge}</td>
-                    <td class="p-2.5">
-                        <input type="text"
-                               class="bps-case border border-[#d4b78f] rounded-lg px-2 py-1 w-28 text-sm"
-                               value="${(p.caseSize || '').replace(/"/g, '&quot;')}"
-                               data-id="${p.id || ''}">
-                    </td>
-                    <td class="p-2.5 text-right">
-                        <input type="number" step="0.01" min="0"
-                               class="bps-price border border-[#d4b78f] rounded-lg px-2 py-1 w-24 text-sm text-right"
-                               value="${p.unitPrice != null ? Number(p.unitPrice).toFixed(2) : ''}"
-                               data-id="${p.id || ''}">
-                    </td>
-                    <td class="p-2.5 text-center text-xs text-[#6B4423]">${p.priceAsOf || '—'}</td>
-                    <td class="p-2.5 text-center">
-                        <button type="button"
-                                onclick="saveBasePriceSheetRow(this)"
-                                data-id="${p.id || ''}"
-                                data-name="${(p.name || '').replace(/"/g, '&quot;')}"
-                                class="text-xs px-2.5 py-1 bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-lg hover:bg-[#254a2f]">
-                            Save
-                        </button>
-                    </td>
+                    <td class="p-2.5">${caseCell}</td>
+                    <td class="p-2.5 text-right">${priceCell}</td>
+                    <td class="p-2.5 text-center text-xs text-[#6B4423]">${editedText}</td>
                 </tr>
             `;
         });
