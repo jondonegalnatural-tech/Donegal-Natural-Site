@@ -13260,9 +13260,10 @@ function renderBasePriceSheet() {
             const caseVal = (p.caseSize || '').replace(/"/g, '&quot;');
             const priceVal = p.unitPrice != null ? Number(p.unitPrice).toFixed(2) : '';
             const editedText = formatBpsEditedAt(p.updatedAt);
-            const caseCell = basePriceSheetEditMode
-                ? `<input type="text" class="bps-case border border-[#d4b78f] rounded-lg px-2 py-1 w-28 text-sm" value="${caseVal}">`
-                : `<span>${p.caseSize || '—'}</span>`;
+            const nameVal = (p.name || '').replace(/"/g, '&quot;');
+            const nameCell = basePriceSheetEditMode
+                ? `<input type="text" class="bps-name border border-[#d4b78f] rounded-lg px-2 py-1 w-full text-sm" value="${nameVal}">`
+                : `${p.name || '—'}${marketBadge}`;
             const priceCell = basePriceSheetEditMode
                 ? `<input type="number" step="0.01" min="0" class="bps-price border border-[#d4b78f] rounded-lg px-2 py-1 w-24 text-sm text-right" value="${priceVal}">`
                 : `<span class="font-semibold">${priceText}</span>`;
@@ -13271,7 +13272,7 @@ function renderBasePriceSheet() {
                 <tr class="border-t border-[#e8d9b8] ${bg} bps-row"
                     data-id="${p.id || ''}"
                     data-name="${(p.name || '').replace(/"/g, '&quot;')}">
-                    <td class="p-2.5">${p.name || '—'}${marketBadge}</td>
+                    <td class="p-2.5">${nameCell}</td>
                     <td class="p-2.5">${caseCell}</td>
                     <td class="p-2.5 text-right">${priceCell}</td>
                     <td class="p-2.5 text-center text-xs text-[#6B4423]">${editedText}</td>
@@ -13289,32 +13290,111 @@ function renderBasePriceSheet() {
     listEl.innerHTML = html;
 }
 
+async function renamePriceSheetKeys(tableName, oldName, newName) {
+    const { data, error } = await supabaseClient
+        .from(tableName)
+        .select('id, prices');
+    if (error) throw error;
+    if (!data || !data.length) return;
+
+    for (const row of data) {
+        const prices = row.prices && typeof row.prices === 'object' ? { ...row.prices } : {};
+        if (!Object.prototype.hasOwnProperty.call(prices, oldName)) continue;
+        if (oldName !== newName) {
+            prices[newName] = prices[oldName];
+            delete prices[oldName];
+        }
+        const { error: updErr } = await supabaseClient
+            .from(tableName)
+            .update({ prices: prices, updated_at: new Date().toISOString() })
+            .eq('id', row.id);
+        if (updErr) throw updErr;
+    }
+}
+
+async function applyRecommendedPriceToSalesmen(productName, recommendedPrice) {
+    const { data, error } = await supabaseClient
+        .from('salesman_price_sheets')
+        .select('id, prices');
+    if (error) throw error;
+    if (!data || !data.length) return 0;
+
+    let count = 0;
+    for (const row of data) {
+        const prices = row.prices && typeof row.prices === 'object' ? { ...row.prices } : {};
+        prices[productName] = recommendedPrice;
+        const { error: updErr } = await supabaseClient
+            .from('salesman_price_sheets')
+            .update({ prices: prices, updated_at: new Date().toISOString() })
+            .eq('id', row.id);
+        if (updErr) throw updErr;
+        count += 1;
+    }
+    return count;
+}
+
 async function saveBasePriceSheetEdits() {
     const rows = document.querySelectorAll('#base-price-sheet-list tr.bps-row');
     if (!rows.length) return;
 
     const updates = [];
+    const usedNames = new Set();
+
     rows.forEach(row => {
         const id = row.getAttribute('data-id') || '';
-        const name = row.getAttribute('data-name') || '';
+        const oldName = row.getAttribute('data-name') || '';
+        const nameEl = row.querySelector('.bps-name');
         const caseEl = row.querySelector('.bps-case');
         const priceEl = row.querySelector('.bps-price');
         if (!id || !caseEl || !priceEl) return;
 
+        const newName = (nameEl ? nameEl.value : oldName).trim();
         const caseSize = (caseEl.value || '').trim();
         const unitPrice = parseFloat(priceEl.value);
+        if (!newName) return;
         if (Number.isNaN(unitPrice) || unitPrice < 0) return;
 
-        const item = (PRODUCT_CATALOG || []).find(p => p.id === id || p.name === name);
+        const nameKey = newName.toLowerCase();
+        if (usedNames.has(nameKey)) {
+            updates.push({ conflict: newName });
+            return;
+        }
+        usedNames.add(nameKey);
+
+        const item = (PRODUCT_CATALOG || []).find(p => p.id === id || p.name === oldName);
         const oldCase = item ? (item.caseSize || '') : '';
         const oldPrice = item && item.unitPrice != null ? Number(item.unitPrice) : null;
-        if (caseSize === oldCase && oldPrice === unitPrice) return;
+        const nameChanged = newName !== oldName;
+        const caseChanged = caseSize !== oldCase;
+        const priceChanged = oldPrice !== unitPrice;
+        if (!nameChanged && !caseChanged && !priceChanged) return;
 
-        updates.push({ id, name, caseSize, unitPrice });
+        updates.push({
+            id,
+            oldName,
+            newName,
+            caseSize,
+            unitPrice,
+            nameChanged,
+            priceChanged
+        });
     });
 
+    if (updates.some(u => u.conflict)) {
+        alert('Two products cannot have the same name.');
+        return;
+    }
     if (updates.length === 0) {
         alert('No changes to save.');
+        return;
+    }
+
+    const otherNames = (PRODUCT_CATALOG || [])
+        .filter(p => !updates.some(u => u.id === p.id))
+        .map(p => (p.name || '').toLowerCase());
+    const dup = updates.find(u => otherNames.includes(u.newName.toLowerCase()));
+    if (dup) {
+        alert('A product named "' + dup.newName + '" already exists.');
         return;
     }
 
@@ -13326,19 +13406,41 @@ async function saveBasePriceSheetEdits() {
 
     try {
         const nowIso = new Date().toISOString();
+        let sheetsTouched = 0;
+
         for (const u of updates) {
+            const payload = {
+                name: u.newName,
+                case_size: u.caseSize || null,
+                unit_price: u.unitPrice,
+                updated_at: nowIso
+            };
             const { error } = await supabaseClient
                 .from('products')
-                .update({
-                    case_size: u.caseSize || null,
-                    unit_price: u.unitPrice,
-                    updated_at: nowIso
-                })
+                .update(payload)
                 .eq('id', u.id);
             if (error) throw error;
 
-            const item = (PRODUCT_CATALOG || []).find(p => p.id === u.id || p.name === u.name);
+            if (u.nameChanged) {
+                await renamePriceSheetKeys('salesman_price_sheets', u.oldName, u.newName);
+                await renamePriceSheetKeys('customer_price_sheets', u.oldName, u.newName);
+                try {
+                    await supabaseClient
+                        .from('inventory')
+                        .update({ product_name: u.newName })
+                        .eq('product_name', u.oldName);
+                } catch (invErr) {
+                    console.warn('inventory rename skipped:', invErr);
+                }
+            }
+
+            if (u.priceChanged) {
+                sheetsTouched += await applyRecommendedPriceToSalesmen(u.newName, u.unitPrice);
+            }
+
+            const item = (PRODUCT_CATALOG || []).find(p => p.id === u.id || p.name === u.oldName);
             if (item) {
+                item.name = u.newName;
                 item.caseSize = u.caseSize;
                 item.unitPrice = u.unitPrice;
                 item.updatedAt = nowIso;
@@ -13355,6 +13457,14 @@ async function saveBasePriceSheetEdits() {
             saveBtn.classList.add('hidden');
         }
         renderBasePriceSheet();
+
+        const nameCount = updates.filter(u => u.nameChanged).length;
+        const priceCount = updates.filter(u => u.priceChanged).length;
+        alert(
+            'Saved ' + updates.length + ' product(s).' +
+            (nameCount ? '\nRenamed ' + nameCount + ' product(s) on salesman and customer sheets.' : '') +
+            (priceCount ? '\nRecommended price written to salesman sheets.' : '')
+        );
     } catch (err) {
         console.error('saveBasePriceSheetEdits error:', err);
         alert('Could not save.\n' + (err.message || ''));
@@ -13364,6 +13474,7 @@ async function saveBasePriceSheetEdits() {
         }
     }
 }
+
 
 
 
