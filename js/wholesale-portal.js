@@ -4567,7 +4567,17 @@ async function checkNewProductAlert() {
                 (price ? (' — ' + price) : '') + '</li>';
         }).join('');
 
+        document.querySelectorAll('.fixed.inset-0').forEach(function (el) {
+            if (el.id !== 'new-product-alert-modal') {
+                el.style.display = 'none';
+            }
+        });
+
+        document.body.appendChild(modal);
         modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+        modal.style.zIndex = '2147483647';
+        modal.style.pointerEvents = 'auto';
     } catch (err) {
         console.error('checkNewProductAlert error:', err);
     }
@@ -4576,7 +4586,11 @@ async function checkNewProductAlert() {
 function dismissNewProductAlert() {
     const key = newProductAlertStorageKey();
     if (key) localStorage.setItem(key, new Date().toISOString());
-    document.getElementById('new-product-alert-modal')?.classList.add('hidden');
+    const modal = document.getElementById('new-product-alert-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+    }
 }
 
 
@@ -4651,7 +4665,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateOrderingAsIndicator();
     refreshOrderHistoryBadge();
     refreshMyQuotesBadge();
-    if (typeof checkNewProductAlert === 'function') checkNewProductAlert();
+    if (typeof checkNewProductAlert === 'function') {
+        setTimeout(checkNewProductAlert, 800);
+    }
 
     // Phase 1: always hide My Quotes / Quotes nav
     document.querySelectorAll('.sidebar-link[data-target="section-quotes"]').forEach(el => {
