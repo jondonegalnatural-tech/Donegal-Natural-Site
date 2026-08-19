@@ -54,12 +54,26 @@
         }
         /* ========== END WHOLESALE MOBILE ========== */
         /* ========== WHOLESALE PRODUCT CARDS (step 1) ========== */
-        .wholesale-card-grid {
-            display: grid;
-            grid-template-columns: 1fr;
+        .products-with-cats {
+            display: flex;
+            align-items: flex-start;
             gap: 1.25rem;
-            max-width: 920px;
         }
+        .products-cat-rail {
+            display: none;
+            flex: 0 0 210px;
+            width: 210px;
+            position: sticky;
+            top: 5.5rem;
+            background: #fff;
+            border: 2px solid #6B4423;
+            border-radius: 1rem;
+            padding: 0.85rem 0.6rem;
+        }
+        @media (min-width: 768px) {
+            .products-cat-rail { display: block; }
+        }
+        .wholesale-card-grid {
         .wholesale-product-card {
             background: #fff;
             border: 2px solid #6B4423;
@@ -250,11 +264,9 @@
                 </nav>
             </div>
 
-            <div class="mb-6">
+            <!-- Hidden: categories now sit next to the product cards -->
+            <div class="mb-6" style="display: none;">
                 <h3 class="font-bold text-lg brand-green mb-3 px-2">Categories</h3>
-                <nav id="sidebar-categories" class="space-y-0.5 max-h-[48vh] overflow-y-auto pr-1">
-                    <!-- filled by renderCategoryFilters() -->
-                </nav>
             </div>
 
             <!-- Shipping Policy -->
@@ -310,7 +322,7 @@
                          class="hidden absolute z-50 w-full bg-white border-2 border-[#6B4423] rounded-2xl mt-1 shadow-lg max-h-80 overflow-auto"></div>
                 </div>
 
-                <div id="mobile-category-filters" class="lg:hidden mb-5 flex gap-2 overflow-x-auto pb-2"></div>
+                <div id="mobile-category-filters" class="md:hidden mb-5 flex gap-2 overflow-x-auto pb-2"></div>
 
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
                     <h2 id="products-heading" class="text-xl md:text-2xl font-bold brand-green">Recommended for you</h2>
@@ -321,8 +333,16 @@
                     </button>
                 </div>
 
-                <div id="portal-products" class="w-full">
-                    <!-- JS renders the product table here -->
+                <div class="products-with-cats">
+                    <aside class="products-cat-rail">
+                        <h3 class="font-bold text-lg brand-green mb-3 px-2">Categories</h3>
+                        <nav id="sidebar-categories" class="space-y-0.5 max-h-[70vh] overflow-y-auto pr-1">
+                            <!-- filled by renderCategoryFilters() -->
+                        </nav>
+                    </aside>
+                    <div id="portal-products" class="w-full min-w-0">
+                        <!-- JS renders the product cards here -->
+                    </div>
                 </div>
             </div>
 
