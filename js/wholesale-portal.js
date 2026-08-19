@@ -5211,11 +5211,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Customer load error:', err);
     }
 
-    // Normal portal init
+    // Normal portal init — paint immediately from the fallback catalog
+    renderCategoryFilters();
+    renderPortalProducts();
     if (typeof checkNewProductAlert === 'function') checkNewProductAlert();
-    await loadWholesaleCatalog();
-    await loadPortalInventory();
-    await loadCustomerBackOrders();
+
+    await Promise.all([
+        loadWholesaleCatalog(),
+        loadPortalInventory(),
+        loadCustomerBackOrders()
+    ]);
     renderCategoryFilters();
     renderPortalProducts();
     if (typeof updateShippingPolicyCard === 'function') updateShippingPolicyCard();
