@@ -2569,22 +2569,29 @@ function renderCategoryFilters() {
             btn.type = 'button';
             btn.textContent = item.label;
             btn.className = useChip ? 'mobile-cat-chip' : 'sidebar-cat-btn';
-            if (currentCategoryFilter === item.value && !currentSubCategoryFilter) {
-                btn.classList.add('active');
+            if (currentCategoryFilter === item.value) {
+                btn.classList.add('open');
+                if (!currentSubCategoryFilter) btn.classList.add('active');
             }
             btn.onclick = () => selectWholesaleCategory(item.value);
             container.appendChild(btn);
 
             if (!useChip && item.value !== 'All' && item.value === currentCategoryFilter) {
-                getSubcategoriesFor(item.value).forEach(sub => {
-                    const subBtn = document.createElement('button');
-                    subBtn.type = 'button';
-                    subBtn.className = 'sidebar-sub-btn';
-                    subBtn.textContent = sub;
-                    if (currentSubCategoryFilter === sub) subBtn.classList.add('active');
-                    subBtn.onclick = () => selectWholesaleSubcategory(item.value, sub);
-                    container.appendChild(subBtn);
-                });
+                const subs = getSubcategoriesFor(item.value);
+                if (subs.length) {
+                    const subList = document.createElement('div');
+                    subList.className = 'sidebar-sub-list';
+                    subs.forEach(sub => {
+                        const subBtn = document.createElement('button');
+                        subBtn.type = 'button';
+                        subBtn.className = 'sidebar-sub-btn';
+                        subBtn.textContent = sub;
+                        if (currentSubCategoryFilter === sub) subBtn.classList.add('active');
+                        subBtn.onclick = () => selectWholesaleSubcategory(item.value, sub);
+                        subList.appendChild(subBtn);
+                    });
+                    container.appendChild(subList);
+                }
             }
         });
     }
@@ -2793,6 +2800,65 @@ function formatCardPrice(product) {
     return displayPrice;
 }
 
+function getProductImagePath(product) {
+    const name = String((product && product.name) || '');
+    const rules = [
+        { match: /thin green line/i, file: 'Green Line Bully Stick (Full picture).jpg' },
+        { match: /regular green line/i, file: 'Green Line Reg Bully Stick.jpg' },
+        { match: /green line/i, file: 'Green Line Bully Stick (Full picture).jpg' },
+        { match: /12.?[”"].*(super thick|thick)/i, file: '12in Bully Stick (Full Product).jpg' },
+        { match: /6.?[”"].*(super thick|thick)/i, file: '6in Thick Bully Stick (Full Product).jpg' },
+        { match: /bully cane/i, file: 'Bully Canes .jpg' },
+        { match: /braided bully/i, file: 'Braided Bully (Full Picture).jpg' },
+        { match: /12.?[”"].*euro bully/i, file: 'Euro Bully Stick 12in .jpg' },
+        { match: /euro bully/i, file: 'Euro Bully Stick 6 in. .jpg' },
+        { match: /chicken jerky/i, file: 'Chicken Jerky (Full Shot).jpg' },
+        { match: /turkey jerky stuffed/i, file: 'Stuffed Buffalo Bone (End Shot).jpg' },
+        { match: /turkey jerky/i, file: 'Turkey Jerky (Full Shot).jpg' },
+        { match: /elky.*stuffed buffalo/i, file: 'Elk Jerky Stuffed Buffalo Bone (Close up of Jerky).jpg' },
+        { match: /elky jerky|elky training/i, file: 'Elky Sticks  (Full Shot).jpg' },
+        { match: /stuffed buffalo/i, file: 'Stuffed Buffalo Bone (End Shot).jpg' },
+        { match: /beef jerky|jerky treats/i, file: 'Jerky Squares Full Product shot.jpg' },
+        { match: /hairy beef ear|hairy cow ear/i, file: 'Hairy Cow Ears (Full Product).jpg' },
+        { match: /vanilla cow ear/i, file: 'Vanilla Cow Ear (Full Shot).jpg' },
+        { match: /buffalo ear/i, file: 'Buffalo Ears (Full Product Shot).jpg' },
+        { match: /pig ear/i, file: 'Pig Ear (Full Shot).jpg' },
+        { match: /rabbit ear/i, file: 'Rabbitt ears (full product).jpg' },
+        { match: /rabbit feet/i, file: 'Rabbit Feet (Full Product Shot).jpg' },
+        { match: /peanut butter rollio/i, file: 'Peanut Butter Rollio (Full Shot).jpg' },
+        { match: /honey smoked phat/i, file: 'Honey Smoked Phat Rollio (Full Shot).jpg' },
+        { match: /vanilla phat/i, file: 'Vanilla Phat Rollio 6 in. .jpg' },
+        { match: /phat rollio/i, file: 'Phat Rollio (Full Shot).jpg' },
+        { match: /honey smoked rollio/i, file: 'Honey Smoked Rollio (Upright).jpg' },
+        { match: /vanilla rollio/i, file: 'Vanilla Rollio.jpg' },
+        { match: /rollio/i, file: 'Regular Rollio 12in. (Full Product).jpg' },
+        { match: /cheek slab/i, file: 'Beef Cheek Slab (Full Shot).jpg' },
+        { match: /chunky cheek/i, file: 'Chunky Chow Cheek Pieces.jpg' },
+        { match: /duck neck/i, file: 'Duck Neck (full shot).jpg' },
+        { match: /duck head/i, file: 'Duck heads (Full Shot).jpg' },
+        { match: /duck feet|duck foot/i, file: 'Duck Feet (Multiple).jpg' },
+        { match: /goose neck/i, file: 'Goose Neck (Full Shot).jpg' },
+        { match: /chicken feet/i, file: 'Chicken Feet (full Shot).jpg' },
+        { match: /super meaty beef tendon/i, file: 'Super Meaty Beef Tendons.jpg' },
+        { match: /beef wrapped corium|corium/i, file: 'Beef Wrapped Corium (Full Shot).jpg' },
+        { match: /paddywack/i, file: 'Beef Tendon 6in. (Full Shot).jpg' },
+        { match: /beef lung/i, file: 'Beef Lung (Full Poduct).jpg' },
+        { match: /trachea/i, file: 'Beef Trachea 12in (Full Product).jpg' },
+        { match: /buffalo horn/i, file: 'Buffalo Horn.jpg' },
+        { match: /rams horn/i, file: 'Rams Horn (Full Product).jpg' },
+        { match: /buffalo knuckle|meaty buffalo bone/i, file: 'Buffalo End Bone (Full Product) .jpg' },
+        { match: /femur/i, file: 'Large Femur Bone (Full Product).jpg' },
+        { match: /hide donut|braided usa hide|pressed ring/i, file: 'Large Hide Ring (Full Product).jpg' }
+    ];
+    for (let i = 0; i < rules.length; i++) {
+        if (rules[i].match.test(name)) {
+            return encodeURI('media/' + rules[i].file);
+        }
+    }
+    return 'media/placeholder-bully-stick.png';
+}
+
+
 function buildProductCard(product) {
     const card = document.createElement('div');
     card.className = 'wholesale-product-card';
@@ -2800,7 +2866,11 @@ function buildProductCard(product) {
     const photo = document.createElement('div');
     photo.className = 'card-photo';
     const img = document.createElement('img');
-    img.src = 'media/placeholder-bully-stick.png';
+    img.src = getProductImagePath(product);
+    img.onerror = function () {
+        this.onerror = null;
+        this.src = 'media/placeholder-bully-stick.png';
+    };
     img.alt = product.name || 'Donegal Natural treat';
     photo.appendChild(img);
 
@@ -2830,7 +2900,7 @@ function buildProductCard(product) {
             product.price || '',
             product.cs || '',
             product.category,
-            'media/placeholder-bully-stick.png',
+            getProductImagePath(product),
             benefits
         );
     };
