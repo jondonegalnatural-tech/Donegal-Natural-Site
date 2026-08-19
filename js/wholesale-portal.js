@@ -2324,49 +2324,29 @@ function buildProductCard(product) {
     card.className = 'wholesale-product-card';
 
     const photo = document.createElement('div');
+    photo.className = 'card-photo';
     const img = document.createElement('img');
     img.src = 'media/placeholder-bully-stick.png';
     img.alt = product.name || 'Donegal Natural treat';
     photo.appendChild(img);
 
     const body = document.createElement('div');
-    body.style.padding = '0.85rem 1rem 1rem';
-    body.style.display = 'flex';
-    body.style.flexDirection = 'column';
-    body.style.flex = '1';
+    body.className = 'card-body';
 
     const name = document.createElement('h3');
-    name.className = 'brand-green';
-    name.style.fontWeight = '700';
-    name.style.fontSize = '0.95rem';
-    name.style.lineHeight = '1.3';
-    name.style.marginBottom = '0.35rem';
+    name.className = 'card-name';
     name.textContent = product.name || '';
 
-    const cs = document.createElement('p');
-    cs.style.color = '#6B4423';
-    cs.style.fontSize = '0.8rem';
-    cs.style.marginBottom = '0.2rem';
-    cs.textContent = product.cs ? ('Case size: ' + product.cs) : '';
-
-    const price = document.createElement('p');
-    price.className = 'brand-green';
-    price.style.fontWeight = '700';
-    price.style.fontSize = '1rem';
-    price.style.marginBottom = '0.75rem';
-    price.textContent = formatCardPrice(product);
+    const meta = document.createElement('p');
+    meta.className = 'card-meta';
+    const csText = product.cs ? ('Case size ' + product.cs) : '';
+    const priceText = formatCardPrice(product);
+    meta.textContent = [csText, priceText].filter(Boolean).join(' · ');
 
     const btn = document.createElement('button');
     btn.type = 'button';
+    btn.className = 'card-add';
     btn.textContent = 'Add to Quote';
-    btn.style.marginTop = 'auto';
-    btn.style.width = '100%';
-    btn.style.padding = '0.55rem 0.75rem';
-    btn.style.background = '#1E4D2B';
-    btn.style.color = '#d4b78f';
-    btn.style.fontWeight = '700';
-    btn.style.borderRadius = '0.65rem';
-    btn.style.fontSize = '0.82rem';
     btn.onclick = () => {
         const benefits = (typeof getHealthBenefitsForProduct === 'function')
             ? getHealthBenefitsForProduct(product.name)
@@ -2382,8 +2362,7 @@ function buildProductCard(product) {
     };
 
     body.appendChild(name);
-    body.appendChild(cs);
-    body.appendChild(price);
+    body.appendChild(meta);
     body.appendChild(btn);
     card.appendChild(photo);
     card.appendChild(body);
