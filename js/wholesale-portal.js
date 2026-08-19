@@ -4651,6 +4651,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Normal portal init
+    if (typeof checkNewProductAlert === 'function') checkNewProductAlert();
     await loadWholesaleCatalog();
     await loadPortalInventory();
     await loadCustomerBackOrders();
@@ -4665,9 +4666,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateOrderingAsIndicator();
     refreshOrderHistoryBadge();
     refreshMyQuotesBadge();
-    if (typeof checkNewProductAlert === 'function') {
-        setTimeout(checkNewProductAlert, 800);
-    }
 
     // Phase 1: always hide My Quotes / Quotes nav
     document.querySelectorAll('.sidebar-link[data-target="section-quotes"]').forEach(el => {
