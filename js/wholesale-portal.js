@@ -4542,7 +4542,7 @@ async function checkNewProductAlert() {
     const key = newProductAlertStorageKey();
     if (!key || typeof supabaseClient === 'undefined') return;
 
-    const lastSeen = localStorage.getItem(key);
+       const lastSeen = localStorage.getItem(key) || '2026-08-10T00:00:00.000Z'; const lastSeen = localStorage.getItem(key);
     if (!lastSeen) {
         localStorage.setItem(key, new Date().toISOString());
         return;
