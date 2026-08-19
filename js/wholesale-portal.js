@@ -25,6 +25,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 
 // ================== GLOBAL VARIABLES ==================
 let currentCategoryFilter = 'All';
+let currentSubCategoryFilter = '';
 let recommendedRotatorTimer = null;
 let quoteItems = JSON.parse(localStorage.getItem('wholesaleQuote')) || [];
 let portalInventory = {}; // product_name → quantity
@@ -2081,14 +2082,40 @@ function getSidebarCategories() {
     return ordered.concat(extra);
 }
 
-function selectWholesaleCategory(category) {
-    currentCategoryFilter = category;
+function getSubcategoriesFor(category) {
+    const seen = {};
+    const list = [];
+    (WHOLESALE_PRICES || []).forEach(p => {
+        if (p.category !== category) return;
+        const sub = (p.subCategory || '').trim();
+        if (!sub || seen[sub]) return;
+        seen[sub] = true;
+        list.push(sub);
+    });
+    return list;
+}
+
+function clearWholesaleSearch() {
     const searchInput = document.getElementById('product-search');
     const clearBtn = document.getElementById('clear-search');
     const suggestionsBox = document.getElementById('search-suggestions');
     if (searchInput) searchInput.value = '';
     if (clearBtn) clearBtn.classList.add('hidden');
     if (suggestionsBox) suggestionsBox.classList.add('hidden');
+}
+
+function selectWholesaleCategory(category) {
+    currentCategoryFilter = category;
+    currentSubCategoryFilter = '';
+    clearWholesaleSearch();
+    renderCategoryFilters();
+    renderPortalProducts();
+}
+
+function selectWholesaleSubcategory(category, subcategory) {
+    currentCategoryFilter = category;
+    currentSubCategoryFilter = subcategory || '';
+    clearWholesaleSearch();
     renderCategoryFilters();
     renderPortalProducts();
 }
@@ -2104,14 +2131,57 @@ function renderCategoryFilters() {
     function fill(container, useChip) {
         if (!container) return;
         container.innerHTML = '';
+
+        if (useChip && currentCategoryFilter !== 'All') {
+            const back = document.createElement('button');
+            back.type = 'button';
+            back.className = 'mobile-cat-chip';
+            back.textContent = 'Recommended';
+            back.onclick = () => selectWholesaleCategory('All');
+            container.appendChild(back);
+
+            const catBtn = document.createElement('button');
+            catBtn.type = 'button';
+            catBtn.className = 'mobile-cat-chip';
+            if (!currentSubCategoryFilter) catBtn.classList.add('active');
+            catBtn.textContent = currentCategoryFilter;
+            catBtn.onclick = () => selectWholesaleCategory(currentCategoryFilter);
+            container.appendChild(catBtn);
+
+            getSubcategoriesFor(currentCategoryFilter).forEach(sub => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'mobile-cat-chip';
+                if (currentSubCategoryFilter === sub) btn.classList.add('active');
+                btn.textContent = sub;
+                btn.onclick = () => selectWholesaleSubcategory(currentCategoryFilter, sub);
+                container.appendChild(btn);
+            });
+            return;
+        }
+
         items.forEach(item => {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.textContent = item.label;
             btn.className = useChip ? 'mobile-cat-chip' : 'sidebar-cat-btn';
-            if (currentCategoryFilter === item.value) btn.classList.add('active');
+            if (currentCategoryFilter === item.value && !currentSubCategoryFilter) {
+                btn.classList.add('active');
+            }
             btn.onclick = () => selectWholesaleCategory(item.value);
             container.appendChild(btn);
+
+            if (!useChip && item.value !== 'All' && item.value === currentCategoryFilter) {
+                getSubcategoriesFor(item.value).forEach(sub => {
+                    const subBtn = document.createElement('button');
+                    subBtn.type = 'button';
+                    subBtn.className = 'sidebar-sub-btn';
+                    subBtn.textContent = sub;
+                    if (currentSubCategoryFilter === sub) subBtn.classList.add('active');
+                    subBtn.onclick = () => selectWholesaleSubcategory(item.value, sub);
+                    container.appendChild(subBtn);
+                });
+            }
         });
     }
 
@@ -2379,6 +2449,41 @@ function renderProductCardGrid(container, products, emptyMessage) {
     grid.className = 'wholesale-card-grid';
     products.forEach(product => grid.appendChild(buildProductCard(product)));
     container.appendChild(grid);
+}
+
+function renderGroupedCategoryCards(container, products, emptyMessage) {
+    container.innerHTML = '';
+    if (!products || products.length === 0) {
+        container.innerHTML = '<p class="text-center py-8 text-[#6B4423]">' + (emptyMessage || 'No products found.') + '</p>';
+        return;
+    }
+
+    const groups = [];
+    const map = {};
+    products.forEach(p => {
+        const key = (p.subCategory || '').trim() || 'Other';
+        if (!map[key]) {
+            map[key] = [];
+            groups.push(key);
+        }
+        map[key].push(p);
+    });
+
+    groups.forEach(sub => {
+        const block = document.createElement('div');
+        block.className = 'subcategory-block';
+
+        const heading = document.createElement('h3');
+        heading.className = 'subcategory-heading';
+        heading.textContent = sub;
+        block.appendChild(heading);
+
+        const grid = document.createElement('div');
+        grid.className = 'wholesale-card-grid';
+        map[sub].forEach(product => grid.appendChild(buildProductCard(product)));
+        block.appendChild(grid);
+        container.appendChild(block);
+    });
 }
 
 function updateProductsHeading(text) {
