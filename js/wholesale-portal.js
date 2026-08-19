@@ -3467,6 +3467,8 @@ function updateMyQuotesBadge(count) {
     });
 }
 
+    if (typeof checkNewProductAlert === 'function') checkNewProductAlert();
+
 async function refreshMyQuotesBadge() {
     try {
         const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
@@ -4531,6 +4533,58 @@ async function loadWholesaleCatalog() {
         console.error('loadWholesaleCatalog error — keeping hardcoded list:', err);
     }
 }
+
+function newProductAlertStorageKey() {
+    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    const email = (user.email || '').toLowerCase().trim();
+    return email ? ('newProductAlertSeenAt_' + email) : null;
+}
+
+async function checkNewProductAlert() {
+    const key = newProductAlertStorageKey();
+    if (!key || typeof supabaseClient === 'undefined') return;
+
+    const lastSeen = localStorage.getItem(key);
+    if (!lastSeen) {
+        localStorage.setItem(key, new Date().toISOString());
+        return;
+    }
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('products')
+            .select('name, category, case_size, unit_price, created_at')
+            .eq('active', true)
+            .gt('created_at', lastSeen)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        if (!data || data.length === 0) return;
+
+        const list = document.getElementById('new-product-alert-list');
+        const modal = document.getElementById('new-product-alert-modal');
+        if (!list || !modal) return;
+
+        list.innerHTML = data.map(p => {
+            const price = p.unit_price != null ? ('$' + Number(p.unit_price).toFixed(2)) : '';
+            const cs = p.case_size ? (' · ' + p.case_size) : '';
+            return '<li><strong>' + (p.name || '') + '</strong>' +
+                (p.category ? (' <span class="text-[#6B4423]">(' + p.category + cs + ')</span>') : '') +
+                (price ? (' — ' + price) : '') + '</li>';
+        }).join('');
+
+        modal.classList.remove('hidden');
+    } catch (err) {
+        console.error('checkNewProductAlert error:', err);
+    }
+}
+
+function dismissNewProductAlert() {
+    const key = newProductAlertStorageKey();
+    if (key) localStorage.setItem(key, new Date().toISOString());
+    document.getElementById('new-product-alert-modal')?.classList.add('hidden');
+}
+
 
 document.addEventListener('DOMContentLoaded', async () => {
     const user = JSON.parse(localStorage.getItem('currentUser') || 'null');

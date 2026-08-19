@@ -734,7 +734,18 @@
         </div>
     </div>
 </div>
-
+<div id="new-product-alert-modal"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[90] p-4">
+    <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg p-6">
+        <h2 class="text-xl font-bold brand-green mb-2">New products available</h2>
+        <p class="text-sm text-[#6B4423] mb-4">These items were added since your last visit.</p>
+        <ul id="new-product-alert-list" class="space-y-2 mb-6 max-h-64 overflow-y-auto text-sm text-[#1E4D2B]"></ul>
+        <button type="button" onclick="dismissNewProductAlert()"
+                class="w-full bg-[#1E4D2B] text-[#d4b78f] font-bold py-3 rounded-xl">
+            Got it
+        </button>
+    </div>
+</div>
         <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/salesman-portal.js"></script>
 </body>
