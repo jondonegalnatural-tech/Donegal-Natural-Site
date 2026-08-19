@@ -3467,8 +3467,6 @@ function updateMyQuotesBadge(count) {
     });
 }
 
-    if (typeof checkNewProductAlert === 'function') checkNewProductAlert();
-
 async function refreshMyQuotesBadge() {
     try {
         const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
@@ -4657,6 +4655,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateOrderingAsIndicator();
     refreshOrderHistoryBadge();
     refreshMyQuotesBadge();
+    if (typeof checkNewProductAlert === 'function') checkNewProductAlert();
 
     // Phase 1: always hide My Quotes / Quotes nav
     document.querySelectorAll('.sidebar-link[data-target="section-quotes"]').forEach(el => {
