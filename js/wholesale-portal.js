@@ -25,6 +25,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 
 // ================== GLOBAL VARIABLES ==================
 let currentCategoryFilter = 'All';
+let recommendedRotatorTimer = null;
 let quoteItems = JSON.parse(localStorage.getItem('wholesaleQuote')) || [];
 let portalInventory = {}; // product_name → quantity
 let customerBackOrders = []; // pending + fulfilled for this customer
@@ -2066,31 +2067,56 @@ const ITEM_SPECIFIC_BENEFITS = {
 
 // ================== RENDER CATEGORY FILTERS ==================
 
+function getSidebarCategories() {
+    const fromCatalog = [];
+    const seen = {};
+    (WHOLESALE_PRICES || []).forEach(p => {
+        const cat = p.category;
+        if (!cat || seen[cat]) return;
+        seen[cat] = true;
+        fromCatalog.push(cat);
+    });
+    const ordered = MAIN_CATEGORIES.filter(c => c !== 'All' && seen[c]);
+    const extra = fromCatalog.filter(c => MAIN_CATEGORIES.indexOf(c) === -1).sort();
+    return ordered.concat(extra);
+}
+
+function selectWholesaleCategory(category) {
+    currentCategoryFilter = category;
+    const searchInput = document.getElementById('product-search');
+    const clearBtn = document.getElementById('clear-search');
+    const suggestionsBox = document.getElementById('search-suggestions');
+    if (searchInput) searchInput.value = '';
+    if (clearBtn) clearBtn.classList.add('hidden');
+    if (suggestionsBox) suggestionsBox.classList.add('hidden');
+    renderCategoryFilters();
+    renderPortalProducts();
+}
+
 function renderCategoryFilters() {
-    const container = document.getElementById('category-filters');
-    if (!container) return;
+    const sidebar = document.getElementById('sidebar-categories');
+    const mobile = document.getElementById('mobile-category-filters');
+    const cats = getSidebarCategories();
+    const items = [{ label: 'Recommended', value: 'All' }].concat(
+        cats.map(c => ({ label: c, value: c }))
+    );
 
-    container.innerHTML = '';
-    container.style.display = 'flex';
-    container.style.flexDirection = 'column';
-    container.style.alignItems = 'center';
-    container.style.gap = '0.35rem';
-    container.style.fontSize = '0.88rem';
+    function fill(container, useChip) {
+        if (!container) return;
+        container.innerHTML = '';
+        items.forEach(item => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = item.label;
+            btn.className = useChip ? 'mobile-cat-chip' : 'sidebar-cat-btn';
+            if (currentCategoryFilter === item.value) btn.classList.add('active');
+            btn.onclick = () => selectWholesaleCategory(item.value);
+            container.appendChild(btn);
+        });
+    }
 
-    // Row 1: All
-    createSingleText(container, 'All', true);
-
-    // Row 2
-    createCategoryRow(container, ['Bully Sticks', 'Cow Cheeks', 'Jerky', 'Feet', 'Ears']);
-
-    // Row 3
-    createCategoryRow(container, ['Large Meaty Femur/Bone/Knuckles', 'Horns', 'Hooves', 'Braided', 'Ox Tails']);
-
-    // Row 4
-    createCategoryRow(container, ['Twisty Q’s and Natural Munchy Sticks', 'Supreme Hide Chips', 'Retrievers', 'Pressed Bones']);
-
-    // Row 5
-    createSingleText(container, 'Packaged Items', false);
+    fill(sidebar, false);
+    fill(mobile, true);
 }
 
 function createSingleText(parent, text, isAll) {
@@ -2267,11 +2293,150 @@ async function loadPortalInventory() {
 }
 
 // ================== RENDER PORTAL PRODUCTS (With Grouping) ==================
+function stopRecommendedRotator() {
+    if (recommendedRotatorTimer) {
+        clearInterval(recommendedRotatorTimer);
+        recommendedRotatorTimer = null;
+    }
+}
+
+function pickRandomProducts(count) {
+    const pool = (WHOLESALE_PRICES || []).slice();
+    for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = pool[i];
+        pool[i] = pool[j];
+        pool[j] = tmp;
+    }
+    return pool.slice(0, Math.min(count, pool.length));
+}
+
+function formatCardPrice(product) {
+    let displayPrice = product.price || '';
+    if (displayPrice && !displayPrice.toLowerCase().includes('market') && !displayPrice.includes('/')) {
+        displayPrice += '/ea';
+    }
+    return displayPrice;
+}
+
+function buildProductCard(product) {
+    const card = document.createElement('div');
+    card.className = 'wholesale-product-card';
+
+    const photo = document.createElement('div');
+    const img = document.createElement('img');
+    img.src = 'media/placeholder-bully-stick.png';
+    img.alt = product.name || 'Donegal Natural treat';
+    photo.appendChild(img);
+
+    const body = document.createElement('div');
+    body.style.padding = '0.85rem 1rem 1rem';
+    body.style.display = 'flex';
+    body.style.flexDirection = 'column';
+    body.style.flex = '1';
+
+    const name = document.createElement('h3');
+    name.className = 'brand-green';
+    name.style.fontWeight = '700';
+    name.style.fontSize = '0.95rem';
+    name.style.lineHeight = '1.3';
+    name.style.marginBottom = '0.35rem';
+    name.textContent = product.name || '';
+
+    const cs = document.createElement('p');
+    cs.style.color = '#6B4423';
+    cs.style.fontSize = '0.8rem';
+    cs.style.marginBottom = '0.2rem';
+    cs.textContent = product.cs ? ('Case size: ' + product.cs) : '';
+
+    const price = document.createElement('p');
+    price.className = 'brand-green';
+    price.style.fontWeight = '700';
+    price.style.fontSize = '1rem';
+    price.style.marginBottom = '0.75rem';
+    price.textContent = formatCardPrice(product);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = 'Add to Quote';
+    btn.style.marginTop = 'auto';
+    btn.style.width = '100%';
+    btn.style.padding = '0.55rem 0.75rem';
+    btn.style.background = '#1E4D2B';
+    btn.style.color = '#d4b78f';
+    btn.style.fontWeight = '700';
+    btn.style.borderRadius = '0.65rem';
+    btn.style.fontSize = '0.82rem';
+    btn.onclick = () => {
+        const benefits = (typeof getHealthBenefitsForProduct === 'function')
+            ? getHealthBenefitsForProduct(product.name)
+            : null;
+        showPackagedItemModal(
+            product.name,
+            product.price || '',
+            product.cs || '',
+            product.category,
+            'media/placeholder-bully-stick.png',
+            benefits
+        );
+    };
+
+    body.appendChild(name);
+    body.appendChild(cs);
+    body.appendChild(price);
+    body.appendChild(btn);
+    card.appendChild(photo);
+    card.appendChild(body);
+    return card;
+}
+
+function renderProductCardGrid(container, products, emptyMessage) {
+    container.innerHTML = '';
+    if (!products || products.length === 0) {
+        container.innerHTML = '<p class="text-center py-8 text-[#6B4423]">' + (emptyMessage || 'No products found.') + '</p>';
+        return;
+    }
+    const grid = document.createElement('div');
+    grid.className = 'wholesale-card-grid';
+    products.forEach(product => grid.appendChild(buildProductCard(product)));
+    container.appendChild(grid);
+}
+
+function updateProductsHeading(text) {
+    const heading = document.getElementById('products-heading');
+    if (heading) heading.textContent = text;
+}
+
+function renderRecommendedCards() {
+    const container = document.getElementById('portal-products');
+    if (!container) return;
+    updateProductsHeading('Recommended for you');
+    renderProductCardGrid(container, pickRandomProducts(4), 'No products available yet.');
+}
+
+function startRecommendedRotator() {
+    stopRecommendedRotator();
+    recommendedRotatorTimer = setInterval(() => {
+        if (currentCategoryFilter !== 'All') {
+            stopRecommendedRotator();
+            return;
+        }
+        const searchInput = document.getElementById('product-search');
+        if (searchInput && searchInput.value.trim().length >= 2) {
+            stopRecommendedRotator();
+            return;
+        }
+        renderRecommendedCards();
+    }, 10000);
+}
+
 function renderPortalProducts() {
     const container = document.getElementById('portal-products');
     if (!container) return;
 
     if (window._customerIsInactive) {
+        stopRecommendedRotator();
+        updateProductsHeading('Wholesale Products');
         container.innerHTML = `
             <div class="bg-white border-2 border-amber-400 rounded-2xl p-10 text-center max-w-xl mx-auto">
                 <i class="fas fa-lock text-4xl text-amber-600 mb-4"></i>
@@ -2282,9 +2447,10 @@ function renderPortalProducts() {
         return;
     }
 
-    // Gate: no prices until salesman has approved pricing for this customer
     const customer = window._currentCustomer;
     if (!customer || !customer.pricing_approved_at) {
+        stopRecommendedRotator();
+        updateProductsHeading('Wholesale Products');
         container.innerHTML = `
             <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-10 text-center max-w-xl mx-auto">
                 <i class="fas fa-lock text-4xl text-[#6B4423] mb-4"></i>
@@ -2298,99 +2464,16 @@ function renderPortalProducts() {
         return;
     }
 
-    const section = document.getElementById('section-products');
-    if (section) {
-        section.style.setProperty('max-width', 'none', 'important');
-        section.style.setProperty('width', '100%', 'important');
-        section.style.setProperty('margin-left', '0', 'important');
-        section.style.setProperty('margin-right', '0', 'important');
-        section.style.setProperty('padding-left', '2rem', 'important');
-        section.style.setProperty('padding-right', '2rem', 'important');
-        section.style.setProperty('box-sizing', 'border-box', 'important');
-    }
-
-    container.style.maxWidth = '1200px';
-    container.style.width = '100%';
-    container.style.marginLeft = 'auto';
-    container.style.marginRight = 'auto';
-    container.style.paddingLeft = '0';
-    container.style.paddingRight = '0';
-    container.innerHTML = '';
-
-    const table = document.createElement('table');
-    table.style.cssText = 'width:100%; border-collapse:collapse; table-layout:auto; margin:0; padding:0; font-size: 0.88rem;';
-    table.innerHTML = `
-        <thead>
-            <tr style="background:#1E4D2B; color:#d4b78f;">
-                <th style="border:2px solid #6B4423; padding:0.45rem 0.5rem; text-align:left; font-weight:600;">Product Name</th>
-                <th style="border:2px solid #6B4423; padding:0.45rem 0.5rem; text-align:center; font-weight:600; width:90px;">Case Size</th>
-                <th style="border:2px solid #6B4423; padding:0.45rem 0.5rem; text-align:center; font-weight:600; width:95px;">Unit Price</th>
-                <th style="border:2px solid #6B4423; padding:0.45rem 0.5rem; text-align:center; font-weight:600; width:120px;">Add to Quote</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    `;
-    container.appendChild(table);
-    const tbody = table.querySelector('tbody');
-
-    let productsToShow = WHOLESALE_PRICES;
-    if (currentCategoryFilter !== 'All') {
-        productsToShow = WHOLESALE_PRICES.filter(p => p.category === currentCategoryFilter);
-    }
-
-    if (productsToShow.length === 0) {
-        const row = document.createElement('tr');
-        row.innerHTML = `<td colspan="4" style="padding:1rem; text-align:center; color:#6B4423;">No products found in this category.</td>`;
-        tbody.appendChild(row);
+    if (currentCategoryFilter === 'All') {
+        renderRecommendedCards();
+        startRecommendedRotator();
         return;
     }
 
-    const grouped = {};
-    productsToShow.forEach(product => {
-        const key = product.subCategory || "General";
-        if (!grouped[key]) grouped[key] = [];
-        grouped[key].push(product);
-    });
-
-    Object.keys(grouped).forEach(subCat => {
-        const headerRow = document.createElement('tr');
-        headerRow.innerHTML = `
-            <td colspan="4" style="background:#e8d9c2; color:#1E4D2B; font-weight:700; padding:0.45rem 0.5rem; border:2px solid #6B4423; font-size:0.9rem;">
-                ${subCat}
-            </td>
-        `;
-        tbody.appendChild(headerRow);
-
-        grouped[subCat].forEach(product => {
-            const safeName = product.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            let displayPrice = product.price || "";
-            if (product.price && !product.price.toLowerCase().includes('market') && !product.price.includes('/')) {
-                displayPrice += '/ea';
-            }
-
-                        const row = document.createElement('tr');
-            row.style.borderBottom = '1px solid #6B4423';
-            row.innerHTML = `
-                <td style="border:1px solid #6B4423; padding:0.5rem; font-weight:600; color:#1E4D2B;">
-                    ${product.name}
-                    ${'' /* Phase 1: inventory badges hidden */}
-                </td>
-                <td style="border:1px solid #6B4423; padding:0.5rem; color:#6B4423; text-align:center; width:90px;">
-                    ${product.cs || ""}
-                </td>
-                <td style="border:1px solid #6B4423; padding:0.5rem; font-weight:700; color:#1E4D2B; text-align:center; width:95px;">
-                    ${displayPrice}
-                </td>
-                <td style="border:1px solid #6B4423; padding:0.5rem; text-align:center; width:120px;">
-                    <button onclick="showPackagedItemModal('${safeName}', '${product.price || ""}', '${product.cs || ""}', '${product.category}', 'media/placeholder-bully-stick.png', getHealthBenefitsForProduct('${product.name}'))"
-                            style="padding: 0.35rem 0.85rem; background:#1E4D2B; color:#d4b78f; font-weight:700; border-radius:8px; font-size:0.78rem; white-space: nowrap;">
-                        Add to Quote
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(row);
-        });
-    });
+    stopRecommendedRotator();
+    updateProductsHeading(currentCategoryFilter);
+    const productsToShow = WHOLESALE_PRICES.filter(p => p.category === currentCategoryFilter);
+    renderProductCardGrid(container, productsToShow, 'No products found in this category.');
 }
 // ================== ADD TO QUOTE SYSTEM ==================
 function showPackagedItemModal(name, price, cs, category, image = null, healthBenefits = null) {
@@ -4411,66 +4494,14 @@ function filterAndRenderProducts(searchTerm) {
     const container = document.getElementById('portal-products');
     if (!container) return;
 
+    stopRecommendedRotator();
+    updateProductsHeading('Search results');
+
+    const term = (searchTerm || '').toLowerCase();
     const filtered = WHOLESALE_PRICES.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase())
+        (p.name || '').toLowerCase().includes(term)
     );
-
-    // Simple re-render of filtered results
-    container.innerHTML = '';
-
-    if (filtered.length === 0) {
-        container.innerHTML = `<p class="text-center py-8 text-[#6B4423]">No products found.</p>`;
-        return;
-    }
-
-    // Re-use the same table structure from renderPortalProducts
-    const table = document.createElement('table');
-    table.style.cssText = 'width:100%; border-collapse:collapse; table-layout:auto; margin:0; padding:0; font-size: 0.88rem;';
-
-    table.innerHTML = `
-        <thead>
-            <tr style="background:#1E4D2B; color:#d4b78f;">
-                <th style="border:2px solid #6B4423; padding:0.45rem 0.5rem; text-align:left; font-weight:600; max-width: 340px;">Product Name</th>
-                <th style="border:2px solid #6B4423; padding:0.45rem 0.5rem; text-align:center; font-weight:600; width:80px;">Case Size</th>
-                <th style="border:2px solid #6B4423; padding:0.45rem 0.5rem; text-align:center; font-weight:600; width:85px;">Unit Price</th>
-                <th style="border:2px solid #6B4423; padding:0.45rem 0.5rem; text-align:center; font-weight:600; width:115px;">Add to Quote</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    `;
-
-    const tbody = table.querySelector('tbody');
-
-    filtered.forEach(product => {
-        const safeName = product.name.replace(/"/g, '&quot;');
-        let displayPrice = product.price || "";
-        if (product.price && !product.price.toLowerCase().includes('market') && !product.price.includes('/')) {
-            displayPrice += '/ea';
-        }
-
-        const row = document.createElement('tr');
-        row.style.borderBottom = '1px solid #6B4423';
-        row.innerHTML = `
-            <td style="border:1px solid #6B4423; padding:0.45rem 0.5rem; font-weight:600; color:#1E4D2B; white-space: nowrap; max-width: 340px; overflow: hidden; text-overflow: ellipsis;">
-                ${product.name}
-            </td>
-            <td style="border:1px solid #6B4423; padding:0.45rem 0.5rem; color:#6B4423; text-align:center; width:80px;">
-                ${product.cs || ""}
-            </td>
-            <td style="border:1px solid #6B4423; padding:0.45rem 0.5rem; font-weight:700; color:#1E4D2B; text-align:center; width:85px;">
-                ${displayPrice}
-            </td>
-            <td style="border:1px solid #6B4423; padding:0.45rem 0.5rem; text-align:right; width:115px;">
-                <button onclick="showPackagedItemModal('${safeName}', '${product.price || ""}', '${product.cs || ""}', '${product.category}')"
-                        style="padding: 0.32rem 0.9rem; background:#1E4D2B; color:#d4b78f; font-weight:700; border-radius:8px; font-size:0.78rem; white-space: nowrap;">
-                    Add to Quote
-                </button>
-            </td>
-        `;
-        tbody.appendChild(row);
-    });
-
-    container.appendChild(table);
+    renderProductCardGrid(container, filtered, 'No products found.');
 }
 
 // ================== WELCOME MESSAGE ==================

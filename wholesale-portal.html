@@ -53,6 +53,65 @@
             white-space: nowrap;
         }
         /* ========== END WHOLESALE MOBILE ========== */
+        /* ========== WHOLESALE PRODUCT CARDS (step 1) ========== */
+        .wholesale-card-grid {
+            display: grid;
+            grid-template-columns: repeat(1, minmax(0, 1fr));
+            gap: 1rem;
+        }
+        @media (min-width: 640px) {
+            .wholesale-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (min-width: 1024px) {
+            .wholesale-card-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        }
+        .wholesale-product-card {
+            background: #fff;
+            border: 2px solid #6B4423;
+            border-radius: 1rem;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .wholesale-product-card img {
+            width: 100%;
+            height: 160px;
+            object-fit: contain;
+            background: #f8f4eb;
+            padding: 0.75rem;
+        }
+        .sidebar-cat-btn {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 0.45rem 0.75rem;
+            border-radius: 0.6rem;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #6B4423;
+        }
+        .sidebar-cat-btn:hover { background: #f8f4eb; }
+        .sidebar-cat-btn.active {
+            background: #1E4D2B;
+            color: #d4b78f;
+        }
+        .mobile-cat-chip {
+            flex-shrink: 0;
+            padding: 0.35rem 0.8rem;
+            border: 2px solid #6B4423;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #6B4423;
+            background: #fff;
+            white-space: nowrap;
+        }
+        .mobile-cat-chip.active {
+            background: #1E4D2B;
+            color: #d4b78f;
+            border-color: #1E4D2B;
+        }
+        /* ========== END WHOLESALE PRODUCT CARDS ========== */        
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -144,6 +203,13 @@
                 </nav>
             </div>
 
+            <div class="mb-6">
+                <h3 class="font-bold text-lg brand-green mb-3 px-2">Categories</h3>
+                <nav id="sidebar-categories" class="space-y-0.5 max-h-[48vh] overflow-y-auto pr-1">
+                    <!-- filled by renderCategoryFilters() -->
+                </nav>
+            </div>
+
             <!-- Shipping Policy -->
             <div class="bg-white border border-[#6B4423] rounded-2xl p-4 text-sm mb-4">
                 <div class="flex items-start gap-2">
@@ -176,8 +242,8 @@
 
             <!-- Products Section -->
             <div id="section-products" class="portal-section">
-                <!-- Categories -->
-                <div class="mb-5">
+                <!-- Hidden: old top-of-page category rows. Categories now live in the left sidebar. -->
+                <div class="mb-5" style="display: none;">
                     <div id="category-filters"></div>
                 </div>
 
@@ -197,8 +263,10 @@
                          class="hidden absolute z-50 w-full bg-white border-2 border-[#6B4423] rounded-2xl mt-1 shadow-lg max-h-80 overflow-auto"></div>
                 </div>
 
+                <div id="mobile-category-filters" class="lg:hidden mb-5 flex gap-2 overflow-x-auto pb-2"></div>
+
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
-                    <h2 class="text-xl md:text-2xl font-bold brand-green">Wholesale Products</h2>
+                    <h2 id="products-heading" class="text-xl md:text-2xl font-bold brand-green">Recommended for you</h2>
                     <button onclick="showQuoteSidebar()"
                             class="lg:hidden flex items-center gap-2 px-3 md:px-4 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl text-sm font-bold">
                         <i class="fas fa-file-invoice-dollar"></i>
