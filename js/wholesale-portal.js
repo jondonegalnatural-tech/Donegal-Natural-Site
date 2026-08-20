@@ -3502,12 +3502,15 @@ function buildCombinedCard(group) {
     qtyInput.type = 'number';
     qtyInput.min = '1';
     qtyInput.value = '1';
+    const qtyWrap = document.createElement('div');
+    qtyWrap.className = 'card-qty-input-wrap';
     qtyInput.className = 'card-qty-input';
-    qtyRow.appendChild(qtyInput);
+    qtyWrap.appendChild(qtyInput);
     const unitsLabel = document.createElement('span');
-    unitsLabel.className = 'card-qty-units-label';
+    unitsLabel.className = 'card-qty-units-inside';
     unitsLabel.textContent = 'units';
-    qtyRow.appendChild(unitsLabel);
+    qtyWrap.appendChild(unitsLabel);
+    qtyRow.appendChild(qtyWrap);
 
     function caseQtyFor(product) {
         return parseCaseQty(product && product.cs);

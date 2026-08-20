@@ -213,21 +213,32 @@
             text-align: center;
             white-space: nowrap;
         }
-        .card-qty-units-label {
-            font-size: 0.78rem;
-            font-weight: 700;
-            color: #6B4423;
-            margin-right: 0.15rem;
-        }        
-        .card-qty-input {
-            width: 3.2rem;
+        .card-qty-input-wrap {
+            display: inline-flex;
+            align-items: center;
             border: 1.5px solid #6B4423;
             border-radius: 0.55rem;
-            padding: 0.35rem 0.25rem;
+            background: #fff;
+            padding: 0.15rem 0.45rem 0.15rem 0.25rem;
+            gap: 0.2rem;
+        }
+        .card-qty-input {
+            width: 2.6rem;
+            border: none;
+            outline: none;
+            background: transparent;
+            padding: 0.2rem 0;
             font-size: 0.85rem;
             font-weight: 700;
             text-align: center;
             color: #1E4D2B;
+        }
+        .card-qty-units-inside {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #6B4423;
+            white-space: nowrap;
+            pointer-events: none;
         }
         .card-qty-chip {
             border: 1.5px solid #6B4423;
