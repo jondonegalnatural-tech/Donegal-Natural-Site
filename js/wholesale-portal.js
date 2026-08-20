@@ -3602,6 +3602,7 @@ function buildCombinedCard(group) {
 
         body.appendChild(flavorRow);
         body.appendChild(qtyRow);
+        body.appendChild(caseRow);
         body.appendChild(btn);
         refreshMulti();
     } else {
