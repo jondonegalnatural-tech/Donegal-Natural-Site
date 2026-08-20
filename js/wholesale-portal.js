@@ -2858,6 +2858,284 @@ function getProductImagePath(product) {
     return 'media/placeholder-bully-stick.png';
 }
 
+const COMBINED_CARD_GROUPS = [
+    {
+        id: 'euro-bully',
+        title: 'Euro Bully Sticks',
+        mode: 'size-pack',
+        names: [
+            '6” Euro Bully Stick (Bulk)',
+            '6” Euro Bully Stick (Display)',
+            '12” Euro Bully Stick (Bulk)',
+            '12” Euro Bully Sticks (Display)'
+        ]
+    },
+    {
+        id: 'cow-ears',
+        title: 'Cow Ears',
+        mode: 'multi-flavor',
+        names: [
+            'Natural Cow Ears (Bulk)',
+            'Vanilla Cow Ears (Bulk)',
+            'Honey Smoked Cow Ears (Bulk)'
+        ]
+    }
+];
+
+function getCombinedGroupForName(name) {
+    return COMBINED_CARD_GROUPS.find(g => g.names.indexOf(name) !== -1) || null;
+}
+
+function parseCaseQty(cs) {
+    const m = String(cs || '').replace(/,/g, '').match(/(\d+(?:\.\d+)?)/);
+    return m ? Math.round(Number(m[1])) : 0;
+}
+
+function appendProductCards(grid, products) {
+    const seen = {};
+    (products || []).forEach(product => {
+        const group = getCombinedGroupForName(product.name);
+        if (group) {
+            if (seen[group.id]) return;
+            seen[group.id] = true;
+            grid.appendChild(buildCombinedCard(group));
+            return;
+        }
+        grid.appendChild(buildProductCard(product));
+    });
+}
+
+function variantSizeLabel(product) {
+    const m = String(product.name || '').match(/(\d+(?:\s*-\s*\d+)?)\s*[”"]/);
+    return m ? (m[1] + '”') : '';
+}
+
+function variantPackLabel(product) {
+    if (/\bdisplay\b/i.test(product.name || '')) return 'Display';
+    return 'Bulk';
+}
+
+function variantFlavorLabel(product) {
+    const n = String(product.name || '');
+    if (/honey smoked/i.test(n)) return 'Honey Smoked';
+    if (/vanilla/i.test(n)) return 'Vanilla';
+    if (/natural/i.test(n)) return 'Natural';
+    return n;
+}
+
+function buildCombinedCard(group) {
+    const variants = group.names.map(findCatalogProduct).filter(Boolean);
+    const fallback = variants[0] || { name: group.title, cs: '', price: '', category: '' };
+    const card = document.createElement('div');
+    card.className = 'wholesale-product-card';
+
+    const photo = document.createElement('div');
+    photo.className = 'card-photo';
+    const img = document.createElement('img');
+    img.src = getProductImagePath(fallback);
+    img.alt = group.title;
+    img.onerror = function () {
+        this.onerror = null;
+        this.src = 'media/placeholder-bully-stick.png';
+    };
+    photo.appendChild(img);
+
+    const body = document.createElement('div');
+    body.className = 'card-body';
+
+    const name = document.createElement('h3');
+    name.className = 'card-name';
+    name.textContent = group.title;
+
+    const meta = document.createElement('p');
+    meta.className = 'card-meta';
+
+    const qtyRow = document.createElement('div');
+    qtyRow.className = 'card-qty-row';
+    const qtyInput = document.createElement('input');
+    qtyInput.type = 'number';
+    qtyInput.min = '1';
+    qtyInput.value = '1';
+    qtyInput.className = 'card-qty-input';
+    qtyRow.appendChild(qtyInput);
+
+    function caseQtyFor(product) {
+        return parseCaseQty(product && product.cs);
+    }
+
+    function addQtyChip(label, getValue) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'card-qty-chip';
+        chip.textContent = label;
+        chip.onclick = () => {
+            const n = getValue();
+            if (n > 0) qtyInput.value = String(n);
+        };
+        qtyRow.appendChild(chip);
+    }
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'card-add';
+    btn.textContent = 'Add to Quote';
+
+    if (group.mode === 'size-pack') {
+        let selected = variants[0] || fallback;
+        const sizeRow = document.createElement('div');
+        sizeRow.className = 'card-options';
+        const packRow = document.createElement('div');
+        packRow.className = 'card-options';
+
+        function refreshEuro() {
+            const csText = selected.cs ? ('Case size ' + selected.cs) : '';
+            meta.textContent = [csText, formatCardPrice(selected)].filter(Boolean).join(' · ');
+            img.src = getProductImagePath(selected);
+            img.alt = selected.name;
+            Array.from(sizeRow.children).forEach(el => {
+                el.classList.toggle('active', el.textContent === variantSizeLabel(selected));
+            });
+            Array.from(packRow.children).forEach(el => {
+                el.classList.toggle('active', el.textContent === variantPackLabel(selected));
+            });
+        }
+
+        const sizes = [];
+        variants.forEach(v => {
+            const label = variantSizeLabel(v);
+            if (label && sizes.indexOf(label) === -1) sizes.push(label);
+        });
+        sizes.forEach(label => {
+            const opt = document.createElement('button');
+            opt.type = 'button';
+            opt.className = 'card-option-btn';
+            opt.textContent = label;
+            opt.onclick = () => {
+                const pack = variantPackLabel(selected);
+                selected = variants.find(v => variantSizeLabel(v) === label && variantPackLabel(v) === pack)
+                    || variants.find(v => variantSizeLabel(v) === label)
+                    || selected;
+                refreshEuro();
+            };
+            sizeRow.appendChild(opt);
+        });
+
+        ['Bulk', 'Display'].forEach(label => {
+            if (!variants.some(v => variantPackLabel(v) === label)) return;
+            const opt = document.createElement('button');
+            opt.type = 'button';
+            opt.className = 'card-option-btn';
+            opt.textContent = label;
+            opt.onclick = () => {
+                const size = variantSizeLabel(selected);
+                selected = variants.find(v => variantPackLabel(v) === label && variantSizeLabel(v) === size)
+                    || variants.find(v => variantPackLabel(v) === label)
+                    || selected;
+                refreshEuro();
+            };
+            packRow.appendChild(opt);
+        });
+
+        addQtyChip('12', () => 12);
+        addQtyChip('24', () => 24);
+        addQtyChip('50', () => 50);
+        addQtyChip('Half case', () => Math.max(1, Math.floor(caseQtyFor(selected) / 2)));
+        addQtyChip('Whole case', () => caseQtyFor(selected));
+
+        btn.onclick = () => {
+            if (window._customerIsInactive) {
+                alert('This account is currently inactive and cannot add items to a quote.');
+                return;
+            }
+            addToQuote(selected.name, selected.price || '', selected.cs || '', qtyInput.value);
+        };
+
+        body.appendChild(name);
+        body.appendChild(meta);
+        body.appendChild(sizeRow);
+        body.appendChild(packRow);
+        body.appendChild(qtyRow);
+        body.appendChild(btn);
+        refreshEuro();
+    } else {
+        const selected = {};
+        const flavorRow = document.createElement('div');
+        flavorRow.className = 'card-options';
+
+        function selectedVariants() {
+            return variants.filter(v => selected[v.name]);
+        }
+
+        function refreshCow() {
+            const chosen = selectedVariants();
+            const preview = chosen[0] || fallback;
+            img.src = getProductImagePath(preview);
+            img.alt = preview.name;
+            if (!chosen.length) {
+                meta.textContent = 'Select one or more flavors';
+            } else if (chosen.length === 1) {
+                const csText = chosen[0].cs ? ('Case size ' + chosen[0].cs) : '';
+                meta.textContent = [csText, formatCardPrice(chosen[0])].filter(Boolean).join(' · ');
+            } else {
+                meta.textContent = chosen.length + ' flavors selected';
+            }
+            Array.from(flavorRow.children).forEach(el => {
+                el.classList.toggle('active', !!selected[el.getAttribute('data-name')]);
+            });
+        }
+
+        variants.forEach(v => {
+            const opt = document.createElement('button');
+            opt.type = 'button';
+            opt.className = 'card-option-btn';
+            opt.textContent = variantFlavorLabel(v);
+            opt.setAttribute('data-name', v.name);
+            opt.onclick = () => {
+                selected[v.name] = !selected[v.name];
+                refreshCow();
+            };
+            flavorRow.appendChild(opt);
+        });
+        if (variants[0]) selected[variants[0].name] = true;
+
+        addQtyChip('12', () => 12);
+        addQtyChip('24', () => 24);
+        addQtyChip('50', () => 50);
+        addQtyChip('Half case', () => {
+            const first = selectedVariants()[0] || variants[0];
+            return Math.max(1, Math.floor(caseQtyFor(first) / 2));
+        });
+        addQtyChip('Whole case', () => {
+            const first = selectedVariants()[0] || variants[0];
+            return caseQtyFor(first);
+        });
+
+        btn.onclick = () => {
+            if (window._customerIsInactive) {
+                alert('This account is currently inactive and cannot add items to a quote.');
+                return;
+            }
+            const chosen = selectedVariants();
+            if (!chosen.length) {
+                alert('Select at least one flavor.');
+                return;
+            }
+            chosen.forEach(v => addToQuote(v.name, v.price || '', v.cs || '', qtyInput.value));
+        };
+
+        body.appendChild(name);
+        body.appendChild(meta);
+        body.appendChild(flavorRow);
+        body.appendChild(qtyRow);
+        body.appendChild(btn);
+        refreshCow();
+    }
+
+    card.appendChild(photo);
+    card.appendChild(body);
+    return card;
+}
+
 
 function buildProductCard(product) {
     const card = document.createElement('div');
@@ -2921,7 +3199,7 @@ function renderProductCardGrid(container, products, emptyMessage) {
     }
     const grid = document.createElement('div');
     grid.className = 'wholesale-card-grid';
-    products.forEach(product => grid.appendChild(buildProductCard(product)));
+    appendProductCards(grid, products);
     container.appendChild(grid);
 }
 
@@ -2954,7 +3232,7 @@ function renderGroupedCategoryCards(container, products, emptyMessage) {
 
         const grid = document.createElement('div');
         grid.className = 'wholesale-card-grid';
-        map[sub].forEach(product => grid.appendChild(buildProductCard(product)));
+        appendProductCards(grid, map[sub]);
         block.appendChild(grid);
         container.appendChild(block);
     });
@@ -3066,7 +3344,7 @@ function renderPortalProducts() {
         }
         const grid = document.createElement('div');
         grid.className = 'wholesale-card-grid';
-        products.forEach(product => grid.appendChild(buildProductCard(product)));
+        appendProductCards(grid, products);
         block.appendChild(grid);
         container.appendChild(block);
     });
