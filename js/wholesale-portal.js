@@ -2860,9 +2860,45 @@ function getProductImagePath(product) {
 
 const COMBINED_CARD_GROUPS = [
     {
+        id: 'green-line',
+        title: 'Green Line Bully Sticks',
+        mode: 'single',
+        dims: ['greenStyle', 'size'],
+        names: [
+            '6” Thin Green Line Bully Sticks (Bulk)',
+            '12” Thin Green Line Bully Sticks (Bulk)',
+            '6” Regular Green Line Bully Sticks (Bulk)',
+            '12” Regular Green Line Bully Sticks (Bulk)',
+            '6” “Thick” Green Line Bully Sticks (Bulk)',
+            '12” “Thick” Green Line Bully Sticks (Bulk)',
+            '6” “Super Thick” Green Line Bully Sticks (Bulk)',
+            '12” “Super Thick” Green Line Bully Sticks (Bulk)'
+        ]
+    },
+    {
+        id: 'bully-canes',
+        title: 'Bully Canes',
+        mode: 'single',
+        dims: ['size'],
+        names: ['24-28” Bully Cane', '32-36” Bully Cane']
+    },
+    {
+        id: 'braided-bully',
+        title: 'Braided Bully Sticks',
+        mode: 'single',
+        dims: ['braidStyle', 'size'],
+        names: [
+            '6” Braided Bully Sticks (Bulk)',
+            '12” Braided Bully Sticks (Bulk)',
+            '6” “Super” Braided Bully Sticks (Bulk)',
+            '12” “Super” Braided Bully Sticks (Bulk)'
+        ]
+    },
+    {
         id: 'euro-bully',
         title: 'Euro Bully Sticks',
-        mode: 'size-pack',
+        mode: 'single',
+        dims: ['size', 'pack'],
         names: [
             '6” Euro Bully Stick (Bulk)',
             '6” Euro Bully Stick (Display)',
@@ -2871,19 +2907,456 @@ const COMBINED_CARD_GROUPS = [
         ]
     },
     {
+        id: 'bully-pieces',
+        title: 'Bully Pieces',
+        mode: 'single',
+        dims: ['bag'],
+        names: [
+            '8oz. Bag of Bully Pieces',
+            '10oz. Bag of Bully Pieces',
+            '16oz. Bag of Bully Pieces'
+        ]
+    },
+    {
+        id: 'beef-jerky',
+        title: 'USA Beef Jerky Treats',
+        mode: 'single',
+        dims: ['pack'],
+        names: ['USA Beef Jerky Treats (Bulk)', 'USA Beef Jerky Treats (Display)']
+    },
+    {
+        id: 'turkey-jerky',
+        title: 'USA Turkey Jerky Treats',
+        mode: 'single',
+        dims: ['pack'],
+        names: ['USA Turkey Jerky Treats (Bulk)', 'USA Turkey Jerky Treats (Display)']
+    },
+    {
+        id: 'chicken-jerky',
+        title: 'USA Chicken Jerky Treats',
+        mode: 'single',
+        dims: ['pack'],
+        names: ['USA Chicken Jerky Treats (Bulk)', 'USA Chicken Jerky Treats (Display)']
+    },
+    {
+        id: 'elky-jerky',
+        title: 'USA Elky Jerky Treats',
+        mode: 'single',
+        dims: ['pack'],
+        names: ['USA Elky Jerky Treats (Bulk)', 'USA Elky Jerky Treats (Display)']
+    },
+    {
+        id: 'venison-jerky',
+        title: 'USA Venison & Sweet Potato Jerky',
+        mode: 'single',
+        dims: ['pack'],
+        names: [
+            'USA Venison & Sweet Potato Jerky Treats (Bulk)',
+            'USA Venison & Sweet Potato Jerky Treats (Display)'
+        ]
+    },
+    {
+        id: 'elky-training',
+        title: 'USA Elky Training Treats',
+        mode: 'single',
+        dims: ['bag'],
+        names: [
+            '6oz. Bags of USA Elky Training Treats',
+            '10oz. Bags of USA Elky Training Treats',
+            '16oz. Bags of USA Elky Training Treats',
+            'USA Elky Training Treats (per lb.)'
+        ]
+    },
+    {
         id: 'cow-ears',
         title: 'Cow Ears',
-        mode: 'multi-flavor',
+        mode: 'multi',
+        labelDim: 'flavor',
         names: [
             'Natural Cow Ears (Bulk)',
             'Vanilla Cow Ears (Bulk)',
             'Honey Smoked Cow Ears (Bulk)'
         ]
+    },
+    {
+        id: 'cow-ears-6pack',
+        title: '6-Pack Cow Ears',
+        mode: 'multi',
+        labelDim: 'flavor',
+        names: [
+            '6-Pack Natural Cow Ears',
+            '6-Pack Vanilla Cow Ears',
+            '6-Pack Honey Smoked Cow Ears'
+        ]
+    },
+    {
+        id: 'buffalo-ears',
+        title: 'Buffalo Ears',
+        mode: 'multi',
+        labelDim: 'flavor',
+        names: [
+            'MAGNA Buffalo Ears (Bulk)',
+            'Honey Smoked MAGNA Buffalo Ears (Bulk)'
+        ]
+    },
+    {
+        id: 'lamb-ears',
+        title: 'Lamb Ears',
+        mode: 'multi',
+        labelDim: 'flavor',
+        names: ['White Lamb Ears (Bulk)', 'Vanilla Lamb Ears (Bulk)']
+    },
+    {
+        id: 'hairy-beef-ears',
+        title: 'Hairy Beef Ears',
+        mode: 'single',
+        dims: ['format'],
+        names: ['Hairy Beef Ears (Bulk)', '5-Pack Hairy Beef Ears']
+    },
+    {
+        id: 'rabbit-ears',
+        title: 'Fuzzy Rabbit Ears',
+        mode: 'single',
+        dims: ['format'],
+        names: ['Fuzzy Rabbit Ears (Bulk)', '10-Pack Fuzzy Rabbit Ears']
+    },
+    {
+        id: 'rabbit-feet',
+        title: 'Fuzzy Rabbit Feet',
+        mode: 'single',
+        dims: ['format'],
+        names: ['Fuzzy Rabbit Feet (Bulk)', '10-Pack Fuzzy Rabbit Feet']
+    },
+    {
+        id: 'natural-rollio',
+        title: 'Natural Rollio',
+        mode: 'single',
+        dims: ['size'],
+        names: ['5-6” Natural Rollio (Bulk)', '10-12” Natural Rollio (Bulk)']
+    },
+    {
+        id: 'regular-rollio',
+        title: 'Regular Rollio',
+        mode: 'single',
+        dims: ['size'],
+        names: ['5-6” Regular Rollio (Bulk)', '10-12” Regular Rollio (Bulk)']
+    },
+    {
+        id: 'vanilla-rollio',
+        title: 'Vanilla Rollio',
+        mode: 'single',
+        dims: ['size'],
+        names: ['5-6” Vanilla Rollio (Bulk)', '10-12” Vanilla Rollio (Bulk)']
+    },
+    {
+        id: 'honey-rollio',
+        title: 'Honey Smoked Rollio',
+        mode: 'single',
+        dims: ['size'],
+        names: ['5-6” Honey Smoked Rollio (Bulk)', '10-12” Honey Smoked Rollio (Bulk)']
+    },
+    {
+        id: 'phat-rollio',
+        title: 'PHAT Rollio',
+        mode: 'single',
+        dims: ['phatStyle', 'size'],
+        names: [
+            '5-6” PHAT Rollio (Bulk)',
+            '10-12” PHAT Rollio (Bulk)',
+            '5-6” Vanilla PHAT Rollio (Bulk)',
+            '10-12” Vanilla PHAT Rollio (Bulk)',
+            '5-6” Honey Smoked PHAT Rollio (Bulk)',
+            '10-12” Honey Smoked PHAT Rollio (Bulk)'
+        ]
+    },
+    {
+        id: 'pb-rollio',
+        title: 'Peanut Butter Rollio',
+        mode: 'single',
+        dims: ['size'],
+        names: ['5-6” Peanut Butter Rollio (Bulk)', '10-12” Peanut Butter Rollio (Bulk)']
+    },
+    {
+        id: 'cheek-slabs',
+        title: 'Cow Cheek Slabs',
+        mode: 'single',
+        dims: ['cheekFlavor', 'size'],
+        names: [
+            '5-6” Cow Cheek Slab (Bulk per lb.)',
+            '5-6” Vanilla Cow Cheek Slab (Bulk per lb.)',
+            '10-12” Cow Cheek Slab (Bulk per lb.)',
+            '10-12” Vanilla Cow Cheek Slab (Bulk per lb.)',
+            '10-12” Natural Cow Cheek Slabs (Bulk per lb.)'
+        ]
+    },
+    {
+        id: 'chunky-bulk',
+        title: 'Chunky Cheeks (Bulk)',
+        mode: 'multi',
+        labelDim: 'flavor',
+        names: ['White Chunky Cheeks (Bulk)', 'Vanilla Chunky Cheeks (Bulk)']
+    },
+    {
+        id: 'chunky-bags',
+        title: 'Chunky Cheeks (Bags)',
+        mode: 'single',
+        dims: ['flavor', 'bag'],
+        names: [
+            '8oz. Bags of White Chunky Cheeks',
+            '8oz. Bags of Vanilla Chunky Cheeks',
+            '16oz. Bags of White Chunky Cheeks',
+            '16oz. Bags of Vanilla Chunky Cheeks'
+        ]
+    },
+    {
+        id: 'magna-ox',
+        title: 'MAGNA Ox Tails',
+        mode: 'single',
+        dims: ['size'],
+        names: ['6” MAGNA Natural Ox Tails (Bulk)', '12” MAGNA Natural Ox Tails (Bulk)']
+    },
+    {
+        id: 'ox-tails',
+        title: 'Ox Tails',
+        mode: 'single',
+        dims: ['flavor', 'size'],
+        names: [
+            '6” White Ox Tails (Bulk)',
+            '12” White Ox Tails (Bulk)',
+            '6” Vanilla Ox Tails (Bulk)',
+            '12” Vanilla Ox Tails (Bulk)',
+            '6” Honey Smoked Ox Tails (Bulk)',
+            '12” Honey Smoked Ox Tails (Bulk)'
+        ]
+    },
+    {
+        id: 'duck-necks',
+        title: 'Duck Necks',
+        mode: 'single',
+        dims: ['format'],
+        names: ['Crunchy Baked Duck Necks (Bulk)', '10-Pack of Crunchy Duck Necks']
+    },
+    {
+        id: 'duck-heads',
+        title: 'Duck Heads',
+        mode: 'single',
+        dims: ['format'],
+        names: [
+            'Crunchy Baked Duck Heads (Bulk)',
+            '5-Pack of Crunchy Duck Heads',
+            '10-Pack of Duck Heads'
+        ]
+    },
+    {
+        id: 'duck-feet',
+        title: 'Euro Duck Feet',
+        mode: 'single',
+        dims: ['format'],
+        names: [
+            'Euro Duck Feet (Bulk)',
+            'Euro Duck Feet (Display)',
+            '10-Pack Euro Duck Feet'
+        ]
+    },
+    {
+        id: 'goose-necks',
+        title: 'Goose Necks',
+        mode: 'single',
+        dims: ['format'],
+        names: ['Goose Neck (Bulk)', '10-Pack of Crunchy Goose Necks']
+    },
+    {
+        id: 'chicken-feet',
+        title: 'Chicken Feet',
+        mode: 'single',
+        dims: ['chickenStyle', 'format'],
+        names: [
+            'Crunchy Euro Chicken Feet (Bulk)',
+            'Euro White Chicken Feet (Bulk)',
+            'Vanilla Flavored White Euro Chicken Feet (Bulk)',
+            '10-Pack Euro Chicken Feet',
+            '10-Pack White Euro Chicken Feet',
+            '10-Pack Vanilla Euro Chicken Feet'
+        ]
+    },
+    {
+        id: 'stuffed-bones',
+        title: 'Stuffed Buffalo Bones',
+        mode: 'multi',
+        labelDim: 'stuffedFlavor',
+        names: [
+            'Large Turkey Jerky Stuffed Buffalo Bone',
+            'Large Elky Jerky Stuffed Buffalo Bone',
+            'Large Venison and Sweet Potato Stuffed Buffalo Bone',
+            'Large Peanut Butter Stuffed Buffalo Bone'
+        ]
+    },
+    {
+        id: 'paddywack',
+        title: 'Paddywacks',
+        mode: 'single',
+        dims: ['size'],
+        names: ['6” Paddywack (Bulk)', '12” Paddywack (Bulk)']
+    },
+    {
+        id: 'corium',
+        title: 'Corium Sticks',
+        mode: 'single',
+        dims: ['coriumStyle', 'size'],
+        names: [
+            '6” Corium Sticks (Bulk)',
+            '12” Corium Sticks (Bulk)',
+            '6” Beef Wrapped Corium Sticks (Bulk)',
+            '12” Beef Wrapped Corium Sticks (Bulk)'
+        ]
+    },
+    {
+        id: 'beef-lung',
+        title: 'Beef Lung',
+        mode: 'single',
+        dims: ['bag'],
+        names: ['8oz. Bag of Beef Lung', '16oz. Bag of Beef Lung']
+    },
+    {
+        id: 'beef-trachea',
+        title: 'Beef Trachea',
+        mode: 'single',
+        dims: ['size'],
+        names: ['5-6” Beef Trachea', '10-13” Beef Trachea']
+    },
+    {
+        id: 'trachea-pieces',
+        title: 'Beef Trachea Pieces',
+        mode: 'single',
+        dims: ['bag'],
+        names: [
+            '8oz. Bags of Beef Trachea Pieces',
+            '16oz. Bags of Beef Trachea Pieces'
+        ]
+    },
+    {
+        id: 'buffalo-horns',
+        title: 'Buffalo Horns',
+        mode: 'single',
+        dims: ['hornSize'],
+        names: [
+            'Large Buffalo Horn (Bulk)',
+            'Medium Buffalo Horn (Bulk)',
+            'Small Buffalo Horn (Bulk)'
+        ]
+    },
+    {
+        id: 'rams-horns',
+        title: 'Rams Horns',
+        mode: 'single',
+        dims: ['hornSize'],
+        names: [
+            'Large Rams Horn (Bulk)',
+            'Medium Rams Horn (Bulk)',
+            'Small Rams Horn (Bulk)'
+        ]
+    },
+    {
+        id: 'hooves',
+        title: 'Cow Hooves',
+        mode: 'single',
+        dims: ['hoofStyle'],
+        names: [
+            'Regular Cow Hooves (Bulk)',
+            'Smoked Cow Hooves (Bulk)',
+            '“Super” Cow Hooves (Bulk)'
+        ]
+    },
+    {
+        id: 'braided-esophagus',
+        title: 'Braided Esophagus',
+        mode: 'single',
+        dims: ['size', 'pack'],
+        names: [
+            '6” Braided Esophagus (Bulk)',
+            '12” Braided Esophagus (Bulk)',
+            '6” Braided Esophagus (Display)',
+            '12” Braided Esophagus (Display)'
+        ]
+    },
+    {
+        id: 'hide-donuts',
+        title: 'USA Hide Braided Donuts',
+        mode: 'single',
+        dims: ['donutFlavor', 'size'],
+        names: [
+            '5-7” Braided USA Hide Donuts (Bulk)',
+            '5-7” Vanilla USA Hide Braided Donuts (Bulk)',
+            '8-9” Braided USA Hide Donuts (Bulk)',
+            '8-9” Vanilla USA Hide Braided Donuts (Bulk)',
+            '10-11” Braided USA Hide Donuts (Bulk)',
+            '10-11” Vanilla USA Hide Braided Donuts (Bulk)'
+        ]
+    },
+    {
+        id: 'pressed-bones',
+        title: 'Pressed Bones',
+        mode: 'single',
+        dims: ['size'],
+        names: [
+            '4.5” Pressed Bone (Bulk)',
+            '6.5” Pressed Bone (Bulk)',
+            '8.5” Pressed Bone (Bulk)',
+            '10.5” Pressed Bone (Bulk)',
+            '12.5” Pressed Bone (Bulk)'
+        ]
+    },
+    {
+        id: 'twisty-qs',
+        title: 'Twisty Q’s',
+        mode: 'single',
+        dims: ['flavor'],
+        names: ['10” White Twisty Q’s (Bulk)', '10” Vanilla Twisty Q’s (Bulk)']
+    },
+    {
+        id: 'retrievers',
+        title: 'Supreme Retrievers',
+        mode: 'single',
+        dims: ['retrieverStyle', 'size'],
+        names: [
+            '6/9” White Supreme Retriever (Bulk)',
+            '10-11” x 30mm White Supreme Retriever (Bulk)',
+            '6/9” Vanilla Supreme Retriever (Bulk)',
+            '10-11” x 30mm Vanilla MAGNA Retriever (Bulk)'
+        ]
+    },
+    {
+        id: 'supreme-chips-bulk',
+        title: 'Supreme Hide Chips (Bulk)',
+        mode: 'multi',
+        labelDim: 'chipFlavor',
+        names: [
+            'White USA Supreme Hide Chips (Bulk per lb.)',
+            'Vanilla USA Supreme Chips (Bulk per lb.)',
+            'Peanut Butter Basted USA Supreme Hide Chips (Bulk per lb.)'
+        ]
+    },
+    {
+        id: 'binkeys',
+        title: 'Binky’s Supreme Chips',
+        mode: 'single',
+        dims: ['chipFlavor', 'bag'],
+        names: [
+            '8oz. Bags of White Supreme Chips (Binkey’s)',
+            '8oz. Bags of Peanut Butter Supreme Chips (Binkey’s)',
+            '8oz. Bags of Vanilla Supreme Chips (Binkey’s)',
+            '16oz. Bags of White Supreme Chips (Binkey’s)',
+            '16oz. Bags of Peanut Butter Supreme Chips (Binkey’s)',
+            '16oz. Bags of Vanilla Supreme Chips (Binkey’s)'
+        ]
     }
 ];
 
 function getCombinedGroupForName(name) {
-    return COMBINED_CARD_GROUPS.find(g => g.names.indexOf(name) !== -1) || null;
+    const want = normalizeProductName(name);
+    return COMBINED_CARD_GROUPS.find(g =>
+        g.names.some(n => normalizeProductName(n) === want)
+    ) || null;
 }
 
 function parseCaseQty(cs) {
@@ -2905,22 +3378,93 @@ function appendProductCards(grid, products) {
     });
 }
 
-function variantSizeLabel(product) {
-    const m = String(product.name || '').match(/(\d+(?:\s*-\s*\d+)?)\s*[”"]/);
-    return m ? (m[1] + '”') : '';
-}
-
-function variantPackLabel(product) {
-    if (/\bdisplay\b/i.test(product.name || '')) return 'Display';
-    return 'Bulk';
-}
-
-function variantFlavorLabel(product) {
-    const n = String(product.name || '');
-    if (/honey smoked/i.test(n)) return 'Honey Smoked';
-    if (/vanilla/i.test(n)) return 'Vanilla';
-    if (/natural/i.test(n)) return 'Natural';
-    return n;
+function extractVariantDim(dim, product) {
+    const n = String((product && product.name) || '');
+    switch (dim) {
+        case 'size': {
+            const m = n.match(/(\d+(?:\.\d+)?(?:\s*-\s*\d+(?:\.\d+)?)?)\s*[”"]/);
+            if (m) return m[1] + '”';
+            const m2 = n.match(/(\d+\/\d+)\s*[”"]/);
+            if (m2) return m2[1] + '”';
+            return '';
+        }
+        case 'pack':
+            if (/\bdisplay\b/i.test(n)) return 'Display';
+            if (/\bbulk\b/i.test(n)) return 'Bulk';
+            return '';
+        case 'bag': {
+            const m = n.match(/(\d+)\s*oz/i);
+            if (m) return m[1] + 'oz';
+            if (/per lb/i.test(n)) return 'per lb';
+            return '';
+        }
+        case 'format':
+            if (/10-pack/i.test(n)) return '10-Pack';
+            if (/5-pack/i.test(n)) return '5-Pack';
+            if (/6-pack/i.test(n)) return '6-Pack';
+            if (/\bdisplay\b/i.test(n)) return 'Display';
+            if (/\bbulk\b/i.test(n)) return 'Bulk';
+            return 'Standard';
+        case 'greenStyle':
+            if (/thin/i.test(n)) return 'Thin';
+            if (/super thick/i.test(n)) return 'Super Thick';
+            if (/thick/i.test(n)) return 'Thick';
+            if (/regular/i.test(n)) return 'Regular';
+            return '';
+        case 'braidStyle':
+            if (/[“"]super[”"]/i.test(n) || /super”|super"/.test(n)) return 'Super';
+            return 'Regular';
+        case 'flavor':
+            if (/honey smoked/i.test(n)) return 'Honey Smoked';
+            if (/vanilla/i.test(n)) return 'Vanilla';
+            if (/peanut butter/i.test(n)) return 'Peanut Butter';
+            if (/natural/i.test(n)) return 'Natural';
+            if (/\bwhite\b/i.test(n)) return 'White';
+            if (/magna/i.test(n)) return 'MAGNA';
+            return '';
+        case 'phatStyle':
+            if (/honey smoked/i.test(n)) return 'Honey Smoked';
+            if (/vanilla/i.test(n)) return 'Vanilla';
+            return 'Natural';
+        case 'cheekFlavor':
+            if (/vanilla/i.test(n)) return 'Vanilla';
+            return 'Natural';
+        case 'chickenStyle':
+            if (/vanilla/i.test(n)) return 'Vanilla';
+            if (/white/i.test(n)) return 'White';
+            return 'Crunchy Euro';
+        case 'hornSize':
+            if (/large/i.test(n)) return 'Large';
+            if (/medium/i.test(n)) return 'Medium';
+            if (/small/i.test(n)) return 'Small';
+            return '';
+        case 'hoofStyle':
+            if (/super/i.test(n)) return 'Super';
+            if (/smoked/i.test(n)) return 'Smoked';
+            return 'Regular';
+        case 'coriumStyle':
+            if (/beef wrapped/i.test(n)) return 'Beef Wrapped';
+            return 'Plain';
+        case 'chipFlavor':
+            if (/peanut butter/i.test(n)) return 'Peanut Butter';
+            if (/vanilla/i.test(n)) return 'Vanilla';
+            if (/white/i.test(n)) return 'White';
+            return '';
+        case 'retrieverStyle':
+            if (/vanilla/i.test(n)) return 'Vanilla';
+            return 'White';
+        case 'donutFlavor':
+            if (/vanilla/i.test(n)) return 'Vanilla';
+            return 'Natural';
+        case 'stuffedFlavor':
+            if (/turkey/i.test(n)) return 'Turkey';
+            if (/elky/i.test(n)) return 'Elky';
+            if (/venison/i.test(n)) return 'Venison';
+            if (/peanut butter/i.test(n)) return 'Peanut Butter';
+            return '';
+        default:
+            return '';
+    }
 }
 
 function buildCombinedCard(group) {
@@ -2980,85 +3524,12 @@ function buildCombinedCard(group) {
     btn.className = 'card-add';
     btn.textContent = 'Add to Quote';
 
-    if (group.mode === 'size-pack') {
-        let selected = variants[0] || fallback;
-        const sizeRow = document.createElement('div');
-        sizeRow.className = 'card-options';
-        const packRow = document.createElement('div');
-        packRow.className = 'card-options';
+    body.appendChild(name);
+    body.appendChild(meta);
 
-        function refreshEuro() {
-            const csText = selected.cs ? ('Case size ' + selected.cs) : '';
-            meta.textContent = [csText, formatCardPrice(selected)].filter(Boolean).join(' · ');
-            img.src = getProductImagePath(selected);
-            img.alt = selected.name;
-            Array.from(sizeRow.children).forEach(el => {
-                el.classList.toggle('active', el.textContent === variantSizeLabel(selected));
-            });
-            Array.from(packRow.children).forEach(el => {
-                el.classList.toggle('active', el.textContent === variantPackLabel(selected));
-            });
-        }
-
-        const sizes = [];
-        variants.forEach(v => {
-            const label = variantSizeLabel(v);
-            if (label && sizes.indexOf(label) === -1) sizes.push(label);
-        });
-        sizes.forEach(label => {
-            const opt = document.createElement('button');
-            opt.type = 'button';
-            opt.className = 'card-option-btn';
-            opt.textContent = label;
-            opt.onclick = () => {
-                const pack = variantPackLabel(selected);
-                selected = variants.find(v => variantSizeLabel(v) === label && variantPackLabel(v) === pack)
-                    || variants.find(v => variantSizeLabel(v) === label)
-                    || selected;
-                refreshEuro();
-            };
-            sizeRow.appendChild(opt);
-        });
-
-        ['Bulk', 'Display'].forEach(label => {
-            if (!variants.some(v => variantPackLabel(v) === label)) return;
-            const opt = document.createElement('button');
-            opt.type = 'button';
-            opt.className = 'card-option-btn';
-            opt.textContent = label;
-            opt.onclick = () => {
-                const size = variantSizeLabel(selected);
-                selected = variants.find(v => variantPackLabel(v) === label && variantSizeLabel(v) === size)
-                    || variants.find(v => variantPackLabel(v) === label)
-                    || selected;
-                refreshEuro();
-            };
-            packRow.appendChild(opt);
-        });
-
-        addQtyChip('12', () => 12);
-        addQtyChip('24', () => 24);
-        addQtyChip('50', () => 50);
-        addQtyChip('Half case', () => Math.max(1, Math.floor(caseQtyFor(selected) / 2)));
-        addQtyChip('Whole case', () => caseQtyFor(selected));
-
-        btn.onclick = () => {
-            if (window._customerIsInactive) {
-                alert('This account is currently inactive and cannot add items to a quote.');
-                return;
-            }
-            addToQuote(selected.name, selected.price || '', selected.cs || '', qtyInput.value);
-        };
-
-        body.appendChild(name);
-        body.appendChild(meta);
-        body.appendChild(sizeRow);
-        body.appendChild(packRow);
-        body.appendChild(qtyRow);
-        body.appendChild(btn);
-        refreshEuro();
-    } else {
+    if (group.mode === 'multi') {
         const selected = {};
+        const labelDim = group.labelDim || 'flavor';
         const flavorRow = document.createElement('div');
         flavorRow.className = 'card-options';
 
@@ -3066,18 +3537,18 @@ function buildCombinedCard(group) {
             return variants.filter(v => selected[v.name]);
         }
 
-        function refreshCow() {
+        function refreshMulti() {
             const chosen = selectedVariants();
             const preview = chosen[0] || fallback;
             img.src = getProductImagePath(preview);
             img.alt = preview.name;
             if (!chosen.length) {
-                meta.textContent = 'Select one or more flavors';
+                meta.textContent = 'Select one or more options';
             } else if (chosen.length === 1) {
                 const csText = chosen[0].cs ? ('Case size ' + chosen[0].cs) : '';
                 meta.textContent = [csText, formatCardPrice(chosen[0])].filter(Boolean).join(' · ');
             } else {
-                meta.textContent = chosen.length + ' flavors selected';
+                meta.textContent = chosen.length + ' options selected';
             }
             Array.from(flavorRow.children).forEach(el => {
                 el.classList.toggle('active', !!selected[el.getAttribute('data-name')]);
@@ -3088,11 +3559,11 @@ function buildCombinedCard(group) {
             const opt = document.createElement('button');
             opt.type = 'button';
             opt.className = 'card-option-btn';
-            opt.textContent = variantFlavorLabel(v);
+            opt.textContent = extractVariantDim(labelDim, v) || v.name;
             opt.setAttribute('data-name', v.name);
             opt.onclick = () => {
                 selected[v.name] = !selected[v.name];
-                refreshCow();
+                refreshMulti();
             };
             flavorRow.appendChild(opt);
         });
@@ -3117,24 +3588,96 @@ function buildCombinedCard(group) {
             }
             const chosen = selectedVariants();
             if (!chosen.length) {
-                alert('Select at least one flavor.');
+                alert('Select at least one option.');
                 return;
             }
             chosen.forEach(v => addToQuote(v.name, v.price || '', v.cs || '', qtyInput.value));
         };
 
-        body.appendChild(name);
-        body.appendChild(meta);
         body.appendChild(flavorRow);
         body.appendChild(qtyRow);
         body.appendChild(btn);
-        refreshCow();
+        refreshMulti();
+    } else {
+        const dims = group.dims || ['size'];
+        let selected = variants[0] || fallback;
+        const state = {};
+        dims.forEach(d => {
+            state[d] = extractVariantDim(d, selected);
+        });
+        const rows = {};
+
+        function findSelected() {
+            return variants.find(v => dims.every(d => extractVariantDim(d, v) === state[d]))
+                || variants.find(v => dims.filter(d => state[d]).every(d => extractVariantDim(d, v) === state[d]))
+                || variants[0]
+                || fallback;
+        }
+
+        function refreshSingle() {
+            selected = findSelected();
+            const csText = selected.cs ? ('Case size ' + selected.cs) : '';
+            meta.textContent = [csText, formatCardPrice(selected)].filter(Boolean).join(' · ');
+            img.src = getProductImagePath(selected);
+            img.alt = selected.name;
+            dims.forEach(d => {
+                const row = rows[d];
+                if (!row) return;
+                Array.from(row.children).forEach(el => {
+                    el.classList.toggle('active', el.textContent === state[d]);
+                });
+            });
+        }
+
+        dims.forEach(d => {
+            const labels = [];
+            variants.forEach(v => {
+                const label = extractVariantDim(d, v);
+                if (label && labels.indexOf(label) === -1) labels.push(label);
+            });
+            if (labels.length < 2) return;
+            const row = document.createElement('div');
+            row.className = 'card-options';
+            labels.forEach(label => {
+                const opt = document.createElement('button');
+                opt.type = 'button';
+                opt.className = 'card-option-btn';
+                opt.textContent = label;
+                opt.onclick = () => {
+                    state[d] = label;
+                    refreshSingle();
+                };
+                row.appendChild(opt);
+            });
+            rows[d] = row;
+            body.appendChild(row);
+        });
+
+        addQtyChip('12', () => 12);
+        addQtyChip('24', () => 24);
+        addQtyChip('50', () => 50);
+        addQtyChip('Half case', () => Math.max(1, Math.floor(caseQtyFor(selected) / 2)));
+        addQtyChip('Whole case', () => caseQtyFor(selected));
+
+        btn.onclick = () => {
+            if (window._customerIsInactive) {
+                alert('This account is currently inactive and cannot add items to a quote.');
+                return;
+            }
+            selected = findSelected();
+            addToQuote(selected.name, selected.price || '', selected.cs || '', qtyInput.value);
+        };
+
+        body.appendChild(qtyRow);
+        body.appendChild(btn);
+        refreshSingle();
     }
 
     card.appendChild(photo);
     card.appendChild(body);
     return card;
 }
+
 
 
 function buildProductCard(product) {
