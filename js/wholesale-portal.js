@@ -3631,23 +3631,28 @@ function buildDogSizeRow() {
     const row = document.createElement('div');
     row.className = 'card-sizes-row';
 
+    // Geometric side-view dog (reads clearly at small sizes)
     const dogSvg =
-        '<svg viewBox="0 0 120 80" aria-hidden="true" focusable="false">' +
-        '<path fill="currentColor" d="' +
-        'M18 52 ' +
-        'c0-6 3-11 8-14 ' +
-        'l4-10 c2-5 7-8 12-8 ' +
-        'c3 0 5 1 7 3 ' +
-        'l6-2 c5-1 10 2 12 6 ' +
-        'l4 6 ' +
-        'c5 1 9 5 10 10 ' +
-        'c2 4 1 9-2 12 ' +
-        'H24 c-4 0-6-3-6-7z ' +
-        'M28 28 c-5-8-14-9-18-4 c3 4 5 8 6 12 ' +
-        'M78 34 c6-6 16-5 20 1 c-4 3-6 7-7 11 ' +
-        'M32 58 v12 M44 58 v12 M58 58 v12 M70 58 v12' +
-        '"/>' +
-        '<circle fill="currentColor" cx="72" cy="30" r="2.2"/>' +
+        '<svg viewBox="0 0 64 48" aria-hidden="true" focusable="false">' +
+        '<g fill="currentColor">' +
+        // body
+        '<ellipse cx="30" cy="28" rx="16" ry="10"/>' +
+        // head
+        '<circle cx="48" cy="18" r="8"/>' +
+        // snout
+        '<ellipse cx="56" cy="20" rx="5" ry="3.5"/>' +
+        // ear
+        '<ellipse cx="44" cy="10" rx="3.5" ry="5" transform="rotate(-20 44 10)"/>' +
+        // tail
+        '<ellipse cx="12" cy="22" rx="6" ry="2.5" transform="rotate(-35 12 22)"/>' +
+        // legs
+        '<rect x="20" y="34" width="3.5" height="10" rx="1.5"/>' +
+        '<rect x="27" y="34" width="3.5" height="10" rx="1.5"/>' +
+        '<rect x="34" y="34" width="3.5" height="10" rx="1.5"/>' +
+        '<rect x="41" y="34" width="3.5" height="10" rx="1.5"/>' +
+        // eye
+        '<circle cx="50" cy="16" r="1.3" fill="#fff"/>' +
+        '</g>' +
         '</svg>';
 
     DOG_SIZE_META.forEach(size => {
@@ -3657,9 +3662,9 @@ function buildDogSizeRow() {
 
         const icon = document.createElement('div');
         icon.className = 'card-size-icon';
-        const px = Math.round(22 + (size.scale - 0.55) * 28);
+        const px = Math.round(28 + (size.scale - 0.55) * 32);
         icon.style.width = px + 'px';
-        icon.style.height = Math.round(px * 0.7) + 'px';
+        icon.style.height = Math.round(px * 0.75) + 'px';
         icon.innerHTML = dogSvg;
 
         const key = document.createElement('span');
