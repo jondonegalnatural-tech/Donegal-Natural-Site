@@ -272,15 +272,15 @@ body { background: #f8f1e9; }
     <div class="grid grid-cols-3 gap-2 text-center mb-3">
         <div class="bg-orange-50 rounded-xl py-2">
             <p class="text-xs text-orange-700 font-medium">Pending</p>
-            <p id="dash-pending-inquiries" class="text-lg font-bold text-orange-600">0</p>
+            <p id="dash-pending-count" class="text-lg font-bold text-orange-600">0</p>
         </div>
         <div class="bg-green-50 rounded-xl py-2">
-            <p class="text-xs text-green-700 font-medium">Approved</p>
-            <p id="dash-approved-inquiries" class="text-lg font-bold text-green-600">0</p>
+            <p class="text-xs text-green-700 font-medium">Received</p>
+            <p id="dash-received-count" class="text-lg font-bold text-green-600">0</p>
         </div>
-        <div class="bg-red-50 rounded-xl py-2">
-            <p class="text-xs text-red-600 font-medium">Denied</p>
-            <p id="dash-denied-inquiries" class="text-lg font-bold text-red-600">0</p>
+        <div class="bg-blue-50 rounded-xl py-2">
+            <p class="text-xs text-blue-700 font-medium">Processing</p>
+            <p id="dash-processing-count" class="text-lg font-bold text-blue-600">0</p>
         </div>
     </div>
     <div id="dash-inquiries-alert" class="hidden bg-orange-50 border border-orange-200 rounded-xl px-3 py-2 text-center">
