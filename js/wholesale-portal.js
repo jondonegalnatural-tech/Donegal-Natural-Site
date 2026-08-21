@@ -3690,13 +3690,11 @@ function buildCombinedCard(group) {
         this.src = 'media/placeholder-bully-stick.png';
     };
     photo.appendChild(img);
-        photo.style.cursor = 'pointer';
+    photo.style.cursor = 'pointer';
     photo.title = 'Click to enlarge';
     photo.onclick = () => {
-        const current = (img.alt && img.alt !== group.title)
-            ? { name: img.alt }
-            : fallback;
-        openProductImageLightbox(getProductImagePaths(current.name || group.title), 0);
+        const currentName = (img.alt && img.alt !== group.title) ? img.alt : (fallback.name || group.title);
+        openProductImageLightbox(getProductImagePaths(currentName), 0);
     };
 
     const body = document.createElement('div');
@@ -3708,12 +3706,12 @@ function buildCombinedCard(group) {
 
     const meta = document.createElement('p');
     meta.className = 'card-meta';
+
     const descEl = buildCardDescriptionEl();
     const sizeRow = buildDogSizeRow();
+
     const qtyRow = document.createElement('div');
     qtyRow.className = 'card-qty-row';
-    const caseRow = document.createElement('div');
-    caseRow.className = 'card-qty-row card-case-row';
     const qtyInput = document.createElement('input');
     qtyInput.type = 'number';
     qtyInput.min = '1';
@@ -3728,10 +3726,12 @@ function buildCombinedCard(group) {
     qtyWrap.appendChild(unitsLabel);
     qtyRow.appendChild(qtyWrap);
 
+    // Kept for easy revert of qty chips later (not used in UI right now)
+    const caseRow = document.createElement('div');
+    caseRow.className = 'card-qty-row card-case-row';
     function caseQtyFor(product) {
         return parseCaseQty(product && product.cs);
     }
-
     function addQtyChip(label, getValue, row) {
         const chip = document.createElement('button');
         chip.type = 'button';
@@ -3748,9 +3748,6 @@ function buildCombinedCard(group) {
     btn.type = 'button';
     btn.className = 'card-add';
     btn.textContent = 'Add to Quote';
-
-    const descEl = buildCardDescriptionEl();
-    const sizeRow = buildDogSizeRow();
 
     body.appendChild(name);
     body.appendChild(meta);
@@ -3887,8 +3884,6 @@ function buildCombinedCard(group) {
 
         body.appendChild(descEl);
         body.appendChild(sizeRow);
-        body.appendChild(descEl);
-        body.appendChild(sizeRow);
         body.appendChild(qtyRow);
         body.appendChild(btn);
         refreshSingle();
@@ -3898,8 +3893,6 @@ function buildCombinedCard(group) {
     card.appendChild(body);
     return card;
 }
-
-
 
 function buildProductCard(product) {
     const card = document.createElement('div');
@@ -3915,7 +3908,7 @@ function buildProductCard(product) {
     };
     img.alt = product.name || 'Donegal Natural treat';
     photo.appendChild(img);
-        photo.style.cursor = 'pointer';
+    photo.style.cursor = 'pointer';
     photo.title = 'Click to enlarge';
     photo.onclick = () => {
         openProductImageLightbox(getProductImagePaths(product), 0);
@@ -3930,11 +3923,14 @@ function buildProductCard(product) {
 
     const meta = document.createElement('p');
     meta.className = 'card-meta';
-    const descEl = buildCardDescriptionEl();
-    const sizeRow = buildDogSizeRow();
     const csText = product.cs ? ('Case size ' + product.cs) : '';
     const priceText = formatCardPrice(product);
     meta.textContent = [csText, priceText].filter(Boolean).join(' · ');
+
+    const descEl = buildCardDescriptionEl();
+    const sizeRow = buildDogSizeRow();
+    updateCardDescription(descEl, product.name);
+    updateDogSizeRow(sizeRow, product.name);
 
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -3953,11 +3949,6 @@ function buildProductCard(product) {
             benefits
         );
     };
-
-    const descEl = buildCardDescriptionEl();
-    const sizeRow = buildDogSizeRow();
-    updateCardDescription(descEl, product.name);
-    updateDogSizeRow(sizeRow, product.name);
 
     body.appendChild(name);
     body.appendChild(meta);
