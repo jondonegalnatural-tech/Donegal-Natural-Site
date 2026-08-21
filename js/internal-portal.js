@@ -8209,12 +8209,14 @@ function createInquiryCard(inquiry, showActions) {
     const status = (inquiry.status || 'pending').toLowerCase();
     const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
     const submitted = inquiry.created_at
-        ? new Date(inquiry.created_at).toLocaleDateString()
+        ? new Date(inquiry.created_at).toLocaleString()
         : '—';
 
     const nature = inquiry.nature_other
         ? `${inquiry.nature_of_business} (${inquiry.nature_other})`
         : (inquiry.nature_of_business || '—');
+
+    const location = (inquiry.region || '').trim() || '—';
 
     let html = `
         <div class="flex justify-between items-start mb-3">
@@ -8235,6 +8237,7 @@ function createInquiryCard(inquiry, showActions) {
             </div>
         </div>
         <div class="mb-3 bg-white rounded-lg p-3 text-sm space-y-1">
+            <p><strong>Location:</strong> ${location}</p>
             <p><strong>Monthly Amount:</strong> ${inquiry.monthly_amount || '—'}</p>
             <p><strong>Nature of Business:</strong> ${nature}</p>
         </div>
