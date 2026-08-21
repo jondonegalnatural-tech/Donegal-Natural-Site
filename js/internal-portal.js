@@ -8124,9 +8124,10 @@ async function loadInquiries() {
 }
 
 function updateInquiryStats() {
-    const pending  = inquiries.filter(i => (i.status || '').toLowerCase() === 'pending').length;
+    const pendingList = inquiries.filter(i => (i.status || '').toLowerCase() === 'pending');
     const approved = inquiries.filter(i => (i.status || '').toLowerCase() === 'approved').length;
     const denied   = inquiries.filter(i => (i.status || '').toLowerCase() === 'denied').length;
+    const pending  = pendingList.length;
 
     const pendingEl  = document.getElementById('pending-count');
     const approvedEl = document.getElementById('approved-count');
@@ -8136,13 +8137,39 @@ function updateInquiryStats() {
     if (approvedEl) approvedEl.textContent = approved;
     if (deniedEl)   deniedEl.textContent   = denied;
 
-    const dashPending  = document.getElementById('dash-pending-inquiries');
-    const dashApproved = document.getElementById('dash-approved-inquiries');
-    const dashDenied   = document.getElementById('dash-denied-inquiries');
+    // Dashboard card count
+    const dashPending = document.getElementById('dash-pending-inquiries');
+    if (dashPending) dashPending.textContent = pending;
 
-    if (dashPending)  dashPending.textContent  = pending;
-    if (dashApproved) dashApproved.textContent = approved;
-    if (dashDenied)   dashDenied.textContent   = denied;
+    // Dashboard card list of who is pending
+    const listEl = document.getElementById('dash-pending-inquiries-list');
+    if (listEl) {
+        if (pendingList.length === 0) {
+            listEl.innerHTML = '<p class="text-xs text-[#6B4423] text-center">No pending inquiries</p>';
+        } else {
+            listEl.innerHTML = pendingList.map(i => {
+                const name = (i.owner_name || '—').trim();
+                const company = (i.company_name || '').trim();
+                return `
+                    <div class="bg-[#f8f4eb] rounded-lg px-3 py-1.5 text-left">
+                        <p class="text-sm font-semibold brand-green truncate">${name}</p>
+                        ${company ? `<p class="text-xs text-[#6B4423] truncate">${company}</p>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+
+    // Sidebar badge
+    const badge = document.getElementById('inquiries-badge');
+    if (badge) {
+        if (pending > 0) {
+            badge.textContent = String(pending);
+            badge.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+        }
+    }
 }
 
 async function renderInquiries() {

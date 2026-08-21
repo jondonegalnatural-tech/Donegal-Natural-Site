@@ -265,29 +265,16 @@ body { background: #f8f1e9; }
     <div class="flex items-center justify-between mb-4">
         <div>
             <p class="text-sm text-[#6B4423] font-semibold">Customer Inquiries</p>
-            <p class="text-2xl font-bold brand-green mt-0.5">Leads</p>
+            <p class="text-2xl font-bold brand-green mt-0.5">Pending</p>
         </div>
         <i class="fas fa-question-circle text-3xl text-[#6B4423]"></i>
     </div>
-    <div class="grid grid-cols-3 gap-2 text-center mb-3">
-        <div class="bg-orange-50 rounded-xl py-2">
-            <p class="text-xs text-orange-700 font-medium">Pending</p>
-            <p id="dash-pending-count" class="text-lg font-bold text-orange-600">0</p>
-        </div>
-        <div class="bg-green-50 rounded-xl py-2">
-            <p class="text-xs text-green-700 font-medium">Received</p>
-            <p id="dash-received-count" class="text-lg font-bold text-green-600">0</p>
-        </div>
-        <div class="bg-blue-50 rounded-xl py-2">
-            <p class="text-xs text-blue-700 font-medium">Processing</p>
-            <p id="dash-processing-count" class="text-lg font-bold text-blue-600">0</p>
-        </div>
+    <div class="bg-orange-50 rounded-xl py-3 text-center mb-3">
+        <p class="text-xs text-orange-700 font-medium">Pending Inquiries</p>
+        <p id="dash-pending-inquiries" class="text-3xl font-bold text-orange-600">0</p>
     </div>
-    <div id="dash-inquiries-alert" class="hidden bg-orange-50 border border-orange-200 rounded-xl px-3 py-2 text-center">
-        <p class="text-xs text-orange-700 font-semibold">
-            <i class="fas fa-inbox mr-1"></i>
-            <span id="dash-inquiries-alert-text">New inquiries waiting</span>
-        </p>
+    <div id="dash-pending-inquiries-list" class="space-y-1.5 max-h-36 overflow-y-auto">
+        <p class="text-xs text-[#6B4423] text-center">No pending inquiries</p>
     </div>
 </div>
                 <!-- Orders Card -->
