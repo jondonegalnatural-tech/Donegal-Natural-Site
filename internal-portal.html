@@ -503,6 +503,7 @@ body { background: #f8f1e9; }
                 
                 <!-- Profit Margin Card -->
                 <div data-card-id="profit"
+                     style="display: none;"
                      onclick="dashboardCardClick(event, 'profit')"
                      class="dashboard-card bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition"
                      draggable="false">
@@ -571,7 +572,7 @@ body { background: #f8f1e9; }
                 <div data-card-id="sales-matrix"
                      onclick="goToSalesMatrix(event)"
                      class="dashboard-card bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition"
-                     style="grid-column: span 2;"
+                     style="display: none; grid-column: span 2;"
                      draggable="false">
                     <div class="dashboard-drag-handle hidden text-center text-[#6B4423] text-xs mb-2 cursor-grab">
                         <i class="fas fa-grip-vertical mr-1"></i> Drag to reorder
