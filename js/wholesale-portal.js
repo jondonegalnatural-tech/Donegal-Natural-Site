@@ -2800,6 +2800,8 @@ function formatCardPrice(product) {
     return displayPrice;
 }
 
+
+
 function getProductImagePath(product) {
     const name = String((product && product.name) || '');
     const rules = [
@@ -2856,6 +2858,113 @@ function getProductImagePath(product) {
         }
     }
     return 'media/placeholder-bully-stick.png';
+}
+
+const PRODUCT_IMAGE_GALLERY = {
+    // key = group title or product name (normalized match below)
+    'Bully Canes': ['media/Bully Canes .jpg'],
+    'Green Line Bully Sticks': [
+        'media/Green Line Bully Stick (Full picture).jpg',
+        'media/Green Line Reg Bully Stick.jpg'
+    ]
+};
+
+function getProductImagePaths(productOrTitle) {
+    const title = typeof productOrTitle === 'string'
+        ? productOrTitle
+        : ((productOrTitle && productOrTitle.name) || '');
+    const group = getCombinedGroupForName(title);
+    const galleryKey = group ? group.title : title;
+    const fromMap = PRODUCT_IMAGE_GALLERY[galleryKey];
+    if (fromMap && fromMap.length) {
+        return fromMap.map(f => encodeURI(f));
+    }
+    const single = getProductImagePath(
+        typeof productOrTitle === 'string' ? { name: productOrTitle } : productOrTitle
+    );
+    return single ? [single] : ['media/placeholder-bully-stick.png'];
+}
+
+let _imageLightboxTimer = null;
+
+function closeProductImageLightbox() {
+    if (_imageLightboxTimer) {
+        clearInterval(_imageLightboxTimer);
+        _imageLightboxTimer = null;
+    }
+    document.getElementById('product-image-lightbox')?.remove();
+}
+
+function openProductImageLightbox(paths, startIndex) {
+    closeProductImageLightbox();
+    const list = (paths || []).filter(Boolean);
+    if (!list.length) return;
+    let index = Math.max(0, Math.min(startIndex || 0, list.length - 1));
+
+    const modal = document.createElement('div');
+    modal.id = 'product-image-lightbox';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[1000] p-4';
+    modal.onclick = (e) => {
+        if (e.target === modal) closeProductImageLightbox();
+    };
+
+    const frame = document.createElement('div');
+    frame.className = 'relative bg-white rounded-2xl border-2 border-[#6B4423] p-3 max-w-3xl w-full max-h-[90vh] flex flex-col items-center';
+    frame.onclick = (e) => e.stopPropagation();
+
+    const img = document.createElement('img');
+    img.alt = 'Product photo';
+    img.className = 'max-h-[70vh] w-auto max-w-full object-contain rounded-xl';
+    img.src = list[index];
+    img.onerror = function () {
+        this.onerror = null;
+        this.src = 'media/placeholder-bully-stick.png';
+    };
+
+    const caption = document.createElement('p');
+    caption.className = 'text-sm text-[#6B4423] mt-2 font-semibold';
+
+    function show(i) {
+        index = (i + list.length) % list.length;
+        img.src = list[index];
+        caption.textContent = list.length > 1
+            ? (index + 1) + ' / ' + list.length
+            : '';
+    }
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'absolute top-2 right-3 text-2xl text-[#6B4423] leading-none';
+    closeBtn.textContent = '×';
+    closeBtn.onclick = closeProductImageLightbox;
+
+    frame.appendChild(closeBtn);
+    frame.appendChild(img);
+    frame.appendChild(caption);
+
+    if (list.length > 1) {
+        const nav = document.createElement('div');
+        nav.className = 'flex gap-3 mt-3';
+        const prev = document.createElement('button');
+        prev.type = 'button';
+        prev.className = 'px-4 py-2 border-2 border-[#6B4423] rounded-xl font-semibold text-[#1E4D2B]';
+        prev.textContent = '‹ Prev';
+        prev.onclick = () => show(index - 1);
+        const next = document.createElement('button');
+        next.type = 'button';
+        next.className = 'px-4 py-2 border-2 border-[#6B4423] rounded-xl font-semibold text-[#1E4D2B]';
+        next.textContent = 'Next ›';
+        next.onclick = () => show(index + 1);
+        nav.appendChild(prev);
+        nav.appendChild(next);
+        frame.appendChild(nav);
+
+        _imageLightboxTimer = setInterval(() => show(index + 1), 10000);
+    }
+
+    modal.appendChild(frame);
+    document.body.appendChild(modal);
+    show(index);
 }
 
 const COMBINED_CARD_GROUPS = [
@@ -3483,6 +3592,14 @@ function buildCombinedCard(group) {
         this.src = 'media/placeholder-bully-stick.png';
     };
     photo.appendChild(img);
+        photo.style.cursor = 'pointer';
+    photo.title = 'Click to enlarge';
+    photo.onclick = () => {
+        const current = (img.alt && img.alt !== group.title)
+            ? { name: img.alt }
+            : fallback;
+        openProductImageLightbox(getProductImagePaths(current.name || group.title), 0);
+    };
 
     const body = document.createElement('div');
     body.className = 'card-body';
@@ -3685,6 +3802,11 @@ function buildProductCard(product) {
     };
     img.alt = product.name || 'Donegal Natural treat';
     photo.appendChild(img);
+        photo.style.cursor = 'pointer';
+    photo.title = 'Click to enlarge';
+    photo.onclick = () => {
+        openProductImageLightbox(getProductImagePaths(product), 0);
+    };
 
     const body = document.createElement('div');
     body.className = 'card-body';
