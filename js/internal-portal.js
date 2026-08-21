@@ -8229,6 +8229,30 @@ async function renderInquiries() {
     updateInquiryStats();
 }
 
+function getInquiryLocation(inquiry) {
+    const region = (inquiry.region || '').trim();
+    if (region) return region;
+
+    const notes = (inquiry.notes || '').trim();
+    if (!notes) return '—';
+
+    // Prefer Shipping: block from landing-page form
+    const shipMatch = notes.match(/Shipping:\s*([\s\S]*?)(?=\n(?:Billing|Admin notes|Approved by|Assigned salesman|Temp username|Temp password):|$)/i);
+    const block = (shipMatch ? shipMatch[1] : notes).trim();
+
+    // "City, ST" or "City, ST ZIP"
+    const cityState = block.match(/([A-Za-z .'-]+),\s*([A-Z]{2})(?:\s+\d{5}(?:-\d{4})?)?/i);
+    if (cityState) {
+        return cityState[1].trim() + ', ' + cityState[2].toUpperCase();
+    }
+
+    // Fallback: last non-empty line of the shipping block
+    const lines = block.split(/\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length) return lines[lines.length - 1];
+
+    return '—';
+}
+
 function createInquiryCard(inquiry, showActions) {
     const div = document.createElement('div');
     div.className = 'border border-[#d4b78f] rounded-xl p-5 mb-4 bg-[#f8f4eb]';
@@ -8243,7 +8267,7 @@ function createInquiryCard(inquiry, showActions) {
         ? `${inquiry.nature_of_business} (${inquiry.nature_other})`
         : (inquiry.nature_of_business || '—');
 
-    const location = (inquiry.region || '').trim() || '—';
+    const location = getInquiryLocation(inquiry);
 
     let html = `
         <div class="flex justify-between items-start mb-3">

@@ -666,6 +666,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
       nature_other: document.getElementById('wi-other')?.value.trim() || null,
       source: 'landing_page',
       status: 'pending',
+      region: (city && state) ? (city + ', ' + state) : null,
       notes: shipping ? ('Shipping: ' + shipping) : null,
       terms_accepted: true,
       privacy_accepted: true,
