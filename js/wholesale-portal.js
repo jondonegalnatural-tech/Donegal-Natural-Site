@@ -3577,11 +3577,11 @@ function extractVariantDim(dim, product) {
 }
 
 const DOG_SIZE_META = [
-    { key: 'XS', label: 'Chihuahua' },
-    { key: 'S', label: 'Beagle' },
-    { key: 'M', label: 'Border Collie' },
-    { key: 'L', label: 'Labrador' },
-    { key: 'XL', label: 'St. Bernard' }
+    { key: 'XS', label: 'Chihuahua', scale: 0.55 },
+    { key: 'S', label: 'Beagle', scale: 0.7 },
+    { key: 'M', label: 'GSP', scale: 0.85 },
+    { key: 'L', label: 'Labrador', scale: 1.0 },
+    { key: 'XL', label: 'St. Bernard', scale: 1.2 }
 ];
 
 function getProductDescription(productName) {
