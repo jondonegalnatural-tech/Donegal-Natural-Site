@@ -3631,7 +3631,6 @@ function buildDogSizeRow() {
     const row = document.createElement('div');
     row.className = 'card-sizes-row';
 
-    // Standing dog, side profile — head, ear, body, legs, tail
     const dogSvg =
         '<svg viewBox="0 0 120 80" aria-hidden="true" focusable="false">' +
         '<path fill="currentColor" d="' +
@@ -3658,49 +3657,10 @@ function buildDogSizeRow() {
 
         const icon = document.createElement('div');
         icon.className = 'card-size-icon';
-        // Scale the whole silhouette: XS small → XL large
         const px = Math.round(22 + (size.scale - 0.55) * 28);
         icon.style.width = px + 'px';
         icon.style.height = Math.round(px * 0.7) + 'px';
         icon.innerHTML = dogSvg;
-
-        const key = document.createElement('span');
-        key.className = 'card-size-key';
-        key.textContent = size.key;
-
-        const label = document.createElement('span');
-        label.className = 'card-size-name';
-        label.textContent = size.label;
-
-        item.appendChild(icon);
-        item.appendChild(key);
-        item.appendChild(label);
-        row.appendChild(item);
-    });
-
-    wrap.appendChild(row);
-    return wrap;
-
-    const wrap = document.createElement('div');
-    wrap.className = 'card-sizes';
-
-    const title = document.createElement('p');
-    title.className = 'card-sizes-label';
-    title.textContent = 'Recommended size';
-    wrap.appendChild(title);
-
-    const row = document.createElement('div');
-    row.className = 'card-sizes-row';
-
-    DOG_SIZE_META.forEach(size => {
-        const item = document.createElement('div');
-        item.className = 'card-size-item';
-        item.setAttribute('data-size', size.key);
-
-        const icon = document.createElement('div');
-        icon.className = 'card-size-icon';
-        icon.style.fontSize = (0.85 + (size.scale - 0.55) * 1.1).toFixed(2) + 'rem';
-        icon.innerHTML = '<i class="fas fa-dog" aria-hidden="true"></i>';
 
         const key = document.createElement('span');
         key.className = 'card-size-key';
