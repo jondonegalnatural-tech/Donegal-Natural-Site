@@ -3578,18 +3578,6 @@ function buildCombinedCard(group) {
         });
         if (variants[0]) selected[variants[0].name] = true;
 
-        addQtyChip('12 units', () => 12);
-        addQtyChip('24 units', () => 24);
-        addQtyChip('50 units', () => 50);
-        addQtyChip('Half case', () => {
-            const first = selectedVariants()[0] || variants[0];
-            return Math.max(1, Math.floor(caseQtyFor(first) / 2));
-        }, caseRow);
-        addQtyChip('Full case', () => {
-            const first = selectedVariants()[0] || variants[0];
-            return caseQtyFor(first);
-        }, caseRow);
-
         btn.onclick = () => {
             if (window._customerIsInactive) {
                 alert('This account is currently inactive and cannot add items to a quote.');
@@ -3605,7 +3593,6 @@ function buildCombinedCard(group) {
 
         body.appendChild(flavorRow);
         body.appendChild(qtyRow);
-        body.appendChild(caseRow);
         body.appendChild(btn);
         refreshMulti();
     } else {
@@ -3663,12 +3650,6 @@ function buildCombinedCard(group) {
             body.appendChild(row);
         });
 
-        addQtyChip('12 units', () => 12);
-        addQtyChip('24 units', () => 24);
-        addQtyChip('50 units', () => 50);
-        addQtyChip('Half case', () => Math.max(1, Math.floor(caseQtyFor(selected) / 2)), caseRow);
-        addQtyChip('Full case', () => caseQtyFor(selected), caseRow);
-
         btn.onclick = () => {
             if (window._customerIsInactive) {
                 alert('This account is currently inactive and cannot add items to a quote.');
@@ -3679,7 +3660,6 @@ function buildCombinedCard(group) {
         };
 
         body.appendChild(qtyRow);
-        body.appendChild(caseRow);
         body.appendChild(btn);
         refreshSingle();
     }
