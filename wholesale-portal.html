@@ -240,21 +240,27 @@
             justify-content: center;
             line-height: 0;
         }
-        .card-size-icon svg {
+        .card-size-icon img {
             width: 100%;
             height: 100%;
+            object-fit: contain;
+            object-position: bottom center;
             display: block;
-            overflow: visible;
+            opacity: 0.35;
+            filter: grayscale(1);
+        }
+        .card-size-item.active .card-size-icon img {
+            opacity: 1;
+            filter: none;
         }
         .card-size-item {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: flex-end;
-            width: 3.6rem;
-            min-height: 5rem;
+            width: 4rem;
+            min-height: 5.2rem;
             color: #c4b5a5;
-            opacity: 1;
         }
         .card-size-item.active {
             color: #1E4D2B;

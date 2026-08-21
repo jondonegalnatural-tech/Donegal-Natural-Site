@@ -3577,11 +3577,11 @@ function extractVariantDim(dim, product) {
 }
 
 const DOG_SIZE_META = [
-    { key: 'XS', label: 'Chihuahua', scale: 0.55 },
-    { key: 'S', label: 'Beagle', scale: 0.7 },
-    { key: 'M', label: 'GSP', scale: 0.85 },
-    { key: 'L', label: 'Labrador', scale: 1.0 },
-    { key: 'XL', label: 'St. Bernard', scale: 1.2 }
+    { key: 'XS', label: 'Chihuahua', scale: 0.55, img: 'media/dog-xs-chihuahua.png' },
+    { key: 'S', label: 'Beagle', scale: 0.7, img: 'media/dog-s-beagle.png' },
+    { key: 'M', label: 'GSP', scale: 0.85, img: 'media/dog-m-gsp.png' },
+    { key: 'L', label: 'Labrador', scale: 1.0, img: 'media/dog-l-labrador.png' },
+    { key: 'XL', label: 'St. Bernard', scale: 1.2, img: 'media/dog-xl-stbernard.png' }
 ];
 
 function getProductDescription(productName) {
@@ -3631,30 +3631,6 @@ function buildDogSizeRow() {
     const row = document.createElement('div');
     row.className = 'card-sizes-row';
 
-    // Geometric side-view dog (reads clearly at small sizes)
-    const dogSvg =
-        '<svg viewBox="0 0 64 48" aria-hidden="true" focusable="false">' +
-        '<g fill="currentColor">' +
-        // body
-        '<ellipse cx="30" cy="28" rx="16" ry="10"/>' +
-        // head
-        '<circle cx="48" cy="18" r="8"/>' +
-        // snout
-        '<ellipse cx="56" cy="20" rx="5" ry="3.5"/>' +
-        // ear
-        '<ellipse cx="44" cy="10" rx="3.5" ry="5" transform="rotate(-20 44 10)"/>' +
-        // tail
-        '<ellipse cx="12" cy="22" rx="6" ry="2.5" transform="rotate(-35 12 22)"/>' +
-        // legs
-        '<rect x="20" y="34" width="3.5" height="10" rx="1.5"/>' +
-        '<rect x="27" y="34" width="3.5" height="10" rx="1.5"/>' +
-        '<rect x="34" y="34" width="3.5" height="10" rx="1.5"/>' +
-        '<rect x="41" y="34" width="3.5" height="10" rx="1.5"/>' +
-        // eye
-        '<circle cx="50" cy="16" r="1.3" fill="#fff"/>' +
-        '</g>' +
-        '</svg>';
-
     DOG_SIZE_META.forEach(size => {
         const item = document.createElement('div');
         item.className = 'card-size-item';
@@ -3662,10 +3638,15 @@ function buildDogSizeRow() {
 
         const icon = document.createElement('div');
         icon.className = 'card-size-icon';
-        const px = Math.round(28 + (size.scale - 0.55) * 32);
+        const px = Math.round(36 + (size.scale - 0.55) * 40);
         icon.style.width = px + 'px';
-        icon.style.height = Math.round(px * 0.75) + 'px';
-        icon.innerHTML = dogSvg;
+        icon.style.height = Math.round(px * 0.7) + 'px';
+
+        const img = document.createElement('img');
+        img.src = size.img;
+        img.alt = size.label;
+        img.draggable = false;
+        icon.appendChild(img);
 
         const key = document.createElement('span');
         key.className = 'card-size-key';
