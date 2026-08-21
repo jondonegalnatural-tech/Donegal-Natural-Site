@@ -3576,6 +3576,104 @@ function extractVariantDim(dim, product) {
     }
 }
 
+const DOG_SIZE_META = [
+    { key: 'XS', label: 'Chihuahua' },
+    { key: 'S', label: 'Beagle' },
+    { key: 'M', label: 'Border Collie' },
+    { key: 'L', label: 'Labrador' },
+    { key: 'XL', label: 'St. Bernard' }
+];
+
+function getProductDescription(productName) {
+    const entry = ITEM_SPECIFIC_BENEFITS && ITEM_SPECIFIC_BENEFITS[productName];
+    if (!entry || !entry.bullets || !entry.bullets.length) {
+        // try normalized key match
+        const want = normalizeProductName(productName);
+        const key = Object.keys(ITEM_SPECIFIC_BENEFITS || {}).find(
+            k => normalizeProductName(k) === want
+        );
+        const found = key ? ITEM_SPECIFIC_BENEFITS[key] : null;
+        if (!found || !found.bullets || !found.bullets.length) return '';
+        return found.bullets.slice(0, 2).join(' ');
+    }
+    return entry.bullets.slice(0, 2).join(' ');
+}
+
+function getRecommendedDogSizes(productName) {
+    const n = String(productName || '').toLowerCase();
+    if (/thin/.test(n)) return ['XS', 'S'];
+    if (/super thick|super”|“super”/.test(n)) return ['L', 'XL'];
+    if (/thick/.test(n)) return ['M', 'L'];
+    if (/cane|24-28|32-36|femur|large meaty|jumbo/.test(n)) return ['L', 'XL'];
+    if (/braided|phat|rollio|cheek slab/.test(n)) return ['M', 'L', 'XL'];
+    if (/6\s*[”"]/.test(n) && !/12/.test(n)) return ['XS', 'S', 'M'];
+    if (/12\s*[”"]|10-12|10-13/.test(n)) return ['S', 'M', 'L'];
+    if (/ear|feet|foot|neck|trachea|lung|jerky|chip/.test(n)) return ['XS', 'S', 'M', 'L'];
+    if (/horn|hoof|bone|knuckle/.test(n)) return ['M', 'L', 'XL'];
+    return ['S', 'M', 'L'];
+}
+
+function buildCardDescriptionEl() {
+    const el = document.createElement('p');
+    el.className = 'card-desc';
+    return el;
+}
+
+function buildDogSizeRow() {
+    const wrap = document.createElement('div');
+    wrap.className = 'card-sizes';
+
+    const title = document.createElement('p');
+    title.className = 'card-sizes-label';
+    title.textContent = 'Recommended size';
+    wrap.appendChild(title);
+
+    const row = document.createElement('div');
+    row.className = 'card-sizes-row';
+
+    DOG_SIZE_META.forEach(size => {
+        const item = document.createElement('div');
+        item.className = 'card-size-item';
+        item.setAttribute('data-size', size.key);
+
+        const icon = document.createElement('div');
+        icon.className = 'card-size-icon';
+        icon.innerHTML = '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M18 38c0-6 4-12 10-14 2-6 8-10 14-8 4 1 7 4 8 8 6 1 10 7 9 13-1 8-8 14-16 14H28c-6 0-10-5-10-13z"/><circle cx="26" cy="30" r="2"/><circle cx="38" cy="28" r="2"/><path d="M22 22c-4-6-10-6-12-2M44 20c4-6 10-5 12-1"/></svg>';
+
+        const key = document.createElement('span');
+        key.className = 'card-size-key';
+        key.textContent = size.key;
+
+        const label = document.createElement('span');
+        label.className = 'card-size-name';
+        label.textContent = size.label;
+
+        item.appendChild(icon);
+        item.appendChild(key);
+        item.appendChild(label);
+        row.appendChild(item);
+    });
+
+    wrap.appendChild(row);
+    return wrap;
+}
+
+function updateCardDescription(el, productName) {
+    if (!el) return;
+    const text = getProductDescription(productName);
+    el.textContent = text || '';
+    el.style.display = text ? '' : 'none';
+}
+
+function updateDogSizeRow(wrap, productName) {
+    if (!wrap) return;
+    const active = getRecommendedDogSizes(productName);
+    wrap.querySelectorAll('.card-size-item').forEach(item => {
+        const key = item.getAttribute('data-size');
+        item.classList.toggle('active', active.indexOf(key) !== -1);
+    });
+}
+
 function buildCombinedCard(group) {
     const variants = group.names.map(findCatalogProduct).filter(Boolean);
     const fallback = variants[0] || { name: group.title, cs: '', price: '', category: '' };
@@ -3610,7 +3708,8 @@ function buildCombinedCard(group) {
 
     const meta = document.createElement('p');
     meta.className = 'card-meta';
-
+    const descEl = buildCardDescriptionEl();
+    const sizeRow = buildDogSizeRow();
     const qtyRow = document.createElement('div');
     qtyRow.className = 'card-qty-row';
     const caseRow = document.createElement('div');
@@ -3650,6 +3749,9 @@ function buildCombinedCard(group) {
     btn.className = 'card-add';
     btn.textContent = 'Add to Quote';
 
+    const descEl = buildCardDescriptionEl();
+    const sizeRow = buildDogSizeRow();
+
     body.appendChild(name);
     body.appendChild(meta);
 
@@ -3679,6 +3781,9 @@ function buildCombinedCard(group) {
             Array.from(flavorRow.children).forEach(el => {
                 el.classList.toggle('active', !!selected[el.getAttribute('data-name')]);
             });
+            const descName = (chosen[0] || preview).name;
+            updateCardDescription(descEl, descName);
+            updateDogSizeRow(sizeRow, descName);
         }
 
         variants.forEach(v => {
@@ -3709,6 +3814,8 @@ function buildCombinedCard(group) {
         };
 
         body.appendChild(flavorRow);
+        body.appendChild(descEl);
+        body.appendChild(sizeRow);
         body.appendChild(qtyRow);
         body.appendChild(btn);
         refreshMulti();
@@ -3741,6 +3848,8 @@ function buildCombinedCard(group) {
                     el.classList.toggle('active', el.textContent === state[d]);
                 });
             });
+            updateCardDescription(descEl, selected.name);
+            updateDogSizeRow(sizeRow, selected.name);
         }
 
         dims.forEach(d => {
@@ -3776,6 +3885,10 @@ function buildCombinedCard(group) {
             addToQuote(selected.name, selected.price || '', selected.cs || '', qtyInput.value);
         };
 
+        body.appendChild(descEl);
+        body.appendChild(sizeRow);
+        body.appendChild(descEl);
+        body.appendChild(sizeRow);
         body.appendChild(qtyRow);
         body.appendChild(btn);
         refreshSingle();
@@ -3817,6 +3930,8 @@ function buildProductCard(product) {
 
     const meta = document.createElement('p');
     meta.className = 'card-meta';
+    const descEl = buildCardDescriptionEl();
+    const sizeRow = buildDogSizeRow();
     const csText = product.cs ? ('Case size ' + product.cs) : '';
     const priceText = formatCardPrice(product);
     meta.textContent = [csText, priceText].filter(Boolean).join(' · ');
@@ -3839,8 +3954,15 @@ function buildProductCard(product) {
         );
     };
 
+    const descEl = buildCardDescriptionEl();
+    const sizeRow = buildDogSizeRow();
+    updateCardDescription(descEl, product.name);
+    updateDogSizeRow(sizeRow, product.name);
+
     body.appendChild(name);
     body.appendChild(meta);
+    body.appendChild(descEl);
+    body.appendChild(sizeRow);
     body.appendChild(btn);
     card.appendChild(photo);
     card.appendChild(body);
