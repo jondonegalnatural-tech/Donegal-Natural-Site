@@ -3262,13 +3262,7 @@ async function denyOrder(orderId) {
 
         if (error) throw error;
 
-        const deniedOrder = allOrders.find(o => String(o.id) === String(orderId));
-        await sendOrderStatusEmail({
-            type: 'denied',
-            order: deniedOrder,
-            denialReason: ''
-        });
-
+        // Order status emails removed — QuickBooks handles customer notifications
         await loadOrders();
     } catch (err) {
         console.error(err);
@@ -4145,13 +4139,9 @@ async function confirmShipInvoice() {
         hideShipInvoiceModal();
         await loadOrders();
 
-        // Notify customer (use snapshot — modal clears shipInvoiceOrder)
-        await sendOrderStatusEmail({
-            type: 'shipped',
-            order: shippedOrderSnapshot
-        });
+        // Order status emails removed — QuickBooks handles customer notifications
 
-        alert('Order shipped. Invoice saved. Customer notified by email (if address on file).');
+        alert('Order shipped. Invoice saved.');
     } catch (err) {
         console.error(err);
         alert('Could not ship order.\n' + (err.message || ''));
