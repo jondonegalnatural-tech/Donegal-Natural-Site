@@ -3067,7 +3067,7 @@ function renderOrdersTable() {
     const jonathanCommissionButtons = (typeof isJonathanAdmin === 'function' && isJonathanAdmin()) ? `
         <button id="apply-10-commission-btn"
                 onclick="bulkSetPortalCommissionRate(10)"
-                class="hidden px-4 py-2 bg-amber-700 text-white rounded-xl text-sm font-semibold hover:bg-amber-800">
+                class="hidden px-4 py-2 bg-[#B45309] text-white rounded-xl text-sm font-semibold hover:bg-[#92400e]">
             Apply 10% Commission
         </button>
         <button id="reset-5-commission-btn"
