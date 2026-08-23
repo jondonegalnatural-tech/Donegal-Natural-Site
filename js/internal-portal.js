@@ -3090,7 +3090,7 @@ function renderOrdersTable() {
         const currentStatus = order.status || 'submitted';
         const statusLower = (currentStatus || '').toLowerCase();
         const { total, hasMarketPrice } = getOrderTotalInfo(order);
-        const safeId = String(order.id || '');
+        const safeId = String(order.id || '').replace(/'/g, "\\'");
 
         let totalHTML = '';
         if (hasMarketPrice) {
@@ -3107,12 +3107,13 @@ function renderOrdersTable() {
         
 
         html += `
-            <tr class="border-t border-[#6B4423] hover:bg-[#f8f4eb]">
+            <tr class="border-t border-[#6B4423] hover:bg-[#f8f4eb] cursor-pointer"
+                onclick="openOrderInvoiceModal('${safeId}')">
                 <td class="p-3 text-center" onclick="event.stopPropagation()">
                     <input type="checkbox" class="order-checkbox" value="${safeId}" onchange="updatePrintSelectedButton()">
                 </td>
-                <td class="p-3">${order.salesman || 'N/A'}</td>
-                <td class="p-3">${order.customer || 'N/A'}</td>
+                <td class="p-3">${order.salesman || (order.source === 'wholesale' ? 'Wholesale' : '—')}</td>
+                <td class="p-3">${order.customer || '—'}</td>
                 <td class="p-3">${totalHTML}</td>
                 <td class="p-3 text-sm">${order.submittedAt ? new Date(order.submittedAt).toLocaleDateString() : '—'}</td>
             </tr>
