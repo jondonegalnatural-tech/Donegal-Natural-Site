@@ -370,6 +370,33 @@ body { background: #f8f1e9; }
                     </div>
                 </div>
 
+                <!-- YTD Portal Commission (Jonathan only) -->
+                <div data-card-id="portal-commission"
+                     id="dash-portal-commission-card"
+                     onclick="dashboardCardClick(event, 'orders')"
+                     class="dashboard-card bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition"
+                     style="display: none;"
+                     draggable="false">
+                    <div class="dashboard-drag-handle hidden text-center text-[#6B4423] text-xs mb-2 cursor-grab">
+                        <i class="fas fa-grip-vertical mr-1"></i> Drag to reorder
+                    </div>
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <p class="text-sm text-[#6B4423] font-semibold">Portal Commission</p>
+                            <p class="text-2xl font-bold brand-green mt-0.5">YTD Portal Commission</p>
+                        </div>
+                        <i class="fas fa-percent text-3xl text-[#6B4423]"></i>
+                    </div>
+                    <div class="bg-[#f8f4eb] rounded-xl py-3 text-center mb-3">
+                        <p class="text-xs text-[#6B4423] font-medium mb-0.5">YTD (5%)</p>
+                        <p id="dash-commission-ytd" class="text-2xl font-bold brand-green">$0</p>
+                    </div>
+                    <div class="bg-green-50 rounded-xl py-3 text-center">
+                        <p class="text-xs text-green-700 font-medium mb-0.5">MTD (5%)</p>
+                        <p id="dash-commission-mtd" class="text-xl font-bold text-green-700">$0</p>
+                    </div>
+                </div>
+
                                 <!-- Active Salesmen Card -->
                                 <div data-card-id="salesmen"
                      onclick="dashboardCardClick(event, 'salesmen')"

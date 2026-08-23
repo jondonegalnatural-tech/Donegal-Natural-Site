@@ -11056,6 +11056,9 @@ function updateDashboardSales() {
         if (ytdUnitsEl) ytdUnitsEl.textContent = '0';
         if (mtdUnitsEl) mtdUnitsEl.textContent = '0';
         if (wtdUnitsEl) wtdUnitsEl.textContent = '0';
+        if (typeof updatePortalCommissionCard === 'function') {
+            updatePortalCommissionCard();
+        }
         return;
     }
 
@@ -11106,8 +11109,69 @@ function updateDashboardSales() {
     if (ytdUnitsEl) ytdUnitsEl.textContent = ytdUnits.toLocaleString();
     if (mtdUnitsEl) mtdUnitsEl.textContent = mtdUnits.toLocaleString();
     if (wtdUnitsEl) wtdUnitsEl.textContent = wtdUnits.toLocaleString();
+
+    if (typeof updatePortalCommissionCard === 'function') {
+        updatePortalCommissionCard();
+    }
 }
 
+function isJonathanAdmin() {
+    try {
+        const u = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        if (!u || u.role !== 'admin') return false;
+        const e = String(u.email || u.username || '').toLowerCase().trim();
+        return e === 'jackerman@donegalnatural.com' ||
+               e === 'jon.donegalnatural@gmail.com' ||
+               e.includes('jackerman') ||
+               e.includes('jon.donegalnatural');
+    } catch (err) {
+        return false;
+    }
+}
+
+function updatePortalCommissionCard() {
+    const card = document.getElementById('dash-portal-commission-card');
+    const ytdEl = document.getElementById('dash-commission-ytd');
+    const mtdEl = document.getElementById('dash-commission-mtd');
+    if (!card) return;
+
+    if (!isJonathanAdmin()) {
+        card.style.display = 'none';
+        return;
+    }
+    card.style.display = '';
+
+    let ytdSales = 0;
+    let mtdSales = 0;
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    (allOrders || []).forEach(order => {
+        const status = String(order.status || '').toLowerCase();
+        if (status === 'denied' || status === 'cancelled' || status === 'canceled') return;
+        if (!order.items || !Array.isArray(order.items)) return;
+
+        const orderDate = new Date(order.submittedAt || order.submitted_at || order.date || now);
+        if (isNaN(orderDate.getTime())) return;
+
+        let orderTotal = 0;
+        order.items.forEach(item => {
+            const qty = parseInt(item.quantity, 10) || 0;
+            const unit = typeof getOrderItemUnitPrice === 'function'
+                ? getOrderItemUnitPrice(item)
+                : (parseFloat(item.unitPrice) || 0);
+            orderTotal += qty * unit;
+        });
+
+        if (orderDate >= startOfYear) ytdSales += orderTotal;
+        if (orderDate >= startOfMonth) mtdSales += orderTotal;
+    });
+
+    const fmt = (n) => '$' + Math.round(n * 0.05).toLocaleString();
+    if (ytdEl) ytdEl.textContent = fmt(ytdSales);
+    if (mtdEl) mtdEl.textContent = fmt(mtdSales);
+}
 // ================== VENDORS SYSTEM ==================
 let vendors = [];
 
