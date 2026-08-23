@@ -337,11 +337,14 @@ body { background: #f8f1e9; }
                         </div>
                         <i class="fas fa-chart-line text-3xl text-[#6B4423]"></i>
                     </div>
+                    <!-- YTD total (prominent) -->
+                    <div class="bg-[#f8f4eb] rounded-xl py-3 text-center mb-3">
+                        <p class="text-xs text-[#6B4423] font-medium mb-0.5">YTD Sales</p>
+                        <p id="dash-ytd-sales" class="text-2xl font-bold brand-green">$0</p>
+                    </div>
+
+                    <!-- MTD / WTD $ -->
                     <div class="grid grid-cols-2 gap-1 text-center mb-3">
-                        <div class="min-w-0 hidden">
-                            <p class="text-xs text-[#6B4423] font-medium mb-1">YTD $</p>
-                            <p id="dash-ytd-sales" class="text-sm font-bold brand-green truncate">$0</p>
-                        </div>
                         <div class="min-w-0">
                             <p class="text-xs text-[#6B4423] font-medium mb-1">MTD $</p>
                             <p id="dash-mtd-sales" class="text-sm font-bold brand-green truncate">$0</p>
