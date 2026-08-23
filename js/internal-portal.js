@@ -2781,7 +2781,7 @@ async function loadOrders() {
     try {
         const { data, error } = await supabaseClient
             .from('orders')
-            .select('id, source, status, submitted_at, customer_name, customer_email, customer_company, salesman_name, salesman_email, notes, shipping_cost, credit, items, tracking_number, carrier, delivered_at, payment_status, paid_at')
+            .select('id, source, status, submitted_at, customer_name, customer_email, customer_company, salesman_name, salesman_email, notes, shipping_cost, credit, items, tracking_number, carrier, delivered_at, payment_status, paid_at, portal_commission_rate')
             .order('submitted_at', { ascending: false });
 
         if (error) {
@@ -2807,7 +2807,8 @@ async function loadOrders() {
                 carrier: o.carrier || 'UPS',
                 deliveredAt: o.delivered_at || null,
                 paymentStatus: o.payment_status || null,
-                paidAt: o.paid_at || null
+                paidAt: o.paid_at || null,
+                portalCommissionRate: o.portal_commission_rate != null ? Number(o.portal_commission_rate) : 5
             }));
             ordersLoadedAt = Date.now();
         }
@@ -3063,13 +3064,27 @@ function renderOrdersTable() {
     return { total, hasMarketPrice };
 }
 
+    const jonathanCommissionButtons = (typeof isJonathanAdmin === 'function' && isJonathanAdmin()) ? `
+        <button id="apply-10-commission-btn"
+                onclick="bulkSetPortalCommissionRate(10)"
+                class="hidden px-4 py-2 bg-amber-700 text-white rounded-xl text-sm font-semibold hover:bg-amber-800">
+            Apply 10% Commission
+        </button>
+        <button id="reset-5-commission-btn"
+                onclick="bulkSetPortalCommissionRate(5)"
+                class="hidden px-4 py-2 border-2 border-[#6B4423] text-[#6B4423] rounded-xl text-sm font-semibold hover:bg-[#f8f4eb]">
+            Reset to 5%
+        </button>
+    ` : '';
+
     let html = `
-    <div class="mb-3 flex justify-between items-center">
+    <div class="mb-3 flex flex-wrap gap-2 items-center">
         <button id="print-selected-btn"
                 onclick="printSelectedOrders()"
                 class="hidden px-4 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl text-sm font-semibold hover:bg-[#254a2f]">
             Print Selected Orders
         </button>
+        ${jonathanCommissionButtons}
     </div>
     <table class="w-full">
         <thead>
@@ -3092,14 +3107,17 @@ function renderOrdersTable() {
         const { total, hasMarketPrice } = getOrderTotalInfo(order);
         const safeId = String(order.id || '').replace(/'/g, "\\'");
 
+        const rateBadge = Number(order.portalCommissionRate) === 10
+            ? `<span class="ml-1 text-xs font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">10%</span>`
+            : '';
+
         let totalHTML = '';
         if (hasMarketPrice) {
-            totalHTML = `<span class="text-orange-600 font-semibold">Needs Pricing</span>`;
+            totalHTML = `<span class="text-orange-600 font-semibold">Needs Pricing</span>${rateBadge}`;
         } else {
             totalHTML = `
                 <div class="flex flex-col items-start gap-0.5">
-                    <span>$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-
+                    <span>$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${rateBadge}</span>
                 </div>
             `;
         }
@@ -4733,14 +4751,56 @@ function toggleSelectAllOrders(checkbox) {
 
 function updatePrintSelectedButton() {
     const checked = document.querySelectorAll('.order-checkbox:checked');
+    const count = checked.length;
     const btn = document.getElementById('print-selected-btn');
-    if (!btn) return;
+    const apply10 = document.getElementById('apply-10-commission-btn');
+    const reset5 = document.getElementById('reset-5-commission-btn');
 
-    if (checked.length > 0) {
-        btn.classList.remove('hidden');
-        btn.textContent = `Print Selected Orders (${checked.length})`;
-    } else {
-        btn.classList.add('hidden');
+    if (btn) {
+        if (count > 0) {
+            btn.classList.remove('hidden');
+            btn.textContent = `Print Selected Orders (${count})`;
+        } else {
+            btn.classList.add('hidden');
+        }
+    }
+    if (apply10) apply10.classList.toggle('hidden', count === 0);
+    if (reset5) reset5.classList.toggle('hidden', count === 0);
+}
+
+async function bulkSetPortalCommissionRate(rate) {
+    if (typeof isJonathanAdmin !== 'function' || !isJonathanAdmin()) return;
+
+    const checked = Array.from(document.querySelectorAll('.order-checkbox:checked')).map(cb => cb.value);
+    if (!checked.length) {
+        alert('Select at least one order first.');
+        return;
+    }
+
+    const pct = Number(rate) === 10 ? 10 : 5;
+    if (!confirm(`Set portal commission to ${pct}% on ${checked.length} order(s)?`)) return;
+
+    try {
+        const { error } = await supabaseClient
+            .from('orders')
+            .update({ portal_commission_rate: pct })
+            .in('id', checked);
+
+        if (error) throw error;
+
+        (allOrders || []).forEach(o => {
+            if (checked.includes(String(o.id))) {
+                o.portalCommissionRate = pct;
+            }
+        });
+
+        if (typeof renderOrdersTable === 'function') renderOrdersTable();
+        if (typeof updatePortalCommissionCard === 'function') updatePortalCommissionCard();
+
+        alert(`Updated ${checked.length} order(s) to ${pct}% commission.`);
+    } catch (err) {
+        console.error('bulkSetPortalCommissionRate error:', err);
+        alert('Could not update commission rate.\n' + (err.message || ''));
     }
 }
 
@@ -11141,8 +11201,8 @@ function updatePortalCommissionCard() {
     }
     card.style.display = '';
 
-    let ytdSales = 0;
-    let mtdSales = 0;
+    let ytdCommission = 0;
+    let mtdCommission = 0;
     const now = new Date();
     const startOfYear = new Date(now.getFullYear(), 0, 1);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -11164,13 +11224,15 @@ function updatePortalCommissionCard() {
             orderTotal += qty * unit;
         });
 
-        if (orderDate >= startOfYear) ytdSales += orderTotal;
-        if (orderDate >= startOfMonth) mtdSales += orderTotal;
+        const rate = Number(order.portalCommissionRate) === 10 ? 0.10 : 0.05;
+
+        if (orderDate >= startOfYear) ytdCommission += orderTotal * rate;
+        if (orderDate >= startOfMonth) mtdCommission += orderTotal * rate;
     });
 
-    const fmt = (n) => '$' + Math.round(n * 0.05).toLocaleString();
-    if (ytdEl) ytdEl.textContent = fmt(ytdSales);
-    if (mtdEl) mtdEl.textContent = fmt(mtdSales);
+    const fmt = (n) => '$' + Math.round(n).toLocaleString();
+    if (ytdEl) ytdEl.textContent = fmt(ytdCommission);
+    if (mtdEl) mtdEl.textContent = fmt(mtdCommission);
 }
 // ================== VENDORS SYSTEM ==================
 let vendors = [];
