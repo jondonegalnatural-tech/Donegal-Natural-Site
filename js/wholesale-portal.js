@@ -4364,7 +4364,7 @@ function updateQuoteSidebar() {
             Final total will be sent with your invoice.
         </p>
 
-        <button onclick="submitQuote()" 
+        <button onclick="openQuoteConfirmModal()" 
                 class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-2xl border-2 border-[#6B4423]">
             Submit Quote Request
         </button>
@@ -4484,6 +4484,85 @@ async function notifyMarshallProforma(order) {
         }
     } catch (err) {
         console.error('Pro forma email error:', err);
+    }
+}
+
+function hideQuoteConfirmModal() {
+    const modal = document.getElementById('quote-confirm-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function openQuoteConfirmModal() {
+    if (window._customerIsInactive) {
+        alert('This account is currently inactive and cannot submit new quotes.');
+        return;
+    }
+    if (!quoteItems || quoteItems.length === 0) {
+        alert('Your quote is empty!');
+        return;
+    }
+
+    const customer = window._currentCustomer || null;
+    const shipEl = document.getElementById('qc-shipping');
+    const itemsEl = document.getElementById('qc-items');
+    const totalEl = document.getElementById('qc-total');
+    const marketNote = document.getElementById('qc-market-note');
+    const modal = document.getElementById('quote-confirm-modal');
+
+    // Shipping address
+    let shipText = '—';
+    if (customer) {
+        const parts = [
+            customer.shipping_address || customer.shippingAddress || '',
+            customer.company || '',
+            customer.name || ''
+        ].filter(Boolean);
+        shipText = parts.length
+            ? (customer.shipping_address || customer.shippingAddress || parts.join('\n'))
+            : 'No shipping address on file';
+    }
+    if (shipEl) shipEl.textContent = shipText;
+
+    // Items + total
+    let pricedTotal = 0;
+    let hasMarket = false;
+    let rows = '';
+
+    quoteItems.forEach((item) => {
+        const isMarket = String(item.price || '').toLowerCase().includes('market');
+        const qty = item.quantity || 1;
+        let lineLabel = item.price || '—';
+        if (isMarket) {
+            hasMarket = true;
+            lineLabel = 'Market';
+        } else {
+            const unit = parseFloat(String(item.price).replace(/[^0-9.]/g, '')) || 0;
+            const line = unit * qty;
+            pricedTotal += line;
+            lineLabel = '$' + line.toFixed(2);
+        }
+        rows += `
+            <div class="flex justify-between gap-3 border-b border-[#f0e6d6] pb-2">
+                <div class="min-w-0">
+                    <p class="font-medium text-[#1E4D2B] truncate">${item.name || 'Item'}</p>
+                    <p class="text-xs text-[#6B4423]">Qty ${qty}${item.cs ? ' · ' + item.cs : ''}</p>
+                </div>
+                <p class="font-semibold text-[#1E4D2B] whitespace-nowrap">${lineLabel}</p>
+            </div>
+        `;
+    });
+
+    if (itemsEl) itemsEl.innerHTML = rows || '<p class="text-[#6B4423]">No items</p>';
+    if (totalEl) totalEl.textContent = '$' + pricedTotal.toFixed(2);
+    if (marketNote) marketNote.classList.toggle('hidden', !hasMarket);
+
+    if (modal) modal.classList.remove('hidden');
+}
+
+async function confirmAndSubmitQuote() {
+    hideQuoteConfirmModal();
+    if (typeof submitQuote === 'function') {
+        await submitQuote();
     }
 }
 
