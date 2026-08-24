@@ -1412,6 +1412,38 @@ function removePlaceOrderItem(index) {
     renderPlaceOrderItems();
 }
 
+async function notifyMarshallProforma(order) {
+    try {
+        const res = await fetch(SUPABASE_URL + '/functions/v1/send-proforma-email', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                'apikey': SUPABASE_ANON_KEY
+            },
+            body: JSON.stringify({
+                orderId: order.orderId || order.id,
+                customerName: order.customerName || order.customer_name || '',
+                companyName: order.companyName || order.customer_company || '',
+                customerEmail: order.customerEmail || order.customer_email || '',
+                salesmanName: order.salesmanName || order.salesman_name || '',
+                items: order.items || [],
+                notes: order.notes || '',
+                shippingCost: order.shippingCost ?? order.shipping_cost ?? 0,
+                credit: order.credit ?? 0,
+                submittedAt: order.submittedAt || order.submitted_at || new Date().toISOString(),
+                source: order.source || 'wholesale'
+            })
+        });
+        if (!res.ok) {
+            const text = await res.text();
+            console.error('Pro forma email failed:', res.status, text);
+        }
+    } catch (err) {
+        console.error('Pro forma email error:', err);
+    }
+}
+
 async function submitPlaceOrder() {
     const nameFromField =
         (document.getElementById("place-order-customer-name")?.textContent || "").trim() ||
@@ -1466,11 +1498,28 @@ async function submitPlaceOrder() {
     };
 
     try {
-        const { error } = await supabaseClient
+        const { data, error } = await supabaseClient
             .from("orders")
-            .insert([payload]);
+            .insert([payload])
+            .select('id')
+            .single();
 
         if (error) throw error;
+
+        // Email Pro Forma PDF to Marshall (fire-and-forget)
+        notifyMarshallProforma({
+            orderId: data?.id,
+            customerName: payload.customer_name,
+            companyName: payload.customer_company,
+            customerEmail: payload.customer_email,
+            salesmanName: payload.salesman_name,
+            items: payload.items,
+            notes: payload.notes,
+            shippingCost: payload.shipping_cost || 0,
+            credit: 0,
+            submittedAt: payload.submitted_at,
+            source: payload.source
+        });
 
         hidePlaceOrderModal();
         alert("Order submitted successfully for " + nameFromField + ".");
