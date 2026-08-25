@@ -89,6 +89,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 supabase: true
             }));
 
+            // Record last login for customers (best-effort; don't block login)
+            if (profile.role === 'customer' && profile.email) {
+                supabaseClient
+                    .from('customers')
+                    .update({ last_login_at: new Date().toISOString() })
+                    .ilike('email', profile.email)
+                    .then(({ error }) => {
+                        if (error) console.warn('last_login_at update failed:', error);
+                    });
+            }
+
             // Redirect based on role
             if (profile.role === "customer") {
                 window.location.href = "wholesale-portal.html";
@@ -99,7 +110,6 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 showError("Unknown role. Contact an administrator.");
             }
-
         } catch (err) {
             console.error(err);
             showError("Login failed. Please try again.");

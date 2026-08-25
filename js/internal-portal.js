@@ -5235,7 +5235,7 @@ async function loadCustomers() {
     try {
         const { data, error } = await supabaseClient
             .from('customers')
-            .select('id, name, company, email, phone, shipping_address, billing_address, notes, status, source, submitted_by, submitted_by_email, salesman_email, territory, created_at, payment_method, payment_method_status, password_changed, onboarding_complete, pricing_approved_at, pricing_approved_by, assigned_at')
+            .select('id, name, company, email, phone, shipping_address, billing_address, notes, status, source, submitted_by, submitted_by_email, salesman_email, territory, created_at, payment_method, payment_method_status, password_changed, onboarding_complete, pricing_approved_at, pricing_approved_by, assigned_at, last_login_at')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -5266,6 +5266,7 @@ async function loadCustomers() {
                 pricingApprovedAt: c.pricing_approved_at || null,
                 pricingApprovedBy: c.pricing_approved_by || null,
                 assignedAt: c.assigned_at || null,
+                lastLoginAt: c.last_login_at || null,
             }));
         }
     } catch (err) {
@@ -5407,9 +5408,7 @@ function renderCustomers() {
                             ${!customer.password_changed
                                 ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">Needs Password</span>`
                                 : ''}
-                            ${!(customer.onboarding_complete || customer.payment_method)
-                                ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">Payment Pending</span>`
-                                : ''}
+              
                             ${isAchApproved ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-100 text-blue-800">ACH Approved</span>` : ''}
                         </div>
                     </div>
@@ -5426,6 +5425,11 @@ function renderCustomers() {
                     ${customer.salesmanEmail
                         ? `<p class="text-xs text-[#6B4423] mt-2">Salesman: ${customer.salesmanEmail}</p>`
                         : `<p class="text-xs text-orange-600 mt-2">Unassigned</p>`}
+                    <p class="text-xs text-[#6B4423] mt-1">Last login: ${
+                        customer.lastLoginAt
+                            ? new Date(customer.lastLoginAt).toLocaleString()
+                            : 'Never'
+                    }</p>
                 </div>
             </div>
         `;
