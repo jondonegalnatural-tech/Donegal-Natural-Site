@@ -4588,6 +4588,16 @@ async function confirmAndSubmitQuote() {
     }
 }
 
+function generateInvoiceNumber() {
+    // DN-XXXXX — 5 chars, skip ambiguous 0/O/1/I
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 5; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return 'DN-' + code;
+}
+
 async function submitQuote() {
     if (window._customerIsInactive) {
         alert('This account is currently inactive and cannot submit new quotes.');

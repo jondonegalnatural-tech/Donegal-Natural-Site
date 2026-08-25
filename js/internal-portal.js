@@ -25,6 +25,16 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 // HARD SAFETY — set to true ONLY right before publishing the live site
 const EMAILS_ENABLED = true;
 
+function generateInvoiceNumber() {
+    // DN-XXXXX — 5 chars, skip ambiguous 0/O/1/I
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 5; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return 'DN-' + code;
+}
+
 async function notifyMarshallProforma(order) {
     try {
         const res = await fetch(SUPABASE_URL + '/functions/v1/send-pro-forma-email', {
