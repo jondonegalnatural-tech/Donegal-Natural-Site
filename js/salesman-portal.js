@@ -1244,11 +1244,50 @@ let currentPlaceOrderCustomer = null;
 let placeOrderItems = []; // { name, quantity, caseSize, unitPrice, isMarketPrice }
 
 function placeOrderForCustomer(customerName) {
-    currentPlaceOrderCustomer = customerName;
+    // Prefer full customer object when available so shipping/email work
+    let customerObj = null;
+    if (typeof customerName === 'object' && customerName) {
+        customerObj = customerName;
+        currentPlaceOrderCustomer = customerName;
+    } else {
+        const nameStr = String(customerName || '').trim();
+        currentPlaceOrderCustomer = nameStr;
+        if (typeof myCustomers !== 'undefined' && Array.isArray(myCustomers)) {
+            customerObj = myCustomers.find(c =>
+                (c.name || '').trim().toLowerCase() === nameStr.toLowerCase()
+            ) || null;
+        }
+        if (!customerObj && typeof allCustomers !== 'undefined' && Array.isArray(allCustomers)) {
+            customerObj = allCustomers.find(c =>
+                (c.name || '').trim().toLowerCase() === nameStr.toLowerCase()
+            ) || null;
+        }
+        if (customerObj) currentPlaceOrderCustomer = customerObj;
+    }
+
     placeOrderItems = [];
 
+    const displayName = (typeof currentPlaceOrderCustomer === 'object' && currentPlaceOrderCustomer)
+        ? (currentPlaceOrderCustomer.name || customerName || '')
+        : String(customerName || '');
+
     const nameEl = document.getElementById("place-order-customer-name");
-    if (nameEl) nameEl.textContent = customerName;
+    if (nameEl) nameEl.textContent = displayName;
+
+    const shipEl = document.getElementById("place-order-shipping");
+    if (shipEl) {
+        const c = (typeof currentPlaceOrderCustomer === 'object' && currentPlaceOrderCustomer)
+            ? currentPlaceOrderCustomer
+            : customerObj;
+        shipEl.textContent = (
+            c?.shipping_address ||
+            c?.shippingAddress ||
+            ''
+        ).trim() || 'No shipping address on file';
+    }
+
+    const totalEl = document.getElementById("place-order-total");
+    if (totalEl) totalEl.textContent = '$0.00';
 
     const searchEl = document.getElementById("place-order-product-search");
     if (searchEl) searchEl.value = "";
@@ -1365,6 +1404,8 @@ function renderPlaceOrderItems() {
 
     if (placeOrderItems.length === 0) {
         container.innerHTML = `<p class="text-sm text-[#6B4423]">No products added yet.</p>`;
+        const totalElEmpty = document.getElementById("place-order-total");
+        if (totalElEmpty) totalElEmpty.textContent = '$0.00';
         return;
     }
 
@@ -1388,6 +1429,17 @@ function renderPlaceOrderItems() {
             </div>
         </div>
     `).join("");
+
+    // Running order total
+    let total = 0;
+    placeOrderItems.forEach((item) => {
+        if (item.isMarketPrice && (item.unitPrice == null || item.unitPrice === '')) return;
+        const unit = parseFloat(item.unitPrice) || 0;
+        const qty = parseInt(item.quantity, 10) || 0;
+        total += unit * qty;
+    });
+    const totalEl = document.getElementById("place-order-total");
+    if (totalEl) totalEl.textContent = '$' + total.toFixed(2);
 
     // Focus the last quantity field so salesman can type immediately
     const qtyInputs = container.querySelectorAll('input.place-order-qty');
