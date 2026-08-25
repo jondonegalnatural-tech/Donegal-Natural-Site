@@ -4414,7 +4414,7 @@ function expandQuoteModal() {
         <div class="mt-6 flex justify-end gap-3">
             <button onclick="this.closest('.fixed').remove()" 
                     class="px-6 py-2 border-2 border-[#6B4423] rounded-2xl">Close</button>
-            <button onclick="submitQuote(); this.closest('.fixed').remove()" 
+            <button onclick="this.closest('.fixed').remove(); openQuoteConfirmModal();" 
                     class="px-6 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-2xl">Submit Quote</button>
         </div>
     `;
@@ -4489,7 +4489,10 @@ async function notifyMarshallProforma(order) {
 
 function hideQuoteConfirmModal() {
     const modal = document.getElementById('quote-confirm-modal');
-    if (modal) modal.classList.add('hidden');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = '';
+    }
 }
 
 function openQuoteConfirmModal() {
@@ -4556,7 +4559,13 @@ function openQuoteConfirmModal() {
     if (totalEl) totalEl.textContent = '$' + pricedTotal.toFixed(2);
     if (marketNote) marketNote.classList.toggle('hidden', !hasMarket);
 
-    if (modal) modal.classList.remove('hidden');
+    if (!modal) {
+        console.error('quote-confirm-modal not found in the page HTML');
+        alert('Confirm modal is missing. Please hard-refresh or redeploy wholesale-portal.html');
+        return;
+    }
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
 }
 
 async function confirmAndSubmitQuote() {
