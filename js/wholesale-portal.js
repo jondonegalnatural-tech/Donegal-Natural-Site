@@ -4488,10 +4488,11 @@ async function notifyMarshallProforma(order) {
 }
 
 function hideQuoteConfirmModal() {
-    const modal = document.getElementById('quote-confirm-modal');
-    if (modal) {
-        modal.classList.add('hidden');
-        modal.style.display = '';
+    document.getElementById('quote-confirm-modal-dynamic')?.remove();
+    const staticModal = document.getElementById('quote-confirm-modal');
+    if (staticModal) {
+        staticModal.classList.add('hidden');
+        staticModal.style.display = '';
     }
 }
 
@@ -4505,28 +4506,16 @@ function openQuoteConfirmModal() {
         return;
     }
 
+    // Remove any existing dynamic confirm
+    document.getElementById('quote-confirm-modal-dynamic')?.remove();
+
     const customer = window._currentCustomer || null;
-    const shipEl = document.getElementById('qc-shipping');
-    const itemsEl = document.getElementById('qc-items');
-    const totalEl = document.getElementById('qc-total');
-    const marketNote = document.getElementById('qc-market-note');
-    const modal = document.getElementById('quote-confirm-modal');
-
-    // Shipping address
-    let shipText = '—';
+    let shipText = 'No shipping address on file';
     if (customer) {
-        const parts = [
-            customer.shipping_address || customer.shippingAddress || '',
-            customer.company || '',
-            customer.name || ''
-        ].filter(Boolean);
-        shipText = parts.length
-            ? (customer.shipping_address || customer.shippingAddress || parts.join('\n'))
-            : 'No shipping address on file';
+        shipText = (customer.shipping_address || customer.shippingAddress || '').trim()
+            || 'No shipping address on file';
     }
-    if (shipEl) shipEl.textContent = shipText;
 
-    // Items + total
     let pricedTotal = 0;
     let hasMarket = false;
     let rows = '';
@@ -4545,27 +4534,51 @@ function openQuoteConfirmModal() {
             lineLabel = '$' + line.toFixed(2);
         }
         rows += `
-            <div class="flex justify-between gap-3 border-b border-[#f0e6d6] pb-2">
-                <div class="min-w-0">
-                    <p class="font-medium text-[#1E4D2B] truncate">${item.name || 'Item'}</p>
-                    <p class="text-xs text-[#6B4423]">Qty ${qty}${item.cs ? ' · ' + item.cs : ''}</p>
+            <div style="display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #f0e6d6;padding-bottom:8px;margin-bottom:8px;">
+                <div style="min-width:0;">
+                    <p style="font-weight:600;color:#1E4D2B;margin:0;">${item.name || 'Item'}</p>
+                    <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.cs ? ' · ' + item.cs : ''}</p>
                 </div>
-                <p class="font-semibold text-[#1E4D2B] whitespace-nowrap">${lineLabel}</p>
+                <p style="font-weight:600;color:#1E4D2B;white-space:nowrap;margin:0;">${lineLabel}</p>
             </div>
         `;
     });
 
-    if (itemsEl) itemsEl.innerHTML = rows || '<p class="text-[#6B4423]">No items</p>';
-    if (totalEl) totalEl.textContent = '$' + pricedTotal.toFixed(2);
-    if (marketNote) marketNote.classList.toggle('hidden', !hasMarket);
+    const overlay = document.createElement('div');
+    overlay.id = 'quote-confirm-modal-dynamic';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:16px;';
+    overlay.innerHTML = `
+        <div style="background:#fff;border:2px solid #6B4423;border-radius:16px;width:100%;max-width:32rem;max-height:90vh;overflow:auto;box-shadow:0 20px 40px rgba(0,0,0,0.2);">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #d4b78f;">
+                <h2 style="margin:0;font-size:1.25rem;font-weight:700;color:#1E4D2B;">Confirm Your Quote</h2>
+                <button type="button" onclick="hideQuoteConfirmModal()" style="border:none;background:none;font-size:1.5rem;color:#6B4423;cursor:pointer;line-height:1;">&times;</button>
+            </div>
+            <div style="padding:16px 20px;">
+                <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 4px;">Shipping Address</p>
+                <p style="font-size:14px;color:#1E4D2B;white-space:pre-line;margin:0 0 16px;">${shipText}</p>
 
-    if (!modal) {
-        console.error('quote-confirm-modal not found in the page HTML');
-        alert('Confirm modal is missing. Please hard-refresh or redeploy wholesale-portal.html');
-        return;
-    }
-    modal.classList.remove('hidden');
-    modal.style.display = 'flex';
+                <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 8px;">Items</p>
+                <div style="margin-bottom:16px;">${rows}</div>
+
+                <div style="display:flex;justify-content:space-between;align-items:center;background:#f8f4eb;border-radius:12px;padding:12px 16px;">
+                    <span style="font-weight:600;color:#6B4423;">Quote Total</span>
+                    <span style="font-size:1.25rem;font-weight:700;color:#1E4D2B;">$${pricedTotal.toFixed(2)}</span>
+                </div>
+                ${hasMarket ? '<p style="font-size:12px;color:#c2410c;margin:8px 0 0;">Some items are market price and are not included in this total.</p>' : ''}
+            </div>
+            <div style="display:flex;gap:12px;padding:16px 20px;border-top:1px solid #d4b78f;">
+                <button type="button" onclick="hideQuoteConfirmModal()"
+                    style="flex:1;padding:10px 16px;border:2px solid #6B4423;background:#fff;color:#6B4423;border-radius:12px;font-weight:600;cursor:pointer;">
+                    Go Back
+                </button>
+                <button type="button" onclick="confirmAndSubmitQuote()"
+                    style="flex:1;padding:10px 16px;border:none;background:#1E4D2B;color:#d4b78f;border-radius:12px;font-weight:600;cursor:pointer;">
+                    Confirm &amp; Submit
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
 }
 
 async function confirmAndSubmitQuote() {
