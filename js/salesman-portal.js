@@ -72,31 +72,37 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     }
 })();
 
-// Always re-check session when page is shown (including Back/Forward cache)
-window.addEventListener('pageshow', function () {
-    (async function () {
-        try {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            if (!session) {
-                localStorage.removeItem('currentUser');
-                window.location.replace('login-portal.html');
-                return;
-            }
-            const { data: profile, error } = await supabaseClient
-                .from('profiles')
-                .select('role')
-                .eq('id', session.user.id)
-                .single();
-            if (error || !profile || profile.role !== 'admin') {
-                localStorage.removeItem('currentUser');
-                try { await supabaseClient.auth.signOut(); } catch (_) {}
-                window.location.replace('login-portal.html');
-            }
-        } catch (err) {
+async function revalidateAdminSession() {
+    try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) {
             localStorage.removeItem('currentUser');
             window.location.replace('login-portal.html');
+            return false;
         }
-    })();
+        const { data: profile, error } = await supabaseClient
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+        if (error || !profile || profile.role !== 'admin') {
+            localStorage.removeItem('currentUser');
+            try { await supabaseClient.auth.signOut(); } catch (_) {}
+            window.location.replace('login-portal.html');
+            return false;
+        }
+        return true;
+    } catch (err) {
+        localStorage.removeItem('currentUser');
+        window.location.replace('login-portal.html');
+        return false;
+    }
+}
+
+window.addEventListener('pageshow', function () { revalidateAdminSession(); });
+window.addEventListener('focus', function () { revalidateAdminSession(); });
+document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') revalidateAdminSession();
 });
 // ================== PRODUCT CATALOG ==================
 const PRODUCT_CATALOG = [
@@ -477,7 +483,7 @@ async function logout() {
     if (!confirm("Are you sure you want to logout?")) return;
     localStorage.removeItem("currentUser");
     try { await supabaseClient.auth.signOut(); } catch (_) {}
-    window.location.href = "login-portal.html";
+    window.location.replace("login-portal.html");
 }
 
 // ================== TABS ==================
