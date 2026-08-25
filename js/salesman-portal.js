@@ -72,8 +72,8 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     }
 })();
 
-window.addEventListener('pageshow', function (e) {
-    if (!e.persisted) return;
+// Always re-check session when page is shown (including Back/Forward cache)
+window.addEventListener('pageshow', function () {
     (async function () {
         try {
             const { data: { session } } = await supabaseClient.auth.getSession();
@@ -87,7 +87,7 @@ window.addEventListener('pageshow', function (e) {
                 .select('role')
                 .eq('id', session.user.id)
                 .single();
-            if (error || !profile || (profile.role !== 'salesman' && profile.role !== 'admin')) {
+            if (error || !profile || profile.role !== 'admin') {
                 localStorage.removeItem('currentUser');
                 try { await supabaseClient.auth.signOut(); } catch (_) {}
                 window.location.replace('login-portal.html');

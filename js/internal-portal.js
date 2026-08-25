@@ -59,9 +59,8 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     }
 })();
 
-// Re-check when browser restores this page from Back/Forward cache
-window.addEventListener('pageshow', function (e) {
-    if (!e.persisted) return;
+// Always re-check session when page is shown (including Back/Forward cache)
+window.addEventListener('pageshow', function () {
     (async function () {
         try {
             const { data: { session } } = await supabaseClient.auth.getSession();
@@ -86,7 +85,6 @@ window.addEventListener('pageshow', function (e) {
         }
     })();
 });
-// =====================================================
 
 
 // HARD SAFETY — set to true ONLY right before publishing the live site
