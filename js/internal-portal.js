@@ -4646,6 +4646,8 @@ async function saveNewOrder(event) {
 
     const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
 
+    const invoiceNumber = generateInvoiceNumber();
+
     const payload = {
         customer_id: null,
         customer_name: customer,
@@ -4658,21 +4660,24 @@ async function saveNewOrder(event) {
         items: items,
         notes: notes || 'Created via Add Order',
         shipping_cost: 0,
-        submitted_at: new Date().toISOString()
+        submitted_at: new Date().toISOString(),
+        invoice_number: invoiceNumber
     };
 
     try {
         const { data, error } = await supabaseClient
             .from('orders')
             .insert([payload])
-            .select('id')
+            .select('id, invoice_number')
             .single();
 
         if (error) throw error;
 
+        const shortId = data?.invoice_number || invoiceNumber || data?.id;
+
         // Email Pro Forma PDF to Marshall (fire-and-forget)
-        notifyMarshallProforma({
-            orderId: data?.id,
+        await notifyMarshallProforma({
+            orderId: shortId,
             customerName: payload.customer_name,
             companyName: payload.customer_company,
             customerEmail: payload.customer_email,

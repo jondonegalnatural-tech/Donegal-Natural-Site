@@ -1475,6 +1475,8 @@ async function submitPlaceOrder() {
         ? currentPlaceOrderCustomer
         : null;
 
+    const invoiceNumber = generateInvoiceNumber();
+
     const payload = {
         customer_id: customerObj?.id || null,
         customer_name: nameFromField,
@@ -1494,21 +1496,24 @@ async function submitPlaceOrder() {
         })),
         notes: notes || "Submitted via Salesman Portal",
         shipping_cost: 0,
-        submitted_at: new Date().toISOString()
+        submitted_at: new Date().toISOString(),
+        invoice_number: invoiceNumber
     };
 
     try {
         const { data, error } = await supabaseClient
             .from("orders")
             .insert([payload])
-            .select('id')
+            .select('id, invoice_number')
             .single();
 
         if (error) throw error;
 
+        const shortId = data?.invoice_number || invoiceNumber || data?.id;
+
         // Email Pro Forma PDF to Marshall (fire-and-forget)
-        notifyMarshallProforma({
-            orderId: data?.id,
+        await notifyMarshallProforma({
+            orderId: shortId,
             customerName: payload.customer_name,
             companyName: payload.customer_company,
             customerEmail: payload.customer_email,
