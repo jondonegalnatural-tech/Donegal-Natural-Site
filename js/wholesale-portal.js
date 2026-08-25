@@ -61,6 +61,32 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     }
 })();
 
+window.addEventListener('pageshow', function (e) {
+    if (!e.persisted) return;
+    (async function () {
+        try {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (!session) {
+                localStorage.removeItem('currentUser');
+                window.location.replace('login-portal.html');
+                return;
+            }
+            const { data: profile, error } = await supabaseClient
+                .from('profiles')
+                .select('role')
+                .eq('id', session.user.id)
+                .single();
+            if (error || !profile || (profile.role !== 'salesman' && profile.role !== 'admin')) {
+                localStorage.removeItem('currentUser');
+                try { await supabaseClient.auth.signOut(); } catch (_) {}
+                window.location.replace('login-portal.html');
+            }
+        } catch (err) {
+            localStorage.removeItem('currentUser');
+            window.location.replace('login-portal.html');
+        }
+    })();
+});
 // ================== GLOBAL VARIABLES ==================
 let currentCategoryFilter = 'All';
 let currentSubCategoryFilter = '';
