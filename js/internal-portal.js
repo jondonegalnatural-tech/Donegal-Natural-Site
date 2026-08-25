@@ -8,7 +8,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Immediate auth guard — redirect before the page paints
+// Soft guard — fast redirect if no local admin cache (reduces UI flash)
 (function () {
     try {
         const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
@@ -16,6 +16,45 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
             window.location.replace('login-portal.html');
         }
     } catch (e) {
+        window.location.replace('login-portal.html');
+    }
+})();
+
+// Hard guard — live session + role from profiles
+(async function enforceAdminSession() {
+    try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) {
+            localStorage.removeItem('currentUser');
+            window.location.replace('login-portal.html');
+            return;
+        }
+        const { data: profile, error } = await supabaseClient
+            .from('profiles')
+            .select('id, email, full_name, role, company, must_change_password')
+            .eq('id', session.user.id)
+            .single();
+        if (error || !profile || profile.role !== 'admin') {
+            localStorage.removeItem('currentUser');
+            try { await supabaseClient.auth.signOut(); } catch (_) {}
+            window.location.replace('login-portal.html');
+            return;
+        }
+        const prev = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        localStorage.setItem('currentUser', JSON.stringify({
+            id: profile.id,
+            username: profile.email,
+            fullName: profile.full_name || profile.email,
+            role: profile.role,
+            company: profile.company || '',
+            email: profile.email,
+            mustChangePassword: !!profile.must_change_password,
+            loginTime: prev.loginTime || new Date().toISOString(),
+            supabase: true
+        }));
+    } catch (e) {
+        console.error('enforceAdminSession:', e);
+        localStorage.removeItem('currentUser');
         window.location.replace('login-portal.html');
     }
 })();
@@ -1833,11 +1872,11 @@ async function loadProductCatalog() {
 
 // ================== USER & AUTHENTICATION ==================
 
-function logout() {
-    if (confirm("Are you sure you want to logout?")) {
-        localStorage.removeItem("currentUser");
-        window.location.href = "login-portal.html";
-    }
+async function logout() {
+    if (!confirm("Are you sure you want to logout?")) return;
+    localStorage.removeItem("currentUser");
+    try { await supabaseClient.auth.signOut(); } catch (_) {}
+    window.location.href = "login-portal.html";
 }
 
 function loadUser() {

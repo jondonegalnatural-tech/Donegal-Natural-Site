@@ -3,7 +3,14 @@
 // =============================================
 
 console.log("wholesale-portal.js loaded");
-// Immediate auth guard — redirect before the page paints
+
+// ================== SUPABASE SETUP ==================
+const SUPABASE_URL = 'https://kyzfdlzqlckrpdkavxei.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5emZkbHpxbGNrcnBka2F2eGVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3ODU0NjEsImV4cCI6MjEwMDM2MTQ2MX0.Y1Sshp1-0lFwKakCgpJtAUpaHNB0PQ1vuo6SOHZcPu4';
+
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Soft guard — fast redirect if no customer cache
 (function () {
     try {
         const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
@@ -15,13 +22,44 @@ console.log("wholesale-portal.js loaded");
     }
 })();
 
-// ================== SUPABASE SETUP (TEMPORARY) ==================
-// ================== SUPABASE SETUP ==================
-// ================== SUPABASE SETUP ==================
-const SUPABASE_URL = 'https://kyzfdlzqlckrpdkavxei.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5emZkbHpxbGNrcnBka2F2eGVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3ODU0NjEsImV4cCI6MjEwMDM2MTQ2MX0.Y1Sshp1-0lFwKakCgpJtAUpaHNB0PQ1vuo6SOHZcPu4';
-
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Hard guard — live session + role from profiles
+(async function enforceCustomerSession() {
+    try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) {
+            localStorage.removeItem('currentUser');
+            window.location.replace('login-portal.html');
+            return;
+        }
+        const { data: profile, error } = await supabaseClient
+            .from('profiles')
+            .select('id, email, full_name, role, company, must_change_password')
+            .eq('id', session.user.id)
+            .single();
+        if (error || !profile || profile.role !== 'customer') {
+            localStorage.removeItem('currentUser');
+            try { await supabaseClient.auth.signOut(); } catch (_) {}
+            window.location.replace('login-portal.html');
+            return;
+        }
+        const prev = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        localStorage.setItem('currentUser', JSON.stringify({
+            id: profile.id,
+            username: profile.email,
+            fullName: profile.full_name || profile.email,
+            role: profile.role,
+            company: profile.company || '',
+            email: profile.email,
+            mustChangePassword: !!profile.must_change_password,
+            loginTime: prev.loginTime || new Date().toISOString(),
+            supabase: true
+        }));
+    } catch (e) {
+        console.error('enforceCustomerSession:', e);
+        localStorage.removeItem('currentUser');
+        window.location.replace('login-portal.html');
+    }
+})();
 
 // ================== GLOBAL VARIABLES ==================
 let currentCategoryFilter = 'All';
@@ -6232,9 +6270,10 @@ async function uploadResaleCertificate() {
 
 // ================== END MANAGE SHIPPING ADDRESSES ==================
 
-function logout() {
+async function logout() {
+    if (!confirm("Are you sure you want to logout?")) return;
     localStorage.removeItem("currentUser");
-    localStorage.removeItem("activeCustomerId");
+    try { await supabaseClient.auth.signOut(); } catch (_) {}
     window.location.href = "login-portal.html";
 }
 

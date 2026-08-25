@@ -7,7 +7,19 @@
 
 
 
-// Immediate auth guard — redirect before the page paints
+let currentUser = null;
+let proposals = JSON.parse(localStorage.getItem("salesmanProposals") || "[]");
+let vendorLogs = JSON.parse(localStorage.getItem("vendorLogs") || "[]");
+let currentOrderItems = [];
+
+// ================== SUPABASE CLIENT ==================
+const SUPABASE_URL = 'https://kyzfdlzqlckrpdkavxei.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5emZkbHpxbGNrcnBka2F2eGVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3ODU0NjEsImV4cCI6MjEwMDM2MTQ2MX0.Y1Sshp1-0lFwKakCgpJtAUpaHNB0PQ1vuo6SOHZcPu4';
+
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// =====================================================
+
+// Soft guard — fast redirect if no salesman/admin cache
 (function () {
     try {
         const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
@@ -19,16 +31,46 @@
     }
 })();
 
-let currentUser = null;
-let proposals = JSON.parse(localStorage.getItem("salesmanProposals") || "[]");
-let vendorLogs = JSON.parse(localStorage.getItem("vendorLogs") || "[]");
-let currentOrderItems = [];
-// ================== SUPABASE CLIENT ==================
-const SUPABASE_URL = 'https://kyzfdlzqlckrpdkavxei.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5emZkbHpxbGNrcnBka2F2eGVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3ODU0NjEsImV4cCI6MjEwMDM2MTQ2MX0.Y1Sshp1-0lFwKakCgpJtAUpaHNB0PQ1vuo6SOHZcPu4';
-
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-// =====================================================
+// Hard guard — live session + role from profiles
+(async function enforceSalesmanSession() {
+    try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) {
+            localStorage.removeItem('currentUser');
+            window.location.replace('login-portal.html');
+            return;
+        }
+        const { data: profile, error } = await supabaseClient
+            .from('profiles')
+            .select('id, email, full_name, role, company, must_change_password')
+            .eq('id', session.user.id)
+            .single();
+        if (error || !profile || (profile.role !== 'salesman' && profile.role !== 'admin')) {
+            localStorage.removeItem('currentUser');
+            try { await supabaseClient.auth.signOut(); } catch (_) {}
+            window.location.replace('login-portal.html');
+            return;
+        }
+        const prev = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const refreshed = {
+            id: profile.id,
+            username: profile.email,
+            fullName: profile.full_name || profile.email,
+            role: profile.role,
+            company: profile.company || '',
+            email: profile.email,
+            mustChangePassword: !!profile.must_change_password,
+            loginTime: prev.loginTime || new Date().toISOString(),
+            supabase: true
+        };
+        localStorage.setItem('currentUser', JSON.stringify(refreshed));
+        currentUser = refreshed;
+    } catch (e) {
+        console.error('enforceSalesmanSession:', e);
+        localStorage.removeItem('currentUser');
+        window.location.replace('login-portal.html');
+    }
+})();
 
 // ================== PRODUCT CATALOG ==================
 const PRODUCT_CATALOG = [
@@ -405,10 +447,11 @@ async function showPortal() {
     }
 }
 
-function logout() {
+async function logout() {
+    if (!confirm("Are you sure you want to logout?")) return;
     localStorage.removeItem("currentUser");
-    localStorage.removeItem("originalAdminUser");
-    location.reload();
+    try { await supabaseClient.auth.signOut(); } catch (_) {}
+    window.location.href = "login-portal.html";
 }
 
 // ================== TABS ==================
