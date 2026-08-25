@@ -895,6 +895,13 @@ function getSalesmanOrderTotals(salesman) {
 
 let currentSalesmanOrdersId = null;
 
+function hideSalesmanOrdersModal() {
+    const modal = document.getElementById('salesman-orders-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+}
+
 function openSalesmanOrdersModal() {
     const detailModal = document.getElementById('salesman-modal');
     const salesmanId = detailModal?.dataset?.salesmanId;
