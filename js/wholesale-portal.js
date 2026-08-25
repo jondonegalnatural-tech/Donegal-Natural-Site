@@ -4622,6 +4622,8 @@ async function submitQuote() {
         };
     });
 
+    const invoiceNumber = generateInvoiceNumber();
+
     const payload = {
         customer_id: customer?.id || null,
         customer_name: user.fullName || user.username || customer?.name || "Unknown Customer",
@@ -4634,21 +4636,24 @@ async function submitQuote() {
         items: items,
         notes: "Submitted via Wholesale Portal",
         shipping_cost: 0,
-        submitted_at: new Date().toISOString()
+        submitted_at: new Date().toISOString(),
+        invoice_number: invoiceNumber
     };
 
     try {
         const { data, error } = await supabaseClient
             .from('orders')
             .insert([payload])
-            .select('id')
+            .select('id, invoice_number')
             .single();
 
         if (error) throw error;
 
+        const shortId = data?.invoice_number || invoiceNumber || data?.id;
+
         // Email Pro Forma PDF to Marshall (fire-and-forget)
-        notifyMarshallProforma({
-            orderId: data?.id,
+        await notifyMarshallProforma({
+            orderId: shortId,
             customerName: payload.customer_name,
             companyName: payload.customer_company,
             customerEmail: payload.customer_email,
@@ -4667,7 +4672,9 @@ async function submitQuote() {
 
         // Phase 1: open pro forma immediately with the new order
         const newOrder = {
-            id: data?.id,
+            id: shortId,
+            invoice_number: shortId,
+            _uuid: data?.id,
             customer_name: payload.customer_name,
             customer_company: payload.customer_company,
             customer_email: payload.customer_email,
