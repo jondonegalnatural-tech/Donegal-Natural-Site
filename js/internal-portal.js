@@ -1791,18 +1791,17 @@ async function loadProductCatalog() {
         const { data, error } = await supabaseClient
             .from('products')
             .select('id, name, category, sub_category, case_size, unit_price, is_market_price, active, updated_at')
-            .eq('active', true)
             .order('category', { ascending: true })
             .order('name', { ascending: true });
 
         if (error) throw error;
 
         if (!data || data.length === 0) {
-            console.warn('loadProductCatalog: no active products in DB — keeping hardcoded catalog');
+            console.warn('loadProductCatalog: no products in DB — keeping hardcoded catalog');
             return;
         }
 
-        PRODUCT_CATALOG = data.map(row => ({
+        const mapped = data.map(row => ({
             id: row.id,
             name: row.name || '',
             category: row.category || 'Other',
@@ -1810,6 +1809,7 @@ async function loadProductCatalog() {
             caseSize: row.case_size || '',
             unitPrice: row.unit_price != null ? Number(row.unit_price) : null,
             isMarketPrice: !!row.is_market_price,
+            active: row.active !== false,
             marketPriceNote: null,
             landedCost: null,
             grossProfit: null,
@@ -1819,7 +1819,11 @@ async function loadProductCatalog() {
                 : null
         }));
 
-        console.log('loadProductCatalog: loaded', PRODUCT_CATALOG.length, 'products from Supabase');
+        PRODUCT_CATALOG_ALL = mapped;
+        // Rest of the app only sees active products
+        PRODUCT_CATALOG = mapped.filter(p => p.active !== false);
+
+        console.log('loadProductCatalog: loaded', PRODUCT_CATALOG.length, 'active /', PRODUCT_CATALOG_ALL.length, 'total from Supabase');
     } catch (err) {
         console.error('loadProductCatalog error — keeping hardcoded catalog:', err);
     }
@@ -13650,15 +13654,22 @@ if (typeof loadUser === 'function') {
 
 // ================== COMPANY BASE PRICE SHEET ==================
 let basePriceSheetEditMode = false;
+let basePriceSheetShowDiscontinued = false;
+let PRODUCT_CATALOG_ALL = []; // active + discontinued — Base Price Sheet only
 
 function toggleBasePriceSheetEdit() {
     basePriceSheetEditMode = !basePriceSheetEditMode;
     const editBtn = document.getElementById('bps-edit-btn');
     const saveBtn = document.getElementById('bps-save-btn');
+    const bulkBar = document.getElementById('bps-bulk-bar');
     if (editBtn) editBtn.textContent = basePriceSheetEditMode ? 'Cancel' : 'Edit';
     if (saveBtn) {
         if (basePriceSheetEditMode) saveBtn.classList.remove('hidden');
         else saveBtn.classList.add('hidden');
+    }
+    if (bulkBar) {
+        if (basePriceSheetEditMode) bulkBar.classList.remove('hidden');
+        else bulkBar.classList.add('hidden');
     }
     renderBasePriceSheet();
 }
@@ -13675,6 +13686,184 @@ function formatBpsEditedAt(iso) {
     }
 }
 
+function onBpsShowDiscontinuedChange() {
+    const cb = document.getElementById('bps-show-discontinued');
+    basePriceSheetShowDiscontinued = !!(cb && cb.checked);
+    renderBasePriceSheet();
+}
+
+function bpsSelectAll(checked) {
+    document.querySelectorAll('#base-price-sheet-list .bps-check').forEach(cb => {
+        cb.checked = !!checked;
+    });
+    document.querySelectorAll('#base-price-sheet-list .bps-check-all').forEach(cb => {
+        cb.checked = !!checked;
+    });
+    updateBpsSelectedCount();
+}
+
+function updateBpsSelectedCount() {
+    const count = document.querySelectorAll('#base-price-sheet-list .bps-check:checked').length;
+    const el = document.getElementById('bps-selected-count');
+    if (el) el.textContent = count + ' selected';
+}
+
+function getBpsSelectedIds() {
+    return Array.from(document.querySelectorAll('#base-price-sheet-list .bps-check:checked'))
+        .map(cb => cb.getAttribute('data-id'))
+        .filter(Boolean);
+}
+
+async function removePriceSheetKeys(tableName, productNames) {
+    if (!productNames || !productNames.length) return;
+    const nameSet = new Set(productNames);
+    const { data, error } = await supabaseClient
+        .from(tableName)
+        .select('id, prices');
+    if (error) throw error;
+    if (!data || !data.length) return;
+
+    for (const row of data) {
+        const prices = row.prices && typeof row.prices === 'object' ? { ...row.prices } : {};
+        let changed = false;
+        nameSet.forEach(name => {
+            if (Object.prototype.hasOwnProperty.call(prices, name)) {
+                delete prices[name];
+                changed = true;
+            }
+        });
+        if (!changed) continue;
+        const { error: updErr } = await supabaseClient
+            .from(tableName)
+            .update({ prices: prices, updated_at: new Date().toISOString() })
+            .eq('id', row.id);
+        if (updErr) throw updErr;
+    }
+}
+
+async function discontinueSelectedProducts() {
+    const ids = getBpsSelectedIds();
+    if (!ids.length) {
+        alert('Select at least one product.');
+        return;
+    }
+    if (!confirm('Discontinue ' + ids.length + ' product(s)?\n\nThey will be hidden from wholesale and salesman catalogs.\nYou can show them again with “Show discontinued” and Reactivate later.')) {
+        return;
+    }
+
+    try {
+        const nowIso = new Date().toISOString();
+        const { error } = await supabaseClient
+            .from('products')
+            .update({ active: false, updated_at: nowIso })
+            .in('id', ids);
+        if (error) throw error;
+
+        // Update local catalogs
+        (PRODUCT_CATALOG_ALL || []).forEach(p => {
+            if (ids.includes(p.id)) {
+                p.active = false;
+                p.updatedAt = nowIso;
+            }
+        });
+        PRODUCT_CATALOG = (PRODUCT_CATALOG_ALL || []).filter(p => p.active !== false);
+
+        renderBasePriceSheet();
+        alert(ids.length + ' product(s) discontinued.');
+    } catch (err) {
+        console.error('discontinueSelectedProducts error:', err);
+        alert('Could not discontinue.\n' + (err.message || ''));
+    }
+}
+
+async function reactivateSelectedProducts() {
+    const ids = getBpsSelectedIds();
+    if (!ids.length) {
+        alert('Select at least one product.');
+        return;
+    }
+    if (!confirm('Reactivate ' + ids.length + ' product(s)?\n\nThey will appear again in wholesale and salesman catalogs.')) {
+        return;
+    }
+
+    try {
+        const nowIso = new Date().toISOString();
+        const { error } = await supabaseClient
+            .from('products')
+            .update({ active: true, updated_at: nowIso })
+            .in('id', ids);
+        if (error) throw error;
+
+        (PRODUCT_CATALOG_ALL || []).forEach(p => {
+            if (ids.includes(p.id)) {
+                p.active = true;
+                p.updatedAt = nowIso;
+            }
+        });
+        PRODUCT_CATALOG = (PRODUCT_CATALOG_ALL || []).filter(p => p.active !== false);
+
+        renderBasePriceSheet();
+        alert(ids.length + ' product(s) reactivated.');
+    } catch (err) {
+        console.error('reactivateSelectedProducts error:', err);
+        alert('Could not reactivate.\n' + (err.message || ''));
+    }
+}
+
+async function deleteSelectedProductsPermanently() {
+    const ids = getBpsSelectedIds();
+    if (!ids.length) {
+        alert('Select at least one product.');
+        return;
+    }
+
+    const names = ids.map(id => {
+        const p = (PRODUCT_CATALOG_ALL || []).find(x => x.id === id);
+        return p ? p.name : id;
+    });
+
+    if (!confirm('PERMANENTLY delete ' + ids.length + ' product(s)?\n\n' +
+        names.slice(0, 8).join('\n') +
+        (names.length > 8 ? '\n… and ' + (names.length - 8) + ' more' : '') +
+        '\n\nThis removes them from the products table and strips them from all salesman and customer price sheets.\nThis cannot be undone.')) {
+        return;
+    }
+    if (!confirm('Final confirmation: really delete these products permanently?')) {
+        return;
+    }
+
+    try {
+        // 1. Strip from price sheets first
+        await removePriceSheetKeys('salesman_price_sheets', names);
+        await removePriceSheetKeys('customer_price_sheets', names);
+
+        // 2. Optional inventory cleanup (best-effort)
+        try {
+            for (const name of names) {
+                await supabaseClient.from('inventory').delete().eq('product_name', name);
+            }
+        } catch (invErr) {
+            console.warn('inventory cleanup skipped:', invErr);
+        }
+
+        // 3. Hard delete products
+        const { error } = await supabaseClient
+            .from('products')
+            .delete()
+            .in('id', ids);
+        if (error) throw error;
+
+        // 4. Update local catalogs
+        PRODUCT_CATALOG_ALL = (PRODUCT_CATALOG_ALL || []).filter(p => !ids.includes(p.id));
+        PRODUCT_CATALOG = (PRODUCT_CATALOG || []).filter(p => !ids.includes(p.id));
+
+        renderBasePriceSheet();
+        alert(ids.length + ' product(s) permanently deleted.');
+    } catch (err) {
+        console.error('deleteSelectedProductsPermanently error:', err);
+        alert('Could not delete.\n' + (err.message || ''));
+    }
+}
 
 function openBasePriceSheetModal() {
     const modal = document.getElementById('base-price-sheet-modal');
@@ -13682,10 +13871,15 @@ function openBasePriceSheetModal() {
     const searchEl = document.getElementById('base-price-sheet-search');
     if (searchEl) searchEl.value = '';
     basePriceSheetEditMode = false;
+    basePriceSheetShowDiscontinued = false;
     const editBtn = document.getElementById('bps-edit-btn');
     const saveBtn = document.getElementById('bps-save-btn');
+    const bulkBar = document.getElementById('bps-bulk-bar');
+    const showDisc = document.getElementById('bps-show-discontinued');
     if (editBtn) editBtn.textContent = 'Edit';
     if (saveBtn) saveBtn.classList.add('hidden');
+    if (bulkBar) bulkBar.classList.add('hidden');
+    if (showDisc) showDisc.checked = false;
     renderBasePriceSheet();
     modal.classList.remove('hidden');
     modal.style.display = 'flex';
@@ -13703,15 +13897,22 @@ function renderBasePriceSheet() {
     const subEl = document.getElementById('base-price-sheet-subtitle');
     if (!listEl) return;
 
-    if (typeof PRODUCT_CATALOG === 'undefined' || !PRODUCT_CATALOG.length) {
+    const source = (PRODUCT_CATALOG_ALL && PRODUCT_CATALOG_ALL.length)
+        ? PRODUCT_CATALOG_ALL
+        : (PRODUCT_CATALOG || []);
+
+    if (!source.length) {
         listEl.innerHTML = '<p class="text-sm text-[#6B4423]">Product catalog not loaded.</p>';
         if (subEl) subEl.textContent = 'No products';
         return;
     }
 
     const search = (document.getElementById('base-price-sheet-search')?.value || '').toLowerCase().trim();
+    const showDisc = basePriceSheetShowDiscontinued;
 
-    const filtered = PRODUCT_CATALOG.filter(p => {
+    const filtered = source.filter(p => {
+        const isActive = p.active !== false;
+        if (!showDisc && !isActive) return false;
         if (!search) return true;
         return (p.name || '').toLowerCase().includes(search) ||
                (p.category || '').toLowerCase().includes(search) ||
@@ -13719,17 +13920,23 @@ function renderBasePriceSheet() {
                (p.caseSize || '').toLowerCase().includes(search);
     });
 
+    const activeCount = filtered.filter(p => p.active !== false).length;
+    const discCount = filtered.filter(p => p.active === false).length;
+
     if (subEl) {
-        subEl.textContent = filtered.length + ' product' + (filtered.length !== 1 ? 's' : '') +
-        (search ? ' matching "' + search + '"' : ' · base unit prices');
+        let text = filtered.length + ' product' + (filtered.length !== 1 ? 's' : '');
+        if (showDisc && discCount > 0) text += ' (' + discCount + ' discontinued)';
+        if (search) text += ' matching "' + search + '"';
+        else text += ' · base unit prices';
+        subEl.textContent = text;
     }
 
     if (filtered.length === 0) {
         listEl.innerHTML = '<p class="text-sm text-[#6B4423]">No products match your search.</p>';
+        updateBpsSelectedCount();
         return;
     }
 
-    // Group by category
     const grouped = {};
     filtered.forEach(p => {
         const cat = p.category || 'Other';
@@ -13738,10 +13945,14 @@ function renderBasePriceSheet() {
     });
 
     const categories = Object.keys(grouped).sort();
-
     let html = '';
+
     categories.forEach(cat => {
         const products = grouped[cat];
+        const checkHeader = basePriceSheetEditMode
+            ? `<th class="p-2.5 text-center w-10"><input type="checkbox" class="bps-check-all w-4 h-4" onchange="bpsSelectAll(this.checked)" title="Select all in this category"></th>`
+            : '';
+
         html += `
             <div>
                 <h3 class="text-base font-bold brand-green mb-2 border-b border-[#d4b78f] pb-1">${cat}</h3>
@@ -13749,6 +13960,7 @@ function renderBasePriceSheet() {
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                                ${checkHeader}
                                 <th class="p-2.5 text-left">Product</th>
                                 <th class="p-2.5 text-left w-28">Case Size</th>
                                 <th class="p-2.5 text-right w-28">Unit Price</th>
@@ -13757,32 +13969,44 @@ function renderBasePriceSheet() {
                         </thead>
                         <tbody>
         `;
-                products.forEach((p, i) => {
-            const bg = i % 2 ? 'bg-[#f8f4eb]' : 'bg-white';
+
+        products.forEach((p, i) => {
+            const isDisc = p.active === false;
+            const bg = isDisc ? 'bg-orange-50' : (i % 2 ? 'bg-[#f8f4eb]' : 'bg-white');
             const priceText = p.unitPrice != null
                 ? ('$' + Number(p.unitPrice).toFixed(2))
                 : '—';
             const marketBadge = p.isMarketPrice
                 ? ' <span class="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded bg-orange-100 text-orange-800">Market</span>'
                 : '';
+            const discBadge = isDisc
+                ? ' <span class="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded bg-gray-200 text-gray-700">Discontinued</span>'
+                : '';
             const nameVal = (p.name || '').replace(/"/g, '&quot;');
             const caseVal = (p.caseSize || '').replace(/"/g, '&quot;');
             const priceVal = p.unitPrice != null ? Number(p.unitPrice).toFixed(2) : '';
             const editedText = formatBpsEditedAt(p.updatedAt);
+
             const nameCell = basePriceSheetEditMode
                 ? `<input type="text" class="bps-name border border-[#d4b78f] rounded-lg px-2 py-1 w-full text-sm" value="${nameVal}">`
-                : `${p.name || '—'}${marketBadge}`;
+                : `<span class="${isDisc ? 'line-through text-gray-500' : ''}">${p.name || '—'}</span>${marketBadge}${discBadge}`;
             const caseCell = basePriceSheetEditMode
                 ? `<input type="text" class="bps-case border border-[#d4b78f] rounded-lg px-2 py-1 w-28 text-sm" value="${caseVal}">`
-                : `<span>${p.caseSize || '—'}</span>`;
+                : `<span class="${isDisc ? 'text-gray-500' : ''}">${p.caseSize || '—'}</span>`;
             const priceCell = basePriceSheetEditMode
                 ? `<input type="number" step="0.01" min="0" class="bps-price border border-[#d4b78f] rounded-lg px-2 py-1 w-24 text-sm text-right" value="${priceVal}">`
-                : `<span class="font-semibold">${priceText}</span>`;
+                : `<span class="font-semibold ${isDisc ? 'text-gray-500' : ''}">${priceText}</span>`;
+
+            const checkCell = basePriceSheetEditMode
+                ? `<td class="p-2.5 text-center"><input type="checkbox" class="bps-check w-4 h-4" data-id="${p.id || ''}" onchange="updateBpsSelectedCount()"></td>`
+                : '';
 
             html += `
                 <tr class="border-t border-[#e8d9b8] ${bg} bps-row"
                     data-id="${p.id || ''}"
-                    data-name="${(p.name || '').replace(/"/g, '&quot;')}">
+                    data-name="${(p.name || '').replace(/"/g, '&quot;')}"
+                    data-active="${isDisc ? 'false' : 'true'}">
+                    ${checkCell}
                     <td class="p-2.5">${nameCell}</td>
                     <td class="p-2.5">${caseCell}</td>
                     <td class="p-2.5 text-right">${priceCell}</td>
@@ -13790,6 +14014,7 @@ function renderBasePriceSheet() {
                 </tr>
             `;
         });
+
         html += `
                         </tbody>
                     </table>
@@ -13799,6 +14024,7 @@ function renderBasePriceSheet() {
     });
 
     listEl.innerHTML = html;
+    updateBpsSelectedCount();
 }
 
 async function renamePriceSheetKeys(tableName, oldName, newName) {
