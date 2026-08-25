@@ -1444,6 +1444,108 @@ async function notifyMarshallProforma(order) {
     }
 }
 
+function hidePlaceOrderConfirmModal() {
+    document.getElementById('place-order-confirm-dynamic')?.remove();
+}
+
+function openPlaceOrderConfirmModal() {
+    if (!placeOrderItems || placeOrderItems.length === 0) {
+        alert('Please add at least one product to the order.');
+        return;
+    }
+
+    const nameFromField =
+        (document.getElementById('place-order-customer-name')?.textContent || '').trim() ||
+        (document.getElementById('place-order-customer')?.value || '').trim() ||
+        (typeof currentPlaceOrderCustomer === 'string' ? currentPlaceOrderCustomer : '') ||
+        (currentPlaceOrderCustomer && currentPlaceOrderCustomer.name) ||
+        '';
+
+    if (!nameFromField) {
+        alert('No customer selected.');
+        return;
+    }
+
+    const customerObj = (currentPlaceOrderCustomer && typeof currentPlaceOrderCustomer === 'object')
+        ? currentPlaceOrderCustomer
+        : null;
+
+    const shipText = (
+        customerObj?.shipping_address ||
+        customerObj?.shippingAddress ||
+        ''
+    ).trim() || 'No shipping address on file';
+
+    let pricedTotal = 0;
+    let hasMarket = false;
+    let rows = '';
+
+    placeOrderItems.forEach((item) => {
+        const qty = item.quantity || 1;
+        const isMarket = !!item.isMarketPrice;
+        let lineLabel = item.displayPrice || '—';
+        if (isMarket && (item.unitPrice == null || item.unitPrice === '')) {
+            hasMarket = true;
+            lineLabel = 'Market';
+        } else {
+            const unit = parseFloat(item.unitPrice) || 0;
+            const line = unit * qty;
+            pricedTotal += line;
+            lineLabel = '$' + line.toFixed(2);
+        }
+        rows += `
+            <div style="display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #f0e6d6;padding-bottom:8px;margin-bottom:8px;">
+                <div>
+                    <p style="font-weight:600;color:#1E4D2B;margin:0;">${item.name || 'Item'}</p>
+                    <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.caseSize ? ' · ' + item.caseSize : ''}</p>
+                </div>
+                <p style="font-weight:600;color:#1E4D2B;margin:0;">${lineLabel}</p>
+            </div>
+        `;
+    });
+
+    document.getElementById('place-order-confirm-dynamic')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'place-order-confirm-dynamic';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:16px;';
+    overlay.innerHTML = `
+        <div style="background:#fff;border:2px solid #6B4423;border-radius:16px;width:100%;max-width:32rem;max-height:90vh;overflow:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #d4b78f;">
+                <h2 style="margin:0;font-size:1.25rem;font-weight:700;color:#1E4D2B;">Confirm Order</h2>
+                <button type="button" onclick="hidePlaceOrderConfirmModal()" style="border:none;background:none;font-size:1.5rem;color:#6B4423;cursor:pointer;">&times;</button>
+            </div>
+            <div style="padding:16px 20px;">
+                <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 4px;">Customer</p>
+                <p style="margin:0 0 12px;color:#1E4D2B;font-weight:600;">${nameFromField}</p>
+                <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 4px;">Shipping Address</p>
+                <p style="margin:0 0 16px;color:#1E4D2B;white-space:pre-line;">${shipText}</p>
+                <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 8px;">Items</p>
+                <div style="margin-bottom:16px;">${rows}</div>
+                <div style="display:flex;justify-content:space-between;background:#f8f4eb;border-radius:12px;padding:12px 16px;">
+                    <span style="font-weight:600;color:#6B4423;">Order Total</span>
+                    <span style="font-size:1.25rem;font-weight:700;color:#1E4D2B;">$${pricedTotal.toFixed(2)}</span>
+                </div>
+                ${hasMarket ? '<p style="font-size:12px;color:#c2410c;margin:8px 0 0;">Some items are market price and are not included in this total.</p>' : ''}
+            </div>
+            <div style="display:flex;gap:12px;padding:16px 20px;border-top:1px solid #d4b78f;">
+                <button type="button" onclick="hidePlaceOrderConfirmModal()"
+                    style="flex:1;padding:10px 16px;border:2px solid #6B4423;background:#fff;color:#6B4423;border-radius:12px;font-weight:600;cursor:pointer;">Go Back</button>
+                <button type="button" onclick="confirmAndSubmitPlaceOrder()"
+                    style="flex:1;padding:10px 16px;border:none;background:#1E4D2B;color:#d4b78f;border-radius:12px;font-weight:600;cursor:pointer;">Confirm &amp; Submit</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+async function confirmAndSubmitPlaceOrder() {
+    hidePlaceOrderConfirmModal();
+    if (typeof submitPlaceOrder === 'function') {
+        await submitPlaceOrder();
+    }
+}
+
 async function submitPlaceOrder() {
     const nameFromField =
         (document.getElementById("place-order-customer-name")?.textContent || "").trim() ||
@@ -1511,7 +1613,6 @@ async function submitPlaceOrder() {
 
         const shortId = data?.invoice_number || invoiceNumber || data?.id;
 
-        // Email Pro Forma PDF to Marshall (fire-and-forget)
         await notifyMarshallProforma({
             orderId: shortId,
             customerName: payload.customer_name,
@@ -1536,59 +1637,6 @@ async function submitPlaceOrder() {
         console.error(err);
         alert("Could not submit order.\n" + (err.message || ""));
     }
-}
-
-// ================== PRICE CHANGE PROPOSAL (MULTI-PRODUCT) ==================
-let proposalItems = []; // { name, caseSize, currentPrice, proposedPrice, reason, isMarketPrice }
-
-function searchProposalProducts() {
-    const searchEl = document.getElementById("proposal-product-search");
-    const resultsEl = document.getElementById("proposal-product-results");
-    if (!searchEl || !resultsEl) return;
-
-    const term = (searchEl.value || "").toLowerCase().trim();
-
-    if (term.length < 2) {
-        resultsEl.innerHTML = "";
-        resultsEl.classList.add("hidden");
-        return;
-    }
-
-    if (typeof PRODUCT_CATALOG === "undefined") {
-        resultsEl.innerHTML = `<p class="p-3 text-sm text-red-600">PRODUCT_CATALOG not found.</p>`;
-        resultsEl.classList.remove("hidden");
-        return;
-    }
-
-    const matches = PRODUCT_CATALOG.filter(p =>
-        p.name.toLowerCase().includes(term)
-    ).slice(0, 12);
-
-    if (matches.length === 0) {
-        resultsEl.innerHTML = `<p class="p-3 text-sm text-[#6B4423]">No products found.</p>`;
-        resultsEl.classList.remove("hidden");
-        return;
-    }
-
-    resultsEl.innerHTML = matches.map(p => {
-        const priceLabel = p.isMarketPrice
-            ? "Market Price"
-            : "$" + Number(p.unitPrice).toFixed(2);
-        const safeName = p.name.replace(/'/g, "\\'");
-
-        return `
-            <div class="px-3 py-2 hover:bg-[#f8f4eb] cursor-pointer border-b border-[#d4b78f] flex justify-between items-center"
-                 onclick="addProductToProposal('${safeName}')">
-                <div>
-                    <p class="text-sm font-semibold brand-green">${p.name}</p>
-                    <p class="text-xs text-[#6B4423]">${p.caseSize || ""} · ${priceLabel}</p>
-                </div>
-                <span class="text-xs font-bold text-[#1E4D2B]">Add</span>
-            </div>
-        `;
-    }).join("");
-
-    resultsEl.classList.remove("hidden");
 }
 
 function addProductToProposal(productName) {

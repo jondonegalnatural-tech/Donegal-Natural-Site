@@ -4589,6 +4589,257 @@ function removeOrderProduct(index) {
     renderNewOrderSelectedList();
 }
 
+function hideAdminOrderConfirmModal() {
+    document.getElementById('admin-order-confirm-dynamic')?.remove();
+}
+
+function openAdminOrderConfirmModal(event) {
+    if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+    }
+
+    const customer = (document.getElementById('new-order-customer')?.value || '').trim();
+    if (!customer) {
+        alert('Please select a customer.');
+        return;
+    }
+
+    let items = [];
+    if (typeof newOrderSelectedProducts !== 'undefined' && newOrderSelectedProducts.length > 0) {
+        items = newOrderSelectedProducts
+            .filter(p => p.name && (p.quantity || 0) > 0)
+            .map(p => {
+                const catalog = (typeof PRODUCT_CATALOG !== 'undefined')
+                    ? PRODUCT_CATALOG.find(c => c.name === p.name)
+                    : null;
+                return {
+                    product: p.name,
+                    quantity: p.quantity || 1,
+                    caseSize: catalog?.caseSize || '',
+                    unitPrice: catalog && !catalog.isMarketPrice ? catalog.unitPrice : null,
+                    displayPrice: catalog
+                        ? (catalog.isMarketPrice ? 'Market Price' : ('$' + Number(catalog.unitPrice).toFixed(2)))
+                        : '',
+                    isMarketPrice: !!(catalog && catalog.isMarketPrice)
+                };
+            });
+    } else {
+        document.querySelectorAll('#new-order-lines .order-line-row').forEach(row => {
+            const product = row.querySelector('.order-line-product')?.value || '';
+            const qty = parseInt(row.querySelector('.order-line-qty')?.value, 10) || 0;
+            if (product && qty > 0) {
+                items.push({
+                    product: product,
+                    quantity: qty,
+                    unitPrice: null,
+                    displayPrice: '',
+                    isMarketPrice: false
+                });
+            }
+        });
+    }
+
+    if (!items.length) {
+        alert('Please add at least one product with quantity.');
+        return;
+    }
+
+    let shipText = 'No shipping address on file';
+    if (typeof allCustomers !== 'undefined' && Array.isArray(allCustomers)) {
+        const match = allCustomers.find(c =>
+            (c.name || '').trim().toLowerCase() === customer.toLowerCase() ||
+            (c.company || '').trim().toLowerCase() === customer.toLowerCase()
+        );
+        if (match) {
+            shipText = (match.shipping_address || match.shippingAddress || '').trim() || shipText;
+        }
+    }
+
+    let pricedTotal = 0;
+    let hasMarket = false;
+    let rows = '';
+
+    items.forEach((item) => {
+        const qty = item.quantity || 1;
+        let lineLabel = item.displayPrice || '—';
+        if (item.isMarketPrice && (item.unitPrice == null || item.unitPrice === '')) {
+            hasMarket = true;
+            lineLabel = 'Market';
+        } else {
+            const unit = parseFloat(item.unitPrice) || 0;
+            const line = unit * qty;
+            pricedTotal += line;
+            lineLabel = '$' + line.toFixed(2);
+        }
+        rows += `
+            <div style="display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #f0e6d6;padding-bottom:8px;margin-bottom:8px;">
+                <div>
+                    <p style="font-weight:600;color:#1E4D2B;margin:0;">${item.product || 'Item'}</p>
+                    <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.caseSize ? ' · ' + item.caseSize : ''}</p>
+                </div>
+                <p style="font-weight:600;color:#1E4D2B;margin:0;">${lineLabel}</p>
+            </div>
+        `;
+    });
+
+    document.getElementById('admin-order-confirm-dynamic')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'admin-order-confirm-dynamic';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;padding:16px;';
+    overlay.innerHTML = `
+        <div style="background:#fff;border:2px solid #6B4423;border-radius:16px;width:100%;max-width:32rem;max-height:90vh;overflow:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #d4b78f;">
+                <h2 style="margin:0;font-size:1.25rem;font-weight:700;color:#1E4D2B;">Confirm Order</h2>
+                <button type="button" onclick="hideAdminOrderConfirmModal()" style="border:none;background:none;font-size:1.5rem;color:#6B4423;cursor:pointer;">&times;</button>
+            </div>
+            <div style="padding:16px 20px;">
+                <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 4px;">Customer</p>
+                <p style="margin:0 0 12px;color:#1E4D2B;font-weight:600;">${customer}</p>
+                <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 4px;">Shipping Address</p>
+                <p style="margin:0 0 16px;color:#1E4D2B;white-space:pre-line;">${shipText}</p>
+                <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 8px;">Items</p>
+                <div style="margin-bottom:16px;">${rows}</div>
+                <div style="display:flex;justify-content:space-between;background:#f8f4eb;border-radius:12px;padding:12px 16px;">
+                    <span style="font-weight:600;color:#6B4423;">Order Total</span>
+                    <span style="font-size:1.25rem;font-weight:700;color:#1E4D2B;">$${pricedTotal.toFixed(2)}</span>
+                </div>
+                ${hasMarket ? '<p style="font-size:12px;color:#c2410c;margin:8px 0 0;">Some items are market price and are not included in this total.</p>' : ''}
+            </div>
+            <div style="display:flex;gap:12px;padding:16px 20px;border-top:1px solid #d4b78f;">
+                <button type="button" onclick="hideAdminOrderConfirmModal()"
+                    style="flex:1;padding:10px 16px;border:2px solid #6B4423;background:#fff;color:#6B4423;border-radius:12px;font-weight:600;cursor:pointer;">Go Back</button>
+                <button type="button" onclick="confirmAndSubmitAdminOrder()"
+                    style="flex:1;padding:10px 16px;border:none;background:#1E4D2B;color:#d4b78f;border-radius:12px;font-weight:600;cursor:pointer;">Confirm &amp; Submit</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+}
+
+async function confirmAndSubmitAdminOrder() {
+    hideAdminOrderConfirmModal();
+    if (typeof saveNewOrder === 'function') {
+        await saveNewOrder({ preventDefault: function () {} });
+    }
+}
+
+async function saveNewOrder(event) {
+    if (event && typeof event.preventDefault === 'function') {
+        event.preventDefault();
+    }
+
+    const customer = (document.getElementById('new-order-customer')?.value || '').trim();
+    const salesman = (document.getElementById('new-order-salesman')?.value || '').trim();
+    const notes = (document.getElementById('new-order-notes')?.value || '').trim();
+
+    if (!customer) {
+        alert('Please select a customer.');
+        return;
+    }
+
+    let items = [];
+    if (typeof newOrderSelectedProducts !== 'undefined' && newOrderSelectedProducts.length > 0) {
+        items = newOrderSelectedProducts
+            .filter(p => p.name && (p.quantity || 0) > 0)
+            .map(p => {
+                const catalog = (typeof PRODUCT_CATALOG !== 'undefined')
+                    ? PRODUCT_CATALOG.find(c => c.name === p.name)
+                    : null;
+                return {
+                    product: p.name,
+                    quantity: p.quantity || 1,
+                    caseSize: catalog?.caseSize || '',
+                    unitPrice: catalog && !catalog.isMarketPrice ? catalog.unitPrice : null,
+                    displayPrice: catalog
+                        ? (catalog.isMarketPrice ? 'Market Price' : ('$' + Number(catalog.unitPrice).toFixed(2)))
+                        : '',
+                    isMarketPrice: !!(catalog && catalog.isMarketPrice)
+                };
+            });
+    } else {
+        const rows = document.querySelectorAll('#new-order-lines .order-line-row');
+        rows.forEach(row => {
+            const product = row.querySelector('.order-line-product')?.value || '';
+            const qty = parseInt(row.querySelector('.order-line-qty')?.value, 10) || 0;
+            if (product && qty > 0) {
+                items.push({
+                    product: product,
+                    quantity: qty,
+                    unitPrice: null,
+                    displayPrice: '',
+                    isMarketPrice: false
+                });
+            }
+        });
+    }
+
+    if (items.length === 0) {
+        alert('Please add at least one product with quantity.');
+        return;
+    }
+
+    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    const invoiceNumber = generateInvoiceNumber();
+
+    const payload = {
+        customer_id: null,
+        customer_name: customer,
+        customer_email: null,
+        customer_company: null,
+        salesman_email: null,
+        salesman_name: salesman || user.fullName || user.name || 'Admin',
+        status: 'submitted',
+        source: 'internal',
+        items: items,
+        notes: notes || 'Created via Add Order',
+        shipping_cost: 0,
+        submitted_at: new Date().toISOString(),
+        invoice_number: invoiceNumber
+    };
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('orders')
+            .insert([payload])
+            .select('id, invoice_number')
+            .single();
+
+        if (error) throw error;
+
+        const shortId = data?.invoice_number || invoiceNumber || data?.id;
+
+        await notifyMarshallProforma({
+            orderId: shortId,
+            customerName: payload.customer_name,
+            companyName: payload.customer_company,
+            customerEmail: payload.customer_email,
+            salesmanName: payload.salesman_name,
+            items: payload.items,
+            notes: payload.notes,
+            shippingCost: payload.shipping_cost || 0,
+            credit: payload.credit || 0,
+            submittedAt: payload.submitted_at,
+            source: payload.source || 'internal'
+        });
+
+        if (typeof newOrderSelectedProducts !== 'undefined') {
+            newOrderSelectedProducts = [];
+        }
+
+        hideAddOrderModal();
+
+        if (typeof loadOrders === 'function') {
+            await loadOrders();
+        }
+
+        alert('Order added for ' + customer);
+    } catch (err) {
+        console.error(err);
+        alert('Could not save order.\n' + (err.message || ''));
+    }
+}
+
 async function saveNewOrder(event) {
     event.preventDefault();
 
