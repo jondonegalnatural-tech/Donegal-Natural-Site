@@ -4457,7 +4457,7 @@ function hideQuoteSidebar() {
 
 async function notifyMarshallProforma(order) {
     try {
-        const res = await fetch(SUPABASE_URL + '/functions/v1/send-proforma-email', {
+        const res = await fetch(SUPABASE_URL + '/functions/v1/send-pro-forma-email-to-marshall', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
