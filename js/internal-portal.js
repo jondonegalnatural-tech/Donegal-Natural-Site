@@ -9072,9 +9072,8 @@ async function confirmInquiryApproval() {
             throw new Error(fnData.error);
         }
 
-        const notesWithCreds = notesParts.join('\n') +
-            '\nTemp username: ' + email +
-            '\nTemp password: ' + tempPassword;
+        // Do not store temp password in notes (security) — show once in alert + email only
+        const notesSafe = notesParts.join('\n');
 
                 const customerPayload = {
             name: name,
@@ -9083,7 +9082,7 @@ async function confirmInquiryApproval() {
             phone: phone || '',
             shipping_address: shipping || '',
             billing_address: billing || shipping || '',
-            notes: notesWithCreds,
+            notes: notesSafe,
             status: 'Approved',
             salesman_email: salesmanEmail,
             assigned_at: salesmanId ? new Date().toISOString() : null,
@@ -9110,7 +9109,7 @@ async function confirmInquiryApproval() {
             company_name: company,
             email: email,
             phone: phone || null,
-            notes: notesWithCreds,
+            notes: notesSafe,
             assigned_salesman_id: salesmanId || null
         };
 
