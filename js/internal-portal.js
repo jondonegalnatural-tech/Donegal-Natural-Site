@@ -7,6 +7,17 @@ const SUPABASE_URL = 'https://kyzfdlzqlckrpdkavxei.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5emZkbHpxbGNrcnBka2F2eGVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3ODU0NjEsImV4cCI6MjEwMDM2MTQ2MX0.Y1Sshp1-0lFwKakCgpJtAUpaHNB0PQ1vuo6SOHZcPu4';
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+async function getEdgeFunctionHeaders() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session || !session.access_token) {
+        throw new Error('Not signed in — cannot call Edge Function');
+    }
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+        'apikey': SUPABASE_ANON_KEY
+    };
+}
 
 // Soft guard — fast redirect if no local admin cache (reduces UI flash)
 (function () {
@@ -93,6 +104,19 @@ document.addEventListener('visibilitychange', function () {
 });
 
 
+// Edge Function auth — use the logged-in user's JWT (not the public anon key)
+async function getEdgeFunctionHeaders() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session || !session.access_token) {
+        throw new Error('Not signed in — cannot call Edge Function');
+    }
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+        'apikey': SUPABASE_ANON_KEY
+    };
+}
+
 // HARD SAFETY — set to true ONLY right before publishing the live site
 const EMAILS_ENABLED = true;
 
@@ -110,11 +134,7 @@ async function notifyMarshallProforma(order) {
     try {
         const res = await fetch(SUPABASE_URL + '/functions/v1/send-pro-forma-email', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-                'apikey': SUPABASE_ANON_KEY
-            },
+            headers: await getEdgeFunctionHeaders(),
             body: JSON.stringify({
                 orderId: order.orderId || order.id,
                 customerName: order.customerName || order.customer_name || '',
@@ -1095,11 +1115,7 @@ async function deleteSalesman() {
             const fnUrl = SUPABASE_URL + '/functions/v1/delete-salesman-user';
             const fnRes = await fetch(fnUrl, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-                    'apikey': SUPABASE_ANON_KEY
-                },
+                headers: await getEdgeFunctionHeaders(),
                 body: JSON.stringify({ email: email })
             });
             const fnText = await fnRes.text();
@@ -4150,11 +4166,7 @@ async function sendOrderStatusEmail({ type, order, denialReason }) {
             SUPABASE_URL + '/functions/v1/send-order-status-email',
             {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-                    'apikey': SUPABASE_ANON_KEY
-                },
+                headers: await getEdgeFunctionHeaders(),
                 body: JSON.stringify({
                     type: type,
                     toEmail: toEmail,
@@ -7670,11 +7682,7 @@ async function addNewSalesman(e) {
         const fnUrl = SUPABASE_URL + '/functions/v1/create-salesman-user';
         const fnRes = await fetch(fnUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-                'apikey': SUPABASE_ANON_KEY
-            },
+            headers: await getEdgeFunctionHeaders(),
             body: JSON.stringify({
                 email: email,
                 full_name: fullName,
@@ -9037,11 +9045,7 @@ async function confirmInquiryApproval() {
         const fnUrl = SUPABASE_URL + '/functions/v1/create-customer-user';
         const fnRes = await fetch(fnUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-                'apikey': SUPABASE_ANON_KEY
-            },
+            headers: await getEdgeFunctionHeaders(),
             body: JSON.stringify({
                 email: email,
                 password: tempPassword,

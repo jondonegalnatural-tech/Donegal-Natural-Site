@@ -10,6 +10,19 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Edge Function auth — use the logged-in user's JWT (not the public anon key)
+async function getEdgeFunctionHeaders() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session || !session.access_token) {
+        throw new Error('Not signed in — cannot call Edge Function');
+    }
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + session.access_token,
+        'apikey': SUPABASE_ANON_KEY
+    };
+}
+
 // Soft guard — fast redirect if no customer cache
 (function () {
     try {
