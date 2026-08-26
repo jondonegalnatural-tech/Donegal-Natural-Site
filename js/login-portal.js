@@ -101,15 +101,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 supabase: true
             }));
 
-            // Record last login for customers (best-effort; don't block login)
+            // Record last login for customers (best-effort; await so redirect does not abort the request)
             if (profile.role === 'customer' && profile.email) {
-                supabaseClient
-                    .from('customers')
-                    .update({ last_login_at: new Date().toISOString() })
-                    .ilike('email', profile.email)
-                    .then(({ error }) => {
-                        if (error) console.warn('last_login_at update failed:', error);
-                    });
+                try {
+                    const { error: lastLoginError } = await supabaseClient
+                        .from('customers')
+                        .update({ last_login_at: new Date().toISOString() })
+                        .ilike('email', profile.email);
+                    if (lastLoginError) {
+                        console.warn('last_login_at update failed:', lastLoginError.message || lastLoginError);
+                    }
+                } catch (e) {
+                    console.warn('last_login_at update skipped:', e?.message || e);
+                }
             }
 
             // Redirect based on role
