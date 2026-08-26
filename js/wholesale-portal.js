@@ -61,7 +61,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     }
 })();
 
-async function revalidateAdminSession() {
+async function revalidateCustomerSession() {
     try {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) {
@@ -74,7 +74,7 @@ async function revalidateAdminSession() {
             .select('role')
             .eq('id', session.user.id)
             .single();
-        if (error || !profile || profile.role !== 'admin') {
+        if (error || !profile || profile.role !== 'customer') {
             localStorage.removeItem('currentUser');
             try { await supabaseClient.auth.signOut(); } catch (_) {}
             window.location.replace('login-portal.html');
@@ -88,10 +88,10 @@ async function revalidateAdminSession() {
     }
 }
 
-window.addEventListener('pageshow', function () { revalidateAdminSession(); });
-window.addEventListener('focus', function () { revalidateAdminSession(); });
+window.addEventListener('pageshow', function () { revalidateCustomerSession(); });
+window.addEventListener('focus', function () { revalidateCustomerSession(); });
 document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible') revalidateAdminSession();
+    if (document.visibilityState === 'visible') revalidateCustomerSession();
 });
 // ================== GLOBAL VARIABLES ==================
 let currentCategoryFilter = 'All';

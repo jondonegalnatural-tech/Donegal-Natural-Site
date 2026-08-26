@@ -72,7 +72,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     }
 })();
 
-async function revalidateAdminSession() {
+async function revalidateSalesmanSession() {
     try {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) {
@@ -85,7 +85,7 @@ async function revalidateAdminSession() {
             .select('role')
             .eq('id', session.user.id)
             .single();
-        if (error || !profile || profile.role !== 'admin') {
+        if (error || !profile || (profile.role !== 'salesman' && profile.role !== 'admin')) {
             localStorage.removeItem('currentUser');
             try { await supabaseClient.auth.signOut(); } catch (_) {}
             window.location.replace('login-portal.html');
@@ -99,10 +99,10 @@ async function revalidateAdminSession() {
     }
 }
 
-window.addEventListener('pageshow', function () { revalidateAdminSession(); });
-window.addEventListener('focus', function () { revalidateAdminSession(); });
+window.addEventListener('pageshow', function () { revalidateSalesmanSession(); });
+window.addEventListener('focus', function () { revalidateSalesmanSession(); });
 document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible') revalidateAdminSession();
+    if (document.visibilityState === 'visible') revalidateSalesmanSession();
 });
 // ================== PRODUCT CATALOG ==================
 const PRODUCT_CATALOG = [
