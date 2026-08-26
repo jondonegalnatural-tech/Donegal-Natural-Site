@@ -1610,8 +1610,8 @@ async function renderSalesmen() {
                         <i class="fas fa-user text-[#d4b78f] text-2xl"></i>
                     </div>
                     <div class="min-w-0">
-                        <h3 class="text-xl font-bold brand-green truncate">${s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || 'Unnamed'}</h3>
-                        <p class="text-sm text-[#6B4423]">Territory: <strong>${s.territory || '—'}</strong></p>
+                        <h3 class="text-xl font-bold brand-green truncate">${escapeHtml(s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || 'Unnamed')}</h3>
+                        <p class="text-sm text-[#6B4423]">Territory: <strong>${escapeHtml(s.territory || '—')}</strong></p>
                     </div>
                 </div>
                 <button type="button"
@@ -8744,9 +8744,9 @@ function createInquiryCard(inquiry, showActions) {
     let html = `
         <div class="flex justify-between items-start mb-3">
             <div>
-                <p class="font-bold text-lg">${inquiry.owner_name || '—'}</p>
-                <p class="text-sm text-[#6B4423]">${inquiry.company_name || '—'} • ${inquiry.email || '—'}</p>
-                <p class="text-sm text-[#6B4423]">${inquiry.phone || ''}</p>
+                <p class="font-bold text-lg">${escapeHtml(inquiry.owner_name || '—')}</p>
+                <p class="text-sm text-[#6B4423]">${escapeHtml(inquiry.company_name || '—')} • ${escapeHtml(inquiry.email || '—')}</p>
+                <p class="text-sm text-[#6B4423]">${escapeHtml(inquiry.phone || '')}</p>
             </div>
             <div class="text-right">
                 <span class="px-3 py-1 text-xs font-semibold rounded-full
@@ -8760,9 +8760,9 @@ function createInquiryCard(inquiry, showActions) {
             </div>
         </div>
         <div class="mb-3 bg-white rounded-lg p-3 text-sm space-y-1">
-            <p><strong>Location:</strong> ${location}</p>
-            <p><strong>Monthly Amount:</strong> ${inquiry.monthly_amount || '—'}</p>
-            <p><strong>Nature of Business:</strong> ${nature}</p>
+            <p><strong>Location:</strong> ${escapeHtml(location)}</p>
+            <p><strong>Monthly Amount:</strong> ${escapeHtml(inquiry.monthly_amount || '—')}</p>
+            <p><strong>Nature of Business:</strong> ${escapeHtml(nature)}</p>
         </div>
     `;
 
