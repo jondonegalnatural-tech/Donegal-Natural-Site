@@ -4542,11 +4542,7 @@ async function notifyMarshallProforma(order) {
     try {
         const res = await fetch(SUPABASE_URL + '/functions/v1/send-pro-forma-email', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-                'apikey': SUPABASE_ANON_KEY
-            },
+            headers: await getEdgeFunctionHeaders(),
             body: JSON.stringify({
                 orderId: order.orderId || order.id,
                 customerName: order.customerName || order.customer_name || '',

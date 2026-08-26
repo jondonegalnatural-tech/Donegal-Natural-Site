@@ -5707,6 +5707,39 @@ function hideAddCustomerModal() {
     if (modal) modal.classList.add('hidden');
 }
 
+async function assertCustomerEmailAvailable(email) {
+    const emailNorm = (email || '').trim().toLowerCase();
+    if (!emailNorm || !emailNorm.includes('@')) {
+        throw new Error('A valid email is required.');
+    }
+
+    const { data: profile, error: profileError } = await supabaseClient
+        .from('profiles')
+        .select('email, role')
+        .ilike('email', emailNorm)
+        .maybeSingle();
+    if (profileError) {
+        console.warn('profiles email check failed:', profileError);
+    }
+    if (profile && (profile.role === 'admin' || profile.role === 'salesman')) {
+        throw new Error('This email is already a ' + profile.role + ' login. Use a different customer email.');
+    }
+    if (profile && profile.role === 'customer') {
+        throw new Error('A customer login already exists for this email.');
+    }
+
+    const { data: existingCustomer } = await supabaseClient
+        .from('customers')
+        .select('id, name, email')
+        .ilike('email', emailNorm)
+        .maybeSingle();
+    if (existingCustomer) {
+        const who = existingCustomer.name ? ' (' + existingCustomer.name + ')' : '';
+        throw new Error('A customer record already exists for this email' + who + '.');
+    }
+}
+
+
 async function saveNewCustomer(event) {
     event.preventDefault();
 
@@ -5731,8 +5764,8 @@ async function saveNewCustomer(event) {
         alert('Company is required.');
         return;
     }
-    if (!email) {
-        alert('Email is required.');
+    if (!email || !email.includes('@')) {
+        alert('A valid email is required.');
         return;
     }
     if (!phone) {
@@ -5762,10 +5795,49 @@ async function saveNewCustomer(event) {
         if (!billingAddress) billingAddress = shippingAddress;
     }
 
-    try {
-        const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    const btn = event.submitter || document.querySelector('#add-customer-modal button[type="submit"]');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+    }
 
-        const { data, error } = await supabaseClient
+    try {
+        await assertCustomerEmailAvailable(email);
+
+        const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const tempPassword = 'DN' + Math.random().toString(36).slice(2, 8).toUpperCase() + '!';
+
+        const fnUrl = SUPABASE_URL + '/functions/v1/create-customer-user';
+        const fnRes = await fetch(fnUrl, {
+            method: 'POST',
+            headers: await getEdgeFunctionHeaders(),
+            body: JSON.stringify({
+                email: email,
+                password: tempPassword,
+                full_name: name,
+                company: company
+            })
+        });
+
+        const fnText = await fnRes.text();
+        let fnData = null;
+        try {
+            fnData = JSON.parse(fnText);
+        } catch (e) {
+            fnData = { error: fnText || 'Empty response' };
+        }
+
+        if (!fnRes.ok) {
+            console.error('Edge function failed:', fnRes.status, fnData);
+            throw new Error(
+                (fnData && fnData.error) ? fnData.error : ('Function HTTP ' + fnRes.status + ': ' + fnText)
+            );
+        }
+        if (fnData && fnData.error) {
+            throw new Error(fnData.error);
+        }
+
+        const { error } = await supabaseClient
             .from('customers')
             .insert({
                 name: name,
@@ -5779,24 +5851,45 @@ async function saveNewCustomer(event) {
                 status: 'Active',
                 source: 'admin',
                 submitted_by: user.fullName || user.email || 'Admin',
-                submitted_by_email: user.email || null
+                submitted_by_email: user.email || null,
+                onboarding_complete: false,
+                password_changed: false
             })
             .select()
             .single();
 
         if (error) {
             console.error(error);
-            alert('Failed to save customer.\n' + error.message);
-            return;
+            throw new Error('Login was created, but saving the customer row failed.\n' + error.message);
         }
 
         hideAddCustomerModal();
         if (typeof loadCustomers === 'function') await loadCustomers();
-        alert('Customer added: ' + name);
+
+        const emailOk = fnData && fnData.email_sent === true;
+        const emailFailReason = (fnData && fnData.email_error) ? String(fnData.email_error) : '';
+
+        alert(
+            'Customer added.\n' +
+            'Login account created.\n\n' +
+            'Customer login (email + temp password):\n' +
+            'Email: ' + email + '\n' +
+            'Password: ' + tempPassword + '\n\n' +
+            (emailOk
+                ? 'Credentials email was sent to the customer.'
+                : ('Credentials email was NOT sent.\n' +
+                   (emailFailReason ? ('Reason: ' + emailFailReason + '\n') : '') +
+                   'Please give the customer the temp password above.'))
+        );
 
     } catch (err) {
         console.error(err);
-        alert('Something went wrong while saving the customer.');
+        alert('Could not add customer.\n' + (err.message || ''));
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Save Customer';
+        }
     }
 }
 
@@ -9020,6 +9113,13 @@ async function confirmInquiryApproval() {
 
     if (!name || !company || !email) {
         alert('Name, company, and email are required.');
+        return;
+    }
+
+    try {
+        await assertCustomerEmailAvailable(email);
+    } catch (e) {
+        alert(e.message || 'This email cannot be used for a new customer.');
         return;
     }
 
