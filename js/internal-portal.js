@@ -13468,22 +13468,8 @@ function hidePmProductsModal() {
     if (modal) modal.classList.add('hidden');
 }
 
-// ================== LEGAL / FORMS PASSWORD PROTECTION ==================
-
-const LEGAL_PASSWORD = 'legal2026';
-const LEGAL_UNLOCK_KEY = 'legalFormsUnlockedUntil';
-
-function isLegalFormsUnlocked() {
-    const unlockedUntil = localStorage.getItem(LEGAL_UNLOCK_KEY);
-    if (!unlockedUntil) return false;
-    return Date.now() < parseInt(unlockedUntil, 10);
-}
-
-function unlockLegalForms() {
-    // Unlock for 1 hour
-    const unlockUntil = Date.now() + (60 * 60 * 1000);
-    localStorage.setItem(LEGAL_UNLOCK_KEY, unlockUntil.toString());
-}
+// ================== LEGAL / FORMS ==================
+// Access is gated by admin portal session (no client-side shared password)
 
 async function loadAdminResaleCertificates() {
     const container = document.getElementById('resale-certs-admin-list');
@@ -13636,57 +13622,14 @@ function csvEscape(val) {
 }
 
 function showLegalFormsSection() {
-    if (isLegalFormsUnlocked()) {
-        // Already unlocked — just show the section
-        showSection('legal-forms');
-        if (typeof loadAdminResaleCertificates === 'function') {
-            loadAdminResaleCertificates();
-        }
-        if (typeof loadIngredients === 'function') {
-            loadIngredients().then(() => {
-                if (typeof renderIngredients === 'function') renderIngredients();
-            });
-        }
-    } else {
-        // Show password modal
-        const input = document.getElementById('legal-password-input');
-        const errorEl = document.getElementById('legal-password-error');
-        if (input) input.value = '';
-        if (errorEl) errorEl.classList.add('hidden');
-        const modal = document.getElementById('legal-password-modal');
-        if (modal) {
-            modal.classList.remove('hidden');
-            setTimeout(() => {
-                if (input) input.focus();
-            }, 100);
-        }
+    showSection('legal-forms');
+    if (typeof loadAdminResaleCertificates === 'function') {
+        loadAdminResaleCertificates();
     }
-}
-
-function hideLegalPasswordModal() {
-    const modal = document.getElementById('legal-password-modal');
-    if (modal) modal.classList.add('hidden');
-}
-
-function checkLegalPassword() {
-    const input = document.getElementById('legal-password-input');
-    const errorEl = document.getElementById('legal-password-error');
-
-    if (input && input.value === LEGAL_PASSWORD) {
-                unlockLegalForms();
-        hideLegalPasswordModal();
-        showSection('legal-forms');
-        if (typeof loadIngredients === 'function') {
-            loadIngredients().then(() => {
-                if (typeof renderIngredients === 'function') renderIngredients();
-            });
-        }
-    } else {
-        if (errorEl) errorEl.classList.remove('hidden');
-        if (input) {
-            input.value = '';
-            input.focus();
-        }
+    if (typeof loadIngredients === 'function') {
+        loadIngredients().then(() => {
+            if (typeof renderIngredients === 'function') renderIngredients();
+        });
     }
 }
 

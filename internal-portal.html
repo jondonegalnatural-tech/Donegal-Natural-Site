@@ -1943,21 +1943,7 @@ body { background: #f8f1e9; }
     </div>
 </div>
 
-<!-- Legal Password Modal -->
-<div id="legal-password-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-sm mx-4 p-8">
-        <h2 class="text-xl font-bold brand-green mb-2">Legal / Forms</h2>
-        <p class="text-sm text-[#6B4423] mb-6">This section is password protected.</p>
-        <input type="password" id="legal-password-input" placeholder="Enter password"
-               class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2 mb-4"
-               onkeydown="if(event.key==='Enter') checkLegalPassword()">
-        <p id="legal-password-error" class="text-red-600 text-sm mb-4 hidden">Incorrect password</p>
-        <div class="flex justify-end gap-3">
-            <button onclick="hideLegalPasswordModal()" class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">Cancel</button>
-            <button onclick="checkLegalPassword()" class="btn-brand px-5 py-2 rounded-xl font-semibold">Unlock</button>
-        </div>
-    </div>
-</div>
+
 
 <!-- ==================== PROFIT MARGIN PRODUCTS MODAL ==================== -->
 <div id="pm-products-modal" onclick="hidePmProductsModal()" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
