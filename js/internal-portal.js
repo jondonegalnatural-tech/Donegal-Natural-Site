@@ -7,6 +7,16 @@ const SUPABASE_URL = 'https://kyzfdlzqlckrpdkavxei.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5emZkbHpxbGNrcnBka2F2eGVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3ODU0NjEsImV4cCI6MjEwMDM2MTQ2MX0.Y1Sshp1-0lFwKakCgpJtAUpaHNB0PQ1vuo6SOHZcPu4';
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Escape user/DB text before inserting into innerHTML
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 async function getEdgeFunctionHeaders() {
     const { data: { session } } = await supabaseClient.auth.getSession();
     if (!session || !session.access_token) {
@@ -5479,8 +5489,8 @@ function renderCustomers() {
                 <div onclick="showCustomerDetail('${safeName}')" class="cursor-pointer pl-6">
                     <div class="flex justify-between items-start mb-4">
                         <div>
-                            <h3 class="text-xl font-bold brand-green">${customer.name}</h3>
-                            <p class="text-sm text-[#6B4423]">${customer.company || 'Individual'}</p>
+                            <h3 class="text-xl font-bold brand-green">${escapeHtml(customer.name)}</h3>
+                            <p class="text-sm text-[#6B4423]">${escapeHtml(customer.company || 'Individual')}</p>
                         </div>
                         <div class="flex flex-col items-end gap-1">
                             <button type="button"
@@ -5502,7 +5512,7 @@ function renderCustomers() {
                     <div class="grid grid-cols-2 gap-4 text-sm">
                         <div>
                             <p class="text-[#6B4423] text-xs">Territory</p>
-                            <p class="font-semibold">${customer.territory || 'N/A'}</p>
+                            <p class="font-semibold">${escapeHtml(customer.territory || 'N/A')}</p>
                         </div>
                         <div class="text-right">
                             <p class="text-[#6B4423] text-xs">Balance Owed</p>
@@ -5510,7 +5520,7 @@ function renderCustomers() {
                         </div>
                     </div>
                     ${customer.salesmanEmail
-                        ? `<p class="text-xs text-[#6B4423] mt-2">Salesman: ${customer.salesmanEmail}</p>`
+                        ? `<p class="text-xs text-[#6B4423] mt-2">Salesman: ${escapeHtml(customer.salesmanEmail)}</p>`
                         : `<p class="text-xs text-orange-600 mt-2">Unassigned</p>`}
                     <p class="text-xs text-[#6B4423] mt-1">Last login: ${
                         customer.lastLoginAt
