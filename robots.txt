@@ -1,13 +1,18 @@
-# Donegal Natural — discourage crawlers from portals and app scripts
+# Donegal Natural — keep portals and unfinished shop out of search
 User-agent: *
+Allow: /
+
+Disallow: /login-portal
 Disallow: /login-portal.html
+Disallow: /internal-portal
 Disallow: /internal-portal.html
+Disallow: /salesman-portal
 Disallow: /salesman-portal.html
+Disallow: /wholesale-portal
 Disallow: /wholesale-portal.html
+Disallow: /shop
 Disallow: /shop.html
 Disallow: /js/
 Disallow: /api/
 
-Allow: /
-
-# Retail shop file kept in repo but not offered publicly yet
+Sitemap: https://www.donegalnaturaldogtreats.com/sitemap.xml
