@@ -3321,7 +3321,7 @@ function openMarketPriceModal(orderId) {
     } else {
         container.innerHTML = marketItems.map((item, index) => `
             <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-4">
-                <p class="font-semibold brand-green">${item.product}</p>
+                <p class="font-semibold brand-green">${escapeHtml(item.product)}</p>
                 <p class="text-sm text-[#6B4423] mb-2">Quantity: ${item.quantity} · Case: ${item.caseSize || '—'}</p>
                 <label class="text-sm text-[#6B4423]">Unit Price ($)</label>
                 <input type="number"
@@ -3330,7 +3330,7 @@ function openMarketPriceModal(orderId) {
                        step="0.01"
                        placeholder="0.00"
                        class="w-full mt-1 border-2 border-[#6B4423] rounded-lg px-3 py-2 text-sm"
-                       data-product="${item.product}">
+                       data-product="${escapeHtml(item.product)}">
             </div>
         `).join('');
     }
@@ -3502,7 +3502,7 @@ function renderApproveOrderItems() {
         return `
             <div class="flex flex-wrap items-center gap-2 border border-[#d4b78f] rounded-xl px-3 py-2 bg-[#f8f4eb]">
                 <div class="flex-1 min-w-[160px]">
-                    <p class="font-semibold text-sm brand-green">${item.product}</p>
+                    <p class="font-semibold text-sm brand-green">${escapeHtml(item.product)}</p>
                     <p class="text-xs text-[#6B4423]">${priceLabel}${item.caseSize ? ' · ' + item.caseSize : ''}</p>
                 </div>
                 <input type="number" min="1" step="1" value="${item.quantity}"
@@ -3599,7 +3599,7 @@ function renderApproveOrderProductSearch() {
             <button type="button"
                     onclick="addApproveOrderProduct('${safeName}')"
                     class="w-full text-left px-4 py-2 text-sm hover:bg-[#f8f4eb] border-b border-[#f0e6d9]">
-                <span class="font-medium text-[#1E4D2B]">${p.name}</span>
+                <span class="font-medium text-[#1E4D2B]">${escapeHtml(p.name)}</span>
                 <span class="block text-xs text-[#6B4423]">${p.caseSize || ''} · ${p.isMarketPrice ? 'Market' : ('$' + Number(p.unitPrice).toFixed(2))}</span>
             </button>
         `;
@@ -3978,7 +3978,7 @@ function renderShipInvoiceItems() {
         return `
             <div class="flex flex-wrap items-center gap-2 border border-[#d4b78f] rounded-xl px-3 py-2 bg-[#f8f4eb]">
                 <div class="flex-1 min-w-[160px]">
-                    <p class="font-semibold text-sm brand-green">${item.product}</p>
+                    <p class="font-semibold text-sm brand-green">${escapeHtml(item.product)}</p>
                     <p class="text-xs text-[#6B4423]">${priceLabel}${item.caseSize ? ' · ' + item.caseSize : ''}</p>
                 </div>
                 <input type="number" min="1" step="1" value="${item.quantity}"
@@ -4074,7 +4074,7 @@ function renderShipInvoiceProductSearch() {
             <button type="button"
                     onclick="addShipInvoiceProduct('${safeName}')"
                     class="w-full text-left px-4 py-2 text-sm hover:bg-[#f8f4eb] border-b border-[#f0e6d9]">
-                <span class="font-medium text-[#1E4D2B]">${p.name}</span>
+                <span class="font-medium text-[#1E4D2B]">${escapeHtml(p.name)}</span>
                 <span class="block text-xs text-[#6B4423]">${p.caseSize || ''} · ${p.isMarketPrice ? 'Market' : ('$' + Number(p.unitPrice).toFixed(2))}</span>
             </button>
         `;
@@ -4611,7 +4611,7 @@ function renderOrderProductSearch() {
             <button type="button"
                     onclick="selectOrderProduct('${safeName}')"
                     class="w-full text-left px-4 py-2 text-sm hover:bg-[#f8f4eb] border-b border-[#f0e6d9] last:border-0">
-                <span class="font-medium text-[#1E4D2B]">${p.name}</span>
+                <span class="font-medium text-[#1E4D2B]">${escapeHtml(p.name)}</span>
                 <span class="block text-xs text-[#6B4423] mt-0.5">${caseSize} · ${priceText}</span>
             </button>
         `;
@@ -4666,7 +4666,7 @@ function renderNewOrderSelectedList() {
         return `
             <div class="flex flex-wrap items-center gap-3 bg-white border border-[#6B4423] rounded-xl px-3 py-2">
                 <div class="flex-1 min-w-[140px]">
-                    <span class="text-sm font-medium text-[#1E4D2B]">${p.name}</span>
+                    <span class="text-sm font-medium text-[#1E4D2B]">${escapeHtml(p.name)}</span>
                     <span class="block text-xs text-[#6B4423]">${caseSize} · ${priceText}</span>
                 </div>
                 <label class="text-xs text-[#6B4423]">Units</label>
@@ -10172,7 +10172,7 @@ function openReceivePurchaseModal(purchaseId, vendorId) {
         list.innerHTML = items.map((item, index) => `
             <div class="flex items-center justify-between bg-[#f8f4eb] border border-[#d4b78f] rounded-xl px-4 py-3">
                 <div class="flex-1 pr-4">
-                    <p class="font-medium">${item.productName}</p>
+                    <p class="font-medium">${escapeHtml(item.productName)}</p>
                     <p class="text-sm text-[#6B4423]">Ordered: ${item.quantity} cases · $${item.unitCost.toFixed(2)} each</p>
                 </div>
                 <div class="flex items-center gap-2">
@@ -10477,7 +10477,7 @@ function updateDashboardSalesMatrix() {
 
     container.innerHTML = top.map((p, i) => `
         <div class="flex justify-between items-center bg-[#f8f4eb] rounded-xl px-3 py-2 text-sm">
-            <span class="font-medium text-[#1E4D2B] truncate pr-2">${i + 1}. ${p.name}</span>
+            <span class="font-medium text-[#1E4D2B] truncate pr-2">${i + 1}. ${escapeHtml(p.name)}</span>
             <span class="font-bold brand-green whitespace-nowrap">${p.qty} units</span>
         </div>
     `).join('');
@@ -10774,7 +10774,7 @@ function filterOrdersByStatus(status) {
 
     header.innerHTML = `
         <div>
-            <h3 class="text-xl font-bold brand-green">${displayName}</h3>
+            <h3 class="text-xl font-bold brand-green">${escapeHtml(displayName)}</h3>
             <p class="text-sm text-[#6B4423]">${filteredOrders.length} order(s) found</p>
         </div>
         ${status !== 'all' ? 
@@ -11579,7 +11579,7 @@ async function updateDashboardSalesmen() {
 
     container.innerHTML = topSalesmen.map((s, i) => `
         <div class="flex justify-between items-center">
-            <span class="font-medium truncate pr-2">${i + 1}. ${s.name}</span>
+            <span class="font-medium truncate pr-2">${i + 1}. ${escapeHtml(s.name)}</span>
             <span class="font-semibold whitespace-nowrap">$${Math.round(s.ytd).toLocaleString()}</span>
         </div>
     `).join('');
@@ -11974,7 +11974,7 @@ function renderProductChooserList() {
             <label class="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-[#f8f4eb] cursor-pointer">
                 <input type="checkbox" value="${p.name.replace(/"/g, '&quot;')}" ${checked}
                        onchange="toggleChooserProduct(this)">
-                <span class="text-sm">${p.name}</span>
+                <span class="text-sm">${escapeHtml(p.name)}</span>
             </label>
         `;
     }).join('');
@@ -12390,7 +12390,7 @@ function renderVendorOrderGrid() {
         row.className = 'border-b border-[#d4b78f]';
 
         row.innerHTML = `
-            <td class="p-3">${product.name}</td>
+            <td class="p-3">${escapeHtml(product.name)}</td>
             <td class="p-3 text-center">$${product.unitCost.toFixed(2)}</td>
             <td class="p-3 text-center">
                 <input type="number" min="0" value="${product.quantity}"
@@ -12587,7 +12587,7 @@ function renderCostOfGoods() {
             headerRow.innerHTML = `
                 <td class="p-3 font-medium">
                     <span class="mr-2 text-[#6B4423]">${isExpanded ? '▼' : '▶'}</span>
-                    ${product.name}
+                    ${escapeHtml(product.name)}
                 </td>
                 <td class="p-3 text-sm text-[#6B4423]">${product.category || ''}</td>
                 <td class="p-3 text-sm">${costsForProduct.length} cost(s)</td>
@@ -12607,9 +12607,9 @@ function renderCostOfGoods() {
         } else if (hasSingle) {
             // Single cost → show details on the main row
             headerRow.innerHTML = `
-                <td class="p-3 font-medium">${product.name}</td>
-                <td class="p-3 text-sm text-[#6B4423]">${product.category || ''}</td>
-                <td class="p-3">${singleCost.vendorName}</td>
+                <td class="p-3 font-medium">${escapeHtml(product.name)}</td>
+                <td class="p-3 text-sm text-[#6B4423]">${escapeHtml(product.category || '')}</td>
+                <td class="p-3">${escapeHtml(singleCost.vendorName)}</td>
                 <td class="p-3 text-right font-semibold">$${parseFloat(singleCost.unitCost).toFixed(2)}</td>
                 <td class="p-3 text-center text-sm">${formatDate(singleCost.lastUpdated)}</td>
                 <td class="p-3 text-center">
@@ -12629,8 +12629,8 @@ function renderCostOfGoods() {
         } else {
             // No costs
             headerRow.innerHTML = `
-                <td class="p-3 font-medium">${product.name}</td>
-                <td class="p-3 text-sm text-[#6B4423]">${product.category || ''}</td>
+                <td class="p-3 font-medium">${escapeHtml(product.name)}</td>
+                <td class="p-3 text-sm text-[#6B4423]">${escapeHtml(product.category || '')}</td>
                 <td class="p-3 text-sm">—</td>
                 <td class="p-3"></td>
                 <td class="p-3"></td>
@@ -12651,7 +12651,7 @@ function renderCostOfGoods() {
                 costRow.className = 'bg-[#f8f4eb] border-b border-[#d4b78f]';
                 costRow.innerHTML = `
                     <td class="p-3 pl-10 text-sm" colspan="2"></td>
-                    <td class="p-3">${cost.vendorName}</td>
+                    <td class="p-3">${escapeHtml(cost.vendorName)}</td>
                     <td class="p-3 text-right font-semibold">$${parseFloat(cost.unitCost).toFixed(2)}</td>
                     <td class="p-3 text-center text-sm">${formatDate(cost.lastUpdated)}</td>
                     <td class="p-3 text-center">
@@ -13389,7 +13389,7 @@ function renderProfitMarginSection() {
         } else {
             topContainer.innerHTML = summary.topPerformers.map((p, i) => `
                 <div class="flex justify-between items-center bg-[#f8f4eb] rounded-xl px-4 py-2">
-                    <span class="font-medium">${i + 1}. ${p.name}</span>
+                    <span class="font-medium">${i + 1}. ${escapeHtml(p.name)}</span>
                     <span class="font-bold text-green-700">${p.marginPercent.toFixed(1)}%</span>
                 </div>
             `).join('');
@@ -13451,7 +13451,7 @@ function renderMarginFilteredList() {
         card.innerHTML = `
             <div class="flex justify-between items-start">
                 <div>
-                    <p class="font-medium">${p.name}</p>
+                    <p class="font-medium">${escapeHtml(p.name)}</p>
                     <p class="text-sm text-[#6B4423] mt-1">
                         Cost: $${p.unitCost.toFixed(2)} &nbsp;|&nbsp; 
                         Price: $${p.sellingPrice.toFixed(2)} &nbsp;|&nbsp; 
@@ -13559,8 +13559,8 @@ function showPmProductsModal(filter, searchTerm = '') {
             card.innerHTML = `
                 <div class="flex justify-between items-start gap-3">
                     <div>
-                        <p class="font-medium">${p.name}</p>
-                        <p class="text-sm text-[#6B4423] mt-1">${detailLine}</p>
+                        <p class="font-medium">${escapeHtml(p.name)}</p>
+                        <p class="text-sm text-[#6B4423] mt-1">${escapeHtml(detailLine)}</p>
                     </div>
                     <div>${statusBadge}</div>
                 </div>
@@ -14609,7 +14609,7 @@ function renderBulkPercentTable() {
                            onchange="updateBulkPercentSelectedCount(); previewBulkPercentAdjust();">
                 </td>
                 <td class="p-2">
-                    <span class="font-medium">${p.name}</span>
+                    <span class="font-medium">${escapeHtml(p.name)}</span>
                     ${alreadyAdjusted ? '<span class="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-100 text-blue-800">adjusted</span>' : ''}
                     ${p.caseSize ? `<span class="block text-xs text-[#6B4423]">${p.caseSize}</span>` : ''}
                 </td>
