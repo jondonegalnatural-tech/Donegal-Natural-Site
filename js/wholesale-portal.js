@@ -4686,6 +4686,10 @@ function generateInvoiceNumber() {
     return 'DN-' + code;
 }
 
+function displayInvoiceNumber(order) {
+    return order?.invoice_number || order?.invoiceNumber || order?.id || '—';
+}
+
 async function submitQuote() {
     if (window._customerIsInactive) {
         alert('This account is currently inactive and cannot submit new quotes.');
@@ -4917,7 +4921,7 @@ async function loadMyQuotes() {
                     <div class="flex justify-between items-start mb-3">
                         <div>
                             <p class="font-bold text-lg brand-green">Quote ${getStoreBadgeForOrder(quote)}</p>
-                            <p class="text-xs text-[#6B4423]">${quote.id}</p>
+                            <p class="text-xs text-[#6B4423]">${escapeHtml(displayInvoiceNumber(quote))}</p>
                             <p class="text-sm text-[#6B4423]">Submitted: ${date}</p>
                         </div>
                         <span class="px-3 py-1 text-xs font-semibold rounded-full ${badgeClass}">
@@ -5148,7 +5152,7 @@ async function loadOrderHistory() {
                     <div class="flex justify-between items-start mb-3">
                         <div>
                             <p class="font-bold text-lg brand-green">Invoice ${getStoreBadgeForOrder(order)}</p>
-                            <p class="text-xs text-[#6B4423]">${order.id}</p>
+                            <p class="text-xs text-[#6B4423]">${escapeHtml(displayInvoiceNumber(order))}</p>
                             <p class="text-sm text-[#6B4423]">Order Date: ${date}</p>
                             ${(order.tracking_number || '').trim() ? `
                             <p class="text-sm text-[#6B4423] mt-1">
@@ -5386,7 +5390,7 @@ function renderOrderHistoryCards(orders, listEl) {
                 <div class="flex justify-between items-start mb-3">
                     <div>
                         <p class="font-bold text-lg brand-green">Invoice</p>
-                        <p class="text-xs text-[#6B4423]">${order.id}</p>
+                        <p class="text-xs text-[#6B4423]">${escapeHtml(displayInvoiceNumber(order))}</p>
                         <p class="text-sm text-[#6B4423]">Order Date: ${date}</p>
                         ${(order.tracking_number || '').trim() ? `
                         <p class="text-sm text-[#6B4423] mt-1">
@@ -5576,7 +5580,7 @@ function openEditQuoteModal(orderId) {
                 <div>
                     <h2 class="text-2xl font-bold brand-green">Edit Quote</h2>
                     <p class="text-sm text-[#6B4423]">Add, remove, or change quantities. Only available while awaiting review.</p>
-                    <p class="text-xs text-[#6B4423] font-mono mt-1">${order.id}</p>
+                    <p class="text-xs text-[#6B4423] font-mono mt-1">${escapeHtml(displayInvoiceNumber(order))}</p>
                 </div>
                 <button type="button" onclick="hideEditQuoteModal()"
                         class="text-2xl text-[#6B4423] leading-none">&times;</button>
@@ -6838,7 +6842,7 @@ function showBrandedInvoice(order) {
                 <div class="flex flex-wrap justify-between gap-4 text-sm">
                     <div>
                         <p class="text-[#6B4423] font-semibold">Pro Forma #</p>
-                        <p class="font-mono text-xs break-all">${order.id}</p>
+                        <p class="font-mono text-xs break-all">${escapeHtml(displayInvoiceNumber(order))}</p>
                     </div>
                     <div>
                         <p class="text-[#6B4423] font-semibold">Date</p>
