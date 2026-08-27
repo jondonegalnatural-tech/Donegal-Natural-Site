@@ -5787,6 +5787,11 @@ async function saveNewCustomer(event) {
     const company = (document.getElementById('new-customer-company')?.value || '').trim();
     const email = (document.getElementById('new-customer-email')?.value || '').trim();
     const phone = (document.getElementById('new-customer-phone')?.value || '').trim();
+    if (typeof isValidPhoneUS === 'function' && !isValidPhoneUS(phone)) {
+        alert('Enter phone as (717)555-1234');
+        document.getElementById('new-customer-phone')?.focus();
+        return;
+    }
     const territory = (document.getElementById('new-customer-territory')?.value || '').trim();
     const notes = (document.getElementById('new-customer-notes')?.value || '').trim();
 

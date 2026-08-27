@@ -2159,6 +2159,11 @@ if (customerInfoForm) {
         const company = document.getElementById("cust-company").value.trim();
         const email = document.getElementById("cust-email").value.trim();
         const phone = document.getElementById("cust-phone").value.trim();
+        if (typeof isValidPhoneUS === 'function' && !isValidPhoneUS(phone)) {
+            alert('Enter phone as (717)555-1234');
+            document.getElementById("cust-phone").focus();
+            return;
+        }
         const shippingAddress = document.getElementById("cust-shipping").value.trim();
         const sameAddress = document.getElementById("cust-same-address")?.checked;
         const billingAddress = sameAddress
