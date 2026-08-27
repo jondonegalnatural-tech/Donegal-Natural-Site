@@ -4354,13 +4354,8 @@ function updateDashboardOrders() {
     const alertEl = document.getElementById('dash-orders-alert');
     const agingText = document.getElementById('dash-aging-text');
 
-    if (alertEl && agingText) {
-        if (agingCount > 0) {
-            alertEl.classList.remove('hidden');
-            agingText.textContent = `${agingCount} order${agingCount > 1 ? 's' : ''} aging over 10 days`;
-        } else {
-            alertEl.classList.add('hidden');
-        }
+    if (alertEl) {
+        alertEl.classList.add('hidden');
     }
 }
 
