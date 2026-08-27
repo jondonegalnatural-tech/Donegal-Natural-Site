@@ -32,6 +32,15 @@ async function getEdgeFunctionHeaders() {
     };
 }
 
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // Soft guard — fast redirect if no salesman/admin cache
 (function () {
     try {
@@ -449,7 +458,7 @@ function displayCurrentUser() {
     if (territoriesEl) {
         const roleText = user.role === "admin" ? "Head Admin" : "Salesman";
         const territoryText = user.territories ? ` • ${user.territories.join(" + ")}` : "";
-        territoriesEl.innerHTML = `<strong>${roleText}</strong>${territoryText}`;
+        territoriesEl.innerHTML = `<strong>${escapeHtml(roleText)}</strong>${escapeHtml(territoryText)}`;
     }
 
     // Show Admin View when we are Jonathan or when we are in a temporary Sales View
@@ -680,10 +689,10 @@ async function renderCustomers() {
 
             div.innerHTML = `
                 <div style="font-weight:700;color:#1E4D2B;margin-bottom:0.3rem;">
-                    ${c.name || ''}${newBadge}
+                    ${escapeHtml(c.name || '')}${newBadge}
                 </div>
                 <div style="color:#6B4423;font-size:0.85rem;margin-bottom:0.4rem;">
-                    ${c.company || ''}
+                    ${escapeHtml(c.company || '')}
                 </div>
                 <div style="color:#6B4423;font-size:0.8rem;margin-bottom:0.6rem;">
                     ${c.territory || c.status || ''}
@@ -733,8 +742,8 @@ async function checkNewAssignedCustomers() {
 
         list.innerHTML = fresh.map(c => `
             <div class="border-2 border-[#6B4423] rounded-xl px-4 py-3">
-                <p class="font-bold brand-green">${c.name || ''}</p>
-                <p class="text-sm text-[#6B4423]">${c.company || ''}</p>
+                <p class="font-bold brand-green">${escapeHtml(c.name || '')}</p>
+                <p class="text-sm text-[#6B4423]">${escapeHtml(c.company || '')}</p>
                 ${!c.pricing_approved_at
                     ? `<p class="text-xs text-orange-700 font-semibold mt-1">Pricing not approved yet</p>`
                     : `<p class="text-xs text-green-700 mt-1">Pricing approved</p>`}
@@ -1072,8 +1081,8 @@ async function renderCustomerPricingEditor() {
                 <div class="bg-white border border-[#d4b78f] rounded-xl p-3 flex flex-wrap items-center gap-3"
                      data-cp-name="${safeName}">
                     <div class="flex-1 min-w-[160px]">
-                        <p class="text-sm font-semibold brand-green">${p.name}</p>
-                        <p class="text-xs text-[#6B4423]">${p.caseSize || ''} · Your base: ${baseLabel}</p>
+                        <p class="text-sm font-semibold brand-green">${escapeHtml(p.name)}</p>
+                        <p class="text-xs text-[#6B4423]">${escapeHtml(p.caseSize || '')} · Your base: ${escapeHtml(baseLabel)}</p>
                     </div>
                     <div class="flex items-center gap-2 flex-wrap">
                         <label class="text-xs text-[#6B4423] whitespace-nowrap">Customer price</label>
@@ -1441,8 +1450,8 @@ function searchPlaceOrderProducts() {
             <div class="px-3 py-2 hover:bg-[#f8f4eb] cursor-pointer border-b border-[#d4b78f] flex justify-between items-center"
                  onclick="addProductToPlaceOrder('${safeName}')">
                 <div>
-                    <p class="text-sm font-semibold brand-green">${p.name}</p>
-                    <p class="text-xs text-[#6B4423]">${p.caseSize || ""} · ${priceLabel}</p>
+                    <p class="text-sm font-semibold brand-green">${escapeHtml(p.name)}</p>
+                    <p class="text-xs text-[#6B4423]">${escapeHtml(p.caseSize || "")} · ${escapeHtml(priceLabel)}</p>
                 </div>
                 <span class="text-xs font-bold text-[#1E4D2B]">Add</span>
             </div>
@@ -1500,8 +1509,8 @@ function renderPlaceOrderItems() {
     container.innerHTML = placeOrderItems.map((item, index) => `
         <div class="flex justify-between items-center py-2 border-b border-[#d4b78f]">
             <div class="flex-1 pr-3">
-                <p class="text-sm font-semibold brand-green">${item.name}</p>
-                <p class="text-xs text-[#6B4423]">${item.caseSize || ""} · ${item.displayPrice}</p>
+                <p class="text-sm font-semibold brand-green">${escapeHtml(item.name)}</p>
+                <p class="text-xs text-[#6B4423]">${escapeHtml(item.caseSize || "")} · ${escapeHtml(item.displayPrice)}</p>
             </div>
             <div class="flex items-center gap-2">
                 <label class="text-xs text-[#6B4423]">Units</label>
@@ -1632,7 +1641,7 @@ function openPlaceOrderConfirmModal() {
         rows += `
             <div style="display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #f0e6d6;padding-bottom:8px;margin-bottom:8px;">
                 <div>
-                    <p style="font-weight:600;color:#1E4D2B;margin:0;">${item.name || 'Item'}</p>
+                    <p style="font-weight:600;color:#1E4D2B;margin:0;">${escapeHtml(item.name || 'Item')}</p>
                     <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.caseSize ? ' · ' + item.caseSize : ''}</p>
                 </div>
                 <p style="font-weight:600;color:#1E4D2B;margin:0;">${lineLabel}</p>
@@ -1833,8 +1842,8 @@ function renderProposalItems() {
         <div class="bg-white border-2 border-[#6B4423] rounded-xl p-4 mb-3">
             <div class="flex justify-between items-start mb-2">
                 <div>
-                    <p class="font-semibold brand-green">${item.name}</p>
-                    <p class="text-xs text-[#6B4423]">${item.caseSize || ""}</p>
+                    <p class="font-semibold brand-green">${escapeHtml(item.name)}</p>
+                    <p class="text-xs text-[#6B4423]">${escapeHtml(item.caseSize || "")}</p>
                 </div>
                 <button type="button" onclick="removeProposalItem(${index})"
                         class="text-red-600 text-sm px-2 py-1 hover:bg-red-50 rounded-lg">
@@ -2001,7 +2010,7 @@ async function renderProposalHistory() {
 
             const itemLines = items.map(item => `
                 <div class="text-sm py-1 border-b border-[#eee]">
-                    <span class="font-medium">${item.product}</span>
+                    <span class="font-medium">${escapeHtml(item.product)}</span>
                     <div class="text-xs text-[#6B4423]">
                         ${item.displayCurrentPrice || (item.catalogPrice != null ? "$" + Number(item.catalogPrice).toFixed(2) : "—")}
                         → <strong>$${Number(item.proposedPrice).toFixed(2)}</strong>
@@ -2078,8 +2087,8 @@ async function loadCustomerSubmissions() {
                     <div class="bg-white border-2 border-[#6B4423] rounded-xl p-4 mb-3">
                         <div class="flex justify-between items-start">
                             <div>
-                                <p class="font-bold brand-green">${c.owner_name || ""}</p>
-                                <p class="text-sm text-[#6B4423]">${c.company_name || ""}</p>
+                                <p class="font-bold brand-green">${escapeHtml(c.owner_name || "")}</p>
+                        <p class="text-sm text-[#6B4423]">${escapeHtml(c.company_name || "")}</p>
                             </div>
                             <span class="px-2 py-1 text-xs font-semibold rounded-full ${badgeClass}">
                                 ${status.charAt(0).toUpperCase() + status.slice(1)}
@@ -2230,7 +2239,7 @@ function renderOrderItems() {
 
     container.innerHTML = currentOrderItems.map((item, index) => `
         <div style="display:flex; justify-content:space-between; align-items:center; padding:0.4rem 0; border-bottom:1px solid #ddd;">
-            <div><strong>${item.product}</strong> × ${item.quantity}</div>
+            <div><strong>${escapeHtml(item.product)}</strong> × ${item.quantity}</div>
             <button onclick="removeOrderItem(${index})" style="background:#c56134; color:white; border:none; padding:0.25rem 0.6rem; border-radius:6px; font-size:0.75rem;">Remove</button>
         </div>
     `).join("");
@@ -2475,7 +2484,7 @@ function createOrderCard(order, showSalesman = false) {
         return `
             <div class="flex justify-between text-sm py-1 border-b border-[#eee]">
                 <div class="pr-3">
-                    <span class="font-medium">${item.product || item.name || "Item"}</span>
+                    <span class="font-medium">${escapeHtml(item.product || item.name || "Item")}</span>
                     <span class="text-[#6B4423]"> × ${qty} units</span>
                     <div class="text-xs text-[#6B4423]">${unitLabel} each</div>
                 </div>
@@ -2498,7 +2507,7 @@ function createOrderCard(order, showSalesman = false) {
              title="Click to view invoice">
             <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:0.75rem;">
                 <div>
-                    <strong style="color:#1E4D2B; font-size:1.05rem;">${order.customer_name || order.customer || "Customer"}</strong>
+                    <strong style="color:#1E4D2B; font-size:1.05rem;">${escapeHtml(order.customer_name || order.customer || "Customer")}</strong>
                     <div style="font-size:0.8rem; color:#888; margin-top:0.15rem;">
                         Order #${order.id} · ${new Date(order.submitted_at || order.submittedAt).toLocaleDateString()}
                     </div>
@@ -2650,7 +2659,7 @@ async function openSalesmanOrderInvoice(orderId) {
                 return `
                     <tr class="border-b border-[#eee]">
                         <td class="p-3 align-top">${qty}</td>
-                        <td class="p-3 align-top">${item.product || item.name || 'Item'}</td>
+                        <td class="p-3 align-top">${escapeHtml(item.product || item.name || 'Item')}</td>
                         <td class="p-3 text-right align-top">${unitLabel}</td>
                         <td class="p-3 text-right align-top font-semibold">${totalLabel}</td>
                     </tr>
@@ -2737,11 +2746,11 @@ async function showAccountDetails() {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <p class="text-sm text-[#6B4423] font-semibold">Full Name</p>
-                <p class="text-lg font-semibold">${user.fullName || user.name || "N/A"}</p>
+                <p class="text-lg font-semibold">${escapeHtml(user.fullName || user.name || "N/A")}</p>
             </div>
             <div>
                 <p class="text-sm text-[#6B4423] font-semibold">Email</p>
-                <p class="text-lg">${user.email || "N/A"}</p>
+                <p class="text-lg">${escapeHtml(user.email || "N/A")}</p>
             </div>
             <div>
                 <p class="text-sm text-[#6B4423] font-semibold">Role</p>
@@ -2926,8 +2935,8 @@ async function exportPriceSheetPdf() {
         grouped[cat].forEach(row => {
             tableHtml += `
                 <tr>
-                    <td>${row.name}</td>
-                    <td class="case">${row.caseSize || "—"}</td>
+                    <td>${escapeHtml(row.name)}</td>
+                    <td class="case">${escapeHtml(row.caseSize || "—")}</td>
                     <td class="price">$${row.price.toFixed(2)}</td>
                 </tr>
             `;
@@ -2943,7 +2952,7 @@ async function exportPriceSheetPdf() {
         unmatched.forEach(row => {
             tableHtml += `
                 <tr>
-                    <td>${row.name}</td>
+                    <td>${escapeHtml(row.name)}</td>
                     <td class="case">—</td>
                     <td class="price">$${row.price.toFixed(2)}</td>
                 </tr>
@@ -3070,8 +3079,8 @@ async function exportPriceSheetPdf() {
 
     <h2 style="margin:0 0 6px; color:#1E4D2B; font-size:16px;">Sales Representative Price Sheet</h2>
     <div class="meta">
-        <div><strong>Salesman:</strong> ${salesmanName}</div>
-        <div><strong>Email:</strong> ${email || "—"}</div>
+        <div><strong>Salesman:</strong> ${escapeHtml(salesmanName)}</div>
+        <div><strong>Email:</strong> ${escapeHtml(email || "—")}</div>
         <div><strong>Generated:</strong> ${generated}</div>
         <div><strong>Sheet last updated:</strong> ${lastUpdated}</div>
     </div>
@@ -3718,7 +3727,7 @@ function showAdminPanel() {
     } else {
         list.innerHTML = pending.map(p => `
             <div class="proposal-card">
-                <strong>${p.product}</strong> for <strong>${p.customer}</strong><br>
+                <strong>${escapeHtml(p.product)}</strong> for <strong>${escapeHtml(p.customer)}</strong><br>
                 <span style="font-size:0.85rem;">by ${p.salesmanName}</span><br><br>
                 Current: <strong>${p.currentPrice}</strong> → Proposed: <strong style="color:#c56134;">${p.proposedPrice}</strong><br>
                 <em>${p.reason}</em><br><br>
