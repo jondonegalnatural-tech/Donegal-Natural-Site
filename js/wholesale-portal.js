@@ -23,6 +23,15 @@ async function getEdgeFunctionHeaders() {
     };
 }
 
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // Soft guard — fast redirect if no customer cache
 (function () {
     try {
@@ -4386,8 +4395,8 @@ function updateQuoteSidebar() {
         div.innerHTML = `
             <div class="flex justify-between items-start">
                 <div class="flex-1 pr-2">
-                    <p class="font-semibold leading-tight">${item.name}</p>
-                    <p class="text-xs text-[#6B4423] mt-0.5">${item.cs}</p>
+                    <p class="font-semibold leading-tight">${escapeHtml(item.name)}</p>
+                    <p class="text-xs text-[#6B4423] mt-0.5">${escapeHtml(item.cs)}</p>
                     <p class="text-xs mt-1">${priceInfo}</p>
                 </div>
 
@@ -4477,8 +4486,8 @@ function expandQuoteModal() {
                 <div class="border border-[#d4b78f] rounded-xl p-4">
                     <div class="flex justify-between">
                         <div>
-                            <p class="font-semibold">${item.name}</p>
-                            <p class="text-sm text-[#6B4423]">${item.cs} × ${item.quantity}</p>
+                            <p class="font-semibold">${escapeHtml(item.name)}</p>
+                            <p class="text-sm text-[#6B4423]">${escapeHtml(item.cs)} × ${item.quantity}</p>
                         </div>
                         <div class="text-right">
                             ${isMarket ? 
@@ -4615,7 +4624,7 @@ function openQuoteConfirmModal() {
         rows += `
             <div style="display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #f0e6d6;padding-bottom:8px;margin-bottom:8px;">
                 <div style="min-width:0;">
-                    <p style="font-weight:600;color:#1E4D2B;margin:0;">${item.name || 'Item'}</p>
+                    <p style="font-weight:600;color:#1E4D2B;margin:0;">${escapeHtml(item.name || 'Item')}</p>
                     <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.cs ? ' · ' + item.cs : ''}</p>
                 </div>
                 <p style="font-weight:600;color:#1E4D2B;white-space:nowrap;margin:0;">${lineLabel}</p>
@@ -4924,7 +4933,7 @@ async function loadMyQuotes() {
                     <ul class="text-sm space-y-1 mb-4">
                         ${items.map(item => `
                             <li class="flex justify-between">
-                                <span>• ${item.product} × ${item.quantity}</span>
+                                <span>• ${escapeHtml(item.product)} × ${item.quantity}</span>
                                 <span class="text-[#6B4423]">${item.displayPrice || ''}</span>
                             </li>
                         `).join('')}
@@ -5158,7 +5167,7 @@ async function loadOrderHistory() {
                     <ul class="text-sm space-y-1 mb-4">
                         ${items.map(item => `
                             <li class="flex justify-between">
-                                <span>• ${item.product} × ${item.quantity}</span>
+                                <span>• ${escapeHtml(item.product)} × ${item.quantity}</span>
                                 <span class="text-[#6B4423]">${item.displayPrice || ('$' + (parseFloat(item.unitPrice) || 0).toFixed(2))}</span>
                             </li>
                         `).join('')}
@@ -5287,7 +5296,7 @@ function renderCustomerBackOrdersSidebar() {
                 <ul class="space-y-1">
                     ${g.items.map(item => `
                         <li class="text-xs leading-snug">
-                            <span class="font-medium">${item.product_name || '—'}</span>
+                            <span class="font-medium">${escapeHtml(item.product_name || '—')}</span>
                             <span class="text-[#6B4423]"> × ${item.quantity || 1}</span>
                             ${item.case_size ? `<span class="text-[#6B4423]"> · ${item.case_size}</span>` : ''}
                         </li>
@@ -5637,7 +5646,7 @@ function renderEditQuoteItems() {
         return `
             <div class="flex flex-wrap items-center gap-2 border border-[#d4b78f] rounded-xl px-3 py-2 bg-[#f8f4eb]">
                 <div class="flex-1 min-w-[140px]">
-                    <p class="font-semibold text-sm brand-green">${item.product}</p>
+                    <p class="font-semibold text-sm brand-green">${escapeHtml(item.product)}</p>
                     <p class="text-xs text-[#6B4423]">${priceLabel}${item.caseSize ? ' · ' + item.caseSize : ''}</p>
                 </div>
                 <input type="number" min="1" step="1" value="${item.quantity}"
@@ -5698,8 +5707,8 @@ function renderEditQuoteProductSearch() {
             <button type="button"
                     onclick="addEditQuoteProduct('${safeName}')"
                     class="w-full text-left px-4 py-2 text-sm hover:bg-[#f8f4eb] border-b border-[#f0e6d9]">
-                <span class="font-medium text-[#1E4D2B]">${p.name}</span>
-                <span class="block text-xs text-[#6B4423]">${p.cs || ''} · ${p.price || ''}</span>
+                <span class="font-medium text-[#1E4D2B]">${escapeHtml(p.name)}</span>
+                <span class="block text-xs text-[#6B4423]">${escapeHtml(p.cs || '')} · ${escapeHtml(p.price || '')}</span>
             </button>
         `;
     }).join('');
@@ -5812,7 +5821,7 @@ function showAccountInfo() {
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
                 <p class="text-sm text-[#6B4423] font-semibold">Login Email</p>
-                <p class="text-lg">${user.email || 'N/A'}</p>
+                <p class="text-lg">${escapeHtml(user.email || 'N/A')}</p>
             </div>
             <div>
                 <p class="text-sm text-[#6B4423] font-semibold">Full Name</p>
@@ -5866,19 +5875,19 @@ function showAccountInfo() {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5 text-sm">
                 <div>
                     <p class="text-[#6B4423] font-semibold">Company / Store</p>
-                    <p class="font-semibold text-[#1E4D2B]">${active.company || active.name || '—'}</p>
+                    <p class="font-semibold text-[#1E4D2B]">${escapeHtml(active.company || active.name || '—')}</p>
                 </div>
                 <div>
                     <p class="text-[#6B4423] font-semibold">Assigned Salesman</p>
-                    <p id="account-assigned-salesman">${active.salesman_email || '—'}</p>
+                <p id="account-assigned-salesman">${escapeHtml(active.salesman_email || '—')}</p>
                 </div>
                 <div class="md:col-span-2">
                     <p class="text-[#6B4423] font-semibold">Shipping Address</p>
-                    <p>${active.shipping_address || '—'}</p>
+                <p>${escapeHtml(active.shipping_address || '—')}</p>
                 </div>
                 <div class="md:col-span-2">
                     <p class="text-[#6B4423] font-semibold">Billing Address</p>
-                    <p>${active.billing_address || '—'}</p>
+                <p>${escapeHtml(active.billing_address || '—')}</p>
                 </div>
                 <div>
                     <p class="text-[#6B4423] font-semibold">Pricing Status</p>
@@ -5946,7 +5955,7 @@ async function loadAssignedSalesmanDisplay(customer) {
 
         const name = [data.first_name, data.last_name].filter(Boolean).join(' ').trim();
         if (name) {
-            el.innerHTML = `<span class="font-semibold text-[#1E4D2B]">${name}</span><br><span class="text-xs text-[#6B4423]">${email}</span>`;
+            el.innerHTML = `<span class="font-semibold text-[#1E4D2B]">${escapeHtml(name)}</span><br><span class="text-xs text-[#6B4423]">${escapeHtml(email)}</span>`;
         }
     } catch (err) {
         console.error('loadAssignedSalesmanDisplay error:', err);
@@ -5990,7 +5999,7 @@ async function loadAccountResaleSummary() {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
                     <p class="text-[#6B4423] font-semibold">Certificate Number</p>
-                    <p>${cert.certificate_number || '—'}</p>
+                    <p>${escapeHtml(cert.certificate_number || '—')}</p>
                 </div>
                 <div>
                     <p class="text-[#6B4423] font-semibold">Expiration</p>
@@ -6230,9 +6239,9 @@ async function loadCurrentResaleCert() {
 
         el.innerHTML = `
             <div class="p-3 bg-[#f8f4eb] border border-[#d4b78f] rounded-xl">
-                <p><span class="font-semibold">Number:</span> ${cert.certificate_number || '—'}</p>
+                <p><span class="font-semibold">Number:</span> ${escapeHtml(cert.certificate_number || '—')}</p>
                 <p><span class="font-semibold">Expires:</span> <span class="${expired ? 'text-red-600 font-semibold' : ''}">${exp}${expired ? ' (Expired)' : ''}</span></p>
-                <p class="text-xs mt-1">${cert.file_name || ''}</p>
+                <p class="text-xs mt-1">${escapeHtml(cert.file_name || '')}</p>
             </div>
         `;
     } catch (err) {
@@ -6850,9 +6859,9 @@ function showBrandedInvoice(order) {
                 <!-- Bill To -->
                 <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-4">
                     <p class="text-xs font-semibold text-[#6B4423] mb-1">BILL TO</p>
-                    <p class="font-semibold text-[#1E4D2B]">${order.customer_name || '—'}</p>
-                    <p class="text-sm text-[#6B4423]">${order.customer_company || ''}</p>
-                    <p class="text-sm text-[#6B4423]">${order.customer_email || ''}</p>
+                    <p class="font-semibold text-[#1E4D2B]">${escapeHtml(order.customer_name || '—')}</p>
+                    <p class="text-sm text-[#6B4423]">${escapeHtml(order.customer_company || '')}</p>
+                    <p class="text-sm text-[#6B4423]">${escapeHtml(order.customer_email || '')}</p>
                 </div>
 
                 <!-- Line items -->
@@ -6872,7 +6881,7 @@ function showBrandedInvoice(order) {
                                 const lineTotal = price * qty;
                                 return `
                                     <tr class="border-b border-[#e8d9c2]">
-                                        <td class="py-3 text-[#1E4D2B]">${item.product || item.name || 'Item'}</td>
+                                        <td class="py-3 text-[#1E4D2B]">${escapeHtml(item.product || item.name || 'Item')}</td>
                                         <td class="py-3 text-center text-[#6B4423]">${qty}</td>
                                         <td class="py-3 text-right font-medium">$${lineTotal.toFixed(2)}</td>
                                     </tr>
@@ -6892,7 +6901,7 @@ function showBrandedInvoice(order) {
                                     return `
                                         <tr class="border-b border-[#e8d9c2] bg-green-50">
                                             <td class="py-3 text-green-800">
-                                                ${b.product_name || '—'}
+                                                ${escapeHtml(b.product_name || '—')}
                                                 <span class="ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-green-100 text-green-800">BO Fulfilled</span>
                                             </td>
                                             <td class="py-3 text-center text-green-800">${qty}</td>
