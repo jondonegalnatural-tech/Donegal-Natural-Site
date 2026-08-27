@@ -492,7 +492,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/shopify.js"></script>
 <script src="js/main.js"></script>
 <script>
 // ─── Supabase client (public page) ───
@@ -709,20 +708,6 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     }
   });
 })();
-
-// Load featured products
-document.addEventListener('DOMContentLoaded', async () => {
-  const grid = document.getElementById('featured-products');
-  if (!grid || typeof ShopifyAPI === 'undefined') return;
-  try {
-    const products = await ShopifyAPI.getProducts(4);
-    if (typeof renderProductCard === 'function') {
-      grid.innerHTML = products.map(p => renderProductCard(p)).join('');
-    }
-  } catch (e) {
-    grid.innerHTML = '<p style="color:var(--muted);grid-column:1/-1;text-align:center;padding:2rem;">Unable to load products. Please try again shortly.</p>';
-  }
-});
 </script>
 </body>
 </html>
