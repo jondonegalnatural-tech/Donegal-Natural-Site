@@ -5743,6 +5743,42 @@ async function assertCustomerEmailAvailable(email) {
     }
 }
 
+async function assertSalesmanEmailAvailable(email) {
+    const emailNorm = (email || '').trim().toLowerCase();
+    if (!emailNorm || !emailNorm.includes('@')) {
+        throw new Error('A valid email is required.');
+    }
+
+    const { data: existingSalesman } = await supabaseClient
+        .from('salesmen')
+        .select('id, first_name, last_name, email')
+        .ilike('email', emailNorm)
+        .maybeSingle();
+    if (existingSalesman) {
+        const who = [existingSalesman.first_name, existingSalesman.last_name].filter(Boolean).join(' ');
+        throw new Error(
+            'A salesman already exists for ' + emailNorm +
+            (who ? ' (' + who + ')' : '') +
+            '.\nOpen that card instead of adding them again.'
+        );
+    }
+
+    const { data: profile } = await supabaseClient
+        .from('profiles')
+        .select('email, role')
+        .ilike('email', emailNorm)
+        .maybeSingle();
+    if (profile && profile.role === 'admin') {
+        throw new Error('This email is already an admin login. Use a different salesman email.');
+    }
+    if (profile && profile.role === 'customer') {
+        throw new Error('This email is already a customer login. Use a different salesman email.');
+    }
+    if (profile && profile.role === 'salesman') {
+        throw new Error('A salesman login already exists for this email. Check the Salesmen list before adding again.');
+    }
+}
+
 
 async function saveNewCustomer(event) {
     event.preventDefault();
@@ -7756,6 +7792,14 @@ function hideAddSalesmanModal() {
 async function addNewSalesman(e) {
     e.preventDefault();
 
+    const btn = e.submitter || document.getElementById('add-salesman-submit-btn');
+    if (btn && btn.dataset.busy === '1') return;
+    if (btn) {
+        btn.dataset.busy = '1';
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+    }
+
     const firstName = document.getElementById('new-first-name').value.trim();
     const lastName = document.getElementById('new-last-name').value.trim();
     const territory = document.getElementById('new-territory').value.trim();
@@ -7772,11 +7816,21 @@ async function addNewSalesman(e) {
         ? buildAddressFromParts(mailStreet, mailApt, mailCity, mailState, mailZip)
         : [mailStreet, mailApt, [mailCity, mailState, mailZip].filter(Boolean).join(', ')].filter(Boolean).join('\n');
 
-        if (!firstName || !lastName || !territory) {
+    const unlock = () => {
+        if (btn) {
+            btn.dataset.busy = '0';
+            btn.disabled = false;
+            btn.textContent = 'Add Salesman';
+        }
+    };
+
+    if (!firstName || !lastName || !territory) {
+        unlock();
         alert("Please fill in First Name, Last Name, and Territory.");
         return;
     }
     if (!email || !email.includes('@')) {
+        unlock();
         alert("A valid email is required so the salesman can log in and receive credentials.");
         return;
     }
@@ -7784,8 +7838,8 @@ async function addNewSalesman(e) {
     const fullName = firstName + ' ' + lastName;
 
     try {
-        // 1. Create Auth user + profile + send credentials email
-        // Password is generated server-side only
+        await assertSalesmanEmailAvailable(email);
+
         const fnUrl = SUPABASE_URL + '/functions/v1/create-salesman-user';
         const fnRes = await fetch(fnUrl, {
             method: 'POST',
@@ -7811,29 +7865,48 @@ async function addNewSalesman(e) {
             );
         }
 
-        // 2. Insert salesman row
-        const { data, error } = await supabaseClient
+        const row = {
+            first_name: firstName,
+            last_name: lastName,
+            email: email,
+            territory: territory,
+            commission: commission,
+            market_commission: marketCommission,
+            price_sheet_status: 'required',
+            yearly_sales: 0,
+            monthly_sales: 0,
+            active: true,
+            mailing_address: mailingAddress || null
+        };
+
+        let { data, error } = await supabaseClient
             .from('salesmen')
-            .insert({
-                first_name: firstName,
-                last_name: lastName,
-                email: email || null,
-                territory: territory,
-                commission: commission,
-                market_commission: marketCommission,
-                price_sheet_status: 'required',
-                yearly_sales: 0,
-                monthly_sales: 0,
-                active: true,
-                mailing_address: mailingAddress || null
-            })
+            .upsert(row, { onConflict: 'email' })
             .select()
             .single();
 
+        if (error && (error.code === '23505' || error.status === 409 || /duplicate|already exists|409/i.test(error.message || ''))) {
+            const updated = await supabaseClient
+                .from('salesmen')
+                .update({
+                    first_name: firstName,
+                    last_name: lastName,
+                    territory: territory,
+                    commission: commission,
+                    market_commission: marketCommission,
+                    mailing_address: mailingAddress || null,
+                    active: true
+                })
+                .ilike('email', email)
+                .select()
+                .single();
+            data = updated.data;
+            error = updated.error;
+        }
+
         if (error) {
             console.error(error);
-            alert("Failed to add salesman.\n" + error.message);
-            return;
+            throw new Error("Login was created, but saving the salesman row failed.\n" + error.message);
         }
 
         const emailOk = fnData && fnData.email_sent === true;
@@ -7854,13 +7927,14 @@ async function addNewSalesman(e) {
         hideAddSalesmanModal();
         document.getElementById('add-salesman-form').reset();
 
-        // Refresh the Salesmen section and dashboard card
         if (typeof renderSalesmen === 'function') renderSalesmen();
         if (typeof updateDashboardSalesmen === 'function') updateDashboardSalesmen();
 
     } catch (err) {
         console.error(err);
-        alert("Something went wrong while adding the salesman.\n\n" + (err.message || String(err)));
+        alert("Could not add salesman.\n\n" + (err.message || String(err)));
+    } finally {
+        unlock();
     }
 }
 
