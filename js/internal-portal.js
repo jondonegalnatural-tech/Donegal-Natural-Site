@@ -4538,7 +4538,7 @@ async function showAddOrderModal() {
     if (customerSelect) {
         customerSelect.innerHTML = '<option value="">Select customer...</option>' +
             allCustomers.map(c =>
-                `<option value="${(c.name || '').replace(/"/g, '&quot;')}">${c.name}${c.company ? ' — ' + c.company : ''}</option>`
+                `<option value="${escapeHtml(c.name || '')}">${escapeHtml(c.name || '')}${c.company ? ' — ' + escapeHtml(c.company) : ''}</option>`
             ).join('');
     }
 
@@ -5426,7 +5426,7 @@ function renderCustomers() {
         .map(s => {
             const name = s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || s.email || '';
             const email = (s.email || '').toLowerCase().trim();
-            return `<option value="${email}">${name}${s.territory ? ' — ' + s.territory : ''}</option>`;
+            return `<option value="${escapeHtml(email)}">${escapeHtml(name)}${s.territory ? ' — ' + escapeHtml(s.territory) : ''}</option>`;
         }).join('');
 
     let html = `
@@ -6488,9 +6488,9 @@ async function showCustomerChangeRequestsPanel() {
             <div class="border-2 border-[#6B4423] rounded-xl p-4 mb-4 bg-[#f8f4eb]">
                 <div class="flex justify-between items-start mb-2">
                     <div>
-                        <p class="font-bold brand-green">${p.name || 'Customer'}</p>
+                        <p class="font-bold brand-green">${escapeHtml(p.name || 'Customer')}</p>
                         <p class="text-sm text-[#6B4423]">
-                            Requested by ${r.salesman_name || r.salesman_email || 'Salesman'}
+                            Requested by ${escapeHtml(r.salesman_name || r.salesman_email || 'Salesman')}
                         </p>
                         <p class="text-xs text-[#6B4423]">
                             ${r.submitted_at ? new Date(r.submitted_at).toLocaleString() : ''}
@@ -7316,7 +7316,7 @@ async function populateReportsSalesmanSelect() {
         active.map(s => {
             const name = s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || s.email;
             const email = (s.email || '').toLowerCase().trim();
-            return `<option value="${email}">${name}${s.territory ? ' — ' + s.territory : ''}</option>`;
+            return `<option value="${escapeHtml(email)}">${escapeHtml(name)}${s.territory ? ' — ' + escapeHtml(s.territory) : ''}</option>`;
         }).join('');
 
     // Restore previous selection if still valid
@@ -7357,8 +7357,8 @@ async function onReportsSalesmanChange() {
         return `
             <div class="flex items-center justify-between gap-3 p-3 border border-[#d4b78f] rounded-xl bg-[#f8f4eb]">
                 <div class="min-w-0">
-                    <p class="font-semibold brand-green truncate">${name}</p>
-                    <p class="text-xs text-[#6B4423] truncate">${company}</p>
+                    <p class="font-semibold brand-green truncate">${escapeHtml(name)}</p>
+                    <p class="text-xs text-[#6B4423] truncate">${escapeHtml(company)}</p>
                 </div>
                 <button type="button"
                         onclick="openReportsCustomerPriceSheet('${id}')"
@@ -11419,7 +11419,7 @@ function filterOrdersByCustomer(customerName) {
     statsDiv.className = 'mb-6 p-4 bg-[#f8f4eb] border border-[#d4b78f] rounded-xl';
     statsDiv.innerHTML = `
         <div class="flex justify-between items-center mb-2">
-            <h3 class="text-xl font-bold brand-green">Orders for ${customerName}</h3>
+            <h3 class="text-xl font-bold brand-green">Orders for ${escapeHtml(customerName)}</h3>
             <button onclick="showSection('customers')" class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
               ← Back to Customers
             </button>
@@ -13160,7 +13160,7 @@ function renderIngredients() {
     Object.keys(groups).forEach(groupName => {
         const header = document.createElement('div');
         header.className = 'mt-5 mb-2';
-        header.innerHTML = `<h3 class="text-lg font-bold brand-green border-b border-[#d4b78f] pb-1">${groupName}</h3>`;
+        header.innerHTML = `<h3 class="text-lg font-bold brand-green border-b border-[#d4b78f] pb-1">${escapeHtml(groupName)}</h3>`;
         container.appendChild(header);
 
         groups[groupName].forEach(item => {
@@ -13199,11 +13199,11 @@ function renderIngredients() {
             card.innerHTML = `
                 <div class="flex items-center justify-between px-4 py-3 bg-[#f8f4eb] cursor-pointer hover:bg-[#f0e6d9]"
                      onclick="toggleIngredient('${safeId}')">
-                    <span class="font-medium">${item.name}</span>
+                    <span class="font-medium">${escapeHtml(item.name)}</span>
                     <span class="text-[#6B4423] text-lg">${isExpanded ? '▼' : '▶'}</span>
                 </div>
                 <div id="ingredient-detail-${safeId}" class="${isExpanded ? '' : 'hidden'} px-4 py-4 bg-white text-sm space-y-2">
-                    <p><strong>Ingredients:</strong> ${item.ingredients}</p>
+                    <p><strong>Ingredients:</strong> ${escapeHtml(item.ingredients || '')}</p>
                     ${item.notForHuman ? '<p class="text-red-600 font-semibold">NOT FOR HUMAN CONSUMPTION</p>' : ''}
                     ${analysisHTML}
                     <div class="pt-3">
