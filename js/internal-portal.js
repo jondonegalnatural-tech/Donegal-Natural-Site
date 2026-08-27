@@ -140,6 +140,10 @@ function generateInvoiceNumber() {
     return 'DN-' + code;
 }
 
+function displayInvoiceNumber(order) {
+    return order?.invoice_number || order?.invoiceNumber || order?.id || '—';
+}
+
 async function notifyMarshallProforma(order) {
     try {
         const res = await fetch(SUPABASE_URL + '/functions/v1/send-pro-forma-email', {
@@ -1326,7 +1330,7 @@ function openOrderInvoiceModal(orderId) {
 
     // Invoice number + date
     const invNum = document.getElementById('inv-number');
-    if (invNum) invNum.textContent = String(order.id || '—');
+    if (invNum) invNum.textContent = String(displayInvoiceNumber(order));
 
     const invDate = document.getElementById('inv-date');
     if (invDate) {
@@ -3306,7 +3310,7 @@ function openMarketPriceModal(orderId) {
 
     const subtitle = document.getElementById('market-price-subtitle');
     if (subtitle) {
-        subtitle.textContent = `Order #${order.id} · ${order.customer || ''}`;
+        subtitle.textContent = `Order #${displayInvoiceNumber(order)} · ${order.customer || ''}`;
     }
 
     const container = document.getElementById('market-price-items');
@@ -3449,7 +3453,7 @@ function openApproveOrderModal(orderId) {
 
     if (customerEl) customerEl.textContent = order.customer || '—';
     if (salesmanEl) salesmanEl.textContent = order.salesman || '—';
-    if (idEl) idEl.textContent = String(order.id || '');
+    if (idEl) idEl.textContent = String(displayInvoiceNumber(order));
     if (subtitleEl) subtitleEl.textContent = 'Review line items, then approve or edit';
 
     const searchEl = document.getElementById('approve-ord-product-search');
@@ -3905,7 +3909,7 @@ function openShipInvoiceModal(orderId) {
 
     document.getElementById('ship-inv-customer').textContent = order.customer || '—';
     document.getElementById('ship-inv-salesman').textContent = order.salesman || '—';
-    document.getElementById('ship-inv-id').textContent = String(order.id || '');
+    document.getElementById('ship-inv-id').textContent = String(displayInvoiceNumber(order));
     document.getElementById('ship-invoice-subtitle').textContent =
         'Review line items and shipping, then confirm ship';
 
@@ -5282,7 +5286,7 @@ function printSelectedOrders() {
                     </div>
                     <div class="title">
                         PACKING SLIP / ORDER
-                        <div class="meta">Order #${order.id}</div>
+                        <div class="meta">Order #${escapeHtml(displayInvoiceNumber(order))}</div>
                         <div class="meta">Date: ${new Date(order.submittedAt).toLocaleDateString()}</div>
                     </div>
                 </div>
@@ -10843,7 +10847,7 @@ function createOrderRow(order) {
 
     return `
         <tr class="border-t border-[#6B4423] hover:bg-[#f8f4eb]">
-            <td class="p-3 font-mono">#${order.id}</td>
+            <td class="p-3 font-mono">#${escapeHtml(displayInvoiceNumber(order))}</td>
             <td class="p-3">
                 <div class="flex flex-wrap gap-1">
                     ${statusHTML}
@@ -11459,7 +11463,7 @@ function filterOrdersByCustomer(customerName) {
     customerOrders.forEach(order => {
         const itemCount = order.items ? order.items.length : 0;
                 html += `<tr onclick=\"showOrderDetails('${String(order.id).replace(/'/g, "\\'")}')\" class=\"border-t border-[#6B4423] cursor-pointer hover:bg-[#f8f4eb]\">
-            <td class="p-3 font-mono">#${order.id}</td>
+            <td class="p-3 font-mono">#${escapeHtml(displayInvoiceNumber(order))}</td>
             <td class="p-3">${order.status || 'Submitted'}</td>
             <td class="p-3 text-sm">${new Date(order.submittedAt).toLocaleDateString()}</td>
             <td class="p-3">${itemCount} item(s)</td>
