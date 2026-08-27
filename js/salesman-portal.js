@@ -1701,6 +1701,10 @@ function generateInvoiceNumber() {
     return 'DN-' + code;
 }
 
+function displayInvoiceNumber(order) {
+    return order?.invoice_number || order?.invoiceNumber || order?.id || '—';
+}
+
 async function submitPlaceOrder() {
     const nameFromField =
         (document.getElementById("place-order-customer-name")?.textContent || "").trim() ||
@@ -2509,7 +2513,7 @@ function createOrderCard(order, showSalesman = false) {
                 <div>
                     <strong style="color:#1E4D2B; font-size:1.05rem;">${escapeHtml(order.customer_name || order.customer || "Customer")}</strong>
                     <div style="font-size:0.8rem; color:#888; margin-top:0.15rem;">
-                        Order #${order.id} · ${new Date(order.submitted_at || order.submittedAt).toLocaleDateString()}
+                        Order #${escapeHtml(displayInvoiceNumber(order))} · ${new Date(order.submitted_at || order.submittedAt).toLocaleDateString()}
                     </div>
                     ${showSalesman ? `<div style="font-size:0.8rem; color:#6B4423;">Salesman: ${order.salesman_name || order.salesman || "N/A"}</div>` : ""}
                 </div>
@@ -2618,7 +2622,7 @@ async function openSalesmanOrderInvoice(orderId) {
     const invNumber = document.getElementById('inv-number');
     const invDate = document.getElementById('inv-date');
     const invStatus = document.getElementById('inv-status');
-    if (invNumber) invNumber.textContent = order.id || '—';
+    if (invNumber) invNumber.textContent = displayInvoiceNumber(order);
     if (invDate) {
         const d = new Date(order.submitted_at || order.submittedAt || Date.now());
         invDate.textContent = isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
