@@ -8208,21 +8208,6 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
     }).join("");
 
     const refWord = isCustomerPricing ? "base sheet" : "catalog";
-    const changedLines = (items || []).filter(item => {
-        const proposed = Number(item.proposedPrice);
-        const refPrice = isCustomerPricing
-            ? (item.basePrice != null ? Number(item.basePrice) : null)
-            : (item.catalogPrice != null ? Number(item.catalogPrice) : null);
-        return refPrice != null && !isNaN(refPrice) && !isNaN(proposed) && Math.abs(proposed - refPrice) > 0.0001;
-    }).map(item => {
-        const proposed = Number(item.proposedPrice);
-        const refPrice = isCustomerPricing
-            ? Number(item.basePrice)
-            : Number(item.catalogPrice);
-        const pct = refPrice > 0 ? ((proposed - refPrice) / refPrice) * 100 : null;
-        const over5 = item.outside5 === true || (refPrice > 0 && Math.abs(proposed - refPrice) / refPrice > 0.05);
-        return { product: item.product || "—", refPrice, proposed, pct, over5 };
-    });
 
     const noticeClass = changedCount === 0
         ? "border-green-700 bg-green-50"
@@ -8239,7 +8224,7 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
             + (over5Count > 0 ? (" · " + over5Count + " outside ±5%") : "") + ".");
     const noticeList = changedLines.slice(0, 12).map(row => {
         const name = (typeof escapeHtml === "function") ? escapeHtml(row.product) : row.product;
-        const from = "$" + Number(row.refPrice).toFixed(2);
+        const from = row.ref != null ? "$" + Number(row.ref).toFixed(2) : "—";
         const to = "$" + Number(row.proposed).toFixed(2);
         const pct = row.pct != null ? ((row.pct >= 0 ? "+" : "") + row.pct.toFixed(1) + "%") : "";
         return "<li class=\"" + (row.over5 ? "text-red-800 font-semibold" : "") + "\">" + name + ": " + from + " → " + to + (pct ? " (" + pct + ")" : "") + "</li>";
