@@ -1370,7 +1370,7 @@ function openOrderInvoiceModal(orderId) {
         const billing = customer?.billingAddress || customer?.shippingAddress || '';
         if (billing) lines.push(billing);
         billEl.innerHTML = lines.length
-            ? lines.map(l => `<p>${l}</p>`).join('')
+            ? lines.map(l => `<p>${escapeHtml(l)}</p>`).join('')
             : '—';
     }
 
@@ -1383,7 +1383,7 @@ function openOrderInvoiceModal(orderId) {
         const shipping = customer?.shippingAddress || customer?.billingAddress || '';
         if (shipping) lines.push(shipping);
         shipEl.innerHTML = lines.length
-            ? lines.map(l => `<p>${l}</p>`).join('')
+            ? lines.map(l => `<p>${escapeHtml(l)}</p>`).join('')
             : '—';
     }
 
@@ -4788,7 +4788,7 @@ function openAdminOrderConfirmModal(event) {
         rows += `
             <div style="display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #f0e6d6;padding-bottom:8px;margin-bottom:8px;">
                 <div>
-                    <p style="font-weight:600;color:#1E4D2B;margin:0;">${item.product || 'Item'}</p>
+                    <p style="font-weight:600;color:#1E4D2B;margin:0;">${escapeHtml(item.product || 'Item')}</p>
                     <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.caseSize ? ' · ' + item.caseSize : ''}</p>
                 </div>
                 <p style="font-weight:600;color:#1E4D2B;margin:0;">${lineLabel}</p>
@@ -4809,9 +4809,9 @@ function openAdminOrderConfirmModal(event) {
             </div>
             <div style="padding:16px 20px;">
                 <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 4px;">Customer</p>
-                <p style="margin:0 0 12px;color:#1E4D2B;font-weight:600;">${customer}</p>
+                <p style="margin:0 0 12px;color:#1E4D2B;font-weight:600;">${escapeHtml(customer)}</p>
                 <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 4px;">Shipping Address</p>
-                <p style="margin:0 0 16px;color:#1E4D2B;white-space:pre-line;">${shipText}</p>
+                <p style="margin:0 0 16px;color:#1E4D2B;white-space:pre-line;">${escapeHtml(shipText)}</p>
                 <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 8px;">Items</p>
                 <div style="margin-bottom:16px;">${rows}</div>
                 <div style="display:flex;justify-content:space-between;background:#f8f4eb;border-radius:12px;padding:12px 16px;">
@@ -11845,16 +11845,16 @@ function renderVendors() {
         card.innerHTML = `
             <div class="flex items-start justify-between mb-4">
                 <div>
-                    <h3 class="text-xl font-bold brand-green ${isActive ? '' : 'line-through text-gray-400'}">${vendor.name}</h3>
-                    <p class="text-sm text-[#6B4423]">${vendor.contact || ''}</p>
+                    <h3 class="text-xl font-bold brand-green ${isActive ? '' : 'line-through text-gray-400'}">${escapeHtml(vendor.name)}</h3>
+                    <p class="text-sm text-[#6B4423]">${escapeHtml(vendor.contact || '')}</p>
                 </div>
                 <span class="px-3 py-1 text-xs font-semibold rounded-full ${isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">
                     ${isActive ? 'Active' : 'Inactive'}
                 </span>
             </div>
             <div class="space-y-1 text-sm text-[#6B4423]">
-                <p><i class="fas fa-phone w-5"></i> ${vendor.phone || '—'}</p>
-                <p><i class="fas fa-envelope w-5"></i> ${vendor.email || '—'}</p>
+                <p><i class="fas fa-phone w-5"></i> ${escapeHtml(vendor.phone || '—')}</p>
+                <p><i class="fas fa-envelope w-5"></i> ${escapeHtml(vendor.email || '—')}</p>
             </div>
         `;
 
@@ -13625,10 +13625,10 @@ async function loadAdminResaleCertificates() {
             return `
                 <tr class="border-b border-[#e8d9c2]">
                     <td class="py-3 pr-4">
-                        <p class="font-semibold text-[#1E4D2B]">${company}</p>
-                        <p class="text-xs text-[#6B4423]">${email}</p>
+                        <p class="font-semibold text-[#1E4D2B]">${escapeHtml(company)}</p>
+                        <p class="text-xs text-[#6B4423]">${escapeHtml(email)}</p>
                     </td>
-                    <td class="py-3 pr-4 font-mono text-sm">${cert.certificate_number || '—'}</td>
+                    <td class="py-3 pr-4 font-mono text-sm">${escapeHtml(cert.certificate_number || '—')}</td>
                     <td class="py-3 pr-4">
                         <span class="${expired ? 'text-red-600 font-semibold' : ''}">${exp}${expired ? ' (Expired)' : ''}</span>
                     </td>
@@ -14486,7 +14486,7 @@ async function openBulkPercentAdjustModal() {
             active.map(s => {
                 const name = s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || s.email;
                 const email = (s.email || '').toLowerCase().trim();
-                return `<option value="${email}">${name}${s.territory ? ' — ' + s.territory : ''}</option>`;
+            return `<option value="${escapeHtml(email)}">${escapeHtml(name)}${s.territory ? ' — ' + escapeHtml(s.territory) : ''}</option>`;
             }).join('');
     }
 
