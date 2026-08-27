@@ -8113,7 +8113,10 @@ async function showProposalDetail(id) {
             : (p.type === 'customerPricing' ? 'Customer Pricing'
                 : (p.type === 'newProduct' ? 'New Product' : 'Price Change'));
 
-        list.innerHTML = renderProposalDetailHtml(p, date, typeLabel, false);
+        const startOnChanges = p.type === 'initialPriceSheet'
+            || p.type === 'priceChange'
+            || p.type === 'customerPricing';
+        list.innerHTML = renderProposalDetailHtml(p, date, typeLabel, startOnChanges);
     } catch (err) {
         console.error(err);
         list.innerHTML = `<p class="text-red-600 text-center py-8">Error loading proposal.</p>`;
@@ -8125,6 +8128,7 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
     const isCustomerPricing = p.type === 'customerPricing';
     let changedCount = 0;
     let over5Count = 0;
+    const changedLines = [];
 
     const itemRows = items.map(item => {
         const proposed = Number(item.proposedPrice);
@@ -8143,7 +8147,19 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
             (hasRef && refPrice > 0 && !isNaN(proposed) &&
                 Math.abs(proposed - refPrice) / refPrice > 0.05);
 
-        if (isChanged) changedCount++;
+        if (isChanged) {
+            changedCount++;
+            const pct = (hasRef && refPrice > 0 && !isNaN(proposed))
+                ? ((proposed - refPrice) / refPrice) * 100
+                : null;
+            changedLines.push({
+                product: item.product || "—",
+                ref: hasRef ? refPrice : null,
+                proposed: isNaN(proposed) ? null : proposed,
+                pct: pct,
+                over5: !!over5
+            });
+        }
         if (over5) over5Count++;
 
         if (changesOnly && !isChanged) return "";
@@ -8191,29 +8207,83 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
         `;
     }).join("");
 
-    const summaryBits = [];
-    if (changedCount > 0) summaryBits.push(changedCount + " changed");
-    if (over5Count > 0) summaryBits.push(over5Count + " outside ±5%");
-    const summaryText = summaryBits.length
-        ? summaryBits.join(" · ")
-        : (isCustomerPricing ? "No price changes from base sheet" : "No price changes from catalog");
+    const refWord = isCustomerPricing ? "base sheet" : "catalog";
+    const changedLines = (items || []).filter(item => {
+        const proposed = Number(item.proposedPrice);
+        const refPrice = isCustomerPricing
+            ? (item.basePrice != null ? Number(item.basePrice) : null)
+            : (item.catalogPrice != null ? Number(item.catalogPrice) : null);
+        return refPrice != null && !isNaN(refPrice) && !isNaN(proposed) && Math.abs(proposed - refPrice) > 0.0001;
+    }).map(item => {
+        const proposed = Number(item.proposedPrice);
+        const refPrice = isCustomerPricing
+            ? Number(item.basePrice)
+            : Number(item.catalogPrice);
+        const pct = refPrice > 0 ? ((proposed - refPrice) / refPrice) * 100 : null;
+        const over5 = item.outside5 === true || (refPrice > 0 && Math.abs(proposed - refPrice) / refPrice > 0.05);
+        return { product: item.product || "—", refPrice, proposed, pct, over5 };
+    });
+
+    const noticeClass = changedCount === 0
+        ? "border-green-700 bg-green-50"
+        : (over5Count > 0 ? "border-red-500 bg-red-50" : "border-amber-500 bg-amber-50");
+    const noticeTitleClass = changedCount === 0
+        ? "text-green-800"
+        : (over5Count > 0 ? "text-red-800" : "text-amber-900");
+    const noticeTitle = changedCount === 0
+        ? "No edits on this sheet"
+        : "This sheet has edits — review before approving";
+    const noticeBody = changedCount === 0
+        ? ("Every listed price matches " + refWord + ".")
+        : (changedCount + " price" + (changedCount === 1 ? "" : "s") + " differ from " + refWord
+            + (over5Count > 0 ? (" · " + over5Count + " outside ±5%") : "") + ".");
+    const noticeList = changedLines.slice(0, 12).map(row => {
+        const name = (typeof escapeHtml === "function") ? escapeHtml(row.product) : row.product;
+        const from = "$" + Number(row.refPrice).toFixed(2);
+        const to = "$" + Number(row.proposed).toFixed(2);
+        const pct = row.pct != null ? ((row.pct >= 0 ? "+" : "") + row.pct.toFixed(1) + "%") : "";
+        return "<li class=\"" + (row.over5 ? "text-red-800 font-semibold" : "") + "\">" + name + ": " + from + " → " + to + (pct ? " (" + pct + ")" : "") + "</li>";
+    }).join("");
+    const noticeMore = changedLines.length > 12
+        ? "<p class=\"text-xs mt-1\">…and " + (changedLines.length - 12) + " more. Use Show changes only below.</p>"
+        : "";
 
     return `
         <button type="button" onclick="showPriceProposalsPanel()"
-                class="mb-4 text-sm text-[#6B4423] hover:underline">
+                class="mb-3 text-sm text-[#6B4423] hover:underline">
             ← Back to list
         </button>
 
         <div class="border-2 border-[#6B4423] rounded-2xl p-4">
-            <div class="flex justify-between items-start mb-3">
-                <div>
-                    <p class="font-bold text-lg brand-green">${p.salesmanName || "Salesman"}</p>
-                    <p class="text-sm text-[#6B4423]">${typeLabel} · ${date} · ${items.length} product(s)</p>
-                    <p class="text-xs font-semibold mt-1 ${over5Count > 0 ? "text-red-700" : "text-[#6B4423]"}">${summaryText}</p>
+            <div class="sticky top-0 z-10 bg-white pb-3 mb-3 border-b border-[#d4b78f]">
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <p class="font-bold text-lg brand-green">${p.salesmanName || "Salesman"}</p>
+                        <p class="text-sm text-[#6B4423]">${typeLabel} · ${date} · ${items.length} product(s)</p>
+                    </div>
+                    <span class="px-3 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">
+                        Pending
+                    </span>
                 </div>
-                <span class="px-3 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">
-                    Pending
-                </span>
+
+                <div class="rounded-xl border-2 ${noticeClass} px-4 py-3 mb-3">
+                    <p class="font-bold ${noticeTitleClass}">${noticeTitle}</p>
+                    <p class="text-sm ${noticeTitleClass} mt-1">${noticeBody}</p>
+                    ${changedCount > 0 ? `<ul class="mt-2 text-sm space-y-0.5 max-h-28 overflow-y-auto">${noticeList}</ul>${noticeMore}` : ""}
+                </div>
+
+                <div class="flex gap-3">
+                    <button type="button"
+                            onclick="approvePriceProposal('${p.id}')"
+                            class="flex-1 px-4 py-3 bg-green-700 text-white font-semibold rounded-xl">
+                        Approve sheet
+                    </button>
+                    <button type="button"
+                            onclick="denyPriceProposal('${p.id}')"
+                            class="flex-1 px-4 py-3 bg-red-700 text-white font-semibold rounded-xl">
+                        Deny
+                    </button>
+                </div>
             </div>
 
             ${p.overallNotes ? `<p class="text-sm text-[#6B4423] mb-3"><strong>Notes:</strong> ${p.overallNotes}</p>` : ""}
@@ -8231,22 +8301,9 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
                 </button>
             </div>
 
-            <div class="max-h-72 overflow-y-auto mb-4">
+            <div class="max-h-72 overflow-y-auto">
                 ${itemRows || "<p class='text-sm text-[#6B4423]'>No items</p>"}
-                ${changesOnly && changedCount === 0 ? `<p class='text-sm text-[#6B4423]'>No price changes — every selected item matches ${isCustomerPricing ? "base sheet" : "catalog"}.</p>` : ""}
-            </div>
-
-            <div class="flex gap-3">
-                <button type="button"
-                        onclick="approvePriceProposal('${p.id}')"
-                        class="flex-1 px-4 py-3 bg-green-700 text-white font-semibold rounded-xl">
-                    Approve
-                </button>
-                <button type="button"
-                        onclick="denyPriceProposal('${p.id}')"
-                        class="flex-1 px-4 py-3 bg-red-700 text-white font-semibold rounded-xl">
-                    Deny
-                </button>
+                ${changesOnly && changedCount === 0 ? `<p class='text-sm text-[#6B4423]'>No price changes — every selected item matches ${refWord}.</p>` : ""}
             </div>
         </div>
     `;
