@@ -6439,6 +6439,37 @@ function displayWelcome() {
 }
 
 // ================== INITIALIZATION ==================
+async function filterWholesaleCatalogForSalesman() {
+    if (!Array.isArray(WHOLESALE_PRICES) || !WHOLESALE_PRICES.length) return;
+    try {
+        const { data, error } = await supabaseClient
+            .from('salesmen')
+            .select('email, assigned_products')
+            .eq('active', true);
+        if (error) throw error;
+        const restricted = new Set();
+        const byEmail = {};
+        (data || []).forEach(s => {
+            const email = (s.email || '').toLowerCase().trim();
+            let list = [];
+            if (Array.isArray(s.assigned_products)) list = s.assigned_products;
+            else if (typeof s.assigned_products === 'string') {
+                try { list = JSON.parse(s.assigned_products); } catch (e) { list = []; }
+            }
+            byEmail[email] = list;
+            list.forEach(name => restricted.add(name));
+        });
+        if (!restricted.size) return;
+        const mine = (window._currentCustomer?.salesman_email || '').toLowerCase().trim();
+        const allowed = new Set(byEmail[mine] || []);
+        WHOLESALE_PRICES = WHOLESALE_PRICES.filter(p =>
+            !restricted.has(p.name) || allowed.has(p.name)
+        );
+    } catch (err) {
+        console.warn('filterWholesaleCatalogForSalesman:', err);
+    }
+}
+
 async function loadWholesaleCatalog() {
     try {
         if (typeof supabaseClient === 'undefined' || !supabaseClient) {
@@ -6471,6 +6502,7 @@ async function loadWholesaleCatalog() {
         }));
 
         console.log('loadWholesaleCatalog: loaded', WHOLESALE_PRICES.length, 'products from Supabase');
+        await filterWholesaleCatalogForSalesman();
     } catch (err) {
         console.error('loadWholesaleCatalog error — keeping hardcoded list:', err);
     }

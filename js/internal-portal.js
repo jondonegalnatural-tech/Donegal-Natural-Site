@@ -9443,6 +9443,45 @@ function showInquiriesSection() {
 }
 
 // ================== INVENTORY ==================
+function addNewProductCategory() {
+    const raw = prompt('New category name:');
+    if (raw === null) return;
+    const cat = raw.trim();
+    if (!cat) return;
+    const list = document.getElementById('new-product-category-list');
+    if (list && !Array.from(list.options).some(o => o.value === cat)) {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        list.appendChild(opt);
+    }
+    const input = document.getElementById('new-product-category');
+    if (input) input.value = cat;
+}
+
+function addNewProductCategoryFromSheet() {
+    openAddProductModal();
+    addNewProductCategory();
+}
+
+function toggleNewProductSalesmanLimit() {
+    const on = document.getElementById('new-product-limit-salesman')?.checked === true;
+    const sel = document.getElementById('new-product-salesman');
+    const hint = document.getElementById('new-product-salesman-hint');
+    if (sel) sel.classList.toggle('hidden', !on);
+    if (hint) hint.classList.toggle('hidden', !on);
+}
+
+function populateNewProductSalesmanSelect() {
+    const sel = document.getElementById('new-product-salesman');
+    if (!sel) return;
+    const active = (salesmen || []).filter(s => s.active !== false && (s.email || '').trim());
+    sel.innerHTML = active.map(s => {
+        const email = (s.email || '').toLowerCase().trim();
+        const name = s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || email;
+        return `<option value="${email}">${name} — ${email}</option>`;
+    }).join('');
+}
+
 function openAddProductModal() {
     const modal = document.getElementById('add-product-modal');
     if (!modal) return;
@@ -9474,6 +9513,11 @@ function openAddProductModal() {
         const now = new Date();
         asOf.value = now.toLocaleString('en-US', { month: 'long', year: 'numeric' });
     }
+
+    const limitCb = document.getElementById('new-product-limit-salesman');
+    if (limitCb) limitCb.checked = false;
+    populateNewProductSalesmanSelect();
+    toggleNewProductSalesmanLimit();
 
     modal.classList.remove('hidden');
     document.getElementById('new-product-name')?.focus();
@@ -9608,8 +9652,21 @@ async function saveNewProduct(event) {
         if (typeof loadProductCatalog === 'function') {
             await loadProductCatalog();
         }
+        const limitTo = document.getElementById('new-product-limit-salesman')?.checked === true;
+        const selectedEmails = limitTo
+            ? Array.from(document.getElementById('new-product-salesman')?.selectedOptions || [])
+                .map(o => (o.value || '').toLowerCase().trim())
+                .filter(Boolean)
+            : [];
+        if (limitTo && selectedEmails.length === 0) {
+            alert('Select at least one salesman, or uncheck Limit to specific salesman.');
+            return;
+        }
         if (typeof applyRecommendedPriceToSalesmen === 'function') {
-            await applyRecommendedPriceToSalesmen(name, unitPrice);
+            await applyRecommendedPriceToSalesmen(name, unitPrice, selectedEmails);
+        }
+        if (selectedEmails.length && typeof assignProductToSalesmen === 'function') {
+            await assignProductToSalesmen(name, selectedEmails);
         }
         if (typeof renderBasePriceSheet === 'function') {
             renderBasePriceSheet();
@@ -14296,15 +14353,20 @@ async function renamePriceSheetKeys(tableName, oldName, newName) {
     }
 }
 
-async function applyRecommendedPriceToSalesmen(productName, recommendedPrice) {
-    const { data, error } = await supabaseClient
+async function applyRecommendedPriceToSalesmen(productName, recommendedPrice, onlyEmails) {
+    let query = supabaseClient
         .from('salesman_price_sheets')
-        .select('id, prices');
+        .select('id, prices, salesman_email');
+    if (Array.isArray(onlyEmails) && onlyEmails.length) {
+        query = query.in('salesman_email', onlyEmails);
+    }
+    const { data, error } = await query;
     if (error) throw error;
-    if (!data || !data.length) return 0;
 
     let count = 0;
-    for (const row of data) {
+    const have = new Set((data || []).map(r => (r.salesman_email || '').toLowerCase().trim()));
+
+    for (const row of (data || [])) {
         const prices = row.prices && typeof row.prices === 'object' ? { ...row.prices } : {};
         prices[productName] = recommendedPrice;
         const { error: updErr } = await supabaseClient
@@ -14314,7 +14376,46 @@ async function applyRecommendedPriceToSalesmen(productName, recommendedPrice) {
         if (updErr) throw updErr;
         count += 1;
     }
+
+    if (Array.isArray(onlyEmails)) {
+        for (const email of onlyEmails) {
+            if (have.has(email)) continue;
+            const salesman = (salesmen || []).find(s => (s.email || '').toLowerCase().trim() === email);
+            const { error: insErr } = await supabaseClient
+                .from('salesman_price_sheets')
+                .insert({
+                    salesman_email: email,
+                    salesman_name: salesman ? (salesman.name || email) : email,
+                    prices: { [productName]: recommendedPrice }
+                });
+            if (insErr) throw insErr;
+            count += 1;
+        }
+    }
     return count;
+}
+
+async function assignProductToSalesmen(productName, emails) {
+    for (const email of emails) {
+        const { data, error } = await supabaseClient
+            .from('salesmen')
+            .select('id, assigned_products')
+            .eq('email', email)
+            .maybeSingle();
+        if (error) throw error;
+        if (!data) continue;
+        let list = [];
+        if (Array.isArray(data.assigned_products)) list = data.assigned_products.slice();
+        else if (typeof data.assigned_products === 'string') {
+            try { list = JSON.parse(data.assigned_products); } catch (e) { list = []; }
+        }
+        if (!list.includes(productName)) list.push(productName);
+        const { error: updErr } = await supabaseClient
+            .from('salesmen')
+            .update({ assigned_products: list, updated_at: new Date().toISOString() })
+            .eq('id', data.id);
+        if (updErr) throw updErr;
+    }
 }
 
 async function saveBasePriceSheetEdits() {
