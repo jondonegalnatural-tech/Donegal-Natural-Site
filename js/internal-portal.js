@@ -7171,12 +7171,20 @@ async function loadSalesmanCardCustomers(salesmanEmail) {
         box.innerHTML = '<p class="text-xs text-[#6B4423]">No salesman email on file.</p>';
         return;
     }
-    if ((!allCustomers || allCustomers.length === 0) && typeof loadCustomers === 'function') {
-        await loadCustomers();
+    let list = [];
+    try {
+        const { data, error } = await supabaseClient
+            .from('customers')
+            .select('id, name, company, email, salesman_email')
+            .eq('salesman_email', email)
+            .order('name', { ascending: true });
+        if (error) throw error;
+        list = data || [];
+    } catch (err) {
+        console.error('loadSalesmanCardCustomers:', err);
+        box.innerHTML = '<p class="text-xs text-red-700">Could not load customers.</p>';
+        return;
     }
-    const list = (allCustomers || []).filter(function (c) {
-        return (c.salesmanEmail || '').toLowerCase().trim() === email;
-    });
     if (!list.length) {
         box.innerHTML = '<p class="text-xs text-[#6B4423]">No customers assigned.</p>';
         return;

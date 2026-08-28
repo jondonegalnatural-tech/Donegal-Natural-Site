@@ -1598,14 +1598,14 @@ body { background: #f8f1e9; }
                 </div>
             </div>
             <div>
-                <p class="text-sm text-[#6B4423] font-semibold mb-1">Salesman Notes</p>
-                <textarea id="modal-notes" rows="3" class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2"></textarea>
-            </div>
-            <div>
                 <p class="text-sm text-[#6B4423] font-semibold mb-2">Customers</p>
-                <div id="modal-salesman-customers" class="space-y-2 max-h-56 overflow-y-auto mb-4">
+                <div id="modal-salesman-customers" class="space-y-2 max-h-56 overflow-y-auto mb-2 border border-[#d4b78f] rounded-xl p-2">
                     <p class="text-xs text-[#6B4423]">Loading…</p>
                 </div>
+            </div>
+            <div>
+                <p class="text-sm text-[#6B4423] font-semibold mb-1">Salesman Notes</p>
+                <textarea id="modal-notes" rows="3" class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2"></textarea>
             </div>
             <div>
                 <button type="button"
@@ -3537,7 +3537,7 @@ body { background: #f8f1e9; }
      onclick="hideOutOfStockModal()"
      class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
     <div onclick="event.stopImmediatePropagation()"
-         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-4xl mx-4 p-6 max-h-[92vh] overflow-y-auto">
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-4xl mx-4 p-6 max-h-[90vh] flex flex-col overflow-hidden">
         <div class="flex justify-between items-start mb-2">
             <div>
                 <h2 class="text-xl font-bold brand-green">Out of Stock</h2>
@@ -3551,8 +3551,8 @@ body { background: #f8f1e9; }
                    class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm"
                    oninput="renderOutOfStockList()">
         </div>
-        <div id="oos-list" class="space-y-3 mb-5 max-h-[52vh] overflow-y-auto"></div>
-        <div class="flex flex-wrap justify-end gap-3 pt-3 border-t border-[#d4b78f]">
+        <div id="oos-list" class="space-y-3 flex-1 min-h-0 overflow-y-auto mb-4"></div>
+        <div class="flex flex-wrap justify-end gap-3 pt-3 border-t border-[#d4b78f] flex-shrink-0">
             <button type="button" onclick="hideOutOfStockModal()"
                     class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">Close</button>
             <button type="button" onclick="markSelectedInStock()"
