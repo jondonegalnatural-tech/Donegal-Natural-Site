@@ -3907,6 +3907,10 @@ function buildCombinedCard(group) {
                 alert('Select at least one option.');
                 return;
             }
+            if (chosen.some(function (v) { return isWholesaleOos(v.name); })) {
+                alert(wholesaleOosLabel(chosen[0].name) || 'One or more selected items are out of stock.');
+                return;
+            }
             chosen.forEach(v => addToQuote(v.name, v.price || '', v.cs || '', qtyInput.value));
         };
 
@@ -3979,6 +3983,10 @@ function buildCombinedCard(group) {
                 return;
             }
             selected = findSelected();
+            if (isWholesaleOos(selected.name)) {
+                alert(wholesaleOosLabel(selected.name) || 'This item is out of stock.');
+                return;
+            }
             addToQuote(selected.name, selected.price || '', selected.cs || '', qtyInput.value);
         };
 
@@ -4035,8 +4043,15 @@ function buildProductCard(product) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'card-add';
-    btn.textContent = 'Add to Quote';
+    btn.textContent = isWholesaleOos(product.name)
+        ? (wholesaleOosLabel(product.name) || 'Out of Stock')
+        : 'Add to Quote';
+    if (isWholesaleOos(product.name)) btn.disabled = true;
     btn.onclick = () => {
+        if (isWholesaleOos(product.name)) {
+            alert(wholesaleOosLabel(product.name) || 'This item is out of stock.');
+            return;
+        }
         const benefits = (typeof getHealthBenefitsForProduct === 'function')
             ? getHealthBenefitsForProduct(product.name)
             : null;
@@ -4328,6 +4343,10 @@ function addToQuoteFromModal() {
 }
 
 function addToQuote(name, price, cs, quantity) {
+    if (isWholesaleOos(name)) {
+        alert(wholesaleOosLabel(name) || 'This item is out of stock.');
+        return;
+    }
     const qty = parseInt(quantity) || 1;
 
     quoteItems.push({
@@ -6439,6 +6458,40 @@ function displayWelcome() {
 }
 
 // ================== INITIALIZATION ==================
+var wholesaleOosMap = {};
+
+function getWholesaleOos(name) {
+    return wholesaleOosMap[name] || null;
+}
+
+function isWholesaleOos(name) {
+    var row = getWholesaleOos(name);
+    return !!(row && row.is_out_of_stock);
+}
+
+function wholesaleOosLabel(name) {
+    var row = getWholesaleOos(name);
+    if (!row || !row.is_out_of_stock) return '';
+    var eta = row.estimated_back_at ? String(row.estimated_back_at).slice(0, 10) : '';
+    return eta ? ('Out of stock · back ' + eta) : 'Out of stock';
+}
+
+async function loadWholesaleOutOfStock() {
+    wholesaleOosMap = {};
+    try {
+        var { data, error } = await supabaseClient
+            .from('product_stock_status')
+            .select('product_name, is_out_of_stock, estimated_back_at')
+            .eq('is_out_of_stock', true);
+        if (error) throw error;
+        (data || []).forEach(function (row) {
+            wholesaleOosMap[row.product_name] = row;
+        });
+    } catch (err) {
+        console.warn('loadWholesaleOutOfStock:', err);
+    }
+}
+
 async function filterWholesaleCatalogForSalesman() {
     if (!Array.isArray(WHOLESALE_PRICES) || !WHOLESALE_PRICES.length) return;
     try {
@@ -6503,6 +6556,7 @@ async function loadWholesaleCatalog() {
 
         console.log('loadWholesaleCatalog: loaded', WHOLESALE_PRICES.length, 'products from Supabase');
         await filterWholesaleCatalogForSalesman();
+        await loadWholesaleOutOfStock();
     } catch (err) {
         console.error('loadWholesaleCatalog error — keeping hardcoded list:', err);
     }
