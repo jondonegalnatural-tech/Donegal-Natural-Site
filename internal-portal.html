@@ -453,6 +453,43 @@ body { background: #f8f1e9; }
 
                 </div>
 
+                <!-- Price Sheet Card -->
+                <div data-card-id="price-sheet"
+                     onclick="dashboardCardClick(event, 'price-sheet')"
+                     class="dashboard-card bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition"
+                     draggable="false">
+                    <div class="dashboard-drag-handle hidden text-center text-[#6B4423] text-xs mb-2 cursor-grab">
+                        <i class="fas fa-grip-vertical mr-1"></i> Drag to reorder
+                    </div>
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <p class="text-sm text-[#6B4423] font-semibold">Price Sheet</p>
+                            <p class="text-2xl font-bold brand-green mt-0.5">Company Base</p>
+                        </div>
+                        <i class="fas fa-tags text-3xl text-[#6B4423]"></i>
+                    </div>
+                    <div class="space-y-2">
+                        <button type="button"
+                                onclick="event.stopPropagation(); openBasePriceSheetModal();"
+                                class="w-full flex items-center px-4 py-3 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] transition text-left">
+                            <i class="fas fa-file-invoice-dollar w-5 text-[#1E4D2B]"></i>
+                            <span class="ml-2 text-sm font-semibold brand-green">View Pricing Sheet</span>
+                        </button>
+                        <button type="button"
+                                onclick="event.stopPropagation(); openOutOfStockModal();"
+                                class="w-full flex items-center px-4 py-3 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] transition text-left">
+                            <i class="fas fa-box w-5 text-[#1E4D2B]"></i>
+                            <span class="ml-2 text-sm font-semibold brand-green">Out of Stock</span>
+                        </button>
+                        <button type="button"
+                                onclick="event.stopPropagation(); openBulkPercentAdjustModal();"
+                                class="w-full flex items-center px-4 py-3 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] transition text-left">
+                            <i class="fas fa-percentage w-5 text-[#1E4D2B]"></i>
+                            <span class="ml-2 text-sm font-semibold brand-green">Bulk Adjustment</span>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Vendors Card -->
                 <div data-card-id="vendors"
                      style="display: none;"
@@ -3479,6 +3516,41 @@ body { background: #f8f1e9; }
                     class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f] disabled:opacity-40 disabled:cursor-not-allowed"
                     disabled>
                 Apply to Salesman Sheet
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Out of Stock Modal -->
+<div id="out-of-stock-modal"
+     onclick="hideOutOfStockModal()"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4">
+    <div onclick="event.stopImmediatePropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-4xl mx-4 p-6 max-h-[92vh] overflow-y-auto">
+        <div class="flex justify-between items-start mb-2">
+            <div>
+                <h2 class="text-xl font-bold brand-green">Out of Stock</h2>
+                <p class="text-sm text-[#6B4423]">Check items to mark unavailable or back in stock. Date is per product.</p>
+            </div>
+            <button type="button" onclick="hideOutOfStockModal()"
+                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+        <div class="mb-4">
+            <input type="text" id="oos-search" placeholder="Search products…"
+                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm"
+                   oninput="renderOutOfStockList()">
+        </div>
+        <div id="oos-list" class="space-y-3 mb-5 max-h-[52vh] overflow-y-auto"></div>
+        <div class="flex flex-wrap justify-end gap-3 pt-3 border-t border-[#d4b78f]">
+            <button type="button" onclick="hideOutOfStockModal()"
+                    class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">Close</button>
+            <button type="button" onclick="markSelectedInStock()"
+                    class="px-5 py-2 border-2 border-[#1E4D2B] text-[#1E4D2B] font-semibold rounded-xl hover:bg-[#f8f4eb]">
+                Mark In Stock
+            </button>
+            <button type="button" onclick="markSelectedOutOfStock()"
+                    class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
+                Mark Out of Stock
             </button>
         </div>
     </div>
