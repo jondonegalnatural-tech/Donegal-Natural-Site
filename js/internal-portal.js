@@ -9459,8 +9459,21 @@ function addNewProductCategory() {
 }
 
 function addNewProductCategoryFromSheet() {
+    const raw = prompt('New category name:');
+    if (raw === null) return;
+    const cat = raw.trim();
+    if (!cat) return;
+
     openAddProductModal();
-    addNewProductCategory();
+
+    const list = document.getElementById('new-product-category-list');
+    if (list && !Array.from(list.options).some(o => o.value === cat)) {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        list.appendChild(opt);
+    }
+    const input = document.getElementById('new-product-category');
+    if (input) input.value = cat;
 }
 
 function toggleNewProductSalesmanLimit() {
