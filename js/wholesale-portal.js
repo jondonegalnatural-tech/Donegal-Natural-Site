@@ -377,7 +377,7 @@ function updateOrderingAsIndicator() {
         const chip = document.createElement('div');
         chip.id = 'ordering-as-chip';
         chip.className = 'text-xs text-[#6B4423] mt-0.5';
-        chip.innerHTML = `Ordering as: <strong class="text-[#1E4D2B]">${label}</strong>
+        chip.innerHTML = `Ordering as: <strong class="text-[#1E4D2B]">${escapeHtml(label)}</strong>
             <button type="button" onclick="document.querySelector('.sidebar-link[data-target=\\'section-account\\']')?.click()"
                     class="ml-1 underline hover:text-[#1E4D2B]">Change</button>`;
         welcome.parentElement.appendChild(chip);
@@ -404,7 +404,7 @@ function buildStoreTabs(section, currentFilter, onSelect) {
                                    ${active
                                        ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]'
                                        : 'bg-white text-[#6B4423] border-[#6B4423] hover:bg-[#f8f4eb]'}">
-                        ${t.label}
+                        ${escapeHtml(t.label)}
                     </button>`;
             }).join('')}
         </div>
@@ -4655,7 +4655,7 @@ function openQuoteConfirmModal() {
             <div style="display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #f0e6d6;padding-bottom:8px;margin-bottom:8px;">
                 <div style="min-width:0;">
                     <p style="font-weight:600;color:#1E4D2B;margin:0;">${escapeHtml(item.name || 'Item')}</p>
-                    <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.cs ? ' · ' + item.cs : ''}</p>
+                    <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.cs ? ' · ' + escapeHtml(item.cs) : ''}</p>
                 </div>
                 <p style="font-weight:600;color:#1E4D2B;white-space:nowrap;margin:0;">${lineLabel}</p>
             </div>
@@ -4673,7 +4673,7 @@ function openQuoteConfirmModal() {
             </div>
             <div style="padding:16px 20px;">
                 <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 4px;">Shipping Address</p>
-                <p style="font-size:14px;color:#1E4D2B;white-space:pre-line;margin:0 0 16px;">${shipText}</p>
+                <p style="font-size:14px;color:#1E4D2B;white-space:pre-line;margin:0 0 16px;">${escapeHtml(shipText)}</p>
 
                 <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 8px;">Items</p>
                 <div style="margin-bottom:16px;">${rows}</div>
@@ -6457,10 +6457,10 @@ function displayWelcome() {
     const accounts = window._customerAccounts || [];
 
     if (user && user.fullName) {
-        const company = user.company ? ` (${user.company})` : '';
-        let text = `${user.fullName}${company}`;
+        const company = user.company ? ` (${escapeHtml(user.company)})` : '';
+        let text = `${escapeHtml(user.fullName)}${company}`;
         if (accounts.length > 1 && active) {
-            text += `<br><span class="text-xs font-normal text-[#6B4423]">Ordering as: ${getStoreLabel(active)}</span>`;
+            text += `<br><span class="text-xs font-normal text-[#6B4423]">Ordering as: ${escapeHtml(getStoreLabel(active))}</span>`;
         }
         nameElement.innerHTML = text;
     } else {

@@ -695,7 +695,7 @@ async function renderCustomers() {
                     ${escapeHtml(c.company || '')}
                 </div>
                 <div style="color:#6B4423;font-size:0.8rem;margin-bottom:0.6rem;">
-                    ${c.territory || c.status || ''}
+                    ${escapeHtml(c.territory || c.status || '')}
                 </div>
                 ${pricingBadge}
                 <button type="button" onclick="event.stopPropagation(); placeOrderForCustomer('${safeName}')"
@@ -1686,7 +1686,7 @@ function openPlaceOrderConfirmModal() {
                 <div>
                     <p style="font-weight:600;color:#1E4D2B;margin:0;">${escapeHtml(item.name || 'Item')}</p>
                     <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.caseSize ? ' · ' + item.caseSize : ''}</p>
-                </div>
+                </div>                    <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.caseSize ? ' · ' + escapeHtml(item.caseSize) : ''}</p>
                 <p style="font-weight:600;color:#1E4D2B;margin:0;">${lineLabel}</p>
             </div>
         `;
@@ -1705,9 +1705,9 @@ function openPlaceOrderConfirmModal() {
             </div>
             <div style="padding:16px 20px;">
                 <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 4px;">Customer</p>
-                <p style="margin:0 0 12px;color:#1E4D2B;font-weight:600;">${nameFromField}</p>
+                <p style="margin:0 0 12px;color:#1E4D2B;font-weight:600;">${escapeHtml(nameFromField)}</p>
                 <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 4px;">Shipping Address</p>
-                <p style="margin:0 0 16px;color:#1E4D2B;white-space:pre-line;">${shipText}</p>
+                <p style="margin:0 0 16px;color:#1E4D2B;white-space:pre-line;">${escapeHtml(shipText)}</p>
                 <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 8px;">Items</p>
                 <div style="margin-bottom:16px;">${rows}</div>
                 <div style="display:flex;justify-content:space-between;background:#f8f4eb;border-radius:12px;padding:12px 16px;">
@@ -2810,7 +2810,7 @@ async function showAccountDetails() {
             </div>
             <div>
                 <p class="text-sm text-[#6B4423] font-semibold">Territories</p>
-                <p class="text-lg">${user.territories ? user.territories.join(", ") : "N/A"}</p>
+                <p class="text-lg">${user.territories ? escapeHtml(user.territories.join(", ")) : "N/A"}</p>
             </div>
             <div>
                 <p class="text-sm text-[#6B4423] font-semibold">Standard Commission</p>
