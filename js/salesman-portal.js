@@ -3995,9 +3995,9 @@ async function checkNewProductAlert() {
         list.innerHTML = data.map(p => {
             const price = p.unit_price != null ? ('$' + Number(p.unit_price).toFixed(2)) : '';
             const cs = p.case_size ? (' · ' + p.case_size) : '';
-            return '<li><strong>' + (p.name || '') + '</strong>' +
-                (p.category ? (' <span class="text-[#6B4423]">(' + p.category + cs + ')</span>') : '') +
-                (price ? (' — ' + price) : '') + '</li>';
+            return '<li><strong>' + escapeHtml(p.name || '') + '</strong>' +
+                (p.category ? (' <span class="text-[#6B4423]">(' + escapeHtml(p.category) + escapeHtml(cs) + ')</span>') : '') +
+                (price ? (' — ' + escapeHtml(price)) : '') + '</li>';
         }).join('');
 
         modal.classList.remove('hidden');

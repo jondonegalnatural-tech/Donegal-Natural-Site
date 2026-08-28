@@ -4268,7 +4268,7 @@ function showPackagedItemModal(name, price, cs, category, image = null, healthBe
 
     let imageHTML = `
         <div class="mb-4 flex justify-center">
-            <img src="${imagePath}" alt="${name}" class="max-h-40 rounded-xl object-contain border border-[#d4b78f]">
+            <img src="${escapeHtml(imagePath)}" alt="${escapeHtml(name)}" class="max-h-40 rounded-xl object-contain border border-[#d4b78f]">
         </div>
     `;
 
@@ -4278,7 +4278,7 @@ function showPackagedItemModal(name, price, cs, category, image = null, healthBe
             <div class="mb-4">
                 <p class="font-semibold text-sm mb-1 text-[#1E4D2B]">Health Benefits:</p>
                 <ul class="text-sm text-[#6B4423] list-disc pl-5 space-y-1">
-                    ${healthBenefits.map(b => `<li>${b}</li>`).join('')}
+                    ${healthBenefits.map(b => `<li>${escapeHtml(b)}</li>`).join('')}
                 </ul>
             </div>
         `;
@@ -4290,8 +4290,8 @@ function showPackagedItemModal(name, price, cs, category, image = null, healthBe
 
             ${imageHTML}
 
-            <p class="font-semibold text-lg mb-1">${name}</p>
-            <p class="text-sm text-[#6B4423] mb-4">${cs} • ${price}</p>
+            <p class="font-semibold text-lg mb-1">${escapeHtml(name)}</p>
+            <p class="text-sm text-[#6B4423] mb-4">${escapeHtml(cs)} • ${escapeHtml(price)}</p>
 
             ${benefitsHTML}
 
@@ -6603,9 +6603,9 @@ async function checkNewProductAlert() {
         list.innerHTML = data.map(p => {
             const price = p.unit_price != null ? ('$' + Number(p.unit_price).toFixed(2)) : '';
             const cs = p.case_size ? (' · ' + p.case_size) : '';
-            return '<li><strong>' + (p.name || '') + '</strong>' +
-                (p.category ? (' <span class="text-[#6B4423]">(' + p.category + cs + ')</span>') : '') +
-                (price ? (' — ' + price) : '') + '</li>';
+            return '<li><strong>' + escapeHtml(p.name || '') + '</strong>' +
+                (p.category ? (' <span class="text-[#6B4423]">(' + escapeHtml(p.category) + escapeHtml(cs) + ')</span>') : '') +
+                (price ? (' — ' + escapeHtml(price)) : '') + '</li>';
         }).join('');
 
         document.querySelectorAll('.fixed.inset-0').forEach(function (el) {
