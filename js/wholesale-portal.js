@@ -3849,6 +3849,16 @@ function buildCombinedCard(group) {
     btn.className = 'card-add';
     btn.textContent = 'Add to Quote';
 
+    function syncCombinedOosButton(productName) {
+        if (typeof isWholesaleOos === 'function' && isWholesaleOos(productName)) {
+            btn.disabled = true;
+            btn.textContent = wholesaleOosLabel(productName) || 'Out of Stock';
+        } else {
+            btn.disabled = false;
+            btn.textContent = 'Add to Quote';
+        }
+    }
+
     body.appendChild(name);
     body.appendChild(meta);
 
@@ -3881,6 +3891,7 @@ function buildCombinedCard(group) {
             const descName = (chosen[0] || preview).name;
             updateCardDescription(descEl, descName);
             updateDogSizeRow(sizeRow, descName);
+            syncCombinedOosButton(descName);
         }
 
         variants.forEach(v => {

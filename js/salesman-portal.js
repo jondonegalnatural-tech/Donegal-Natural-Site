@@ -1446,14 +1446,17 @@ function searchPlaceOrderProducts() {
             : "$" + Number(p.unitPrice).toFixed(2);
         const safeName = p.name.replace(/'/g, "\\'");
 
+        const oos = typeof isSalesmanOos === 'function' && isSalesmanOos(p.name);
+        const oosText = oos ? (salesmanOosLabel(p.name) || 'Out of stock') : '';
         return `
-            <div class="px-3 py-2 hover:bg-[#f8f4eb] cursor-pointer border-b border-[#d4b78f] flex justify-between items-center"
-                 onclick="addProductToPlaceOrder('${safeName}')">
+            <div class="px-3 py-2 border-b border-[#d4b78f] flex justify-between items-center ${oos ? '' : 'hover:bg-[#f8f4eb] cursor-pointer'}"
+                 ${oos ? '' : `onclick="addProductToPlaceOrder('${safeName}')"`}>
                 <div>
                     <p class="text-sm font-semibold brand-green">${escapeHtml(p.name)}</p>
                     <p class="text-xs text-[#6B4423]">${escapeHtml(p.caseSize || "")} · ${escapeHtml(priceLabel)}</p>
+                    ${oos ? `<p class="text-xs font-semibold text-red-700">${escapeHtml(oosText)}</p>` : ''}
                 </div>
-                <span class="text-xs font-bold text-[#1E4D2B]">Add</span>
+                <span class="text-xs font-bold ${oos ? 'text-red-700' : 'text-[#1E4D2B]'}">${oos ? 'OOS' : 'Add'}</span>
             </div>
         `;
     }).join("");
@@ -1461,11 +1464,51 @@ function searchPlaceOrderProducts() {
     resultsEl.classList.remove("hidden");
 }
 
+var salesmanOosMap = {};
+
+function isSalesmanOos(name) {
+    var row = salesmanOosMap[name];
+    return !!(row && row.is_out_of_stock);
+}
+
+function salesmanOosLabel(name) {
+    var row = salesmanOosMap[name];
+    if (!row || !row.is_out_of_stock) return '';
+    var eta = row.estimated_back_at ? String(row.estimated_back_at).slice(0, 10) : '';
+    return eta ? ('Out of stock · back ' + eta) : 'Out of stock';
+}
+
+async function loadSalesmanOutOfStock() {
+    salesmanOosMap = {};
+    try {
+        var { data, error } = await supabaseClient
+            .from('product_stock_status')
+            .select('product_name, is_out_of_stock, estimated_back_at')
+            .eq('is_out_of_stock', true);
+        if (error) throw error;
+        (data || []).forEach(function (row) {
+            salesmanOosMap[row.product_name] = row;
+        });
+    } catch (err) {
+        console.warn('loadSalesmanOutOfStock:', err);
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadSalesmanOutOfStock);
+} else {
+    loadSalesmanOutOfStock();
+}
+
 function addProductToPlaceOrder(productName) {
     if (typeof PRODUCT_CATALOG === "undefined") return;
 
     const product = PRODUCT_CATALOG.find(p => p.name === productName);
     if (!product) return;
+    if (isSalesmanOos(productName)) {
+        alert(salesmanOosLabel(productName) || 'This item is out of stock.');
+        return;
+    }
 
     const existing = placeOrderItems.find(i => i.name === productName);
     if (existing) {
