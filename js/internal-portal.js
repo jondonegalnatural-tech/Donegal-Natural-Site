@@ -15341,7 +15341,12 @@ function selectedOosNames() {
 
 function oosDateFor(name) {
     const el = document.querySelector('.oos-date[data-product="' + name.replace(/"/g, '\\"') + '"]');
-    return (el && el.value) ? el.value : null;
+    if (el && el.value) return el.value;
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + d;
 }
 
 async function markSelectedOutOfStock() {
