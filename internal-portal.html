@@ -178,9 +178,12 @@ body { background: #f8f1e9; }
             <span class="ml-3 font-semibold nav-text">Admin Panel</span>
         </div>
         <div class="flex-1 py-2">
-            <a href="#" onclick="showSection('dashboard')" class="nav-link flex items-center px-4 py-3">
+            <a href="#" onclick="showSection('dashboard')" class="nav-link flex items-center px-4 py-3 relative">
                 <i class="fas fa-home w-6 text-center"></i>
                 <span class="ml-3 nav-text">Dashboard</span>
+                <span id="dash-home-badge"
+                      class="hidden ml-auto min-w-[22px] h-[22px] px-1.5 flex items-center justify-center text-xs font-bold bg-orange-500 text-white rounded-full"
+                      title="Initial pricing sheet submitted">0</span>
             </a>
             <!-- Phase 2: Vendors hidden -->
             <a href="#" onclick="showVendorsSection()" class="nav-link flex items-center px-4 py-3" style="display: none;">
@@ -3356,6 +3359,10 @@ body { background: #f8f1e9; }
                 Deselect All
             </button>
             <span id="bps-selected-count" class="text-xs text-[#6B4423] mx-1">0 selected</span>
+            <button type="button" onclick="markSelectedProductsOutOfStock()"
+                    class="px-3 py-1.5 text-xs border-2 border-[#6B4423] rounded-lg hover:bg-white font-semibold">
+                Out of Stock
+            </button>
             <button type="button" onclick="discontinueSelectedProducts()"
                     class="px-3 py-1.5 text-xs bg-[#1E4D2B] text-white font-semibold rounded-lg hover:bg-[#254a2f]">
                 Discontinue Selected

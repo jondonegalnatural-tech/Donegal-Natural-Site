@@ -8018,14 +8018,26 @@ async function getPendingPriceProposals() {
 
 async function updatePriceProposalsBadge() {
     const badge = document.getElementById("price-proposals-badge");
-    if (!badge) return;
-
+    const homeBadge = document.getElementById("dash-home-badge");
     const pending = await getPendingPriceProposals();
-    if (pending.length > 0) {
-        badge.textContent = pending.length;
-        badge.classList.remove("hidden");
-    } else {
-        badge.classList.add("hidden");
+    const initialCount = pending.filter(p => p.type === 'initialPriceSheet').length;
+
+    if (badge) {
+        if (pending.length > 0) {
+            badge.textContent = pending.length;
+            badge.classList.remove("hidden");
+        } else {
+            badge.classList.add("hidden");
+        }
+    }
+    if (homeBadge) {
+        if (initialCount > 0) {
+            homeBadge.textContent = initialCount;
+            homeBadge.classList.remove("hidden");
+            homeBadge.title = initialCount + ' initial pricing sheet' + (initialCount === 1 ? '' : 's') + ' submitted';
+        } else {
+            homeBadge.classList.add("hidden");
+        }
     }
 }
 
@@ -14055,6 +14067,41 @@ async function removePriceSheetKeys(tableName, productNames) {
             .update({ prices: prices, updated_at: new Date().toISOString() })
             .eq('id', row.id);
         if (updErr) throw updErr;
+    }
+}
+
+async function markSelectedProductsOutOfStock() {
+    const ids = Array.from(document.querySelectorAll('#base-price-sheet-list .bps-check:checked'))
+        .map(cb => cb.getAttribute('data-id'))
+        .filter(Boolean);
+    if (!ids.length) {
+        alert('Select at least one product.');
+        return;
+    }
+    const names = ids.map(id => {
+        const row = document.querySelector('#base-price-sheet-list tr.bps-row[data-id="' + id + '"]');
+        return row ? (row.getAttribute('data-name') || '') : '';
+    }).filter(Boolean);
+    if (!names.length) {
+        alert('Could not read product names.');
+        return;
+    }
+    if (!confirm('Mark ' + names.length + ' product(s) Out of Stock?\n\nInventory will be set to 0. The item stays on the price sheet.')) {
+        return;
+    }
+    try {
+        for (const name of names) {
+            if (typeof upsertInventoryQuantity === 'function') {
+                await upsertInventoryQuantity(name, 0);
+            }
+            if (typeof inventory === 'object') inventory[name] = 0;
+        }
+        alert(names.length + ' product(s) marked Out of Stock.');
+        if (typeof showCurrentInventory === 'function') showCurrentInventory();
+        if (typeof renderBasePriceSheet === 'function') renderBasePriceSheet();
+    } catch (err) {
+        console.error('markSelectedProductsOutOfStock error:', err);
+        alert('Could not mark Out of Stock.\n' + (err.message || ''));
     }
 }
 
