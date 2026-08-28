@@ -14935,10 +14935,13 @@ async function confirmBulkPercentAdjust() {
     } catch (err) {
         console.error('confirmBulkPercentAdjust error:', err);
         alert('Could not save changes.\n' + (err.message || ''));
-        if (confirmBtn) {
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = 'Apply to Salesman Sheet';
-        }
+        ['bulk-pct-confirm-btn', 'bulk-pct-confirm-btn-top'].forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Apply to Salesman Sheet';
+            }
+        });
     }
 }
 // ================== END BULK % ADJUSTMENTS ==================
