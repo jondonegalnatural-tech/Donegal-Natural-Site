@@ -11607,7 +11607,7 @@ function openBackOrderFulfillInvoice(groupKey, fulfilledItems) {
         else if (customerEmail) lines.push(customerEmail);
         const billing = customer?.billingAddress || customer?.shippingAddress || '';
         if (billing) lines.push(billing);
-        billEl.innerHTML = lines.map(l => `<p>${l}</p>`).join('');
+        billEl.innerHTML = lines.map(l => `<p>${escapeHtml(l)}</p>`).join('');
     }
 
     const shipEl = document.getElementById('inv-ship-to');
@@ -11616,7 +11616,7 @@ function openBackOrderFulfillInvoice(groupKey, fulfilledItems) {
         if (customerCompany) lines.push(customerCompany);
         const shipping = customer?.shippingAddress || customer?.billingAddress || '';
         if (shipping) lines.push(shipping);
-        shipEl.innerHTML = lines.map(l => `<p>${l}</p>`).join('');
+        shipEl.innerHTML = lines.map(l => `<p>${escapeHtml(l)}</p>`).join('');
     }
 
     // Line items from fulfilled back orders
@@ -11642,7 +11642,7 @@ function openBackOrderFulfillInvoice(groupKey, fulfilledItems) {
                 <tr class="border-t border-[#d4b78f]">
                     <td class="p-3 text-left font-semibold">${qty}</td>
                     <td class="p-3 text-left">${desc}</td>
-                    <td class="p-3 text-right">${unitText}</td>
+                              <td class="p-3 text-left">${escapeHtml(desc)}</td>          <td class="p-3 text-right">${unitText}</td>
                     <td class="p-3 text-right font-semibold">${totalText}</td>
                 </tr>`;
         }).join('');
