@@ -3406,8 +3406,8 @@ body { background: #f8f1e9; }
         </div>
 
         <!-- % controls + live preview -->
-        <div id="bulk-pct-controls" class="hidden mb-5">
-            <div class="flex flex-wrap items-end gap-4 mb-4">
+                    <div class="sticky top-0 z-20 bg-white pb-3 mb-4 border-b border-[#d4b78f]">
+            <div class="flex flex-wrap items-end gap-4">
                 <div>
                     <label class="block text-sm font-semibold text-[#6B4423] mb-1">% Change</label>
                     <div class="flex items-center gap-2">
@@ -3426,16 +3426,13 @@ body { background: #f8f1e9; }
                     <button type="button" onclick="document.getElementById('bulk-pct-value').value='-5'; previewBulkPercentAdjust();"
                             class="px-3 py-2 text-xs border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">−5%</button>
                 </div>
+                <button type="button" id="bulk-pct-confirm-btn-top" onclick="confirmBulkPercentAdjust()"
+                        class="ml-auto px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f] disabled:opacity-40 disabled:cursor-not-allowed"
+                        disabled>
+                    Apply to Salesman Sheet
+                </button>
             </div>
-
-            <div class="flex flex-wrap items-center gap-3 mb-3">
-                <label class="flex items-center gap-2 text-sm font-semibold text-[#6B4423] cursor-pointer">
-                    <input type="checkbox" id="bulk-pct-select-all" onchange="toggleBulkPercentSelectAll()" class="accent-[#1E4D2B]">
-                    Select all visible products
-                </label>
-                <span id="bulk-pct-selected-count" class="text-xs text-[#6B4423]"></span>
             </div>
-        </div>
 
         <!-- Product table -->
         <div id="bulk-pct-table-wrap" class="hidden mb-6">

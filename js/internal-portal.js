@@ -14699,60 +14699,94 @@ function renderBulkPercentTable() {
     const tbody = document.getElementById('bulk-pct-tbody');
     if (!tbody || typeof PRODUCT_CATALOG === 'undefined') return;
 
-    // Exclude market-price items; baseline = PRODUCT_CATALOG.unitPrice
     const products = PRODUCT_CATALOG.filter(p => !p.isMarketPrice && p.unitPrice != null);
-
     if (products.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-[#6B4423]">No non-market products in catalog.</td></tr>';
         return;
     }
 
-    tbody.innerHTML = products.map((p, i) => {
-        const catalog = Number(p.unitPrice) || 0;
-        const current = bulkPctCurrentPrices[p.name] != null
-            ? Number(bulkPctCurrentPrices[p.name])
-            : catalog;
-        const delta = catalog > 0 ? ((current - catalog) / catalog * 100) : 0;
-        const deltaText = (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%';
-        const deltaClass = Math.abs(delta) > 0.05
-            ? (delta > 0 ? 'text-green-700' : 'text-red-700')
-            : 'text-[#6B4423]';
-        const alreadyAdjusted = Math.abs(current - catalog) > 0.001;
-        const custCount = bulkPctCustomCustomerCounts[p.name] || 0;
-        const safeName = p.name.replace(/"/g, '&quot;').replace(/'/g, "\\'");
+    const byCat = {};
+    products.forEach(p => {
+        const cat = p.category || 'Uncategorized';
+        if (!byCat[cat]) byCat[cat] = [];
+        byCat[cat].push(p);
+    });
 
-        return `
-            <tr class="border-t border-[#e8d9b8] ${i % 2 ? 'bg-[#f8f4eb]' : 'bg-white'}" data-product="${safeName}">
+    const catNames = Object.keys(byCat).sort();
+    let html = '';
+    let rowIndex = 0;
+
+    catNames.forEach(cat => {
+        const list = byCat[cat];
+        const safeCat = String(cat).replace(/"/g, '&quot;');
+        html += `
+            <tr class="bg-[#1E4D2B] text-[#d4b78f]" data-bulk-cat="${safeCat}">
                 <td class="p-2 text-center">
-                    <input type="checkbox" class="bulk-pct-cb accent-[#1E4D2B]"
-                           data-product="${safeName}"
-                           onchange="updateBulkPercentSelectedCount(); previewBulkPercentAdjust();">
+                    <input type="checkbox" class="bulk-pct-cat-cb accent-[#d4b78f]"
+                           data-cat="${safeCat}"
+                           onchange="toggleBulkPercentCategory(this)">
                 </td>
-                <td class="p-2">
-                    <span class="font-medium">${escapeHtml(p.name)}</span>
-                    ${alreadyAdjusted ? '<span class="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-100 text-blue-800">adjusted</span>' : ''}
-                    ${p.caseSize ? `<span class="block text-xs text-[#6B4423]">${p.caseSize}</span>` : ''}
-                </td>
-                <td class="p-2 text-right">$${catalog.toFixed(2)}</td>
-                <td class="p-2 text-right font-semibold">$${current.toFixed(2)}</td>
-                <td class="p-2 text-right ${deltaClass}">${deltaText}</td>
-                <td class="p-2 text-right font-semibold bulk-pct-new-price">—</td>
-                <td class="p-2 text-center">
-                    ${custCount > 0
-                        ? `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-800" title="Customers with a custom price different from this sheet">${custCount}</span>`
-                        : '<span class="text-[#6B4423]">—</span>'}
-                </td>
+                <td class="p-2 font-bold" colspan="6">${escapeHtml(cat)} · ${list.length} item${list.length === 1 ? '' : 's'}</td>
             </tr>
         `;
-    }).join('');
+        list.forEach(p => {
+            const catalog = Number(p.unitPrice) || 0;
+            const current = bulkPctCurrentPrices[p.name] != null
+                ? Number(bulkPctCurrentPrices[p.name])
+                : catalog;
+            const delta = catalog > 0 ? ((current - catalog) / catalog * 100) : 0;
+            const deltaText = (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%';
+            const deltaClass = Math.abs(delta) > 0.05
+                ? (delta > 0 ? 'text-green-700' : 'text-red-700')
+                : 'text-[#6B4423]';
+            const alreadyAdjusted = Math.abs(current - catalog) > 0.001;
+            const custCount = bulkPctCustomCustomerCounts[p.name] || 0;
+            const safeName = p.name.replace(/"/g, '&quot;').replace(/'/g, "\\'");
+            html += `
+                <tr class="border-t border-[#e8d9b8] ${rowIndex % 2 ? 'bg-[#f8f4eb]' : 'bg-white'}"
+                    data-product="${safeName}" data-cat="${safeCat}">
+                    <td class="p-2 text-center">
+                        <input type="checkbox" class="bulk-pct-cb accent-[#1E4D2B]"
+                               data-product="${safeName}" data-cat="${safeCat}"
+                               onchange="updateBulkPercentSelectedCount(); previewBulkPercentAdjust();">
+                    </td>
+                    <td class="p-2">
+                        <span class="font-medium">${escapeHtml(p.name)}</span>
+                        ${alreadyAdjusted ? '<span class="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-100 text-blue-800">adjusted</span>' : ''}
+                        ${p.caseSize ? `<span class="block text-xs text-[#6B4423]">${p.caseSize}</span>` : ''}
+                    </td>
+                    <td class="p-2 text-right">$${catalog.toFixed(2)}</td>
+                    <td class="p-2 text-right font-semibold">$${current.toFixed(2)}</td>
+                    <td class="p-2 text-right bulk-pct-delta ${deltaClass}">${deltaText}</td>
+                    <td class="p-2 text-right font-semibold bulk-pct-new-price">—</td>
+                    <td class="p-2 text-center">
+                        ${custCount > 0
+                            ? `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">${custCount}</span>`
+                            : '<span class="text-[#6B4423]">—</span>'}
+                    </td>
+                </tr>
+            `;
+            rowIndex++;
+        });
+    });
 
+    tbody.innerHTML = html;
     updateBulkPercentSelectedCount();
 }
 
 function toggleBulkPercentSelectAll() {
     const master = document.getElementById('bulk-pct-select-all');
     const checked = master?.checked === true;
-    document.querySelectorAll('.bulk-pct-cb').forEach(cb => {
+    document.querySelectorAll('.bulk-pct-cb').forEach(cb => { cb.checked = checked; });
+    document.querySelectorAll('.bulk-pct-cat-cb').forEach(cb => { cb.checked = checked; });
+    updateBulkPercentSelectedCount();
+    previewBulkPercentAdjust();
+}
+
+function toggleBulkPercentCategory(master) {
+    const cat = master.getAttribute('data-cat');
+    const checked = master.checked === true;
+    document.querySelectorAll('.bulk-pct-cb[data-cat="' + cat + '"]').forEach(cb => {
         cb.checked = checked;
     });
     updateBulkPercentSelectedCount();
@@ -14764,8 +14798,10 @@ function updateBulkPercentSelectedCount() {
     const total = document.querySelectorAll('.bulk-pct-cb').length;
     const el = document.getElementById('bulk-pct-selected-count');
     if (el) el.textContent = checked > 0 ? `${checked} of ${total} selected` : '';
-    const confirmBtn = document.getElementById('bulk-pct-confirm-btn');
-    if (confirmBtn) confirmBtn.disabled = checked === 0;
+    ['bulk-pct-confirm-btn', 'bulk-pct-confirm-btn-top'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) btn.disabled = checked === 0;
+    });
 }
 
 function previewBulkPercentAdjust() {
@@ -14776,13 +14812,8 @@ function previewBulkPercentAdjust() {
         const product = row.getAttribute('data-product');
         const cb = row.querySelector('.bulk-pct-cb');
         const newCell = row.querySelector('.bulk-pct-new-price');
+        const deltaCell = row.querySelector('.bulk-pct-delta');
         if (!newCell) return;
-
-        if (!cb || !cb.checked) {
-            newCell.textContent = '—';
-            newCell.classList.remove('text-green-700', 'text-red-700');
-            return;
-        }
 
         const catalogItem = (PRODUCT_CATALOG || []).find(p => p.name === product);
         const catalog = catalogItem ? Number(catalogItem.unitPrice) || 0 : 0;
@@ -14790,12 +14821,33 @@ function previewBulkPercentAdjust() {
             ? Number(bulkPctCurrentPrices[product])
             : catalog;
 
-        // Apply % to the salesman’s current price (not catalog)
+        if (!cb || !cb.checked || pct === 0) {
+            newCell.textContent = '—';
+            newCell.classList.remove('text-green-700', 'text-red-700');
+            if (deltaCell) {
+                const baseDelta = catalog > 0 ? ((current - catalog) / catalog * 100) : 0;
+                deltaCell.textContent = (baseDelta >= 0 ? '+' : '') + baseDelta.toFixed(1) + '%';
+                deltaCell.classList.remove('text-green-700', 'text-red-700');
+                if (Math.abs(baseDelta) > 0.05) {
+                    deltaCell.classList.add(baseDelta > 0 ? 'text-green-700' : 'text-red-700');
+                }
+            }
+            return;
+        }
+
         const newPrice = Math.round(current * factor * 100) / 100;
         newCell.textContent = '$' + newPrice.toFixed(2);
+        newCell.classList.remove('text-green-700', 'text-red-700');
         if (newPrice > current) newCell.classList.add('text-green-700');
         else if (newPrice < current) newCell.classList.add('text-red-700');
-        else newCell.classList.remove('text-green-700', 'text-red-700');
+
+        if (deltaCell) {
+            const liveDelta = current > 0 ? ((newPrice - current) / current * 100) : pct;
+            deltaCell.textContent = (liveDelta >= 0 ? '+' : '') + liveDelta.toFixed(1) + '%';
+            deltaCell.classList.remove('text-green-700', 'text-red-700');
+            if (liveDelta > 0.05) deltaCell.classList.add('text-green-700');
+            else if (liveDelta < -0.05) deltaCell.classList.add('text-red-700');
+        }
     });
 }
 
@@ -14839,11 +14891,13 @@ async function confirmBulkPercentAdjust() {
         `This writes only to salesman_price_sheets.\nCustomer price sheets are NOT changed.`
     )) return;
 
-    const confirmBtn = document.getElementById('bulk-pct-confirm-btn');
-    if (confirmBtn) {
-        confirmBtn.disabled = true;
-        confirmBtn.textContent = 'Saving…';
-    }
+    ['bulk-pct-confirm-btn', 'bulk-pct-confirm-btn-top'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Saving…';
+        }
+    });
 
     try {
         // Merge with existing sheet
