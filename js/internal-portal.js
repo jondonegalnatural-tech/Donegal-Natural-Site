@@ -127,8 +127,8 @@ async function getEdgeFunctionHeaders() {
     };
 }
 
-// HARD SAFETY — set to true ONLY right before publishing the live site
-const EMAILS_ENABLED = true;
+// HARD SAFETY — ship/deny emails stay off (QuickBooks). Function kept but unused.
+const EMAILS_ENABLED = false;
 
 function generateInvoiceNumber() {
     // DN-XXXXX — 5 chars, skip ambiguous 0/O/1/I
