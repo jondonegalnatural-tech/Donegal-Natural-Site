@@ -6507,9 +6507,7 @@ async function filterWholesaleCatalogForSalesman() {
     if (!Array.isArray(WHOLESALE_PRICES) || !WHOLESALE_PRICES.length) return;
     try {
         const { data, error } = await supabaseClient
-            .from('salesmen')
-            .select('email, assigned_products')
-            .eq('active', true);
+            .rpc('active_salesman_product_assignments');
         if (error) throw error;
         const restricted = new Set();
         const byEmail = {};
@@ -6530,7 +6528,7 @@ async function filterWholesaleCatalogForSalesman() {
             !restricted.has(p.name) || allowed.has(p.name)
         );
     } catch (err) {
-        console.warn('filterWholesaleCatalogForSalesman:', err);
+        console.error('filterWholesaleCatalogForSalesman:', err);
     }
 }
 
