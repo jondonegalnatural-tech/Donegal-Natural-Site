@@ -1546,7 +1546,7 @@ body { background: #f8f1e9; }
 
 <!-- Salesman Detail Modal -->
 <div id="salesman-modal" onclick="hideSalesmanModal()" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div onclick="event.stopImmediatePropagation()" class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg mx-4 p-8 max-h-[90vh] overflow-y-auto">
+    <div onclick="event.stopImmediatePropagation()"          class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-2xl mx-4 p-8 max-h-[90vh] overflow-y-auto">
         <div class="flex justify-between items-center mb-6">
             <h2 class="text-2xl font-bold brand-green" id="modal-salesman-name">Brian [Last Name]</h2>
             <button onclick="hideSalesmanModal()" class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
@@ -1600,6 +1600,12 @@ body { background: #f8f1e9; }
             <div>
                 <p class="text-sm text-[#6B4423] font-semibold mb-1">Salesman Notes</p>
                 <textarea id="modal-notes" rows="3" class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2"></textarea>
+            </div>
+            <div>
+                <p class="text-sm text-[#6B4423] font-semibold mb-2">Customers</p>
+                <div id="modal-salesman-customers" class="space-y-2 max-h-56 overflow-y-auto mb-4">
+                    <p class="text-xs text-[#6B4423]">Loading…</p>
+                </div>
             </div>
             <div>
                 <button type="button"
@@ -1705,6 +1711,11 @@ body { background: #f8f1e9; }
 
         <div class="mt-8 flex flex-wrap justify-between gap-3">
             <div class="flex flex-wrap gap-2">
+                <button type="button" onclick="openCustomerPriceVsBaseFromModal()"
+                        class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold brand-green">
+                    <i class="fas fa-balance-scale mr-1"></i>
+                    Price vs Base
+                </button>
                 <button type="button" onclick="showEditCustomerModal()"
                         class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl hover:bg-[#254a2f] flex items-center gap-2 font-semibold">
                     <i class="fas fa-edit"></i>

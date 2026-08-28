@@ -7157,9 +7157,61 @@ function showSalesmanDetail(salesmanId = null) {
         }
     }
     setValue('modal-notes', salesman.notes || '');
+    loadSalesmanCardCustomers(salesman.email);
 
     modal.style.display = 'flex';
     modal.classList.remove('hidden');
+}
+
+async function loadSalesmanCardCustomers(salesmanEmail) {
+    const box = document.getElementById('modal-salesman-customers');
+    if (!box) return;
+    const email = (salesmanEmail || '').toLowerCase().trim();
+    if (!email) {
+        box.innerHTML = '<p class="text-xs text-[#6B4423]">No salesman email on file.</p>';
+        return;
+    }
+    if ((!allCustomers || allCustomers.length === 0) && typeof loadCustomers === 'function') {
+        await loadCustomers();
+    }
+    const list = (allCustomers || []).filter(function (c) {
+        return (c.salesmanEmail || '').toLowerCase().trim() === email;
+    });
+    if (!list.length) {
+        box.innerHTML = '<p class="text-xs text-[#6B4423]">No customers assigned.</p>';
+        return;
+    }
+    box.innerHTML = list.map(function (c) {
+        const id = String(c.id || '').replace(/'/g, '');
+        return (
+            '<button type="button" onclick="openCustomerFromSalesmanCard(\'' + id + '\')" ' +
+            'class="w-full text-left p-3 border border-[#d4b78f] rounded-xl hover:bg-[#f8f4eb]">' +
+            '<p class="font-semibold brand-green truncate">' + escapeHtml(c.name || '—') + '</p>' +
+            '<p class="text-xs text-[#6B4423] truncate">' + escapeHtml(c.company || c.email || '') + '</p>' +
+            '</button>'
+        );
+    }).join('');
+}
+
+function openCustomerFromSalesmanCard(customerId) {
+    const customer = (allCustomers || []).find(function (c) {
+        return String(c.id) === String(customerId);
+    });
+    if (!customer) {
+        alert('Customer not found.');
+        return;
+    }
+    showCustomerDetail(customer.name);
+}
+
+function openCustomerPriceVsBaseFromModal() {
+    const modal = document.getElementById('customer-modal');
+    const id = modal && modal.dataset ? modal.dataset.customerId : '';
+    if (!id) {
+        alert('Missing customer id.');
+        return;
+    }
+    openReportsCustomerPriceSheet(id);
 }
 
 /**
@@ -7410,6 +7462,66 @@ async function onReportsSalesmanChange() {
     }).join('');
 }
 
+function renderComparedPriceSheetTable(sheetPrices, listEl) {
+    if (!listEl) return 0;
+    const catalog = (typeof PRODUCT_CATALOG !== 'undefined' ? PRODUCT_CATALOG : [])
+        .filter(function (p) { return !p.isMarketPrice; });
+    if (!catalog.length) {
+        listEl.innerHTML = '<p class="text-sm text-[#6B4423]">Catalog not loaded.</p>';
+        return 0;
+    }
+    const byCat = {};
+    catalog.forEach(function (p) {
+        const cat = p.category || 'Other';
+        if (!byCat[cat]) byCat[cat] = [];
+        const base = Number(p.unitPrice);
+        const raw = sheetPrices && sheetPrices[p.name] != null ? Number(sheetPrices[p.name]) : base;
+        const sheet = isNaN(raw) ? base : raw;
+        const delta = (!isNaN(base) && base > 0) ? ((sheet - base) / base * 100) : 0;
+        byCat[cat].push({
+            name: p.name,
+            caseSize: p.caseSize || '',
+            base: isNaN(base) ? null : base,
+            sheet: sheet,
+            delta: delta
+        });
+    });
+    const cats = Object.keys(byCat).sort();
+    let total = 0;
+    let html = '';
+    cats.forEach(function (cat) {
+        const rows = byCat[cat].sort(function (a, b) { return a.name.localeCompare(b.name); });
+        total += rows.length;
+        html += '<div><h3 class="text-base font-bold brand-green mb-2 border-b border-[#d4b78f] pb-1">' +
+            escapeHtml(cat) + '</h3>' +
+            '<div class="overflow-x-auto border border-[#d4b78f] rounded-xl mb-4">' +
+            '<table class="w-full text-sm"><thead><tr class="bg-[#1E4D2B] text-[#d4b78f]">' +
+            '<th class="p-2.5 text-left">Product</th>' +
+            '<th class="p-2.5 text-left w-24">Case</th>' +
+            '<th class="p-2.5 text-right w-24">Base</th>' +
+            '<th class="p-2.5 text-right w-24">This sheet</th>' +
+            '<th class="p-2.5 text-right w-20">Delta</th>' +
+            '</tr></thead><tbody>';
+        rows.forEach(function (row, i) {
+            const bg = i % 2 ? 'bg-[#f8f4eb]' : 'bg-white';
+            const deltaClass = Math.abs(row.delta) > 0.05
+                ? (row.delta > 0 ? 'text-green-700' : 'text-red-700')
+                : 'text-[#6B4423]';
+            const deltaText = (row.delta >= 0 ? '+' : '') + row.delta.toFixed(1) + '%';
+            html += '<tr class="border-t border-[#e8d9b8] ' + bg + '">' +
+                '<td class="p-2.5">' + escapeHtml(row.name) + '</td>' +
+                '<td class="p-2.5 text-[#6B4423]">' + escapeHtml(row.caseSize || '—') + '</td>' +
+                '<td class="p-2.5 text-right">' + (row.base != null ? ('$' + row.base.toFixed(2)) : '—') + '</td>' +
+                '<td class="p-2.5 text-right font-semibold">$' + row.sheet.toFixed(2) + '</td>' +
+                '<td class="p-2.5 text-right ' + deltaClass + '">' + deltaText + '</td>' +
+                '</tr>';
+        });
+        html += '</tbody></table></div></div>';
+    });
+    listEl.innerHTML = html;
+    return total;
+}
+
 async function openReportsCustomerPriceSheet(customerId) {
     if (!customerId) {
         alert('Missing customer id.');
@@ -7474,7 +7586,7 @@ async function openReportsCustomerPriceSheet(customerId) {
             return;
         }
 
-        const count = renderCategorizedPriceSheetTable(prices, listEl);
+        const count = renderComparedPriceSheetTable(prices, listEl);
 
         if (subEl) {
             const updated = updatedAt ? new Date(updatedAt).toLocaleString() : '';
