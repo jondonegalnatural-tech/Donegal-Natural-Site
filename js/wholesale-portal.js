@@ -6457,6 +6457,11 @@ function displayWelcome() {
     const accounts = window._customerAccounts || [];
 
     if (user && user.fullName) {
+        const isCustomerView = !!(user.isViewAs || localStorage.getItem('originalAdminUser') || user.role === 'admin');
+        if (isCustomerView) {
+            nameElement.textContent = 'Jonathan (Customer View)';
+            return;
+        }
         const company = user.company ? ` (${escapeHtml(user.company)})` : '';
         let text = `${escapeHtml(user.fullName)}${company}`;
         if (accounts.length > 1 && active) {
