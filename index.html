@@ -387,15 +387,15 @@
             placeholder="Optional"
             style="width:100%; padding:.65rem .9rem; border:1.5px solid var(--border); border-radius:.6rem; background:var(--cream); font-size:.9rem; font-family:inherit;">
         </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr 0.7fr; gap:.75rem;">
+        <div id="wi-city-state-zip-wrap" style="display:none; grid-template-columns:1fr 1fr 0.7fr; gap:.75rem;">
           <div>
             <label for="wi-city" style="display:block; font-size:.8rem; font-weight:700; margin-bottom:.35rem; color:var(--brown);">City *</label>
-            <input type="text" id="wi-city" name="city" required
+            <input type="text" id="wi-city" name="city"
               style="width:100%; padding:.65rem .9rem; border:1.5px solid var(--border); border-radius:.6rem; background:var(--cream); font-size:.9rem; font-family:inherit;">
           </div>
           <div>
             <label for="wi-state" style="display:block; font-size:.8rem; font-weight:700; margin-bottom:.35rem; color:var(--brown);">State *</label>
-            <select id="wi-state" name="state" required
+            <select id="wi-state" name="state"
               style="width:100%; padding:.65rem .9rem; border:1.5px solid var(--border); border-radius:.6rem; background:var(--cream); font-size:.9rem; font-family:inherit;">
               <option value="">Select…</option>
               <option value="AL">AL</option><option value="AK">AK</option><option value="AZ">AZ</option><option value="AR">AR</option>
@@ -415,10 +415,8 @@
           </div>
           <div>
             <label for="wi-zip" style="display:block; font-size:.8rem; font-weight:700; margin-bottom:.35rem; color:var(--brown);">ZIP *</label>
-            <input type="text" id="wi-zip" name="zip" required
-              placeholder="17547"
-              pattern="^\d{5}(-\d{4})?$"
-              title="Enter a 5-digit ZIP or ZIP+4"
+             <input type="text" id="wi-zip" name="zip"
+              placeholder="17547"              title="Enter a 5-digit ZIP or ZIP+4"
               maxlength="10"
               style="width:100%; padding:.65rem .9rem; border:1.5px solid var(--border); border-radius:.6rem; background:var(--cream); font-size:.9rem; font-family:inherit;">
           </div>
@@ -487,6 +485,8 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     form.reset();
     otherWrap.style.display = 'none';
         selectedPlace = null;
+    const locWrap = document.getElementById('wi-city-state-zip-wrap');
+    if (locWrap) locWrap.style.display = 'none';
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Submit Inquiry';
@@ -527,6 +527,12 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
   const consentTerms = document.getElementById('consent-terms');
   const consentPrivacy = document.getElementById('consent-privacy');
     let selectedPlace = null;
+    
+      function setCityStateZipVisible(show) {
+    const wrap = document.getElementById('wi-city-state-zip-wrap');
+    if (!wrap) return;
+    wrap.style.display = show ? 'grid' : 'none';
+  }
 
   function isPoBoxAddress(value) {
     return /^\s*(p\.?\s*o\.?\s*box|post\s*office\s*box)\b/i.test(String(value || ''));
