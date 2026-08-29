@@ -1436,7 +1436,8 @@ function openWalkInPlaceOrder() {
     const nameEl = document.getElementById('place-order-customer-name');
     if (nameEl) nameEl.textContent = 'Walk-in / open order';
     const shipEl = document.getElementById('place-order-shipping');
-    if (shipEl) shipEl.textContent = 'Entered on this form';
+    const shipWrap = document.getElementById('place-order-shipping-wrap');
+    if (shipWrap) shipWrap.classList.add('hidden');
     const walk = document.getElementById('place-order-walkin-fields');
     if (walk) walk.classList.remove('hidden');
     ['po-walkin-name','po-walkin-company','po-walkin-email','po-walkin-phone','po-walkin-street','po-walkin-city','po-walkin-state','po-walkin-zip','po-walkin-commission'].forEach(function (id) {
@@ -1457,6 +1458,8 @@ function openWalkInPlaceOrder() {
 function placeOrderForCustomer(customerName) {
     const walk = document.getElementById('place-order-walkin-fields');
     if (walk) walk.classList.add('hidden');
+    const shipWrap = document.getElementById('place-order-shipping-wrap');
+    if (shipWrap) shipWrap.classList.remove('hidden');
     // Prefer full customer object when available so shipping/email work
     let customerObj = null;
     if (typeof customerName === 'object' && customerName) {
