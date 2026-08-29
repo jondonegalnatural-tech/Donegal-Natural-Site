@@ -565,6 +565,16 @@ h1, h2, h3, h4 {
 .pac-container {
   z-index: 3000 !important;
 }
+#wi-street.places-backed {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+gmp-place-autocomplete {
+  width: 100%;
+}
 .modal-overlay {
   display: none;
   position: fixed;

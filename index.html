@@ -562,26 +562,78 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     };
   }
 
-  window.initInquiryPlaces = function () {
+  window.initInquiryPlaces = async function () {
     const streetEl = document.getElementById('wi-street');
-    if (!streetEl || !window.google || !google.maps || !google.maps.places) return;
-    const ac = new google.maps.places.Autocomplete(streetEl, {
-      types: ['address'],
-      componentRestrictions: { country: 'us' },
-      fields: ['address_components', 'formatted_address', 'geometry', 'place_id']
-    });
-    ac.addListener('place_changed', function () {
-      const place = ac.getPlace();
-      if (!place || !place.address_components) {
+    const hintEl = document.getElementById('wi-street-hint');
+    if (!streetEl) return;
+    if (document.getElementById('wi-street-places')) return;
+
+    try {
+      const { PlaceAutocompleteElement } = await google.maps.importLibrary('places');
+      const widget = new PlaceAutocompleteElement({
+        includedRegionCodes: ['us'],
+        requestedLanguage: 'en'
+      });
+      widget.id = 'wi-street-places';
+      widget.setAttribute('placeholder', 'Start typing your street address');
+      widget.style.cssText = 'width:100%; display:block; margin-bottom:.35rem;';
+      streetEl.parentElement.insertBefore(widget, streetEl);
+      streetEl.classList.add('places-backed');
+
+      widget.addEventListener('gmp-select', async function (event) {
+        const prediction = event.placePrediction;
+        if (!prediction || typeof prediction.toPlace !== 'function') {
+          selectedPlace = null;
+          return;
+        }
+        const place = prediction.toPlace();
+        await place.fetchFields({
+          fields: ['addressComponents', 'formattedAddress', 'location', 'id']
+        });
+        fillInquiryFromNewPlace(place);
+      });
+      widget.addEventListener('input', function () {
+        const typed = widget.value || '';
+        streetEl.value = typed;
         selectedPlace = null;
-        return;
+      });
+    } catch (err) {
+      console.warn('Places (New) failed to load:', err);
+      if (hintEl) {
+        hintEl.textContent = 'Address lookup is unavailable. Type the full address.';
       }
-      fillInquiryFromPlace(place);
-    });
-    streetEl.addEventListener('input', function () {
-      selectedPlace = null;
-    });
+    }
   };
+
+  function fillInquiryFromNewPlace(place) {
+    if (!place) return;
+    const comps = place.addressComponents || [];
+    const get = function (type, useShort) {
+      const part = comps.find(function (c) {
+        return (c.types || []).indexOf(type) !== -1;
+      });
+      if (!part) return '';
+      return useShort ? (part.shortText || '') : (part.longText || '');
+    };
+    const streetLine = [get('street_number'), get('route')].filter(Boolean).join(' ');
+    const city = get('locality') || get('sublocality') || get('administrative_area_level_3');
+    const state = get('administrative_area_level_1', true);
+    const zip = get('postal_code');
+    const apt = get('subpremise');
+    if (streetLine) document.getElementById('wi-street').value = streetLine;
+    if (city) document.getElementById('wi-city').value = city;
+    if (state) document.getElementById('wi-state').value = state;
+    if (zip) document.getElementById('wi-zip').value = zip;
+    const aptEl = document.getElementById('wi-apt');
+    if (apt && aptEl && !aptEl.value.trim()) aptEl.value = apt;
+    const loc = place.location;
+    selectedPlace = {
+      place_id: place.id || '',
+      formatted: place.formattedAddress || streetLine,
+      lat: loc && typeof loc.lat === 'function' ? loc.lat() : (loc && loc.lat) || null,
+      lng: loc && typeof loc.lng === 'function' ? loc.lng() : (loc && loc.lng) || null
+    };
+  }
   const TERMS_VERSION = '2026-08-29';
   const PRIVACY_VERSION = '2026-08-29';
 
