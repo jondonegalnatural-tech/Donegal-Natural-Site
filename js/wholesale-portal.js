@@ -36,7 +36,7 @@ function escapeHtml(value) {
 (function () {
     try {
         const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
-        if (!user || user.role !== 'customer') {
+        if (!user || (user.role !== 'customer' && user.role !== 'admin')) {
             window.location.replace('login-portal.html');
         }
     } catch (e) {
@@ -58,7 +58,7 @@ function escapeHtml(value) {
             .select('id, email, full_name, role, company, must_change_password')
             .eq('id', session.user.id)
             .single();
-        if (error || !profile || profile.role !== 'customer') {
+        if (error || !profile || (profile.role !== 'customer' && profile.role !== 'admin')) {
             localStorage.removeItem('currentUser');
             try { await supabaseClient.auth.signOut(); } catch (_) {}
             window.location.replace('login-portal.html');
@@ -96,7 +96,7 @@ async function revalidateCustomerSession() {
             .select('role')
             .eq('id', session.user.id)
             .single();
-        if (error || !profile || profile.role !== 'customer') {
+        if (error || !profile || (profile.role !== 'customer' && profile.role !== 'admin')) {
             localStorage.removeItem('currentUser');
             try { await supabaseClient.auth.signOut(); } catch (_) {}
             window.location.replace('login-portal.html');
@@ -6633,10 +6633,23 @@ function dismissNewProductAlert() {
 }
 
 
+function goToAdminView() {
+    try {
+        const original = JSON.parse(localStorage.getItem('originalAdminUser') || 'null');
+        if (original) {
+            localStorage.setItem('currentUser', JSON.stringify(original));
+            localStorage.removeItem('originalAdminUser');
+        }
+    } catch (e) {
+        console.error('goToAdminView error:', e);
+    }
+    window.location.href = 'internal-portal.html';
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
 
-    if (!user || user.role !== 'customer') {
+    if (!user || (user.role !== 'customer' && user.role !== 'admin')) {
         window.location.href = 'login-portal.html';
         return;
     }

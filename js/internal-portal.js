@@ -230,6 +230,33 @@ function goToSalesmanView() {
     window.location.href = 'salesman-portal.html';
 }
 
+function goToCustomerView() {
+    try {
+        const original = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        if (original) {
+            localStorage.setItem('originalAdminUser', JSON.stringify(original));
+        }
+
+        localStorage.setItem('currentUser', JSON.stringify({
+            id: original?.id || null,
+            username: 'jackerman@donegalnatural.com',
+            fullName: 'Jonathan (Customer View)',
+            name: 'Jonathan (Customer View)',
+            role: 'customer',
+            email: 'jackerman@donegalnatural.com',
+            company: 'Donegal Admin Test Store',
+            mustChangePassword: false,
+            loginTime: new Date().toISOString(),
+            supabase: true,
+            isViewAs: true
+        }));
+    } catch (e) {
+        console.error('goToCustomerView error:', e);
+    }
+    window.location.href = 'wholesale-portal.html';
+}
+
+
 // ================== SHARED HELPER FUNCTIONS ==================
 // Functions used by more than one section will be placed here.
 // (We will move shared helpers into this section as we reorganize.)
