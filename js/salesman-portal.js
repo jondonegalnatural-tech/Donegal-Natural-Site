@@ -1522,7 +1522,10 @@ function placeOrderForCustomer(customerName) {
 
 function hidePlaceOrderModal() {
     const modal = document.getElementById("place-order-modal");
-    if (modal) modal.classList.add("hidden");
+    if (modal) {
+        modal.classList.add("hidden");
+        modal.style.display = '';
+    }
     currentPlaceOrderCustomer = null;
     placeOrderItems = [];
 }
