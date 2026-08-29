@@ -2657,6 +2657,11 @@ async function renderMyOrders() {
         }
 
         // Already sorted by submitted_at desc from the query
+        if (!window._salesmanCustomers || !window._salesmanCustomers.length) {
+            if (typeof renderCustomers === 'function') {
+                try { await renderCustomers(); } catch (e) {}
+            }
+        }
         container.innerHTML = filtered.map(order => createOrderCard(order, user.role === "admin")).join("");
 
     } catch (err) {
@@ -2717,6 +2722,55 @@ function getSalesmanCommissionRates(user) {
     }
 
     return { standardRate, marketRate };
+}
+
+function salesmanOpenOrderAssignHtml(order) {
+    const customers = window._salesmanCustomers || [];
+    const oid = String(order.id || '');
+    const options = ['<option value="">Assign to customer…</option>']
+        .concat(customers.map(function (c) {
+            const label = (c.name || 'Customer') + (c.company ? (' — ' + c.company) : '');
+            return '<option value="' + escapeHtml(String(c.id)) + '">' + escapeHtml(label) + '</option>';
+        }));
+    return '<div style="margin-top:0.5rem;" onclick="event.stopPropagation()">' +
+        '<select id="assign-open-' + escapeHtml(oid) + '" class="border-2 border-[#6B4423] rounded-xl px-2 py-1 text-xs">' +
+        options.join('') +
+        '</select> ' +
+        '<button type="button" class="px-3 py-1 bg-[#1E4D2B] text-[#d4b78f] rounded-xl text-xs font-semibold" ' +
+        'onclick="event.stopPropagation(); assignOpenOrderFromHistory(\'' + oid.replace(/'/g, "\\'") + '\')">Attach</button>' +
+        '</div>';
+}
+
+async function assignOpenOrderFromHistory(orderId) {
+    const sel = document.getElementById('assign-open-' + orderId);
+    const customerId = sel && sel.value ? sel.value : '';
+    if (!customerId) {
+        alert('Choose a customer first.');
+        return;
+    }
+    const customers = window._salesmanCustomers || [];
+    const customer = customers.find(c => String(c.id) === String(customerId));
+    if (!customer) {
+        alert('Customer not found. Open the Customers tab once, then try again.');
+        return;
+    }
+    try {
+        const { error } = await supabaseClient
+            .from('orders')
+            .update({
+                customer_id: customer.id,
+                customer_name: customer.name || null,
+                customer_email: (customer.email || '').toLowerCase() || null,
+                customer_company: customer.company || null
+            })
+            .eq('id', orderId);
+        if (error) throw error;
+        alert((customer.name || 'Customer') + ' now has this order.');
+        if (typeof renderMyOrders === 'function') renderMyOrders();
+    } catch (err) {
+        console.error(err);
+        alert('Could not attach order.\n' + (err.message || ''));
+    }
 }
 
 function createOrderCard(order, showSalesman = false) {
@@ -2797,7 +2851,8 @@ function createOrderCard(order, showSalesman = false) {
                     <div style="font-size:0.8rem; color:#888; margin-top:0.15rem;">
                         Order #${escapeHtml(displayInvoiceNumber(order))} · ${new Date(order.submitted_at || order.submittedAt).toLocaleDateString()}
                     </div>
-                    ${showSalesman ? `<div style="font-size:0.8rem; color:#6B4423;">Salesman: ${order.salesman_name || order.salesman || "N/A"}</div>` : ""}
+                    ${showSalesman ? `<div style="font-size:0.8rem; color:#6B4423;">Salesman: ${escapeHtml(order.salesman_name || order.salesman || "N/A")}</div>` : ""}
+                    ${!order.customer_id ? salesmanOpenOrderAssignHtml(order) : ''}
                 </div>
                 <span class="px-3 py-1 text-xs font-semibold rounded-full ${statusClass}">
                     ${status}
