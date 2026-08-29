@@ -718,6 +718,84 @@ async function renderCustomers() {
     }
 }
 
+function orderMatchesCustomer(order, customer) {
+    if (!order || !customer) return false;
+    if (customer.id && order.customer_id && String(order.customer_id) === String(customer.id)) return true;
+    const email = (customer.email || '').toLowerCase().trim();
+    const orderEmail = (order.customer_email || '').toLowerCase().trim();
+    if (email && orderEmail && email === orderEmail) return true;
+    const name = (customer.name || '').toLowerCase().trim();
+    const orderName = (order.customer_name || order.customer || '').toLowerCase().trim();
+    if (name && orderName && name === orderName) return true;
+    return false;
+}
+
+async function renderCustomerOrdersOnSalesmanModal(customer) {
+    const modal = document.getElementById('salesman-customer-modal');
+    if (!modal || !customer) return;
+    let wrap = document.getElementById('sc-orders-wrap');
+    if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.id = 'sc-orders-wrap';
+        wrap.className = 'mt-4 pt-4 border-t border-[#d4b78f]';
+        const notesEl = document.getElementById('sc-notes');
+        if (notesEl && notesEl.parentElement) notesEl.parentElement.appendChild(wrap);
+        else modal.appendChild(wrap);
+    }
+    wrap.innerHTML = '<p class="text-sm font-semibold text-[#1E4D2B] mb-2">Orders</p><p class="text-xs text-[#6B4423]">Loading…</p>';
+    try {
+        const { data, error } = await supabaseClient
+            .from('orders')
+            .select('id, invoice_number, customer_id, customer_name, customer_email, status, submitted_at')
+            .order('submitted_at', { ascending: false });
+        if (error) throw error;
+        const rows = (data || []).filter(o => orderMatchesCustomer(o, customer));
+        let html = '<p class="text-sm font-semibold text-[#1E4D2B] mb-2">Orders (' + rows.length + ')</p>';
+        html += '<button type="button" class="w-full mb-2 px-4 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl text-sm font-semibold" onclick="viewSalesmanCustomerOrders()">View this customer\'s orders</button>';
+        if (!rows.length) {
+            html += '<p class="text-xs text-[#6B4423]">No orders for this customer yet.</p>';
+        } else {
+            html += rows.map(function (o) {
+                const id = String(o.id || '').replace(/'/g, "\\'");
+                const inv = (typeof displayInvoiceNumber === 'function') ? displayInvoiceNumber(o) : (o.invoice_number || o.id);
+                const when = o.submitted_at ? new Date(o.submitted_at).toLocaleDateString() : '';
+                return '<button type="button" class="w-full text-left text-sm px-3 py-2 mb-1 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]" onclick="openSalesmanOrderInvoice(\'' + id + '\')">' +
+                    escapeHtml(String(inv)) + ' · ' + escapeHtml(when) + ' · ' + escapeHtml(o.status || '') + '</button>';
+            }).join('');
+        }
+        wrap.innerHTML = html;
+    } catch (err) {
+        console.error(err);
+        wrap.innerHTML = '<p class="text-sm text-red-600">Could not load orders.</p>';
+    }
+}
+
+function viewSalesmanCustomerOrders() {
+    const modal = document.getElementById('salesman-customer-modal');
+    let customer = null;
+    try { customer = JSON.parse(modal?.dataset?.customerJson || 'null'); } catch (e) { customer = null; }
+    if (!customer) {
+        alert('Could not load customer.');
+        return;
+    }
+    window._orderHistoryCustomerId = customer.id || '';
+    window._orderHistoryCustomerName = customer.name || '';
+    if (typeof hideSalesmanCustomerModal === 'function') hideSalesmanCustomerModal();
+    const histBtn = document.querySelector('.tab-btn[data-tab="order-history"]');
+    if (histBtn) histBtn.click();
+    const filterEl = document.getElementById('order-history-customer-filter');
+    if (filterEl && customer.name) {
+        if (![...filterEl.options].some(o => o.value === customer.name)) {
+            const opt = document.createElement('option');
+            opt.value = customer.name;
+            opt.textContent = customer.name;
+            filterEl.appendChild(opt);
+        }
+        filterEl.value = customer.name;
+    }
+    if (typeof renderMyOrders === 'function') renderMyOrders();
+}
+
 function renderAttachOpenOrder(customer) {
     const modal = document.getElementById('salesman-customer-modal');
     if (!modal || !customer || !customer.id) return;
@@ -956,6 +1034,7 @@ async function showSalesmanCustomerDetail(customer) {
 
     renderSalesmanCommissionEditor(customer);
     renderAttachOpenOrder(customer);
+    renderCustomerOrdersOnSalesmanModal(customer);
 
     // Pricing status + button area
     let pricingEl = document.getElementById('sc-pricing-status');
@@ -2630,6 +2709,7 @@ async function renderMyOrders() {
         const filterEl = document.getElementById("order-history-customer-filter");
         if (filterEl) {
             const currentValue = filterEl.value || "";
+            if (!currentValue) window._orderHistoryCustomerId = '';
             const names = [...new Set(orders.map(o => o.customer_name || o.customer || "").filter(Boolean))].sort();
             const hasOpen = orders.some(o => !o.customer_id);
             filterEl.innerHTML = `<option value="">All customers (recent first)</option>` +
@@ -2641,12 +2721,16 @@ async function renderMyOrders() {
         // Apply customer filter if one is selected
         const selectedCustomer = (filterEl && filterEl.value) ? filterEl.value.trim() : "";
         let filtered = orders;
+        const pinnedId = window._orderHistoryCustomerId || '';
         if (selectedCustomer === '__open__') {
             filtered = orders.filter(o => !o.customer_id);
-        } else if (selectedCustomer) {
-            filtered = orders.filter(o =>
-                (o.customer_name || o.customer || "").trim() === selectedCustomer
-            );
+            window._orderHistoryCustomerId = '';
+        } else if (pinnedId || selectedCustomer) {
+            filtered = orders.filter(o => {
+                if (pinnedId && o.customer_id && String(o.customer_id) === String(pinnedId)) return true;
+                if (selectedCustomer && (o.customer_name || o.customer || '').trim() === selectedCustomer) return true;
+                return false;
+            });
         }
 
         if (filtered.length === 0) {
