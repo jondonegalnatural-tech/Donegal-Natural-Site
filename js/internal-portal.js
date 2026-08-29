@@ -5640,11 +5640,11 @@ function renderCustomers() {
         <div class="col-span-full flex flex-wrap gap-3 mb-2">
             <button type="button" onclick="setAllCustomersActive(true)"
                     class="px-4 py-2 text-sm font-semibold rounded-xl bg-green-700 text-white hover:bg-green-800">
-                Enable All Customers
+                Enable selected
             </button>
             <button type="button" onclick="setAllCustomersActive(false)"
                     class="px-4 py-2 text-sm font-semibold rounded-xl bg-red-700 text-white hover:bg-red-800">
-                Disable All Customers
+                Disable selected
             </button>
         </div>
     `;
@@ -6508,42 +6508,154 @@ async function toggleCustomerActive(customerId, event) {
     }
 }
 
+function shouldSkipCustomerLoginReset(customer) {
+    const email = String(customer.email || '').toLowerCase().trim();
+    const company = String(customer.company || '').toLowerCase();
+    const name = String(customer.name || '').toLowerCase();
+    if (!email) return true;
+    if (email === 'jackerman@donegalnatural.com') return true;
+    if (company.includes('admin test store')) return true;
+    if (name.includes('admin test store')) return true;
+    if (name.includes('adriana hoang') || company.includes('adriana hoang')) return true;
+    if (name.includes('gerald bair') || company.includes('gerald bair')) return true;
+    return false;
+}
+
 async function setAllCustomersActive(enabled) {
-    const action = enabled ? 'Enable' : 'Disable';
-    const newStatus = enabled ? 'Active' : 'Inactive';
-    const ids = (allCustomers || []).map(c => c.id).filter(Boolean);
-
-    if (!ids.length) {
-        alert('No customers loaded.');
+    const checked = Array.from(document.querySelectorAll('.customer-mass-checkbox:checked'));
+    if (!checked.length) {
+        alert('Select at least one customer first.');
         return;
     }
 
-    const message = enabled
-    ? `Enable ALL ${ids.length} customer(s)?\n\nThis will set every customer to Active.`
-    : `Disable ALL ${ids.length} customer(s)?\n\nInactive customers can still log in, but will only see their Account info and Order History. They will not see products, quotes, or the ability to place new orders.`;
+    const selected = checked
+        .map((cb) => (allCustomers || []).find((c) => String(c.id) === String(cb.value)))
+        .filter(Boolean);
 
-    if (!confirm(message)) {
+    if (!selected.length) {
+        alert('No matching customers for the current selection.');
         return;
     }
 
-    try {
-        const { error } = await supabaseClient
-            .from('customers')
-            .update({
-                status: newStatus,
-                updated_at: new Date().toISOString()
-            })
-            .in('id', ids);
+    if (!enabled) {
+        if (!confirm(
+            'Disable ' + selected.length + ' selected customer(s)?\n\n' +
+            'They can still log in, but will only see Account and Order History.'
+        )) return;
 
-        if (error) throw error;
-
-        await loadCustomers();
-        if (typeof initCustomerMap === 'function') initCustomerMap();
-        alert(`All customers set to ${newStatus}.`);
-    } catch (err) {
-        console.error('setAllCustomersActive error:', err);
-        alert('Could not update customers.\n' + (err.message || ''));
+        try {
+            const ids = selected.map((c) => c.id);
+            const { error } = await supabaseClient
+                .from('customers')
+                .update({
+                    status: 'Inactive',
+                    updated_at: new Date().toISOString()
+                })
+                .in('id', ids);
+            if (error) throw error;
+            await loadCustomers();
+            if (typeof initCustomerMap === 'function') initCustomerMap();
+            alert(selected.length + ' customer(s) set to Inactive.');
+        } catch (err) {
+            console.error('setAllCustomersActive error:', err);
+            alert('Could not update customers.\n' + (err.message || ''));
+        }
+        return;
     }
+
+    const resetList = selected.filter((c) => !shouldSkipCustomerLoginReset(c));
+    const skipped = selected.filter((c) => shouldSkipCustomerLoginReset(c));
+
+    if (!resetList.length) {
+        alert('Every selected customer is skipped (no email, test store, Adriana, or Gerald).');
+        return;
+    }
+
+    const preview = resetList
+        .slice(0, 12)
+        .map((c) => '- ' + (c.name || c.company || c.email) + ' <' + c.email + '>')
+        .join('\n');
+    const extra = resetList.length > 12 ? ('\n…and ' + (resetList.length - 12) + ' more') : '';
+    const skipNote = skipped.length
+        ? ('\n\nSkipped: ' + skipped.map((c) => c.name || c.company || c.email).join(', '))
+        : '';
+
+    if (!confirm(
+        'Enable ' + resetList.length + ' selected customer(s) as a fresh start?\n\n' +
+        preview + extra + skipNote + '\n\n' +
+        'This resets their password, emails a temp login, and forces password change + billing on next login.\n' +
+        'Brian stays assigned. Prices stay locked until he approves the sheet.'
+    )) return;
+
+    const sent = [];
+    const failed = [];
+
+    for (let i = 0; i < resetList.length; i++) {
+        const customer = resetList[i];
+        const email = String(customer.email || '').toLowerCase().trim();
+        const tempPassword = 'DN' + Math.random().toString(36).slice(2, 8).toUpperCase() + '!';
+        try {
+            const fnRes = await fetch(SUPABASE_URL + '/functions/v1/create-customer-user', {
+                method: 'POST',
+                headers: await getEdgeFunctionHeaders(),
+                body: JSON.stringify({
+                    email: email,
+                    password: tempPassword,
+                    full_name: customer.name || '',
+                    company: customer.company || ''
+                })
+            });
+            const fnText = await fnRes.text();
+            let fnData = null;
+            try { fnData = JSON.parse(fnText); } catch (e) { fnData = { error: fnText || 'Empty response' }; }
+            if (!fnRes.ok || (fnData && fnData.error)) {
+                throw new Error((fnData && fnData.error) ? fnData.error : ('HTTP ' + fnRes.status));
+            }
+
+            const { error } = await supabaseClient
+                .from('customers')
+                .update({
+                    status: 'Active',
+                    password_changed: false,
+                    onboarding_complete: false,
+                    last_login_at: null,
+                    payment_method: null,
+                    payment_method_status: null,
+                    pricing_approved_at: null,
+                    pricing_approved_by: null,
+                    territory: null,
+                    salesman_commission_percent: null,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', customer.id);
+            if (error) throw error;
+
+            sent.push({
+                email: email,
+                password: tempPassword,
+                emailed: fnData && fnData.email_sent === true,
+                emailError: fnData && fnData.email_error ? String(fnData.email_error) : ''
+            });
+        } catch (err) {
+            failed.push({ email: email, error: err.message || String(err) });
+        }
+    }
+
+    await loadCustomers();
+    if (typeof initCustomerMap === 'function') initCustomerMap();
+
+    const sentLines = sent.map((r) =>
+        r.email + '  temp: ' + r.password + (r.emailed ? '  (email sent)' : ('  (EMAIL FAILED: ' + r.emailError + ')'))
+    ).join('\n');
+    const failLines = failed.map((r) => r.email + ' — ' + r.error).join('\n');
+
+    alert(
+        'Selected enable finished.\n\n' +
+        'Reset / activated: ' + sent.length + '\n' +
+        'Failed: ' + failed.length + '\n\n' +
+        (sentLines ? ('Sent:\n' + sentLines + '\n\n') : '') +
+        (failLines ? ('Failed:\n' + failLines) : '')
+    );
 }
 
 async function deactivateCustomer() {
