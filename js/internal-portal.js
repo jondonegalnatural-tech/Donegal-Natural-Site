@@ -7260,30 +7260,62 @@ function resolveCustomerMapAddress(customer, shipRows) {
 
 async function initCustomerMap() {
     const mapContainer = document.getElementById('customer-map');
-    if (!mapContainer || typeof L === 'undefined') return;
+    const statusEl = document.getElementById('customer-map-status');
+    if (!mapContainer) return;
 
-    // Remove old map instance if it exists
+    if (!window.google || !google.maps) {
+        initCustomerMap._tries = (initCustomerMap._tries || 0) + 1;
+        if (initCustomerMap._tries > 20) {
+            if (statusEl) statusEl.textContent = 'Google Maps did not load. Check the API key.';
+            return;
+        }
+        if (statusEl) statusEl.textContent = 'Loading Google Maps…';
+        setTimeout(initCustomerMap, 300);
+        return;
+    }
+    initCustomerMap._tries = 0;
+
     if (customerMap) {
-        customerMap.remove();
         customerMap = null;
+        mapContainer.innerHTML = '';
     }
 
-    // Default view (eastern US) — will fitBounds once markers are ready
-    customerMap = L.map('customer-map').setView([39.5, -80], 5);
+    customerMap = new google.maps.Map(mapContainer, {
+        center: { lat: 39.5, lng: -80 },
+        zoom: 5,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true
+    });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-    }).addTo(customerMap);
+    const boundsObj = new google.maps.LatLngBounds();
+    let pinCount = 0;
 
-    // Force correct sizing after the tab becomes visible
-    setTimeout(() => {
-        if (customerMap) customerMap.invalidateSize();
-    }, 200);
+    function addPin(customer, addr, coords) {
+        const marker = new google.maps.Marker({
+            position: { lat: coords.lat, lng: coords.lng },
+            map: customerMap,
+            title: customer.name || customer.company || 'Customer'
+        });
+        const info = new google.maps.InfoWindow({
+            content:
+                '<div style="color:#1E4D2B;font-family:inherit;max-width:240px;">' +
+                '<strong>' + escapeHtml(customer.name || 'Customer') + '</strong><br>' +
+                escapeHtml(customer.company || '') + '<br>' +
+                escapeHtml(addr || '') +
+                '</div>'
+        });
+        marker.addListener('click', function () {
+            info.open({ map: customerMap, anchor: marker });
+        });
+        boundsObj.extend({ lat: coords.lat, lng: coords.lng });
+        pinCount += 1;
+    }
 
-    // Ensure customers are loaded
     if (!allCustomers || allCustomers.length === 0) {
         await loadCustomers();
     }
+
     const shipRows = {};
     try {
         const { data: ships, error: shipErr } = await supabaseClient
@@ -7300,89 +7332,54 @@ async function initCustomerMap() {
     } catch (err) {
         console.warn('customer_shipping_addresses for map:', err);
     }
-    const statusEl = document.getElementById('customer-map-status');
-    const bounds = [];
-    const cache = getGeocodeCache();
 
+    const cache = getGeocodeCache();
     const customersWithAddr = (allCustomers || []).map(function (c) {
         return { customer: c, addr: resolveCustomerMapAddress(c, shipRows) };
     }).filter(function (row) {
         return !!String(row.addr || '').trim();
     });
 
-    // Split into already-cached vs needs network
     const cached = [];
     const toGeocode = [];
-
     customersWithAddr.forEach(function (row) {
-        const customer = row.customer;
-        const addr = row.addr;
-        const key = normalizeAddressKey(addr);
+        const key = normalizeAddressKey(row.addr);
         if (cache[key] && cache[key].lat != null && cache[key].lng != null) {
-            cached.push({ customer: customer, addr: addr, coords: { lat: cache[key].lat, lng: cache[key].lng } });
+            cached.push({ customer: row.customer, addr: row.addr, coords: { lat: cache[key].lat, lng: cache[key].lng } });
         } else {
-            toGeocode.push({ customer: customer, addr: addr });
+            toGeocode.push({ customer: row.customer, addr: row.addr });
         }
     });
 
-    // 1. Place every cached pin immediately
-    cached.forEach(({ customer, addr, coords }) => {
-        const marker = L.marker([coords.lat, coords.lng]).addTo(customerMap);
-        marker.bindPopup(
-            `<b>${customer.name || 'Customer'}</b><br>` +
-            `${customer.company || ''}<br>` +
-            `${addr}`
-        );
-        bounds.push([coords.lat, coords.lng]);
+    cached.forEach(function (row) {
+        addPin(row.customer, row.addr, row.coords);
     });
-
-    if (bounds.length > 0) {
-        customerMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
-    }
+    if (pinCount > 0) customerMap.fitBounds(boundsObj, 40);
 
     if (statusEl) {
-        if (toGeocode.length === 0) {
-            statusEl.textContent = bounds.length
-                ? `${bounds.length} customer location${bounds.length === 1 ? '' : 's'} shown`
-                : 'No geocoded addresses yet';
-        } else {
-            statusEl.textContent = `Showing ${bounds.length} from cache. Geocoding ${toGeocode.length} remaining…`;
-        }
+        statusEl.textContent = toGeocode.length
+            ? ('Showing ' + pinCount + ' on Google Maps. Geocoding ' + toGeocode.length + ' remaining…')
+            : (pinCount
+                ? (pinCount + ' customer location' + (pinCount === 1 ? '' : 's') + ' shown')
+                : 'No geocoded addresses yet');
     }
 
-    // 2. Only network-geocode the ones that are missing (respect 1 req/sec)
     for (let i = 0; i < toGeocode.length; i++) {
-        const { customer, addr } = toGeocode[i];
-
+        const row = toGeocode[i];
         if (statusEl) {
-            statusEl.textContent = `Showing ${bounds.length} from cache. Geocoding ${i + 1} of ${toGeocode.length}…`;
+            statusEl.textContent = 'Showing ' + pinCount + ' on Google Maps. Geocoding ' + (i + 1) + ' of ' + toGeocode.length + '…';
         }
-
-        const coords = await geocodeAddress(addr);
-
+        const coords = await geocodeAddress(row.addr);
         if (coords) {
-            const marker = L.marker([coords.lat, coords.lng]).addTo(customerMap);
-            marker.bindPopup(
-                `<b>${customer.name || 'Customer'}</b><br>` +
-                `${customer.company || ''}<br>` +
-                `${addr}`
-            );
-            bounds.push([coords.lat, coords.lng]);
-
-            // Re-fit as new pins arrive (keeps map useful while the rest load)
-            if (bounds.length > 0) {
-                customerMap.fitBounds(bounds, { padding: [40, 40], maxZoom: 12 });
-            }
+            addPin(row.customer, row.addr, coords);
+            customerMap.fitBounds(boundsObj, 40);
         }
-
-        if (i < toGeocode.length - 1) {
-            await delay(250);
-        }
+        if (i < toGeocode.length - 1) await delay(250);
     }
 
     if (statusEl) {
-        statusEl.textContent = bounds.length
-            ? `${bounds.length} customer location${bounds.length === 1 ? '' : 's'} shown`
+        statusEl.textContent = pinCount
+            ? (pinCount + ' customer location' + (pinCount === 1 ? '' : 's') + ' shown')
             : 'No geocoded addresses yet';
     }
 }
