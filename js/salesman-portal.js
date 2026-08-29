@@ -1823,7 +1823,7 @@ function addProductToPlaceOrder(productName) {
     renderPlaceOrderItems();
 }
 
-function renderPlaceOrderItems() {
+function renderPlaceOrderItems(skipFocus) {
     const container = document.getElementById("place-order-items-list");
     if (!container) return;
 
@@ -1834,13 +1834,30 @@ function renderPlaceOrderItems() {
         return;
     }
 
-    container.innerHTML = placeOrderItems.map((item, index) => `
-        <div class="flex justify-between items-center py-2 border-b border-[#d4b78f]">
-            <div class="flex-1 pr-3">
+    const isWalkIn = !!(currentPlaceOrderCustomer && currentPlaceOrderCustomer.walkIn);
+
+    container.innerHTML = placeOrderItems.map((item, index) => {
+        const priceVal = (item.unitPrice != null && item.unitPrice !== '')
+            ? Number(item.unitPrice).toFixed(2)
+            : '';
+        const priceField = isWalkIn
+            ? (`<label class="text-xs text-[#6B4423]">$</label>` +
+               `<input type="number" step="0.01" min="0"` +
+               ` value="${priceVal}" placeholder="0.00"` +
+               ` class="place-order-price w-20 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm text-center"` +
+               ` onchange="updatePlaceOrderPrice(${index}, this.value)">`)
+            : '';
+        const sub = isWalkIn
+            ? escapeHtml(item.caseSize || '')
+            : (escapeHtml(item.caseSize || '') + ' · ' + escapeHtml(item.displayPrice || ''));
+        return `
+        <div class="flex justify-between items-center py-2 border-b border-[#d4b78f] flex-wrap gap-2">
+            <div class="flex-1 pr-3 min-w-[140px]">
                 <p class="text-sm font-semibold brand-green">${escapeHtml(item.name)}</p>
-                <p class="text-xs text-[#6B4423]">${escapeHtml(item.caseSize || "")} · ${escapeHtml(item.displayPrice)}</p>
+                <p class="text-xs text-[#6B4423]">${sub}</p>
             </div>
             <div class="flex items-center gap-2">
+                ${priceField}
                 <label class="text-xs text-[#6B4423]">Units</label>
                 <input type="number"
                        min="1"
@@ -1852,10 +1869,9 @@ function renderPlaceOrderItems() {
                     Remove
                 </button>
             </div>
-        </div>
-    `).join("");
+        </div>`;
+    }).join("");
 
-    // Running order total
     let total = 0;
     placeOrderItems.forEach((item) => {
         if (item.isMarketPrice && (item.unitPrice == null || item.unitPrice === '')) return;
@@ -1866,12 +1882,13 @@ function renderPlaceOrderItems() {
     const totalEl = document.getElementById("place-order-total");
     if (totalEl) totalEl.textContent = '$' + total.toFixed(2);
 
-    // Focus the last quantity field so salesman can type immediately
-    const qtyInputs = container.querySelectorAll('input.place-order-qty');
-    if (qtyInputs.length) {
-        const last = qtyInputs[qtyInputs.length - 1];
-        last.focus();
-        last.select();
+    if (!skipFocus) {
+        const qtyInputs = container.querySelectorAll('input.place-order-qty');
+        if (qtyInputs.length) {
+            const last = qtyInputs[qtyInputs.length - 1];
+            last.focus();
+            last.select();
+        }
     }
 }
 
@@ -1882,6 +1899,22 @@ function updatePlaceOrderQty(index, value) {
         placeOrderItems[index].quantity = qty;
         renderPlaceOrderItems();
     }
+}
+
+function updatePlaceOrderPrice(index, value) {
+    const item = placeOrderItems[index];
+    if (!item) return;
+    const raw = String(value || '').trim();
+    if (raw === '') {
+        item.unitPrice = null;
+        item.displayPrice = item.isMarketPrice ? 'Market Price' : '$0.00';
+    } else {
+        const n = parseFloat(raw);
+        if (isNaN(n) || n < 0) return;
+        item.unitPrice = n;
+        item.displayPrice = '$' + n.toFixed(2);
+    }
+    renderPlaceOrderItems(true);
 }
 
 function removePlaceOrderItem(index) {
