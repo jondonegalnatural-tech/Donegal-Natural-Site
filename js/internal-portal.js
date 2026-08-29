@@ -729,7 +729,7 @@ async function updateDashboardAchCounts() {
     });
 
     const fmt = (n) => '$' + Math.round(n).toLocaleString();
-    const fmt = (n) => '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
     if (ytdEl) ytdEl.textContent = fmt(ytdTotal);
     if (mtdEl) mtdEl.textContent = fmt(mtdTotal);
     if (wtdEl) wtdEl.textContent = fmt(wtdTotal);
