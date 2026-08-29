@@ -7278,18 +7278,26 @@ async function initCustomerMap() {
     initCustomerMap._run = (initCustomerMap._run || 0) + 1;
     const runId = initCustomerMap._run;
 
-    if (!customerMap) {
+    const mapsLib = await google.maps.importLibrary('maps');
+    const markerLib = await google.maps.importLibrary('marker');
+    const GoogleMap = mapsLib.Map;
+    const AdvancedMarkerElement = markerLib.AdvancedMarkerElement;
+
+    if (!customerMap || !initCustomerMap._advanced) {
         mapContainer.style.minHeight = '450px';
-        customerMap = new google.maps.Map(mapContainer, {
+        mapContainer.innerHTML = '';
+        customerMap = new GoogleMap(mapContainer, {
             center: { lat: 39.5, lng: -80 },
             zoom: 5,
+            mapId: 'DEMO_MAP_ID',
             mapTypeControl: false,
             streetViewControl: false,
             fullscreenControl: true
         });
         window._customerMapMarkers = [];
+        initCustomerMap._advanced = true;
     } else if (window._customerMapMarkers) {
-        window._customerMapMarkers.forEach(function (m) { m.setMap(null); });
+        window._customerMapMarkers.forEach(function (m) { m.map = null; });
         window._customerMapMarkers = [];
     }
 
@@ -7298,8 +7306,11 @@ async function initCustomerMap() {
 
     function addPin(customer, addr, coords) {
         if (runId !== initCustomerMap._run) return;
-        const marker = new google.maps.Marker({
-            position: { lat: coords.lat, lng: coords.lng },
+        const lat = Number(coords.lat);
+        const lng = Number(coords.lng);
+        if (!isFinite(lat) || !isFinite(lng)) return;
+        const marker = new AdvancedMarkerElement({
+            position: { lat: lat, lng: lng },
             map: customerMap,
             title: customer.name || customer.company || 'Customer'
         });
@@ -7312,10 +7323,11 @@ async function initCustomerMap() {
                 escapeHtml(addr || '') +
                 '</div>'
         });
-        marker.addListener('click', function () {
-            info.open({ map: customerMap, anchor: marker });
+        marker.addEventListener('gmp-click', function () {
+            info.setPosition({ lat: lat, lng: lng });
+            info.open(customerMap);
         });
-        boundsObj.extend({ lat: coords.lat, lng: coords.lng });
+        boundsObj.extend({ lat: lat, lng: lng });
         pinCount += 1;
     }
 
