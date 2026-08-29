@@ -2964,7 +2964,7 @@ async function loadOrders() {
     try {
         const { data, error } = await supabaseClient
             .from('orders')
-            .select('id, source, status, submitted_at, customer_name, customer_email, customer_company, salesman_name, salesman_email, notes, shipping_cost, credit, items, tracking_number, carrier, delivered_at, payment_status, paid_at, portal_commission_rate')
+            .select('id, source, status, submitted_at, customer_id, invoice_number, customer_name, customer_email, customer_company, salesman_name, salesman_email, notes, shipping_cost, credit, items, tracking_number, carrier, delivered_at, payment_status, paid_at, portal_commission_rate')
             .order('submitted_at', { ascending: false });
 
         if (error) {
@@ -2977,6 +2977,8 @@ async function loadOrders() {
                 source: o.source,
                 status: o.status,
                 submittedAt: o.submitted_at,
+                customerId: o.customer_id || null,
+                invoiceNumber: o.invoice_number || null,
                 customer: o.customer_name,
                 customerEmail: o.customer_email,
                 customerCompany: o.customer_company,
@@ -6538,17 +6540,21 @@ async function deleteCustomer() {
     }
 }
 
-function viewCustomerOrders() {
-    const customerName = document.getElementById('modal-customer-name').textContent;
+async function viewCustomerOrders() {
+    const customerName = (document.getElementById('modal-customer-name')?.textContent || '').trim();
+    const customerId = document.getElementById('customer-modal')?.dataset?.customerId || '';
     hideCustomerModal();
-    showSection('orders');
 
-    // Filter orders to show only this customer's orders
-    setTimeout(() => {
-        if (typeof filterOrdersByCustomer === 'function') {
-            filterOrdersByCustomer(customerName);
-        }
-    }, 100);
+    if (typeof closeMobileSidebar === 'function') closeMobileSidebar();
+    document.querySelectorAll('.content-section').forEach(el => { el.style.display = 'none'; });
+    const target = document.getElementById('orders');
+    if (target) target.style.display = 'block';
+
+    if (typeof showAllOrders === 'function') showAllOrders();
+    if (!allOrders || !allOrders.length) {
+        if (typeof loadOrders === 'function') await loadOrders();
+    }
+    filterOrdersByCustomer(customerName, customerId);
 }
 
 async function loadCustomerChangeRequests() {
@@ -11786,7 +11792,7 @@ function openBackOrderFulfillInvoice(groupKey, fulfilledItems) {
 // Framework stub only — future auto-create when inventory would go negative
 // function maybeAutoCreateBackOrderFromInventory(productName, requestedQty) { ... }
 
-function filterOrdersByCustomer(customerName) {
+function filterOrdersByCustomer(customerName, customerId) {
     const container = document.getElementById('orders-table');
     const empty = document.getElementById('orders-empty');
     const summaryCards = document.querySelector('#orders .grid-cols-1.md\\:grid-cols-3');
@@ -11796,9 +11802,21 @@ function filterOrdersByCustomer(customerName) {
     // Hide the general customer summary cards
     if (summaryCards) summaryCards.style.display = 'none';
 
-    const customerOrders = allOrders.filter(order =>
-        order.customer && order.customer.toLowerCase() === customerName.toLowerCase()
-    );
+    const customerRow = (typeof allCustomers !== 'undefined')
+        ? allCustomers.find(c =>
+            (customerId && String(c.id) === String(customerId)) ||
+            (customerName && c.name === customerName)
+          )
+        : null;
+    const email = (customerRow && customerRow.email ? String(customerRow.email) : '').toLowerCase().trim();
+    const name = (customerName || (customerRow && customerRow.name) || '').toLowerCase().trim();
+
+    const customerOrders = allOrders.filter(order => {
+        if (customerId && order.customerId && String(order.customerId) === String(customerId)) return true;
+        if (email && order.customerEmail && String(order.customerEmail).toLowerCase() === email) return true;
+        if (name && order.customer && String(order.customer).toLowerCase() === name) return true;
+        return false;
+    });
 
     container.innerHTML = '';
 
