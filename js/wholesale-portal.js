@@ -4635,6 +4635,16 @@ function openQuoteConfirmModal() {
             || 'No shipping address on file';
     }
 
+    const accounts = window._customerAccounts || [];
+    const isMultiStore = accounts.length > 1;
+    const storeName = (customer && (customer.company || customer.name)) || 'Selected store';
+    const storeBlock = isMultiStore ? `
+                <div style="margin:0 0 16px;padding:12px 16px;background:#f8f4eb;border:2px solid #6B4423;border-radius:12px;">
+                    <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 4px;">Ordering for</p>
+                    <p style="font-size:16px;font-weight:700;color:#1E4D2B;margin:0;">${escapeHtml(storeName)}</p>
+                </div>
+    ` : '';
+
     let pricedTotal = 0;
     let hasMarket = false;
     let rows = '';
@@ -4673,6 +4683,7 @@ function openQuoteConfirmModal() {
                 <button type="button" onclick="hideQuoteConfirmModal()" style="border:none;background:none;font-size:1.5rem;color:#6B4423;cursor:pointer;line-height:1;">&times;</button>
             </div>
             <div style="padding:16px 20px;">
+                ${storeBlock}
                 <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 4px;">Shipping Address</p>
                 <p style="font-size:14px;color:#1E4D2B;white-space:pre-line;margin:0 0 16px;">${escapeHtml(shipText)}</p>
 
