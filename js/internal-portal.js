@@ -4608,6 +4608,9 @@ function toggleWalkInOrderFields() {
     const wrap = document.getElementById('walkin-order-fields');
     if (!wrap) return;
     wrap.classList.toggle('hidden', !sel || sel.value !== '__walkin__');
+    if (typeof renderNewOrderSelectedList === 'function') {
+        renderNewOrderSelectedList(true);
+    }
 }
 
 function hideAddOrderModal() {
@@ -4663,7 +4666,19 @@ function selectOrderProduct(productName) {
         return;
     }
 
-    newOrderSelectedProducts.push({ name: productName, quantity: 1 });
+    const catalog = (typeof PRODUCT_CATALOG !== 'undefined')
+        ? PRODUCT_CATALOG.find(c => c.name === productName)
+        : null;
+    newOrderSelectedProducts.push({
+        name: productName,
+        quantity: 1,
+        caseSize: catalog?.caseSize || '',
+        unitPrice: catalog && !catalog.isMarketPrice ? Number(catalog.unitPrice) : null,
+        displayPrice: catalog
+            ? (catalog.isMarketPrice ? 'Market Price' : ('$' + Number(catalog.unitPrice).toFixed(2)))
+            : '',
+        isMarketPrice: !!(catalog && catalog.isMarketPrice)
+    });
 
     // Clear search
     const searchEl = document.getElementById('new-order-product-search');
@@ -4677,7 +4692,7 @@ function selectOrderProduct(productName) {
     renderNewOrderSelectedList();
 }
 
-function renderNewOrderSelectedList() {
+function renderNewOrderSelectedList(skipFocus) {
     const list = document.getElementById('new-order-selected-list');
     if (!list) return;
 
@@ -4686,29 +4701,32 @@ function renderNewOrderSelectedList() {
         return;
     }
 
+    const isWalkIn = (document.getElementById('new-order-customer')?.value || '') === '__walkin__';
+
     list.innerHTML = newOrderSelectedProducts.map((p, index) => {
-        const catalogItem = (typeof PRODUCT_CATALOG !== 'undefined')
-            ? PRODUCT_CATALOG.find(c => c.name === p.name)
-            : null;
-        const caseSize = catalogItem?.caseSize || '—';
-
-        const priceText = catalogItem
-            ? (catalogItem.isMarketPrice
-                ? 'Market'
-                : (catalogItem.unitPrice != null
-                    ? ('$' + Number(catalogItem.unitPrice).toFixed(2))
-                    : '—'))
-            : '—';
-
+        const caseSize = p.caseSize || '—';
+        const priceVal = (p.unitPrice != null && p.unitPrice !== '')
+            ? Number(p.unitPrice).toFixed(2)
+            : '';
+        const priceText = p.displayPrice
+            || (p.isMarketPrice ? 'Market' : (priceVal ? ('$' + priceVal) : '—'));
+        const priceField = isWalkIn
+            ? ('<label class="text-xs text-[#6B4423]">$</label>' +
+               '<input type="number" step="0.01" min="0" value="' + priceVal + '" placeholder="0.00" ' +
+               'class="new-order-price w-20 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm text-center" ' +
+               'onchange="updateOrderProductPrice(' + index + ', this.value)">')
+            : '';
+        const sub = isWalkIn ? escapeHtml(caseSize) : (escapeHtml(caseSize) + ' · ' + escapeHtml(priceText));
         return `
             <div class="flex flex-wrap items-center gap-3 bg-white border border-[#6B4423] rounded-xl px-3 py-2">
                 <div class="flex-1 min-w-[140px]">
                     <span class="text-sm font-medium text-[#1E4D2B]">${escapeHtml(p.name)}</span>
-                    <span class="block text-xs text-[#6B4423]">${caseSize} · ${priceText}</span>
+                    <span class="block text-xs text-[#6B4423]">${sub}</span>
                 </div>
+                ${priceField}
                 <label class="text-xs text-[#6B4423]">Units</label>
                 <input type="number" min="1" value="${p.quantity}"
-                       class="w-20 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm text-center"
+                       class="new-order-qty w-20 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm text-center"
                        onchange="updateOrderProductQty(${index}, this.value)">
                 <button type="button" onclick="removeOrderProduct(${index})"
                         class="text-red-600 text-sm px-2 py-1 hover:bg-red-50 rounded-lg">
@@ -4718,12 +4736,13 @@ function renderNewOrderSelectedList() {
         `;
     }).join('');
 
-    // Auto-focus the Units input on the product just added
-    const qtyInputs = list.querySelectorAll('input[type="number"]');
-    if (qtyInputs.length > 0) {
-        const last = qtyInputs[qtyInputs.length - 1];
-        last.focus();
-        last.select();
+    if (!skipFocus) {
+        const qtyInputs = list.querySelectorAll('input.new-order-qty');
+        if (qtyInputs.length > 0) {
+            const last = qtyInputs[qtyInputs.length - 1];
+            last.focus();
+            last.select();
+        }
     }
 }
 
@@ -4733,6 +4752,22 @@ function updateOrderProductQty(index, value) {
     if (newOrderSelectedProducts[index]) {
         newOrderSelectedProducts[index].quantity = qty;
     }
+}
+
+function updateOrderProductPrice(index, value) {
+    const item = newOrderSelectedProducts[index];
+    if (!item) return;
+    const raw = String(value || '').trim();
+    if (raw === '') {
+        item.unitPrice = null;
+        item.displayPrice = item.isMarketPrice ? 'Market Price' : '$0.00';
+    } else {
+        const n = parseFloat(raw);
+        if (isNaN(n) || n < 0) return;
+        item.unitPrice = n;
+        item.displayPrice = '$' + n.toFixed(2);
+    }
+    renderNewOrderSelectedList(true);
 }
 
 function removeOrderProduct(index) {
@@ -4763,15 +4798,20 @@ function openAdminOrderConfirmModal(event) {
                 const catalog = (typeof PRODUCT_CATALOG !== 'undefined')
                     ? PRODUCT_CATALOG.find(c => c.name === p.name)
                     : null;
+                const unitPrice = (p.unitPrice != null && p.unitPrice !== '')
+                    ? Number(p.unitPrice)
+                    : (catalog && !catalog.isMarketPrice ? catalog.unitPrice : null);
+                const displayPrice = p.displayPrice
+                    || (catalog
+                        ? (catalog.isMarketPrice ? 'Market Price' : ('$' + Number(catalog.unitPrice).toFixed(2)))
+                        : '');
                 return {
                     product: p.name,
                     quantity: p.quantity || 1,
-                    caseSize: catalog?.caseSize || '',
-                    unitPrice: catalog && !catalog.isMarketPrice ? catalog.unitPrice : null,
-                    displayPrice: catalog
-                        ? (catalog.isMarketPrice ? 'Market Price' : ('$' + Number(catalog.unitPrice).toFixed(2)))
-                        : '',
-                    isMarketPrice: !!(catalog && catalog.isMarketPrice)
+                    caseSize: p.caseSize || catalog?.caseSize || '',
+                    unitPrice: unitPrice,
+                    displayPrice: displayPrice,
+                    isMarketPrice: (p.isMarketPrice != null) ? !!p.isMarketPrice : !!(catalog && catalog.isMarketPrice)
                 };
             });
     } else {
@@ -4920,15 +4960,20 @@ async function saveNewOrder(event) {
                 const catalog = (typeof PRODUCT_CATALOG !== 'undefined')
                     ? PRODUCT_CATALOG.find(c => c.name === p.name)
                     : null;
+                const unitPrice = (p.unitPrice != null && p.unitPrice !== '')
+                    ? Number(p.unitPrice)
+                    : (catalog && !catalog.isMarketPrice ? catalog.unitPrice : null);
+                const displayPrice = p.displayPrice
+                    || (catalog
+                        ? (catalog.isMarketPrice ? 'Market Price' : ('$' + Number(catalog.unitPrice).toFixed(2)))
+                        : '');
                 return {
                     product: p.name,
                     quantity: p.quantity || 1,
-                    caseSize: catalog?.caseSize || '',
-                    unitPrice: catalog && !catalog.isMarketPrice ? catalog.unitPrice : null,
-                    displayPrice: catalog
-                        ? (catalog.isMarketPrice ? 'Market Price' : ('$' + Number(catalog.unitPrice).toFixed(2)))
-                        : '',
-                    isMarketPrice: !!(catalog && catalog.isMarketPrice)
+                    caseSize: p.caseSize || catalog?.caseSize || '',
+                    unitPrice: unitPrice,
+                    displayPrice: displayPrice,
+                    isMarketPrice: (p.isMarketPrice != null) ? !!p.isMarketPrice : !!(catalog && catalog.isMarketPrice)
                 };
             });
     } else {
@@ -5061,15 +5106,20 @@ async function saveNewOrder(event) {
                 const catalog = (typeof PRODUCT_CATALOG !== 'undefined')
                     ? PRODUCT_CATALOG.find(c => c.name === p.name)
                     : null;
+                const unitPrice = (p.unitPrice != null && p.unitPrice !== '')
+                    ? Number(p.unitPrice)
+                    : (catalog && !catalog.isMarketPrice ? catalog.unitPrice : null);
+                const displayPrice = p.displayPrice
+                    || (catalog
+                        ? (catalog.isMarketPrice ? 'Market Price' : ('$' + Number(catalog.unitPrice).toFixed(2)))
+                        : '');
                 return {
                     product: p.name,
                     quantity: p.quantity || 1,
-                    caseSize: catalog?.caseSize || '',
-                    unitPrice: catalog && !catalog.isMarketPrice ? catalog.unitPrice : null,
-                    displayPrice: catalog
-                        ? (catalog.isMarketPrice ? 'Market Price' : ('$' + Number(catalog.unitPrice).toFixed(2)))
-                        : '',
-                    isMarketPrice: !!(catalog && catalog.isMarketPrice)
+                    caseSize: p.caseSize || catalog?.caseSize || '',
+                    unitPrice: unitPrice,
+                    displayPrice: displayPrice,
+                    isMarketPrice: (p.isMarketPrice != null) ? !!p.isMarketPrice : !!(catalog && catalog.isMarketPrice)
                 };
             });
     } else {
