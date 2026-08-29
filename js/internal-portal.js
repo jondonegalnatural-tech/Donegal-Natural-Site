@@ -5574,9 +5574,25 @@ function renderCustomers() {
 
     if (filteredCustomers.length === 0) {
         container.innerHTML = `
+            <div class="col-span-full bg-[#f8f4eb] border-2 border-[#6B4423] rounded-2xl p-4 mb-4">
+                <div class="flex gap-2">
+                    <button type="button" onclick="setCustomerMassFilter('all')"
+                            class="px-3 py-1 text-xs font-semibold rounded-full border-2 ${customerMassFilter === 'all' ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]' : 'border-[#6B4423] text-[#6B4423] hover:bg-white'}">
+                        All
+                    </button>
+                    <button type="button" onclick="setCustomerMassFilter('unassigned')"
+                            class="px-3 py-1 text-xs font-semibold rounded-full border-2 ${customerMassFilter === 'unassigned' ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]' : 'border-[#6B4423] text-[#6B4423] hover:bg-white'}">
+                        Unassigned
+                    </button>
+                </div>
+            </div>
             <div class="col-span-full text-center py-12">
                 <i class="fas fa-users text-6xl text-[#d4b78f] mb-4"></i>
-                <p class="text-[#6B4423]">No customers found.</p>
+                <p class="text-[#6B4423]">${customerMassFilter === 'unassigned' ? 'No unassigned customers.' : 'No customers found.'}</p>
+                <button type="button" onclick="setCustomerMassFilter('all')"
+                        class="mt-4 px-4 py-2 text-sm font-semibold rounded-xl bg-[#1E4D2B] text-[#d4b78f]">
+                    Show all customers
+                </button>
             </div>
         `;
         return;
