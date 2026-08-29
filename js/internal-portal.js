@@ -7258,46 +7258,142 @@ function resolveCustomerMapAddress(customer, shipRows) {
     return cleaned || String(raw).trim();
 }
 
-function createCustomerPinOverlay(map, position, title, html) {
-    class CustomerPinOverlay extends google.maps.OverlayView {
-        constructor() {
-            super();
-            this.position = position;
+async function initCustomerMap() {
+    const mapContainer = document.getElementById('customer-map');
+    const statusEl = document.getElementById('customer-map-status');
+    if (!mapContainer) return;
+
+    if (!window.google || !google.maps || !google.maps.Map) {
+        initCustomerMap._tries = (initCustomerMap._tries || 0) + 1;
+        if (initCustomerMap._tries > 20) {
+            if (statusEl) statusEl.textContent = 'Google Maps did not load. Check the API key.';
+            return;
         }
-        onAdd() {
-            this.el = document.createElement('div');
-            this.el.title = title || '';
-            this.el.style.cssText = 'position:absolute;transform:translate(-50%,-100%);cursor:pointer;z-index:20;';
-            this.el.innerHTML = '<div style="width:16px;height:16px;background:#1E4D2B;border:2px solid #d4b78f;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 1px 4px rgba(0,0,0,.35);"></div>';
-            const self = this;
-            this.el.addEventListener('click', function () {
-                const info = new google.maps.InfoWindow({
-                    content: html,
-                    position: self.position
-                });
-                info.open(map);
-            });
-            this.getPanes().overlayMouseTarget.appendChild(this.el);
-        }
-        draw() {
-            if (!this.el) return;
-            const proj = this.getProjection();
-            if (!proj) return;
-            const point = proj.fromLatLngToDivPixel(
-                new google.maps.LatLng(this.position.lat, this.position.lng)
-            );
-            if (!point) return;
-            this.el.style.left = point.x + 'px';
-            this.el.style.top = point.y + 'px';
-        }
-        onRemove() {
-            if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
-            this.el = null;
-        }
+        if (statusEl) statusEl.textContent = 'Loading Google Maps…';
+        setTimeout(function () { initCustomerMap(); }, 300);
+        return;
     }
-    const overlay = new CustomerPinOverlay();
-    overlay.setMap(map);
-    return overlay;
+    initCustomerMap._tries = 0;
+
+    if (initCustomerMap._busy) return;
+    initCustomerMap._busy = true;
+
+    try {
+        if (window._customerMapMarkers && window._customerMapMarkers.length) {
+            window._customerMapMarkers.forEach(function (m) {
+                if (m && typeof m.setMap === 'function') m.setMap(null);
+            });
+        }
+        window._customerMapMarkers = [];
+        mapContainer.innerHTML = '';
+        customerMap = new google.maps.Map(mapContainer, {
+            center: { lat: 27.8, lng: -81.7 },
+            zoom: 6,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: true
+        });
+
+        await new Promise(function (resolve) {
+            google.maps.event.addListenerOnce(customerMap, 'idle', resolve);
+            setTimeout(resolve, 1200);
+        });
+
+        const pinIcon = {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="36" viewBox="0 0 24 36">' +
+                '<path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24C24 5.4 18.6 0 12 0z" fill="#1E4D2B"/>' +
+                '<circle cx="12" cy="12" r="5" fill="#d4b78f"/>' +
+                '</svg>'
+            ),
+            scaledSize: new google.maps.Size(24, 36),
+            anchor: new google.maps.Point(12, 36)
+        };
+
+        if (!allCustomers || allCustomers.length === 0) {
+            await loadCustomers();
+        }
+
+        const shipRows = {};
+        try {
+            const { data: ships, error: shipErr } = await supabaseClient
+                .from('customer_shipping_addresses')
+                .select('customer_id, address_line1, city, state, zip, is_default');
+            if (!shipErr) {
+                (ships || []).forEach(function (row) {
+                    const id = String(row.customer_id);
+                    if (!shipRows[id] || row.is_default) shipRows[id] = row;
+                });
+            }
+        } catch (err) {
+            console.warn('customer_shipping_addresses for map:', err);
+        }
+
+        const cache = getGeocodeCache();
+        const rows = (allCustomers || []).map(function (c) {
+            return { customer: c, addr: resolveCustomerMapAddress(c, shipRows) };
+        }).filter(function (row) {
+            return !!String(row.addr || '').trim();
+        });
+
+        const boundsObj = new google.maps.LatLngBounds();
+        let pinCount = 0;
+
+        function addPin(customer, addr, coords) {
+            const lat = Number(coords.lat);
+            const lng = Number(coords.lng);
+            if (!isFinite(lat) || !isFinite(lng)) return;
+            const marker = new google.maps.Marker({
+                position: { lat: lat, lng: lng },
+                map: customerMap,
+                title: customer.name || customer.company || 'Customer',
+                icon: pinIcon
+            });
+            const info = new google.maps.InfoWindow({
+                content:
+                    '<div style="color:#1E4D2B;max-width:240px;">' +
+                    '<strong>' + escapeHtml(customer.name || 'Customer') + '</strong><br>' +
+                    escapeHtml(customer.company || '') + '<br>' +
+                    escapeHtml(addr || '') +
+                    '</div>'
+            });
+            marker.addListener('click', function () {
+                info.open(customerMap, marker);
+            });
+            window._customerMapMarkers.push(marker);
+            boundsObj.extend({ lat: lat, lng: lng });
+            pinCount += 1;
+        }
+
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const key = normalizeAddressKey(row.addr);
+            let coords = null;
+            if (cache[key] && cache[key].lat != null && cache[key].lng != null && !cache[key].failed) {
+                coords = { lat: cache[key].lat, lng: cache[key].lng };
+            } else {
+                if (statusEl) {
+                    statusEl.textContent = 'Geocoding ' + (i + 1) + ' of ' + rows.length + '…';
+                }
+                coords = await geocodeAddress(row.addr);
+                if (i < rows.length - 1) await delay(200);
+            }
+            if (coords) addPin(row.customer, row.addr, coords);
+        }
+
+        if (pinCount > 0) customerMap.fitBounds(boundsObj, 40);
+        if (statusEl) {
+            statusEl.textContent = pinCount
+                ? (pinCount + ' customer location' + (pinCount === 1 ? '' : 's') + ' shown')
+                : 'No geocoded addresses yet';
+        }
+        console.log('customer map pins', pinCount, window._customerMapMarkers.length);
+    } catch (err) {
+        console.error('initCustomerMap failed:', err);
+        if (statusEl) statusEl.textContent = 'Map error: ' + (err.message || err);
+    } finally {
+        initCustomerMap._busy = false;
+    }
 }
 
 async function initCustomerMap() {
