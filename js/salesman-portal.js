@@ -700,6 +700,9 @@ async function renderCustomers() {
                 <div style="color:#6B4423;font-size:0.8rem;margin-bottom:0.6rem;">
                     ${escapeHtml(c.territory || c.status || '')}
                 </div>
+                ${Number(c.salesman_commission_percent) > 0
+                    ? `<div style="margin:0 0 0.5rem;padding:0.35rem 0.5rem;background:#fff7ed;border:2px solid #c2410c;border-radius:8px;color:#c2410c;font-size:0.75rem;font-weight:800;text-align:center;">COMMISSION ${Number(c.salesman_commission_percent)}%</div>`
+                    : ''}
                 ${pricingBadge}
                 <button type="button" onclick="event.stopPropagation(); placeOrderForCustomer('${safeName}')"
                     style="width:100%;background:#1E4D2B;color:#d4b78f;border:2px solid #6B4423;padding:0.55rem;border-radius:8px;font-weight:700;margin-top:0.5rem;">
@@ -712,6 +715,86 @@ async function renderCustomers() {
     } catch (err) {
         console.error(err);
         grid.innerHTML = `<p class="text-sm text-red-600">Error loading customers.</p>`;
+    }
+}
+
+function canEditCustomerCommission() {
+    const user = getCurrentUser() || currentUser;
+    const email = (user && user.email ? String(user.email) : '').toLowerCase().trim();
+    return email === 'jackerman@donegalnatural.com' || !!(user && user.isViewAs) || !!localStorage.getItem('originalAdminUser');
+}
+
+function renderSalesmanCommissionEditor(customer) {
+    let wrap = document.getElementById('sc-commission-wrap');
+    if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.id = 'sc-commission-wrap';
+        wrap.className = 'mt-4 pt-4 border-t border-[#d4b78f]';
+        const notesEl = document.getElementById('sc-notes');
+        if (notesEl && notesEl.parentElement) {
+            notesEl.parentElement.appendChild(wrap);
+        }
+    }
+    if (!wrap) return;
+
+    const current = customer.salesman_commission_percent;
+    const hasCustom = current != null && current !== '' && !isNaN(Number(current));
+
+    if (!canEditCustomerCommission()) {
+        wrap.innerHTML = hasCustom
+            ? ('<p class="text-sm font-extrabold text-orange-700">Commission ' +
+                escapeHtml(String(Number(current))) + '%</p>')
+            : '';
+        return;
+    }
+
+    wrap.innerHTML =
+        '<p class="text-sm font-semibold text-[#1E4D2B] mb-1">Salesman commission</p>' +
+        '<p class="text-xs text-[#6B4423] mb-2">Leave blank for your default rate. Use 20 for a 20% customer.</p>' +
+        '<div class="flex items-center gap-2">' +
+            '<input id="sc-commission-input" type="number" min="0" max="100" step="0.1" ' +
+                'value="' + (hasCustom ? escapeHtml(String(Number(current))) : '') + '" ' +
+                'placeholder="Default" ' +
+                'class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm w-28">' +
+            '<span class="text-sm font-semibold text-[#6B4423]">%</span>' +
+            '<button type="button" onclick="saveSalesmanCustomerCommission()" ' +
+                'class="px-4 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl text-sm font-semibold">Save</button>' +
+        '</div>';
+}
+
+async function saveSalesmanCustomerCommission() {
+    const modal = document.getElementById('salesman-customer-modal');
+    const id = modal && modal.dataset ? modal.dataset.customerId : '';
+    if (!id) {
+        alert('Missing customer.');
+        return;
+    }
+    const raw = (document.getElementById('sc-commission-input')?.value || '').trim();
+    let value = null;
+    if (raw !== '') {
+        value = parseFloat(raw);
+        if (isNaN(value) || value < 0 || value > 100) {
+            alert('Enter a commission between 0 and 100, or leave blank for default.');
+            return;
+        }
+    }
+    try {
+        const { error } = await supabaseClient
+            .from('customers')
+            .update({ salesman_commission_percent: value })
+            .eq('id', id);
+        if (error) throw error;
+        let customer = null;
+        try { customer = JSON.parse(modal.dataset.customerJson || 'null'); } catch (e) { customer = null; }
+        if (customer) {
+            customer.salesman_commission_percent = value;
+            modal.dataset.customerJson = JSON.stringify(customer);
+        }
+        if (typeof renderCustomers === 'function') renderCustomers();
+        alert(value == null ? 'Commission reset to default.' : ('Commission set to ' + value + '%.'));
+    } catch (err) {
+        console.error(err);
+        alert('Could not save commission.\n' + (err.message || ''));
     }
 }
 
@@ -791,6 +874,8 @@ async function showSalesmanCustomerDetail(customer) {
     setText('sc-shipping', customer.shipping_address || customer.shippingAddress);
     setText('sc-billing', customer.billing_address || customer.billingAddress);
     setText('sc-notes', customer.notes || 'No notes.');
+
+    renderSalesmanCommissionEditor(customer);
 
     // Pricing status + button area
     let pricingEl = document.getElementById('sc-pricing-status');
