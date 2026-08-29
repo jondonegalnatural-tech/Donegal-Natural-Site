@@ -4937,9 +4937,7 @@ async function saveNewOrder(event) {
         shipping_cost: 0,
         submitted_at: new Date().toISOString(),
         invoice_number: invoiceNumber,
-        salesman_commission_percent: (customerObj && customerObj.salesman_commission_percent != null && customerObj.salesman_commission_percent !== '')
-            ? Number(customerObj.salesman_commission_percent)
-            : null
+        salesman_commission_percent: null
     };
 
     try {
@@ -5058,9 +5056,7 @@ async function saveNewOrder(event) {
         shipping_cost: 0,
         submitted_at: new Date().toISOString(),
         invoice_number: invoiceNumber,
-        salesman_commission_percent: (customerObj && customerObj.salesman_commission_percent != null && customerObj.salesman_commission_percent !== '')
-            ? Number(customerObj.salesman_commission_percent)
-            : null
+        salesman_commission_percent: null
     };
 
     try {
