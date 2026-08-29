@@ -7275,28 +7275,35 @@ async function initCustomerMap() {
     }
     initCustomerMap._tries = 0;
 
-    if (customerMap) {
-        customerMap = null;
-        mapContainer.innerHTML = '';
-    }
+    initCustomerMap._run = (initCustomerMap._run || 0) + 1;
+    const runId = initCustomerMap._run;
 
-    customerMap = new google.maps.Map(mapContainer, {
-        center: { lat: 39.5, lng: -80 },
-        zoom: 5,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: true
-    });
+    if (!customerMap) {
+        mapContainer.style.minHeight = '450px';
+        customerMap = new google.maps.Map(mapContainer, {
+            center: { lat: 39.5, lng: -80 },
+            zoom: 5,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: true
+        });
+        window._customerMapMarkers = [];
+    } else if (window._customerMapMarkers) {
+        window._customerMapMarkers.forEach(function (m) { m.setMap(null); });
+        window._customerMapMarkers = [];
+    }
 
     const boundsObj = new google.maps.LatLngBounds();
     let pinCount = 0;
 
     function addPin(customer, addr, coords) {
+        if (runId !== initCustomerMap._run) return;
         const marker = new google.maps.Marker({
             position: { lat: coords.lat, lng: coords.lng },
             map: customerMap,
             title: customer.name || customer.company || 'Customer'
         });
+        window._customerMapMarkers.push(marker);
         const info = new google.maps.InfoWindow({
             content:
                 '<div style="color:#1E4D2B;font-family:inherit;max-width:240px;">' +
@@ -7382,6 +7389,11 @@ async function initCustomerMap() {
             ? (pinCount + ' customer location' + (pinCount === 1 ? '' : 's') + ' shown')
             : 'No geocoded addresses yet';
     }
+    setTimeout(function () {
+        if (!customerMap || runId !== initCustomerMap._run) return;
+        google.maps.event.trigger(customerMap, 'resize');
+        if (pinCount > 0 && !boundsObj.isEmpty()) customerMap.fitBounds(boundsObj, 40);
+    }, 200);
 }
 
 function updateReportsSalesSummary() {
