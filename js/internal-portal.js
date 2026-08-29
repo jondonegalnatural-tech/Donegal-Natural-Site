@@ -5791,6 +5791,12 @@ function renderCustomers() {
                                 : ''}
               
                             ${isAchApproved ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-100 text-blue-800">ACH Approved</span>` : ''}
+                                                        ${!customer.pricingApprovedAt ? `
+                                <button type="button"
+                                        onclick="event.stopPropagation(); openSetCustomerPricing('${safeId}')"
+                                        class="px-3 py-1 text-xs font-semibold rounded-full bg-[#1E4D2B] text-[#d4b78f] hover:bg-[#254a2f]">
+                                    Set Pricing
+                                </button>` : ''}
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4 text-sm">
@@ -6338,6 +6344,13 @@ onboardingSection.innerHTML = `
                 : `<i class="fas fa-exclamation-circle mr-1"></i> Not approved — customer cannot see prices`}
         </p>
         ${sheetHtml}
+        ${!isPricingApproved ? `
+            <button type="button"
+                    onclick="approveCustomerPricingAccess()"
+                    class="mt-4 w-full px-4 py-2.5 bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-semibold text-sm hover:bg-[#254a2f]">
+                Approve pricing for this customer
+            </button>
+        ` : ''}
         ${isPricingApproved ? `
             <button type="button"
                     onclick="revokeCustomerPricingAccess()"
@@ -6367,6 +6380,53 @@ function hideEditCustomerModal() {
     if (modal) {
         modal.classList.add('hidden');
         modal.style.display = 'none';
+    }
+}
+
+async function openSetCustomerPricing(customerId) {
+    const customer = (allCustomers || []).find(function (c) {
+        return String(c.id) === String(customerId);
+    });
+    if (!customer) {
+        alert('Customer not found.');
+        return;
+    }
+    if (typeof showCustomerDetail === 'function') {
+        await showCustomerDetail(customer.name);
+    }
+    if (typeof openReportsCustomerPriceSheet === 'function') {
+        openReportsCustomerPriceSheet(customerId);
+    }
+}
+
+async function approveCustomerPricingAccess() {
+    const modal = document.getElementById('customer-modal');
+    const customerId = modal && modal.dataset ? modal.dataset.customerId : '';
+    if (!customerId) {
+        alert('Could not find customer id.');
+        return;
+    }
+    const admin = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    const approvedBy = admin.fullName || admin.name || admin.email || 'Admin';
+    if (!confirm('Unlock prices for this customer using the assigned salesman sheet?')) return;
+    try {
+        const { error } = await supabaseClient
+            .from('customers')
+            .update({
+                pricing_approved_at: new Date().toISOString(),
+                pricing_approved_by: approvedBy
+            })
+            .eq('id', customerId);
+        if (error) throw error;
+        await loadCustomers();
+        const refreshed = allCustomers.find(function (c) {
+            return String(c.id) === String(customerId);
+        });
+        if (refreshed) showCustomerDetail(refreshed.name);
+        alert('Pricing unlocked for this customer.');
+    } catch (err) {
+        console.error(err);
+        alert('Could not unlock pricing.\n' + (err.message || ''));
     }
 }
 
@@ -9599,24 +9659,30 @@ function buildAddressFromParts(street, apt, city, state, zip) {
 function parseAddressBlock(block) {
     const result = { street: '', apt: '', city: '', state: '', zip: '' };
     if (!block) return result;
-    const lines = block.split(/\n/).map(l => l.trim()).filter(Boolean);
+    const lines = String(block).split(/\n/).map(function (l) {
+        return l.trim();
+    }).filter(function (l) {
+        return l && !/^(Google place|Lat|Lng|Place id)\b/i.test(l);
+    });
     if (lines.length === 0) return result;
 
-    // Last line is usually "City, ST ZIP"
-    const last = lines[lines.length - 1];
-    const cityStateZip = last.match(/^(.+?),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/i);
-    if (cityStateZip) {
-        result.city = cityStateZip[1].trim();
-        result.state = cityStateZip[2].toUpperCase();
-        result.zip = cityStateZip[3];
-        lines.pop();
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const cityStateZip = lines[i].match(/^(.+?),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/i);
+        if (cityStateZip) {
+            result.city = cityStateZip[1].trim();
+            result.state = cityStateZip[2].toUpperCase();
+            result.zip = cityStateZip[3];
+            lines.splice(i, 1);
+            break;
+        }
     }
 
     if (lines.length >= 1) result.street = lines[0];
-    if (lines.length >= 2) result.apt = lines[1];
-    // If only one remaining line and no city parsed, treat whole block as free-text street
-    if (!result.city && lines.length === 0 && block) {
-        result.street = block.trim();
+    if (lines.length >= 2 && !/,\s*[A-Z]{2}\s+\d{5}/i.test(lines[1])) {
+        result.apt = lines[1];
+    }
+    if (!result.city && !result.street && block) {
+        result.street = String(block).trim();
     }
     return result;
 }
@@ -9648,7 +9714,7 @@ async function openInquiryApprovalModal(inquiryId) {
 
         // Extract multi-line Shipping block (until next known key or end)
         let shipBlock = '';
-        const shipMatch = notesText.match(/Shipping:\s*([\s\S]*?)(?=\n(?:Billing|Admin notes|Approved by|Assigned salesman|Temp username|Temp password):|$)/i);
+        const shipMatch = notesText.match(/Shipping:\s*([\s\S]*?)(?=\n(?:Billing|Admin notes|Approved by|Assigned salesman|Temp username|Temp password|Google place|Lat|Lng):|$)/i);
         if (shipMatch) shipBlock = shipMatch[1].trim();
 
         let billBlock = '';
