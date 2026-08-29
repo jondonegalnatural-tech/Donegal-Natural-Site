@@ -7258,6 +7258,48 @@ function resolveCustomerMapAddress(customer, shipRows) {
     return cleaned || String(raw).trim();
 }
 
+function createCustomerPinOverlay(map, position, title, html) {
+    class CustomerPinOverlay extends google.maps.OverlayView {
+        constructor() {
+            super();
+            this.position = position;
+        }
+        onAdd() {
+            this.el = document.createElement('div');
+            this.el.title = title || '';
+            this.el.style.cssText = 'position:absolute;transform:translate(-50%,-100%);cursor:pointer;z-index:20;';
+            this.el.innerHTML = '<div style="width:16px;height:16px;background:#1E4D2B;border:2px solid #d4b78f;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 1px 4px rgba(0,0,0,.35);"></div>';
+            const self = this;
+            this.el.addEventListener('click', function () {
+                const info = new google.maps.InfoWindow({
+                    content: html,
+                    position: self.position
+                });
+                info.open(map);
+            });
+            this.getPanes().overlayMouseTarget.appendChild(this.el);
+        }
+        draw() {
+            if (!this.el) return;
+            const proj = this.getProjection();
+            if (!proj) return;
+            const point = proj.fromLatLngToDivPixel(
+                new google.maps.LatLng(this.position.lat, this.position.lng)
+            );
+            if (!point) return;
+            this.el.style.left = point.x + 'px';
+            this.el.style.top = point.y + 'px';
+        }
+        onRemove() {
+            if (this.el && this.el.parentNode) this.el.parentNode.removeChild(this.el);
+            this.el = null;
+        }
+    }
+    const overlay = new CustomerPinOverlay();
+    overlay.setMap(map);
+    return overlay;
+}
+
 async function initCustomerMap() {
     const mapContainer = document.getElementById('customer-map');
     const statusEl = document.getElementById('customer-map-status');
@@ -7297,7 +7339,10 @@ async function initCustomerMap() {
         window._customerMapMarkers = [];
         initCustomerMap._advanced = true;
     } else if (window._customerMapMarkers) {
-        window._customerMapMarkers.forEach(function (m) { m.map = null; });
+        window._customerMapMarkers.forEach(function (m) {
+            if (m && typeof m.setMap === 'function') m.setMap(null);
+            else if (m) m.map = null;
+        });
         window._customerMapMarkers = [];
     }
 
@@ -7309,24 +7354,19 @@ async function initCustomerMap() {
         const lat = Number(coords.lat);
         const lng = Number(coords.lng);
         if (!isFinite(lat) || !isFinite(lng)) return;
-        const marker = new AdvancedMarkerElement({
-            position: { lat: lat, lng: lng },
-            map: customerMap,
-            title: customer.name || customer.company || 'Customer'
-        });
+        const html =
+            '<div style="color:#1E4D2B;font-family:inherit;max-width:240px;">' +
+            '<strong>' + escapeHtml(customer.name || 'Customer') + '</strong><br>' +
+            escapeHtml(customer.company || '') + '<br>' +
+            escapeHtml(addr || '') +
+            '</div>';
+        const marker = createCustomerPinOverlay(
+            customerMap,
+            { lat: lat, lng: lng },
+            customer.name || customer.company || 'Customer',
+            html
+        );
         window._customerMapMarkers.push(marker);
-        const info = new google.maps.InfoWindow({
-            content:
-                '<div style="color:#1E4D2B;font-family:inherit;max-width:240px;">' +
-                '<strong>' + escapeHtml(customer.name || 'Customer') + '</strong><br>' +
-                escapeHtml(customer.company || '') + '<br>' +
-                escapeHtml(addr || '') +
-                '</div>'
-        });
-        marker.addEventListener('gmp-click', function () {
-            info.setPosition({ lat: lat, lng: lng });
-            info.open(customerMap);
-        });
         boundsObj.extend({ lat: lat, lng: lng });
         pinCount += 1;
     }
