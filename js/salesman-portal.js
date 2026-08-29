@@ -718,6 +718,83 @@ async function renderCustomers() {
     }
 }
 
+function renderAttachOpenOrder(customer) {
+    const modal = document.getElementById('salesman-customer-modal');
+    if (!modal || !customer || !customer.id) return;
+
+    let wrap = document.getElementById('sc-attach-order-wrap');
+    if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.id = 'sc-attach-order-wrap';
+        wrap.className = 'mt-4 pt-4 border-t border-[#d4b78f]';
+        const notesEl = document.getElementById('sc-notes');
+        if (notesEl && notesEl.parentElement) {
+            notesEl.parentElement.appendChild(wrap);
+        } else {
+            modal.appendChild(wrap);
+        }
+    }
+
+    wrap.innerHTML =
+        '<p class="text-sm font-semibold text-[#1E4D2B] mb-1">Attach open order</p>' +
+        '<p class="text-xs text-[#6B4423] mb-2">Enter an invoice like DN-AKC95 from a walk-in order. It will show on this customer.</p>' +
+        '<div class="flex items-center gap-2">' +
+            '<input id="sc-attach-invoice" type="text" placeholder="DN-XXXXX" autocomplete="off" ' +
+                'class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm flex-1">' +
+            '<button type="button" onclick="attachOpenOrderToCustomer()" ' +
+                'class="px-4 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl text-sm font-semibold">Attach</button>' +
+        '</div>' +
+        '<p id="sc-attach-status" class="text-xs text-[#6B4423] mt-2"></p>';
+}
+
+async function attachOpenOrderToCustomer() {
+    const modal = document.getElementById('salesman-customer-modal');
+    const customerId = modal && modal.dataset ? modal.dataset.customerId : '';
+    let customer = null;
+    try { customer = JSON.parse(modal?.dataset?.customerJson || 'null'); } catch (e) { customer = null; }
+    const invoice = (document.getElementById('sc-attach-invoice')?.value || '').trim().toUpperCase();
+    const statusEl = document.getElementById('sc-attach-status');
+    if (!customerId || !customer) {
+        alert('Missing customer.');
+        return;
+    }
+    if (!invoice) {
+        alert('Enter an invoice number.');
+        return;
+    }
+    try {
+        const { data: row, error: findErr } = await supabaseClient
+            .from('orders')
+            .select('id, invoice_number, customer_id, customer_name')
+            .ilike('invoice_number', invoice)
+            .maybeSingle();
+        if (findErr) throw findErr;
+        if (!row) {
+            alert('No order found for ' + invoice + '.');
+            return;
+        }
+        if (row.customer_id && String(row.customer_id) !== String(customerId)) {
+            if (!confirm('That invoice is already on another customer. Move it here?')) return;
+        }
+        const { error: updErr } = await supabaseClient
+            .from('orders')
+            .update({
+                customer_id: customerId,
+                customer_name: customer.name || row.customer_name,
+                customer_email: (customer.email || '').toLowerCase() || null,
+                customer_company: customer.company || null
+            })
+            .eq('id', row.id);
+        if (updErr) throw updErr;
+        if (statusEl) statusEl.textContent = invoice + ' attached to ' + (customer.name || 'this customer') + '.';
+        if (typeof renderMyOrders === 'function') renderMyOrders();
+        alert(invoice + ' is now on ' + (customer.name || 'this customer') + '.');
+    } catch (err) {
+        console.error(err);
+        alert('Could not attach order.\n' + (err.message || ''));
+    }
+}
+
 function canEditCustomerCommission() {
     const user = getCurrentUser() || currentUser;
     const email = (user && user.email ? String(user.email) : '').toLowerCase().trim();
@@ -878,6 +955,7 @@ async function showSalesmanCustomerDetail(customer) {
     setText('sc-notes', customer.notes || 'No notes.');
 
     renderSalesmanCommissionEditor(customer);
+    renderAttachOpenOrder(customer);
 
     // Pricing status + button area
     let pricingEl = document.getElementById('sc-pricing-status');
