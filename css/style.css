@@ -574,6 +574,36 @@ h1, h2, h3, h4 {
 }
 gmp-place-autocomplete {
   width: 100%;
+  display: block;
+  color-scheme: light;
+  background-color: var(--cream);
+  border: 1.5px solid var(--border);
+  border-radius: 0.6rem;
+  color: var(--brown);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+}
+gmp-place-autocomplete:focus-within {
+  border-color: var(--brown);
+}
+gmp-place-autocomplete::part(focus-ring) {
+  display: none;
+}
+gmp-place-autocomplete::part(input) {
+  background: transparent;
+  color: var(--brown);
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+}
+gmp-place-autocomplete::part(prediction-list) {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 0.6rem;
+  color: var(--brown);
+}
+gmp-place-autocomplete::part(prediction-item) {
+  color: var(--brown);
+  font-family: var(--font-sans);
 }
 .modal-overlay {
   display: none;

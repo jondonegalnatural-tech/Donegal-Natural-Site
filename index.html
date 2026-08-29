@@ -575,8 +575,10 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
         requestedLanguage: 'en'
       });
       widget.id = 'wi-street-places';
-      widget.setAttribute('placeholder', 'Start typing your street address');
-      widget.style.cssText = 'width:100%; display:block; margin-bottom:.35rem;';
+      widget.setAttribute('placeholder', 'e.g. 1310 Vermont Rd or PO Box 123');
+      widget.setAttribute('no-input-icon', '');
+      widget.setAttribute('no-clear-button', '');
+      widget.style.cssText = 'width:100%; display:block; color-scheme:light; background-color:#f8f1e9; border:1.5px solid #e2d6c5; border-radius:.6rem; color:#6B4423;';
       streetEl.parentElement.insertBefore(widget, streetEl);
       streetEl.classList.add('places-backed');
 
