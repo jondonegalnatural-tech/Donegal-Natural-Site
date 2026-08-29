@@ -4593,7 +4593,8 @@ async function notifyMarshallProforma(order) {
                 shippingCost: order.shippingCost ?? order.shipping_cost ?? 0,
                 credit: order.credit ?? 0,
                 submittedAt: order.submittedAt || order.submitted_at || new Date().toISOString(),
-                source: order.source || 'wholesale'
+                source: order.source || 'wholesale',
+                commissionRate: order.commissionRate || order.salesman_commission_percent || null
             })
         });
         if (!res.ok) {
@@ -4769,7 +4770,10 @@ async function submitQuote() {
         notes: "Submitted via Wholesale Portal",
         shipping_cost: 0,
         submitted_at: new Date().toISOString(),
-        invoice_number: invoiceNumber
+        invoice_number: invoiceNumber,
+        salesman_commission_percent: (customer && customer.salesman_commission_percent != null && customer.salesman_commission_percent !== '')
+            ? Number(customer.salesman_commission_percent)
+            : null
     };
 
     try {
@@ -4795,7 +4799,8 @@ async function submitQuote() {
             shippingCost: payload.shipping_cost || 0,
             credit: 0,
             submittedAt: payload.submitted_at,
-            source: payload.source
+            source: payload.source,
+            commissionRate: payload.salesman_commission_percent || null
         });
 
         quoteItems = [];

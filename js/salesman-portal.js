@@ -1710,7 +1710,8 @@ async function notifyMarshallProforma(order) {
                 shippingCost: order.shippingCost ?? order.shipping_cost ?? 0,
                 credit: order.credit ?? 0,
                 submittedAt: order.submittedAt || order.submitted_at || new Date().toISOString(),
-                source: order.source || 'wholesale'
+                source: order.source || 'wholesale',
+                commissionRate: order.commissionRate || order.salesman_commission_percent || null
             })
         });
         if (!res.ok) {
@@ -1891,7 +1892,10 @@ async function submitPlaceOrder() {
         notes: notes || "Submitted via Salesman Portal",
         shipping_cost: 0,
         submitted_at: new Date().toISOString(),
-        invoice_number: invoiceNumber
+        invoice_number: invoiceNumber,
+        salesman_commission_percent: (customerObj && customerObj.salesman_commission_percent != null && customerObj.salesman_commission_percent !== '')
+            ? Number(customerObj.salesman_commission_percent)
+            : null
     };
 
     try {
@@ -1916,7 +1920,8 @@ async function submitPlaceOrder() {
             shippingCost: payload.shipping_cost || 0,
             credit: 0,
             submittedAt: payload.submitted_at,
-            source: payload.source
+            source: payload.source,
+            commissionRate: payload.salesman_commission_percent || null
         });
 
         hidePlaceOrderModal();
