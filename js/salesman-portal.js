@@ -1430,7 +1430,33 @@ async function saveCustomerPricing() {
 let currentPlaceOrderCustomer = null;
 let placeOrderItems = []; // { name, quantity, caseSize, unitPrice, isMarketPrice }
 
+function openWalkInPlaceOrder() {
+    currentPlaceOrderCustomer = { id: null, walkIn: true, name: '' };
+    placeOrderItems = [];
+    const nameEl = document.getElementById('place-order-customer-name');
+    if (nameEl) nameEl.textContent = 'Walk-in / open order';
+    const shipEl = document.getElementById('place-order-shipping');
+    if (shipEl) shipEl.textContent = 'Entered on this form';
+    const walk = document.getElementById('place-order-walkin-fields');
+    if (walk) walk.classList.remove('hidden');
+    ['po-walkin-name','po-walkin-company','po-walkin-email','po-walkin-phone','po-walkin-address','po-walkin-commission'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    const totalEl = document.getElementById('place-order-total');
+    if (totalEl) totalEl.textContent = '$0.00';
+    const list = document.getElementById('place-order-items-list');
+    if (list) list.innerHTML = '';
+    const modal = document.getElementById('place-order-modal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+    }
+}
+
 function placeOrderForCustomer(customerName) {
+    const walk = document.getElementById('place-order-walkin-fields');
+    if (walk) walk.classList.add('hidden');
     // Prefer full customer object when available so shipping/email work
     let customerObj = null;
     if (typeof customerName === 'object' && customerName) {
@@ -1866,14 +1892,33 @@ async function submitPlaceOrder() {
     const customerObj = (currentPlaceOrderCustomer && typeof currentPlaceOrderCustomer === "object")
         ? currentPlaceOrderCustomer
         : null;
+    const isWalkIn = !!(customerObj && customerObj.walkIn);
+    const walkInName = (document.getElementById('po-walkin-name')?.value || '').trim();
+    const walkInCompany = (document.getElementById('po-walkin-company')?.value || '').trim();
+    const walkInEmail = (document.getElementById('po-walkin-email')?.value || '').trim();
+    const walkInPhone = (document.getElementById('po-walkin-phone')?.value || '').trim();
+    const walkInAddress = (document.getElementById('po-walkin-address')?.value || '').trim();
+    const walkInCommissionRaw = (document.getElementById('po-walkin-commission')?.value || '').trim();
+    let walkInCommission = null;
+    if (walkInCommissionRaw !== '') {
+        walkInCommission = parseFloat(walkInCommissionRaw);
+        if (isNaN(walkInCommission) || walkInCommission < 0 || walkInCommission > 100) {
+            alert('Commission must be between 0 and 100, or blank.');
+            return;
+        }
+    }
+    if (isWalkIn && !walkInName) {
+        alert('Enter a customer name for this open order.');
+        return;
+    }
 
     const invoiceNumber = generateInvoiceNumber();
 
     const payload = {
-        customer_id: customerObj?.id || null,
-        customer_name: nameFromField,
-        customer_email: (customerObj?.email || "").toLowerCase().trim() || null,
-        customer_company: customerObj?.company || null,
+        customer_id: isWalkIn ? null : (customerObj?.id || null),
+        customer_name: isWalkIn ? walkInName : nameFromField,
+        customer_email: isWalkIn ? (walkInEmail.toLowerCase() || null) : ((customerObj?.email || "").toLowerCase().trim() || null),
+        customer_company: isWalkIn ? (walkInCompany || null) : (customerObj?.company || null),
         salesman_email: (user.email || "").toLowerCase().trim(),
         salesman_name: user.fullName || user.name || "Salesman",
         status: "submitted",
@@ -1886,13 +1931,17 @@ async function submitPlaceOrder() {
             displayPrice: item.displayPrice || "",
             isMarketPrice: !!item.isMarketPrice
         })),
-        notes: notes || "Submitted via Salesman Portal",
+        notes: (notes || "Submitted via Salesman Portal") +
+            (isWalkIn && walkInPhone ? ("\nPhone: " + walkInPhone) : "") +
+            (isWalkIn && walkInAddress ? ("\nAddress: " + walkInAddress) : ""),
         shipping_cost: 0,
         submitted_at: new Date().toISOString(),
         invoice_number: invoiceNumber,
-        salesman_commission_percent: (customerObj && customerObj.salesman_commission_percent != null && customerObj.salesman_commission_percent !== '')
-            ? Number(customerObj.salesman_commission_percent)
-            : null
+        salesman_commission_percent: isWalkIn
+            ? walkInCommission
+            : ((customerObj && customerObj.salesman_commission_percent != null && customerObj.salesman_commission_percent !== '')
+                ? Number(customerObj.salesman_commission_percent)
+                : null)
     };
 
     try {

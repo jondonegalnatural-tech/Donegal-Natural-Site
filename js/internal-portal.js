@@ -4564,6 +4564,7 @@ async function showAddOrderModal() {
     const customerSelect = document.getElementById('new-order-customer');
     if (customerSelect) {
         customerSelect.innerHTML = '<option value="">Select customer...</option>' +
+            '<option value="__walkin__">No customer (walk-in / open order)</option>' +
             allCustomers.map(c =>
                 `<option value="${escapeHtml(c.name || '')}">${escapeHtml(c.name || '')}${c.company ? ' — ' + escapeHtml(c.company) : ''}</option>`
             ).join('');
@@ -4598,6 +4599,13 @@ if (!Array.isArray(salesmen) || salesmen.length === 0) {
     newOrderSelectedProducts = [];
     renderNewOrderSelectedList();
     modal.classList.remove('hidden');
+}
+
+function toggleWalkInOrderFields() {
+    const sel = document.getElementById('new-order-customer');
+    const wrap = document.getElementById('walkin-order-fields');
+    if (!wrap) return;
+    wrap.classList.toggle('hidden', !sel || sel.value !== '__walkin__');
 }
 
 function hideAddOrderModal() {
@@ -4874,8 +4882,27 @@ async function saveNewOrder(event) {
     const salesman = (document.getElementById('new-order-salesman')?.value || '').trim();
     const notes = (document.getElementById('new-order-notes')?.value || '').trim();
 
+    const isWalkIn = customer === '__walkin__';
+    const walkInName = (document.getElementById('walkin-name')?.value || '').trim();
+    const walkInCompany = (document.getElementById('walkin-company')?.value || '').trim();
+    const walkInEmail = (document.getElementById('walkin-email')?.value || '').trim();
+    const walkInPhone = (document.getElementById('walkin-phone')?.value || '').trim();
+    const walkInAddress = (document.getElementById('walkin-address')?.value || '').trim();
+    const walkInCommissionRaw = (document.getElementById('walkin-commission')?.value || '').trim();
+    let walkInCommission = null;
+    if (walkInCommissionRaw !== '') {
+        walkInCommission = parseFloat(walkInCommissionRaw);
+        if (isNaN(walkInCommission) || walkInCommission < 0 || walkInCommission > 100) {
+            alert('Commission must be between 0 and 100, or blank.');
+            return;
+        }
+    }
     if (!customer) {
-        alert('Please select a customer.');
+        alert('Please select a customer, or choose walk-in / open order.');
+        return;
+    }
+    if (isWalkIn && !walkInName) {
+        alert('Enter a customer name for this open order.');
         return;
     }
 
@@ -4925,9 +4952,9 @@ async function saveNewOrder(event) {
 
     const payload = {
         customer_id: null,
-        customer_name: customer,
-        customer_email: null,
-        customer_company: null,
+        customer_name: isWalkIn ? walkInName : customer,
+        customer_email: isWalkIn ? (walkInEmail.toLowerCase() || null) : null,
+        customer_company: isWalkIn ? (walkInCompany || null) : null,
         salesman_email: null,
         salesman_name: salesman || user.fullName || user.name || 'Admin',
         status: 'submitted',
@@ -4937,7 +4964,7 @@ async function saveNewOrder(event) {
         shipping_cost: 0,
         submitted_at: new Date().toISOString(),
         invoice_number: invoiceNumber,
-        salesman_commission_percent: null
+        salesman_commission_percent: isWalkIn ? walkInCommission : null
     };
 
     try {
@@ -4990,8 +5017,27 @@ async function saveNewOrder(event) {
     const salesman = (document.getElementById('new-order-salesman')?.value || '').trim();
     const notes = (document.getElementById('new-order-notes')?.value || '').trim();
 
+    const isWalkIn = customer === '__walkin__';
+    const walkInName = (document.getElementById('walkin-name')?.value || '').trim();
+    const walkInCompany = (document.getElementById('walkin-company')?.value || '').trim();
+    const walkInEmail = (document.getElementById('walkin-email')?.value || '').trim();
+    const walkInPhone = (document.getElementById('walkin-phone')?.value || '').trim();
+    const walkInAddress = (document.getElementById('walkin-address')?.value || '').trim();
+    const walkInCommissionRaw = (document.getElementById('walkin-commission')?.value || '').trim();
+    let walkInCommission = null;
+    if (walkInCommissionRaw !== '') {
+        walkInCommission = parseFloat(walkInCommissionRaw);
+        if (isNaN(walkInCommission) || walkInCommission < 0 || walkInCommission > 100) {
+            alert('Commission must be between 0 and 100, or blank.');
+            return;
+        }
+    }
     if (!customer) {
-        alert('Please select a customer.');
+        alert('Please select a customer, or choose walk-in / open order.');
+        return;
+    }
+    if (isWalkIn && !walkInName) {
+        alert('Enter a customer name for this open order.');
         return;
     }
 
@@ -5044,9 +5090,9 @@ async function saveNewOrder(event) {
 
     const payload = {
         customer_id: null,
-        customer_name: customer,
-        customer_email: null,
-        customer_company: null,
+        customer_name: isWalkIn ? walkInName : customer,
+        customer_email: isWalkIn ? (walkInEmail.toLowerCase() || null) : null,
+        customer_company: isWalkIn ? (walkInCompany || null) : null,
         salesman_email: null,
         salesman_name: salesman || user.fullName || user.name || 'Admin',
         status: 'submitted',
@@ -5056,7 +5102,7 @@ async function saveNewOrder(event) {
         shipping_cost: 0,
         submitted_at: new Date().toISOString(),
         invoice_number: invoiceNumber,
-        salesman_commission_percent: null
+        salesman_commission_percent: isWalkIn ? walkInCommission : null
     };
 
     try {
