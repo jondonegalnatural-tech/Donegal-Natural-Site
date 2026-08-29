@@ -1181,6 +1181,105 @@ async function deleteSalesman() {
     }
 }
 
+async function resetSalesmanPassword() {
+    const modal = document.getElementById('salesman-modal');
+    const salesmanId = modal?.dataset?.salesmanId;
+    if (!salesmanId) {
+        alert('Could not find salesman id.');
+        return;
+    }
+
+    const salesman = (salesmen || []).find(s => String(s.id) === String(salesmanId));
+    if (!salesman) {
+        alert('Salesman not found.');
+        return;
+    }
+
+    const displayName = salesman.name
+        || [salesman.firstName, salesman.lastName].filter(Boolean).join(' ')
+        || 'this salesman';
+    const email = (salesman.email || '').toLowerCase().trim();
+    const fullName = salesman.name
+        || [salesman.firstName, salesman.lastName].filter(Boolean).join(' ')
+        || email;
+    const territory = salesman.territory || '';
+
+    if (!email || !email.includes('@')) {
+        alert('This salesman has no email on file. Cannot reset the password.');
+        return;
+    }
+    if (email === 'jackerman@donegalnatural.com') {
+        alert('This login is also the admin account. Reset it from Forgot password on the login page instead.');
+        return;
+    }
+
+    if (!confirm(
+        'Reset login password for ' + displayName + ' (' + email + ')?\n\n' +
+        'This emails a new temporary password from noreply@ and forces a password change on next login.\n' +
+        'Their current password will stop working immediately.'
+    )) {
+        return;
+    }
+
+    const btn = document.getElementById('modal-reset-password-btn');
+    if (btn && btn.dataset.busy === '1') return;
+    if (btn) {
+        btn.dataset.busy = '1';
+        btn.disabled = true;
+    }
+
+    try {
+        const fnUrl = SUPABASE_URL + '/functions/v1/create-salesman-user';
+        const fnRes = await fetch(fnUrl, {
+            method: 'POST',
+            headers: await getEdgeFunctionHeaders(),
+            body: JSON.stringify({
+                email: email,
+                full_name: fullName,
+                territory: territory
+            })
+        });
+
+        const fnText = await fnRes.text();
+        let fnData = null;
+        try {
+            fnData = JSON.parse(fnText);
+        } catch (e) {
+            fnData = { error: fnText || 'Empty response' };
+        }
+
+        if (!fnRes.ok || (fnData && fnData.error)) {
+            throw new Error(
+                (fnData && fnData.error) ? fnData.error : ('Function HTTP ' + fnRes.status)
+            );
+        }
+
+        const emailOk = fnData && fnData.email_sent === true;
+        const emailFailReason = (fnData && fnData.email_error) ? String(fnData.email_error) : '';
+        const returnedTemp = (fnData && fnData.temp_password) ? String(fnData.temp_password) : '';
+
+        alert(
+            'Password reset for ' + displayName + '.\n' +
+            'Login: ' + email + '\n\n' +
+            (emailOk
+                ? 'Credentials email was sent from noreply@.\nThey must change the password on first login.'
+                : ('Credentials email was NOT sent.\n' +
+                   (emailFailReason ? ('Reason: ' + emailFailReason + '\n') : '') +
+                   (returnedTemp
+                       ? ('Temporary password (give to salesman):\n' + returnedTemp)
+                       : 'Please check the Edge Function logs.')))
+        );
+    } catch (err) {
+        console.error('resetSalesmanPassword error:', err);
+        alert('Could not reset salesman password.\n\n' + (err.message || String(err)));
+    } finally {
+        if (btn) {
+            btn.dataset.busy = '0';
+            btn.disabled = false;
+        }
+    }
+}
+
 function renderSalesmanOrdersList(salesman) {
     const container = document.getElementById('salesman-orders-list');
     if (!container) return;
@@ -7412,6 +7511,8 @@ function showSalesmanDetail(salesmanId = null) {
     const lastLoginWrap = document.getElementById('modal-last-login-wrap');
     const isJackermanSalesman = (salesman.email || '').toLowerCase().trim() === 'jackerman@donegalnatural.com';
     if (lastLoginWrap) lastLoginWrap.classList.toggle('hidden', isJackermanSalesman);
+    const resetPasswordBtn = document.getElementById('modal-reset-password-btn');
+    if (resetPasswordBtn) resetPasswordBtn.classList.toggle('hidden', isJackermanSalesman);
     if (!isJackermanSalesman) {
         setText(
             'modal-last-login',
