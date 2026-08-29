@@ -1577,7 +1577,7 @@ async function loadSalesmen() {
     try {
         const { data, error } = await supabaseClient
             .from('salesmen')
-.select('id, first_name, last_name, email, territory, commission, market_commission, price_sheet_status, yearly_sales, monthly_sales, active, notes, mailing_address, assigned_products')
+.select('id, first_name, last_name, email, territory, commission, market_commission, price_sheet_status, yearly_sales, monthly_sales, active, notes, mailing_address, assigned_products, last_login_at')
             .order('last_name', { ascending: true });
 
         if (error) throw error;
@@ -1597,6 +1597,7 @@ async function loadSalesmen() {
             active: s.active !== false,
             notes: s.notes || '',
             mailingAddress: s.mailing_address || '',
+            lastLoginAt: s.last_login_at || null,
         }));
     } catch (err) {
         console.error('loadSalesmen error:', err);
@@ -1644,6 +1645,12 @@ async function renderSalesmen() {
                     <div class="min-w-0">
                         <h3 class="text-xl font-bold brand-green truncate">${escapeHtml(s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || 'Unnamed')}</h3>
                         <p class="text-sm text-[#6B4423]">Territory: <strong>${escapeHtml(s.territory || '—')}</strong></p>
+                        ${(s.email || '').toLowerCase().trim() === 'jackerman@donegalnatural.com'
+                            ? ''
+                            : `<p class="text-xs text-[#6B4423] mt-1">Last login: ${
+                                s.lastLoginAt ? new Date(s.lastLoginAt).toLocaleString() : 'Never'
+                            }</p>`}
+                    </div>
                     </div>
                 </div>
                 <button type="button"
@@ -7402,6 +7409,15 @@ function showSalesmanDetail(salesmanId = null) {
 
     setText('modal-salesman-name', displayName);
     setText('modal-territory', salesman.territory || 'N/A');
+    const lastLoginWrap = document.getElementById('modal-last-login-wrap');
+    const isJackermanSalesman = (salesman.email || '').toLowerCase().trim() === 'jackerman@donegalnatural.com';
+    if (lastLoginWrap) lastLoginWrap.classList.toggle('hidden', isJackermanSalesman);
+    if (!isJackermanSalesman) {
+        setText(
+            'modal-last-login',
+            salesman.lastLoginAt ? new Date(salesman.lastLoginAt).toLocaleString() : 'Never'
+        );
+    }
     setText('modal-commission', (salesman.commission != null ? salesman.commission : 8) + '%');
     setText('modal-market-commission', (salesman.marketCommission != null ? salesman.marketCommission : 3) + '%');
 
@@ -12106,7 +12122,7 @@ async function updateDashboardSalesmen() {
     try {
         const { data, error } = await supabaseClient
                         .from('salesmen')
-.select('id, first_name, last_name, email, territory, commission, market_commission, price_sheet_status, yearly_sales, monthly_sales, active, notes, mailing_address, assigned_products')
+.select('id, first_name, last_name, email, territory, commission, market_commission, price_sheet_status, yearly_sales, monthly_sales, active, notes, mailing_address, assigned_products, last_login_at')
             .order('last_name', { ascending: true });
 
         if (error) {
