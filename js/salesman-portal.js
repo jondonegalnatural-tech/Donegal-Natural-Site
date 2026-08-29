@@ -750,24 +750,32 @@ async function renderCustomerOrdersOnSalesmanModal(customer) {
             .order('submitted_at', { ascending: false });
         if (error) throw error;
         const rows = (data || []).filter(o => orderMatchesCustomer(o, customer));
-        let html = '<p class="text-sm font-semibold text-[#1E4D2B] mb-2">Orders (' + rows.length + ')</p>';
-        html += '<button type="button" class="w-full mb-2 px-4 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl text-sm font-semibold" onclick="viewSalesmanCustomerOrders()">View this customer\'s orders</button>';
+        let html = '<p class="text-sm font-semibold text-[#1E4D2B] mb-1">Orders</p>';
         if (!rows.length) {
             html += '<p class="text-xs text-[#6B4423]">No orders for this customer yet.</p>';
         } else {
-            html += rows.map(function (o) {
-                const id = String(o.id || '').replace(/'/g, "\\'");
-                const inv = (typeof displayInvoiceNumber === 'function') ? displayInvoiceNumber(o) : (o.invoice_number || o.id);
-                const when = o.submitted_at ? new Date(o.submitted_at).toLocaleDateString() : '';
-                return '<button type="button" class="w-full text-left text-sm px-3 py-2 mb-1 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]" onclick="openSalesmanOrderInvoice(\'' + id + '\')">' +
-                    escapeHtml(String(inv)) + ' · ' + escapeHtml(when) + ' · ' + escapeHtml(o.status || '') + '</button>';
-            }).join('');
+            html += '<select id="sc-orders-select" class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm" onchange="onSalesmanCustomerOrderPicked(this)">' +
+                '<option value="">View order — date and invoice #</option>' +
+                rows.map(function (o) {
+                    const inv = (typeof displayInvoiceNumber === 'function') ? displayInvoiceNumber(o) : (o.invoice_number || o.id);
+                    const when = o.submitted_at ? new Date(o.submitted_at).toLocaleDateString() : '';
+                    return '<option value="' + escapeHtml(String(o.id || '')) + '">' +
+                        escapeHtml(when) + ' · ' + escapeHtml(String(inv)) + '</option>';
+                }).join('') +
+                '</select>';
         }
         wrap.innerHTML = html;
     } catch (err) {
         console.error(err);
         wrap.innerHTML = '<p class="text-sm text-red-600">Could not load orders.</p>';
     }
+}
+
+function onSalesmanCustomerOrderPicked(sel) {
+    const id = sel && sel.value ? sel.value : '';
+    if (!id) return;
+    if (typeof openSalesmanOrderInvoice === 'function') openSalesmanOrderInvoice(id);
+    sel.selectedIndex = 0;
 }
 
 function viewSalesmanCustomerOrders() {
@@ -1033,7 +1041,8 @@ async function showSalesmanCustomerDetail(customer) {
     setText('sc-notes', customer.notes || 'No notes.');
 
     renderSalesmanCommissionEditor(customer);
-    renderAttachOpenOrder(customer);
+    const oldAttach = document.getElementById('sc-attach-order-wrap');
+    if (oldAttach) oldAttach.remove();
     renderCustomerOrdersOnSalesmanModal(customer);
 
     // Pricing status + button area
