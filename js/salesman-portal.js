@@ -752,7 +752,9 @@ function renderSalesmanCommissionEditor(customer) {
         '<p class="text-sm font-semibold text-[#1E4D2B] mb-1">Salesman commission</p>' +
         '<p class="text-xs text-[#6B4423] mb-2">Leave blank for your default rate. Use 20 for a 20% customer.</p>' +
         '<div class="flex items-center gap-2">' +
-            '<input id="sc-commission-input" type="number" min="0" max="100" step="0.1" ' +
+            '<input id="sc-commission-input" type="text" inputmode="decimal" ' +
+                'name="salesman_commission_pct" autocomplete="off" ' +
+                'data-1p-ignore="true" data-lpignore="true" data-form-type="other" ' +
                 'value="' + (hasCustom ? escapeHtml(String(Number(current))) : '') + '" ' +
                 'placeholder="Default" ' +
                 'class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm w-28">' +
