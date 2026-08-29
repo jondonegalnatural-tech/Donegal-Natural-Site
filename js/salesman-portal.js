@@ -1944,10 +1944,21 @@ function openPlaceOrderConfirmModal() {
         ? currentPlaceOrderCustomer
         : null;
 
+    const isWalkIn = !!(customerObj && customerObj.walkIn);
+    const walkInName = (document.getElementById('po-walkin-name')?.value || '').trim();
+    const walkInStreet = (document.getElementById('po-walkin-street')?.value || '').trim();
+    const walkInCity = (document.getElementById('po-walkin-city')?.value || '').trim();
+    const walkInState = (document.getElementById('po-walkin-state')?.value || '').trim().toUpperCase();
+    const walkInZip = (document.getElementById('po-walkin-zip')?.value || '').trim();
+    const walkInAddress = [
+        walkInStreet,
+        [[walkInCity, walkInState].filter(Boolean).join(', '), walkInZip].filter(Boolean).join(' ')
+    ].filter(Boolean).join('\n');
+    const confirmName = (isWalkIn && walkInName) ? walkInName : nameFromField;
     const shipText = (
-        customerObj?.shipping_address ||
-        customerObj?.shippingAddress ||
-        ''
+        isWalkIn
+            ? walkInAddress
+            : (customerObj?.shipping_address || customerObj?.shippingAddress || '')
     ).trim() || 'No shipping address on file';
 
     let pricedTotal = 0;
@@ -1991,7 +2002,7 @@ function openPlaceOrderConfirmModal() {
             </div>
             <div style="padding:16px 20px;">
                 <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 4px;">Customer</p>
-                <p style="margin:0 0 12px;color:#1E4D2B;font-weight:600;">${escapeHtml(nameFromField)}</p>
+                <p style="margin:0 0 12px;color:#1E4D2B;font-weight:600;">${escapeHtml(confirmName)}</p>
                 <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 4px;">Shipping Address</p>
                 <p style="margin:0 0 16px;color:#1E4D2B;white-space:pre-line;">${escapeHtml(shipText)}</p>
                 <p style="font-size:11px;font-weight:700;color:#6B4423;text-transform:uppercase;margin:0 0 8px;">Items</p>
