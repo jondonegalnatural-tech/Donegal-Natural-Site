@@ -729,7 +729,7 @@ async function updateDashboardAchCounts() {
     });
 
     const fmt = (n) => '$' + Math.round(n).toLocaleString();
-
+    const fmt = (n) => '$' + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     if (ytdEl) ytdEl.textContent = fmt(ytdTotal);
     if (mtdEl) mtdEl.textContent = fmt(mtdTotal);
     if (wtdEl) wtdEl.textContent = fmt(wtdTotal);
@@ -2964,7 +2964,7 @@ async function loadOrders() {
     try {
         const { data, error } = await supabaseClient
             .from('orders')
-            .select('id, source, status, submitted_at, customer_id, invoice_number, customer_name, customer_email, customer_company, salesman_name, salesman_email, notes, shipping_cost, credit, items, tracking_number, carrier, delivered_at, payment_status, paid_at, portal_commission_rate')
+            .select('id, source, status, submitted_at, customer_id, invoice_number, customer_name, customer_email, customer_company, salesman_name, salesman_email, notes, shipping_cost, credit, items, tracking_number, carrier, delivered_at, payment_status, paid_at, portal_commission_rate, salesman_commission_percent')
             .order('submitted_at', { ascending: false });
 
         if (error) {
@@ -2993,7 +2993,10 @@ async function loadOrders() {
                 deliveredAt: o.delivered_at || null,
                 paymentStatus: o.payment_status || null,
                 paidAt: o.paid_at || null,
-                portalCommissionRate: o.portal_commission_rate != null ? Number(o.portal_commission_rate) : 5
+                portalCommissionRate: o.portal_commission_rate != null ? Number(o.portal_commission_rate) : 5,
+                salesmanCommissionPercent: o.salesman_commission_percent != null && o.salesman_commission_percent !== ''
+                    ? Number(o.salesman_commission_percent)
+                    : null
             }));
             ordersLoadedAt = Date.now();
         }
@@ -5015,7 +5018,15 @@ async function saveNewOrder(event) {
         shipping_cost: 0,
         submitted_at: new Date().toISOString(),
         invoice_number: invoiceNumber,
-        salesman_commission_percent: isWalkIn ? walkInCommission : null
+        salesman_commission_percent: isWalkIn ? walkInCommission : (function () {
+            if (typeof allCustomers === 'undefined' || !Array.isArray(allCustomers)) return null;
+            const match = allCustomers.find(c => (c.name || '').trim() === customer);
+            const raw = match && (match.salesmanCommissionPercent != null
+                ? match.salesmanCommissionPercent
+                : match.salesman_commission_percent);
+            if (raw == null || raw === '' || isNaN(Number(raw))) return null;
+            return Number(raw);
+        })()
     };
 
     try {
@@ -5164,7 +5175,15 @@ async function saveNewOrder(event) {
         shipping_cost: 0,
         submitted_at: new Date().toISOString(),
         invoice_number: invoiceNumber,
-        salesman_commission_percent: isWalkIn ? walkInCommission : null
+        salesman_commission_percent: isWalkIn ? walkInCommission : (function () {
+            if (typeof allCustomers === 'undefined' || !Array.isArray(allCustomers)) return null;
+            const match = allCustomers.find(c => (c.name || '').trim() === customer);
+            const raw = match && (match.salesmanCommissionPercent != null
+                ? match.salesmanCommissionPercent
+                : match.salesman_commission_percent);
+            if (raw == null || raw === '' || isNaN(Number(raw))) return null;
+            return Number(raw);
+        })()
     };
 
     try {
@@ -5471,7 +5490,7 @@ async function loadCustomers() {
     try {
         const { data, error } = await supabaseClient
             .from('customers')
-            .select('id, name, company, email, phone, shipping_address, billing_address, notes, status, source, submitted_by, submitted_by_email, salesman_email, territory, created_at, payment_method, payment_method_status, password_changed, onboarding_complete, pricing_approved_at, pricing_approved_by, assigned_at, last_login_at')
+            .select('id, name, company, email, phone, shipping_address, billing_address, notes, status, source, submitted_by, submitted_by_email, salesman_email, territory, created_at, payment_method, payment_method_status, password_changed, onboarding_complete, pricing_approved_at, pricing_approved_by, assigned_at, last_login_at, salesman_commission_percent')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -5503,6 +5522,9 @@ async function loadCustomers() {
                 pricingApprovedBy: c.pricing_approved_by || null,
                 assignedAt: c.assigned_at || null,
                 lastLoginAt: c.last_login_at || null,
+                salesmanCommissionPercent: c.salesman_commission_percent != null && c.salesman_commission_percent !== ''
+                    ? Number(c.salesman_commission_percent)
+                    : null,
             }));
         }
     } catch (err) {
@@ -12175,6 +12197,12 @@ function isJonathanAdmin() {
     }
 }
 
+function getOrderCommissionPercent(order) {
+    const raw = order.salesmanCommissionPercent ?? order.salesman_commission_percent ?? order.commissionRate;
+    if (raw != null && raw !== '' && !isNaN(Number(raw))) return Number(raw);
+    return 5;
+}
+
 function updatePortalCommissionCard() {
     const card = document.getElementById('dash-portal-commission-card');
     const ytdEl = document.getElementById('dash-commission-ytd');
@@ -12210,7 +12238,7 @@ function updatePortalCommissionCard() {
             orderTotal += qty * unit;
         });
 
-        const rate = Number(order.portalCommissionRate) === 10 ? 0.10 : 0.05;
+        const rate = getOrderCommissionPercent(order) / 100;
 
         if (orderDate >= startOfYear) ytdCommission += orderTotal * rate;
         if (orderDate >= startOfMonth) mtdCommission += orderTotal * rate;

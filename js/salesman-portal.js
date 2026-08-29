@@ -868,7 +868,10 @@ async function attachOpenOrderToCustomer() {
                 customer_id: customerId,
                 customer_name: customer.name || row.customer_name,
                 customer_email: (customer.email || '').toLowerCase() || null,
-                customer_company: customer.company || null
+                customer_company: customer.company || null,
+                salesman_commission_percent: (customer.salesman_commission_percent != null && customer.salesman_commission_percent !== '')
+                    ? Number(customer.salesman_commission_percent)
+                    : null
             })
             .eq('id', row.id);
         if (updErr) throw updErr;
@@ -913,7 +916,7 @@ function renderSalesmanCommissionEditor(customer) {
 
     wrap.innerHTML =
         '<p class="text-sm font-semibold text-[#1E4D2B] mb-1">Salesman commission</p>' +
-        '<p class="text-xs text-[#6B4423] mb-2">Leave blank for your default rate. Use 20 for a 20% customer.</p>' +
+        '<p class="text-xs text-[#6B4423] mb-2">Leave blank for the default 5%. Use 20 for a 20% customer.</p>' +
         '<div class="flex items-center gap-2">' +
             '<input id="sc-commission-input" type="text" inputmode="decimal" ' +
                 'name="salesman_commission_pct" autocomplete="off" ' +
@@ -949,6 +952,11 @@ async function saveSalesmanCustomerCommission() {
             .update({ salesman_commission_percent: value })
             .eq('id', id);
         if (error) throw error;
+        const { error: orderErr } = await supabaseClient
+            .from('orders')
+            .update({ salesman_commission_percent: value })
+            .eq('customer_id', id);
+        if (orderErr) throw orderErr;
         let customer = null;
         try { customer = JSON.parse(modal.dataset.customerJson || 'null'); } catch (e) { customer = null; }
         if (customer) {
@@ -2898,7 +2906,10 @@ async function assignOpenOrderFromHistory(orderId) {
                 customer_id: customer.id,
                 customer_name: customer.name || null,
                 customer_email: (customer.email || '').toLowerCase() || null,
-                customer_company: customer.company || null
+                customer_company: customer.company || null,
+                salesman_commission_percent: (customer.salesman_commission_percent != null && customer.salesman_commission_percent !== '')
+                    ? Number(customer.salesman_commission_percent)
+                    : null
             })
             .eq('id', orderId);
         if (error) throw error;
