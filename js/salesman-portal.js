@@ -1605,6 +1605,8 @@ let currentPlaceOrderCustomer = null;
 let placeOrderItems = []; // { name, quantity, caseSize, unitPrice, isMarketPrice }
 
 function openWalkInPlaceOrder() {
+    alert('Open orders are placed from the Internal portal only.');
+    return;
     currentPlaceOrderCustomer = { id: null, walkIn: true, name: '' };
     placeOrderItems = [];
     const nameEl = document.getElementById('place-order-customer-name');
