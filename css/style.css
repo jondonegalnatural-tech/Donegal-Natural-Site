@@ -562,6 +562,9 @@ h1, h2, h3, h4 {
 }
 
 /* ─── MODAL ─── */
+.pac-container {
+  z-index: 3000 !important;
+}
 .modal-overlay {
   display: none;
   position: fixed;

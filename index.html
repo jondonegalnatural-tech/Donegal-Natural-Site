@@ -377,6 +377,9 @@
           <input type="text" id="wi-street" name="street" required
             placeholder="e.g. 1310 Vermont Rd or PO Box 123"
             style="width:100%; padding:.65rem .9rem; border:1.5px solid var(--border); border-radius:.6rem; background:var(--cream); font-size:.9rem; font-family:inherit;">
+                      <p id="wi-street-hint" style="font-size:.75rem; color:var(--brown); margin:.35rem 0 0;">
+            Start typing and pick your address from the list. PO Boxes can be typed in full.
+          </p>
         </div>
         <div>
           <label for="wi-apt" style="display:block; font-size:.8rem; font-weight:700; margin-bottom:.35rem; color:var(--brown);">Apt / Suite / Unit</label>
@@ -460,6 +463,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/main.js"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA3w15On3HstCQaS_XfKNXbO0I0ipHsQCg&libraries=places&callback=initInquiryPlaces" async defer></script>
 <script>
 // ─── Supabase client (public page) ───
 const SUPABASE_URL = 'https://kyzfdlzqlckrpdkavxei.supabase.co';
@@ -482,6 +486,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     thanks.style.display = 'none';
     form.reset();
     otherWrap.style.display = 'none';
+        selectedPlace = null;
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Submit Inquiry';
@@ -521,6 +526,62 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 
   const consentTerms = document.getElementById('consent-terms');
   const consentPrivacy = document.getElementById('consent-privacy');
+    let selectedPlace = null;
+
+  function isPoBoxAddress(value) {
+    return /^\s*(p\.?\s*o\.?\s*box|post\s*office\s*box)\b/i.test(String(value || ''));
+  }
+
+  function fillInquiryFromPlace(place) {
+    if (!place || !place.address_components) return;
+    const get = function (type, useShort) {
+      const part = place.address_components.find(function (c) {
+        return c.types.indexOf(type) !== -1;
+      });
+      if (!part) return '';
+      return useShort ? part.short_name : part.long_name;
+    };
+    const streetNum = get('street_number');
+    const route = get('route');
+    const streetLine = [streetNum, route].filter(Boolean).join(' ');
+    const city = get('locality') || get('sublocality') || get('administrative_area_level_3');
+    const state = get('administrative_area_level_1', true);
+    const zip = get('postal_code');
+    const apt = get('subpremise');
+    if (streetLine) document.getElementById('wi-street').value = streetLine;
+    if (city) document.getElementById('wi-city').value = city;
+    if (state) document.getElementById('wi-state').value = state;
+    if (zip) document.getElementById('wi-zip').value = zip;
+    const aptEl = document.getElementById('wi-apt');
+    if (apt && aptEl && !aptEl.value.trim()) aptEl.value = apt;
+    selectedPlace = {
+      place_id: place.place_id || '',
+      formatted: place.formatted_address || streetLine,
+      lat: place.geometry && place.geometry.location ? place.geometry.location.lat() : null,
+      lng: place.geometry && place.geometry.location ? place.geometry.location.lng() : null
+    };
+  }
+
+  window.initInquiryPlaces = function () {
+    const streetEl = document.getElementById('wi-street');
+    if (!streetEl || !window.google || !google.maps || !google.maps.places) return;
+    const ac = new google.maps.places.Autocomplete(streetEl, {
+      types: ['address'],
+      componentRestrictions: { country: 'us' },
+      fields: ['address_components', 'formatted_address', 'geometry', 'place_id']
+    });
+    ac.addListener('place_changed', function () {
+      const place = ac.getPlace();
+      if (!place || !place.address_components) {
+        selectedPlace = null;
+        return;
+      }
+      fillInquiryFromPlace(place);
+    });
+    streetEl.addEventListener('input', function () {
+      selectedPlace = null;
+    });
+  };
   const TERMS_VERSION = '2026-08-29';
   const PRIVACY_VERSION = '2026-08-29';
 
@@ -567,7 +628,13 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
       }
       return;
     }
-
+    const streetPreview = document.getElementById('wi-street')?.value.trim() || '';
+    const placesReady = !!(window.google && google.maps && google.maps.places);
+    if (placesReady && !selectedPlace && !isPoBoxAddress(streetPreview)) {
+      alert('Please pick your street address from the Google list so we can confirm it.\nPO Boxes can be typed in full.');
+      document.getElementById('wi-street')?.focus();
+      return;
+    }
     if (!(consentTerms?.checked && consentPrivacy?.checked)) {
       alert('Please agree to the Terms of Use and Privacy Policy to continue.');
       return;
@@ -600,7 +667,13 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
       source: 'landing_page',
       status: 'pending',
       region: (city && state) ? (city + ', ' + state) : null,
-      notes: shipping ? ('Shipping: ' + shipping) : null,
+      notes: shipping
+        ? ('Shipping: ' + shipping +
+           (selectedPlace && selectedPlace.place_id
+             ? ('\nGoogle place: ' + selectedPlace.place_id +
+                (selectedPlace.lat != null ? ('\nLat: ' + selectedPlace.lat + '\nLng: ' + selectedPlace.lng) : ''))
+             : ''))
+        : null,
       terms_accepted: true,
       privacy_accepted: true,
       terms_accepted_at: now,
