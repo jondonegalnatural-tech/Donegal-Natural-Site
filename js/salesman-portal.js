@@ -2631,7 +2631,9 @@ async function renderMyOrders() {
         if (filterEl) {
             const currentValue = filterEl.value || "";
             const names = [...new Set(orders.map(o => o.customer_name || o.customer || "").filter(Boolean))].sort();
+            const hasOpen = orders.some(o => !o.customer_id);
             filterEl.innerHTML = `<option value="">All customers (recent first)</option>` +
+                (hasOpen ? `<option value="__open__">Open orders (not on a customer)</option>` : '') +
                 names.map(n => `<option value="${n.replace(/"/g, "&quot;")}">${n}</option>`).join("");
             filterEl.value = currentValue; // keep selection if possible
         }
@@ -2639,7 +2641,9 @@ async function renderMyOrders() {
         // Apply customer filter if one is selected
         const selectedCustomer = (filterEl && filterEl.value) ? filterEl.value.trim() : "";
         let filtered = orders;
-        if (selectedCustomer) {
+        if (selectedCustomer === '__open__') {
+            filtered = orders.filter(o => !o.customer_id);
+        } else if (selectedCustomer) {
             filtered = orders.filter(o =>
                 (o.customer_name || o.customer || "").trim() === selectedCustomer
             );
@@ -2789,6 +2793,7 @@ function createOrderCard(order, showSalesman = false) {
             <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:0.75rem;">
                 <div>
                     <strong style="color:#1E4D2B; font-size:1.05rem;">${escapeHtml(order.customer_name || order.customer || "Customer")}</strong>
+                    ${!order.customer_id ? '<div style="margin-top:0.25rem;display:inline-block;padding:0.15rem 0.45rem;background:#fff7ed;border:2px solid #c2410c;border-radius:6px;color:#c2410c;font-size:0.7rem;font-weight:800;">OPEN ORDER</div>' : ''}
                     <div style="font-size:0.8rem; color:#888; margin-top:0.15rem;">
                         Order #${escapeHtml(displayInvoiceNumber(order))} · ${new Date(order.submitted_at || order.submittedAt).toLocaleDateString()}
                     </div>
