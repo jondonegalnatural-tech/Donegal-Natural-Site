@@ -7067,7 +7067,7 @@ setTimeout(updateCustomerChangeRequestsBadge, 600);
 // ================== CUSTOMER MAP ==================
 // --- Customer Map Helpers ---
 
-const GEOCODE_CACHE_KEY = 'dn_geocode_cache_v1';
+const GEOCODE_CACHE_KEY = 'dn_geocode_cache_v2';
 const GEOCODE_USER_AGENT = 'DonegalNaturalInternalPortal/1.0 (admin@donegalnaturaldogtreats.com)';
 
 function getGeocodeCache() {
@@ -7240,6 +7240,24 @@ function delay(ms) {
 // --- Customer Map Helpers ---
 let customerMap;
 
+function formatShipRow(row) {
+    if (!row) return '';
+    const line = String(row.address_line1 || '').trim();
+    const cityState = [row.city, row.state].filter(Boolean).join(', ');
+    return [line, cityState, row.zip].filter(Boolean).join(', ');
+}
+
+function resolveCustomerMapAddress(customer, shipRows) {
+    const structured = formatShipRow(shipRows && shipRows[String(customer.id)]);
+    if (structured) return structured;
+    const raw = customer.shippingAddress || customer.shipping_address
+        || customer.billingAddress || customer.billing_address || '';
+    const cleaned = (typeof cleanAddressForGeocode === 'function')
+        ? cleanAddressForGeocode(raw)
+        : String(raw).trim();
+    return cleaned || String(raw).trim();
+}
+
 async function initCustomerMap() {
     const mapContainer = document.getElementById('customer-map');
     if (!mapContainer || typeof L === 'undefined') return;
@@ -7266,27 +7284,44 @@ async function initCustomerMap() {
     if (!allCustomers || allCustomers.length === 0) {
         await loadCustomers();
     }
-
+    const shipRows = {};
+    try {
+        const { data: ships, error: shipErr } = await supabaseClient
+            .from('customer_shipping_addresses')
+            .select('customer_id, address_line1, city, state, zip, is_default');
+        if (shipErr) {
+            console.warn('customer_shipping_addresses for map:', shipErr.message);
+        } else {
+            (ships || []).forEach(function (row) {
+                const id = String(row.customer_id);
+                if (!shipRows[id] || row.is_default) shipRows[id] = row;
+            });
+        }
+    } catch (err) {
+        console.warn('customer_shipping_addresses for map:', err);
+    }
     const statusEl = document.getElementById('customer-map-status');
     const bounds = [];
     const cache = getGeocodeCache();
 
-    const customersWithAddr = (allCustomers || []).filter(c => {
-        const addr = c.shippingAddress || c.address || c.shipping_address || '';
-        return !!String(addr).trim();
+    const customersWithAddr = (allCustomers || []).map(function (c) {
+        return { customer: c, addr: resolveCustomerMapAddress(c, shipRows) };
+    }).filter(function (row) {
+        return !!String(row.addr || '').trim();
     });
 
     // Split into already-cached vs needs network
     const cached = [];
     const toGeocode = [];
 
-    customersWithAddr.forEach(customer => {
-        const addr = customer.shippingAddress || customer.address || customer.shipping_address || '';
+    customersWithAddr.forEach(function (row) {
+        const customer = row.customer;
+        const addr = row.addr;
         const key = normalizeAddressKey(addr);
         if (cache[key] && cache[key].lat != null && cache[key].lng != null) {
-            cached.push({ customer, addr, coords: { lat: cache[key].lat, lng: cache[key].lng } });
+            cached.push({ customer: customer, addr: addr, coords: { lat: cache[key].lat, lng: cache[key].lng } });
         } else {
-            toGeocode.push({ customer, addr });
+            toGeocode.push({ customer: customer, addr: addr });
         }
     });
 
