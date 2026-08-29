@@ -74,16 +74,19 @@ function escapeHtml(value) {
             return;
         }
         const prev = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const viewingAsSalesman = !!(prev.isViewAs || localStorage.getItem('originalAdminUser'));
         const refreshed = {
             id: profile.id,
             username: profile.email,
-            fullName: profile.full_name || profile.email,
-            role: profile.role,
+            fullName: viewingAsSalesman ? 'Jonathan (Sales View)' : (profile.full_name || profile.email),
+            name: viewingAsSalesman ? 'Jonathan (Sales View)' : (profile.full_name || profile.email),
+            role: viewingAsSalesman ? 'salesman' : profile.role,
             company: profile.company || '',
             email: profile.email,
             mustChangePassword: !!profile.must_change_password,
             loginTime: prev.loginTime || new Date().toISOString(),
-            supabase: true
+            supabase: true,
+            isViewAs: viewingAsSalesman
         };
         localStorage.setItem('currentUser', JSON.stringify(refreshed));
         currentUser = refreshed;
