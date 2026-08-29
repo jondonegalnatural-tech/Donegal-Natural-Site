@@ -116,6 +116,21 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
 
+            // Record last login for salesmen (best-effort; await so redirect does not abort the request)
+            if (profile.role === 'salesman' && profile.email) {
+                try {
+                    const { error: lastLoginError } = await supabaseClient
+                        .from('salesmen')
+                        .update({ last_login_at: new Date().toISOString() })
+                        .ilike('email', profile.email);
+                    if (lastLoginError) {
+                        console.warn('salesmen last_login_at update failed:', lastLoginError.message || lastLoginError);
+                    }
+                } catch (e) {
+                    console.warn('salesmen last_login_at update skipped:', e?.message || e);
+                }
+            }
+
             // Redirect based on role
             if (profile.role === "customer") {
                 window.location.href = "wholesale-portal.html";
