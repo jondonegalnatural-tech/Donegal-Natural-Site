@@ -4,6 +4,7 @@
 
 // ================== SUPABASE CLIENT ==================
 const SUPABASE_URL = 'https://kyzfdlzqlckrpdkavxei.supabase.co';
+const GOOGLE_MAPS_API_KEY = 'AIzaSyA3w15On3HstCQaS_XfKNXbO0I0ipHsQCg';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5emZkbHpxbGNrcnBka2F2eGVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3ODU0NjEsImV4cCI6MjEwMDM2MTQ2MX0.Y1Sshp1-0lFwKakCgpJtAUpaHNB0PQ1vuo6SOHZcPu4';
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -7188,7 +7189,6 @@ async function geocodeAddress(address) {
     const key = normalizeAddressKey(address);
     const cache = getGeocodeCache();
 
-    // Cache hit (success or permanent failure) → return immediately
     if (cache[key]) {
         if (cache[key].failed) return null;
         if (cache[key].lat != null && cache[key].lng != null) {
@@ -7196,85 +7196,33 @@ async function geocodeAddress(address) {
         }
     }
 
-    const components = parseAddressComponents(address);
     let coords = null;
+    const cleaned = (typeof cleanAddressForGeocode === 'function')
+        ? cleanAddressForGeocode(address)
+        : String(address).trim();
 
-    // ---------- 1. Structured path (preferred) ----------
-    if (components && components.street && (components.state || components.zip)) {
+    try {
         const params = new URLSearchParams({
-            format: 'json',
-            limit: '1',
-            countrycodes: 'us',
-            addressdetails: '0'
+            address: cleaned || String(address).trim(),
+            key: GOOGLE_MAPS_API_KEY,
+            components: 'country:US'
         });
-        if (components.street) params.set('street', components.street);
-        if (components.city) params.set('city', components.city);
-        if (components.state) params.set('state', components.state);
-        if (components.zip) params.set('postalcode', components.zip);
-
-        try {
-            const res = await fetch(
-                'https://nominatim.openstreetmap.org/search?' + params.toString(),
-                {
-                    headers: {
-                        'Accept': 'application/json',
-                        'User-Agent': GEOCODE_USER_AGENT
-                    }
-                }
-            );
-            if (res.ok) {
-                const data = await res.json();
-                if (Array.isArray(data) && data.length > 0) {
-                    const lat = parseFloat(data[0].lat);
-                    const lng = parseFloat(data[0].lon);
-                    if (!isNaN(lat) && !isNaN(lng) && isPlausibleResult(lat, lng, address)) {
-                        coords = { lat, lng };
-                    }
-                }
+        const res = await fetch('https://maps.googleapis.com/maps/api/geocode/json?' + params.toString());
+        const data = await res.json();
+        if (data && data.status === 'OK' && data.results && data.results[0] && data.results[0].geometry) {
+            const loc = data.results[0].geometry.location;
+            const lat = parseFloat(loc.lat);
+            const lng = parseFloat(loc.lng);
+            if (!isNaN(lat) && !isNaN(lng)) {
+                coords = { lat: lat, lng: lng };
             }
-        } catch (err) {
-            console.warn('Structured Nominatim error:', err);
+        } else if (data && data.status && data.status !== 'OK') {
+            console.warn('Google geocode status:', data.status, data.error_message || '');
         }
+    } catch (err) {
+        console.warn('Google geocode error:', err);
     }
 
-    // ---------- 2. Free-form fallback (only if structured missed) ----------
-    if (!coords) {
-        const cleaned = cleanAddressForGeocode(address);
-        if (cleaned && cleaned.length >= 8) {
-            try {
-                const res = await fetch(
-                    'https://nominatim.openstreetmap.org/search?' +
-                    new URLSearchParams({
-                        q: cleaned,
-                        format: 'json',
-                        limit: '1',
-                        countrycodes: 'us',
-                        addressdetails: '0'
-                    }).toString(),
-                    {
-                        headers: {
-                            'Accept': 'application/json',
-                            'User-Agent': GEOCODE_USER_AGENT
-                        }
-                    }
-                );
-                if (res.ok) {
-                    const data = await res.json();
-                    if (Array.isArray(data) && data.length > 0) {
-                        const lat = parseFloat(data[0].lat);
-                        const lng = parseFloat(data[0].lon);
-                        if (!isNaN(lat) && !isNaN(lng) && isPlausibleResult(lat, lng, address)) {
-                            coords = { lat, lng };
-                        }
-                    }
-                }
-            } catch (err) {
-                console.warn('Free-form Nominatim error:', err);
-            }
-        }
-    }
-
-    // ---------- 3. Cache only after both paths have been tried ----------
     if (coords) {
         cache[key] = { lat: coords.lat, lng: coords.lng, ts: Date.now() };
         setGeocodeCache(cache);
@@ -7393,7 +7341,7 @@ async function initCustomerMap() {
         }
 
         if (i < toGeocode.length - 1) {
-            await delay(1100);
+            await delay(250);
         }
     }
 
