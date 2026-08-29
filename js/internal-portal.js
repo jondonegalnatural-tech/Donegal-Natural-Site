@@ -7320,31 +7320,25 @@ async function initCustomerMap() {
     initCustomerMap._run = (initCustomerMap._run || 0) + 1;
     const runId = initCustomerMap._run;
 
-    const mapsLib = await google.maps.importLibrary('maps');
-    const markerLib = await google.maps.importLibrary('marker');
-    const GoogleMap = mapsLib.Map;
-    const AdvancedMarkerElement = markerLib.AdvancedMarkerElement;
-
-    if (!customerMap || !initCustomerMap._advanced) {
-        mapContainer.style.minHeight = '450px';
-        mapContainer.innerHTML = '';
-        customerMap = new GoogleMap(mapContainer, {
-            center: { lat: 39.5, lng: -80 },
-            zoom: 5,
-            mapId: 'DEMO_MAP_ID',
-            mapTypeControl: false,
-            streetViewControl: false,
-            fullscreenControl: true
-        });
-        window._customerMapMarkers = [];
-        initCustomerMap._advanced = true;
-    } else if (window._customerMapMarkers) {
+        if (customerMap) {
+        window._customerMapMarkers = window._customerMapMarkers || [];
         window._customerMapMarkers.forEach(function (m) {
             if (m && typeof m.setMap === 'function') m.setMap(null);
-            else if (m) m.map = null;
         });
+        mapContainer.innerHTML = '';
+        customerMap = null;
         window._customerMapMarkers = [];
     }
+
+    mapContainer.style.minHeight = '450px';
+    customerMap = new google.maps.Map(mapContainer, {
+        center: { lat: 27.8, lng: -81.7 },
+        zoom: 6,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true
+    });
+    window._customerMapMarkers = [];
 
     const boundsObj = new google.maps.LatLngBounds();
     let pinCount = 0;
