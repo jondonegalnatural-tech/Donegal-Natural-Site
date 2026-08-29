@@ -1026,8 +1026,8 @@ async function openCustomerPricingEditor(customer) {
 
     const modal = document.getElementById('customer-pricing-modal');
     if (modal) {
+        modal.style.display = '';
         modal.classList.remove('hidden');
-        modal.style.display = 'flex';
     }
 
     await renderCustomerPricingEditor();
