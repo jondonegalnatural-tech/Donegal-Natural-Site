@@ -1439,16 +1439,13 @@ function placeOrderForCustomer(customerName) {
     } else {
         const nameStr = String(customerName || '').trim();
         currentPlaceOrderCustomer = nameStr;
-        if (typeof myCustomers !== 'undefined' && Array.isArray(myCustomers)) {
-            customerObj = myCustomers.find(c =>
-                (c.name || '').trim().toLowerCase() === nameStr.toLowerCase()
-            ) || null;
-        }
-        if (!customerObj && typeof allCustomers !== 'undefined' && Array.isArray(allCustomers)) {
-            customerObj = allCustomers.find(c =>
-                (c.name || '').trim().toLowerCase() === nameStr.toLowerCase()
-            ) || null;
-        }
+        const pool = []
+            .concat(window._salesmanCustomers || [])
+            .concat((typeof myCustomers !== 'undefined' && Array.isArray(myCustomers)) ? myCustomers : [])
+            .concat((typeof allCustomers !== 'undefined' && Array.isArray(allCustomers)) ? allCustomers : []);
+        customerObj = pool.find(c =>
+            (c.name || '').trim().toLowerCase() === nameStr.toLowerCase()
+        ) || null;
         if (customerObj) currentPlaceOrderCustomer = customerObj;
     }
 
