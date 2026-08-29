@@ -599,11 +599,13 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
           fields: ['addressComponents', 'formattedAddress', 'location', 'id']
         });
         fillInquiryFromNewPlace(place);
+        setCityStateZipVisible(false);
       });
       widget.addEventListener('input', function () {
         const typed = widget.value || '';
         streetEl.value = typed;
         selectedPlace = null;
+        setCityStateZipVisible(isPoBoxAddress(typed));
       });
     } catch (err) {
       console.warn('Places (New) failed to load:', err);
