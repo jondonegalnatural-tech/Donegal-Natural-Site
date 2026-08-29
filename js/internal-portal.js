@@ -214,11 +214,11 @@ function goToSalesmanView() {
 
         localStorage.setItem('currentUser', JSON.stringify({
             id: original?.id || null,
-            username: 'jon.donegalnatural@gmail.com',
+            username: 'jackerman@donegalnatural.com',
             fullName: 'Jonathan (Sales View)',
             name: 'Jonathan (Sales View)',
             role: 'salesman',
-            email: 'jon.donegalnatural@gmail.com',
+            email: 'jackerman@donegalnatural.com',
             mustChangePassword: false,
             loginTime: new Date().toISOString(),
             supabase: true,
