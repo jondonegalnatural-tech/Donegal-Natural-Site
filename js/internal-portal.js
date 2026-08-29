@@ -4887,7 +4887,11 @@ async function saveNewOrder(event) {
     const walkInCompany = (document.getElementById('walkin-company')?.value || '').trim();
     const walkInEmail = (document.getElementById('walkin-email')?.value || '').trim();
     const walkInPhone = (document.getElementById('walkin-phone')?.value || '').trim();
-    const walkInAddress = (document.getElementById('walkin-address')?.value || '').trim();
+    const walkInStreet = (document.getElementById('walkin-street')?.value || '').trim();
+    const walkInCity = (document.getElementById('walkin-city')?.value || '').trim();
+    const walkInState = (document.getElementById('walkin-state')?.value || '').trim().toUpperCase();
+    const walkInZip = (document.getElementById('walkin-zip')?.value || '').trim();
+    const walkInAddress = [walkInStreet, [walkInCity, walkInState].filter(Boolean).join(', '), walkInZip].filter(Boolean).join(' ');
     const walkInCommissionRaw = (document.getElementById('walkin-commission')?.value || '').trim();
     let walkInCommission = null;
     if (walkInCommissionRaw !== '') {
@@ -5022,7 +5026,11 @@ async function saveNewOrder(event) {
     const walkInCompany = (document.getElementById('walkin-company')?.value || '').trim();
     const walkInEmail = (document.getElementById('walkin-email')?.value || '').trim();
     const walkInPhone = (document.getElementById('walkin-phone')?.value || '').trim();
-    const walkInAddress = (document.getElementById('walkin-address')?.value || '').trim();
+    const walkInStreet = (document.getElementById('walkin-street')?.value || '').trim();
+    const walkInCity = (document.getElementById('walkin-city')?.value || '').trim();
+    const walkInState = (document.getElementById('walkin-state')?.value || '').trim().toUpperCase();
+    const walkInZip = (document.getElementById('walkin-zip')?.value || '').trim();
+    const walkInAddress = [walkInStreet, [walkInCity, walkInState].filter(Boolean).join(', '), walkInZip].filter(Boolean).join(' ');
     const walkInCommissionRaw = (document.getElementById('walkin-commission')?.value || '').trim();
     let walkInCommission = null;
     if (walkInCommissionRaw !== '') {
@@ -5098,7 +5106,9 @@ async function saveNewOrder(event) {
         status: 'submitted',
         source: 'internal',
         items: items,
-        notes: notes || 'Created via Add Order',
+        notes: (notes || 'Created via Add Order') +
+            (isWalkIn && walkInPhone ? ('\nPhone: ' + walkInPhone) : '') +
+            (isWalkIn && walkInAddress ? ('\nAddress: ' + walkInAddress) : ''),
         shipping_cost: 0,
         submitted_at: new Date().toISOString(),
         invoice_number: invoiceNumber,

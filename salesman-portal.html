@@ -374,7 +374,13 @@
                         <input id="po-walkin-company" type="text" placeholder="Company" class="form-input w-full px-3 py-2 text-sm" autocomplete="off">
                         <input id="po-walkin-email" type="text" placeholder="Email" class="form-input w-full px-3 py-2 text-sm" autocomplete="off">
                         <input id="po-walkin-phone" type="text" placeholder="Phone" class="form-input w-full px-3 py-2 text-sm" autocomplete="off">
-                        <input id="po-walkin-address" type="text" placeholder="Address" class="form-input w-full px-3 py-2 text-sm" autocomplete="off">
+                        <p class="text-xs font-semibold text-[#6B4423] pt-1">Shipping address</p>
+                        <input id="po-walkin-street" type="text" placeholder="Street address" class="form-input w-full px-3 py-2 text-sm" autocomplete="off">
+                        <div class="grid grid-cols-3 gap-2">
+                            <input id="po-walkin-city" type="text" placeholder="City" class="form-input px-3 py-2 text-sm" autocomplete="off">
+                            <input id="po-walkin-state" type="text" placeholder="State" maxlength="2" class="form-input px-3 py-2 text-sm uppercase" autocomplete="off">
+                            <input id="po-walkin-zip" type="text" placeholder="ZIP" class="form-input px-3 py-2 text-sm" autocomplete="off">
+                        </div>
                         <div class="flex items-center gap-2">
                             <label class="text-xs font-semibold text-[#6B4423]">Commission %</label>
                             <input id="po-walkin-commission" type="text" inputmode="decimal" placeholder="Default" class="form-input w-28 px-3 py-2 text-sm" autocomplete="off" data-1p-ignore="true">

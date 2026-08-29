@@ -1439,7 +1439,7 @@ function openWalkInPlaceOrder() {
     if (shipEl) shipEl.textContent = 'Entered on this form';
     const walk = document.getElementById('place-order-walkin-fields');
     if (walk) walk.classList.remove('hidden');
-    ['po-walkin-name','po-walkin-company','po-walkin-email','po-walkin-phone','po-walkin-address','po-walkin-commission'].forEach(function (id) {
+    ['po-walkin-name','po-walkin-company','po-walkin-email','po-walkin-phone','po-walkin-street','po-walkin-city','po-walkin-state','po-walkin-zip','po-walkin-commission'].forEach(function (id) {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
@@ -1897,7 +1897,11 @@ async function submitPlaceOrder() {
     const walkInCompany = (document.getElementById('po-walkin-company')?.value || '').trim();
     const walkInEmail = (document.getElementById('po-walkin-email')?.value || '').trim();
     const walkInPhone = (document.getElementById('po-walkin-phone')?.value || '').trim();
-    const walkInAddress = (document.getElementById('po-walkin-address')?.value || '').trim();
+    const walkInStreet = (document.getElementById('po-walkin-street')?.value || '').trim();
+    const walkInCity = (document.getElementById('po-walkin-city')?.value || '').trim();
+    const walkInState = (document.getElementById('po-walkin-state')?.value || '').trim().toUpperCase();
+    const walkInZip = (document.getElementById('po-walkin-zip')?.value || '').trim();
+    const walkInAddress = [walkInStreet, [walkInCity, walkInState].filter(Boolean).join(', '), walkInZip].filter(Boolean).join(' ');
     const walkInCommissionRaw = (document.getElementById('po-walkin-commission')?.value || '').trim();
     let walkInCommission = null;
     if (walkInCommissionRaw !== '') {
