@@ -5632,6 +5632,9 @@ async function loadCustomers() {
                 salesmanCommissionPercent: c.salesman_commission_percent != null && c.salesman_commission_percent !== ''
                     ? Number(c.salesman_commission_percent)
                     : null,
+                lat: c.lat != null ? Number(c.lat) : null,
+                lng: c.lng != null ? Number(c.lng) : null,
+                placeId: c.place_id || null,    
             }));
         }
     } catch (err) {
@@ -5953,6 +5956,70 @@ function addTestCustomer() {
     renderCustomers();
 }
 
+async function initAddCustomerPlaces() {
+    const host = document.getElementById('new-customer-ship-places-host');
+    const streetEl = document.getElementById('new-customer-ship-street');
+    if (!host || !streetEl || host.dataset.bound === '1') return;
+    if (!window.google || !google.maps || !google.maps.importLibrary) return;
+    try {
+        const placesLib = await google.maps.importLibrary('places');
+        const PlaceAutocompleteElement = placesLib.PlaceAutocompleteElement;
+        if (!PlaceAutocompleteElement) return;
+        const widget = new PlaceAutocompleteElement({
+            includedRegionCodes: ['us'],
+            requestedLanguage: 'en'
+        });
+        widget.setAttribute('no-input-icon', '');
+        widget.setAttribute('no-clear-button', '');
+        widget.style.width = '100%';
+        host.innerHTML = '';
+        host.appendChild(widget);
+        host.dataset.bound = '1';
+
+        widget.addEventListener('gmp-select', async function (event) {
+            const place = event.placePrediction && event.placePrediction.toPlace
+                ? event.placePrediction.toPlace()
+                : null;
+            if (!place) return;
+            await place.fetchFields({
+                fields: ['formattedAddress', 'addressComponents', 'location', 'id']
+            });
+            const comps = place.addressComponents || [];
+            function comp(type) {
+                const row = comps.find(function (c) {
+                    return (c.types || []).indexOf(type) !== -1;
+                });
+                return row ? (row.longText || row.shortText || '') : '';
+            }
+            const streetNum = comp('street_number');
+            const route = comp('route');
+            const street = [streetNum, route].filter(Boolean).join(' ') || (place.formattedAddress || '').split(',')[0];
+            streetEl.value = street;
+            widget.value = street;
+            const cityEl = document.getElementById('new-customer-ship-city');
+            const stateEl = document.getElementById('new-customer-ship-state');
+            const zipEl = document.getElementById('new-customer-ship-zip');
+            if (cityEl) cityEl.value = comp('locality') || comp('sublocality') || '';
+            if (stateEl) stateEl.value = (comp('administrative_area_level_1') || '').slice(0, 2).toUpperCase();
+            if (zipEl) zipEl.value = comp('postal_code') || '';
+            const loc = place.location;
+            const lat = loc ? (typeof loc.lat === 'function' ? loc.lat() : loc.lat) : '';
+            const lng = loc ? (typeof loc.lng === 'function' ? loc.lng() : loc.lng) : '';
+            const latEl = document.getElementById('new-customer-ship-lat');
+            const lngEl = document.getElementById('new-customer-ship-lng');
+            const placeEl = document.getElementById('new-customer-ship-place');
+            if (latEl) latEl.value = lat || '';
+            if (lngEl) lngEl.value = lng || '';
+            if (placeEl) placeEl.value = place.id || '';
+        });
+        widget.addEventListener('input', function () {
+            streetEl.value = widget.value || '';
+        });
+    } catch (err) {
+        console.warn('Add Customer Places widget:', err);
+    }
+}
+
 function showAddCustomerModal() {
     const modal = document.getElementById('add-customer-modal');
     if (!modal) {
@@ -5989,6 +6056,7 @@ function showAddCustomerModal() {
     if (billingFields) billingFields.classList.add('hidden');
 
     modal.classList.remove('hidden');
+        initAddCustomerPlaces();
     document.getElementById('new-customer-name')?.focus();
 }
 
@@ -6168,7 +6236,11 @@ async function saveNewCustomer(event) {
             throw new Error(fnData.error);
         }
 
-        const { error } = await supabaseClient
+        const shipLat = parseFloat(document.getElementById('new-customer-ship-lat')?.value || '');
+        const shipLng = parseFloat(document.getElementById('new-customer-ship-lng')?.value || '');
+        const shipPlace = (document.getElementById('new-customer-ship-place')?.value || '').trim();
+
+        const { data: created, error } = await supabaseClient
             .from('customers')
             .insert({
                 name: name,
@@ -6184,9 +6256,12 @@ async function saveNewCustomer(event) {
                 submitted_by: user.fullName || user.email || 'Admin',
                 submitted_by_email: user.email || null,
                 onboarding_complete: false,
-                password_changed: false
+                password_changed: false,
+                lat: isFinite(shipLat) ? shipLat : null,
+                lng: isFinite(shipLng) ? shipLng : null,
+                place_id: shipPlace || null
             })
-            .select()
+            .select('id')
             .single();
 
         if (error) {
@@ -6194,8 +6269,27 @@ async function saveNewCustomer(event) {
             throw new Error('Login was created, but saving the customer row failed.\n' + error.message);
         }
 
+        if (created && created.id) {
+            const { error: shipErr } = await supabaseClient
+                .from('customer_shipping_addresses')
+                .insert({
+                    customer_id: created.id,
+                    label: 'Primary',
+                    address_line1: shipStreet,
+                    city: shipCity,
+                    state: shipState,
+                    zip: shipZip,
+                    is_default: true,
+                    lat: isFinite(shipLat) ? shipLat : null,
+                    lng: isFinite(shipLng) ? shipLng : null,
+                    place_id: shipPlace || null
+                });
+            if (shipErr) console.warn('shipping address insert:', shipErr.message);
+        }
+
         hideAddCustomerModal();
         if (typeof loadCustomers === 'function') await loadCustomers();
+                if (typeof initCustomerMap === 'function') initCustomerMap();
 
         const emailOk = fnData && fnData.email_sent === true;
         const emailFailReason = (fnData && fnData.email_error) ? String(fnData.email_error) : '';
@@ -7318,6 +7412,26 @@ function resolveCustomerMapAddress(customer, shipRows) {
     return cleaned || String(raw).trim();
 }
 
+async function persistCustomerMapCoords(customerId, shipId, coords) {
+    if (!coords || !isFinite(coords.lat) || !isFinite(coords.lng)) return;
+    try {
+        if (shipId) {
+            await supabaseClient
+                .from('customer_shipping_addresses')
+                .update({ lat: coords.lat, lng: coords.lng })
+                .eq('id', shipId);
+        }
+        if (customerId) {
+            await supabaseClient
+                .from('customers')
+                .update({ lat: coords.lat, lng: coords.lng })
+                .eq('id', customerId);
+        }
+    } catch (err) {
+        console.warn('persistCustomerMapCoords:', err);
+    }
+}
+
 async function initCustomerMap() {
     const mapContainer = document.getElementById('customer-map');
     const statusEl = document.getElementById('customer-map-status');
@@ -7381,7 +7495,7 @@ async function initCustomerMap() {
         try {
             const { data: ships, error: shipErr } = await supabaseClient
                 .from('customer_shipping_addresses')
-                .select('customer_id, address_line1, city, state, zip, is_default');
+                .select('id, customer_id, address_line1, city, state, zip, is_default, lat, lng, place_id');
             if (!shipErr) {
                 (ships || []).forEach(function (row) {
                     const id = String(row.customer_id);
@@ -7429,18 +7543,25 @@ async function initCustomerMap() {
 
         for (let i = 0; i < rows.length; i++) {
             const row = rows[i];
-            const key = normalizeAddressKey(row.addr);
+            const ship = shipRows[String(row.customer.id)] || null;
             let coords = null;
-            if (cache[key] && cache[key].lat != null && cache[key].lng != null && !cache[key].failed) {
-                coords = { lat: cache[key].lat, lng: cache[key].lng };
+            if (ship && ship.lat != null && ship.lng != null) {
+                coords = { lat: Number(ship.lat), lng: Number(ship.lng) };
+            } else if (row.customer.lat != null && row.customer.lng != null) {
+                coords = { lat: Number(row.customer.lat), lng: Number(row.customer.lng) };
             } else {
                 if (statusEl) {
                     statusEl.textContent = 'Geocoding ' + (i + 1) + ' of ' + rows.length + '…';
                 }
                 coords = await geocodeAddress(row.addr);
+                if (coords) {
+                    persistCustomerMapCoords(row.customer.id, ship && ship.id, coords);
+                }
                 if (i < rows.length - 1) await delay(200);
             }
-            if (coords) addPin(row.customer, row.addr, coords);
+            if (coords && isFinite(coords.lat) && isFinite(coords.lng)) {
+                addPin(row.customer, row.addr, coords);
+            }
         }
 
         if (pinCount > 0) customerMap.fitBounds(boundsObj, 40);
