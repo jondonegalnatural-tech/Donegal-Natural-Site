@@ -7127,7 +7127,7 @@ setTimeout(updateCustomerChangeRequestsBadge, 600);
 // ================== CUSTOMER MAP ==================
 // --- Customer Map Helpers ---
 
-const GEOCODE_CACHE_KEY = 'dn_geocode_cache_v3';
+const GEOCODE_CACHE_KEY = 'dn_geocode_cache_v4';
 const GEOCODE_USER_AGENT = 'DonegalNaturalInternalPortal/1.0 (admin@donegalnaturaldogtreats.com)';
 
 function getGeocodeCache() {
@@ -7256,31 +7256,31 @@ async function geocodeAddress(address) {
         }
     }
 
-    let coords = null;
     const cleaned = (typeof cleanAddressForGeocode === 'function')
         ? cleanAddressForGeocode(address)
         : String(address).trim();
 
+    let coords = null;
     try {
-        const params = new URLSearchParams({
+        if (!window.google || !google.maps || !google.maps.Geocoder) {
+            throw new Error('Google Geocoder is not loaded');
+        }
+        const geocoder = new google.maps.Geocoder();
+        const response = await geocoder.geocode({
             address: cleaned || String(address).trim(),
-            key: GOOGLE_MAPS_API_KEY,
-            components: 'country:US'
+            componentRestrictions: { country: 'US' }
         });
-        const res = await fetch('https://maps.googleapis.com/maps/api/geocode/json?' + params.toString());
-        const data = await res.json();
-        if (data && data.status === 'OK' && data.results && data.results[0] && data.results[0].geometry) {
-            const loc = data.results[0].geometry.location;
-            const lat = parseFloat(loc.lat);
-            const lng = parseFloat(loc.lng);
-            if (!isNaN(lat) && !isNaN(lng)) {
+        const first = response && response.results && response.results[0];
+        if (first && first.geometry && first.geometry.location) {
+            const loc = first.geometry.location;
+            const lat = typeof loc.lat === 'function' ? loc.lat() : Number(loc.lat);
+            const lng = typeof loc.lng === 'function' ? loc.lng() : Number(loc.lng);
+            if (isFinite(lat) && isFinite(lng)) {
                 coords = { lat: lat, lng: lng };
             }
-        } else if (data && data.status && data.status !== 'OK') {
-            console.warn('Google geocode status:', data.status, data.error_message || '');
         }
     } catch (err) {
-        console.warn('Google geocode error:', err);
+        console.warn('Google geocode error:', err && err.message ? err.message : err);
     }
 
     if (coords) {
