@@ -485,6 +485,7 @@ async function showPortal() {
     document.getElementById("user-info").style.display = "flex";
 
     displayCurrentUser();
+    if (typeof updateOpenOrderButtonVisibility === 'function') updateOpenOrderButtonVisibility();
     populateDropdowns();
     renderCustomers();
     renderProposalHistory();
@@ -883,6 +884,19 @@ async function attachOpenOrderToCustomer() {
         alert('Could not attach order.\n' + (err.message || ''));
     }
 }
+
+function canPlaceOpenOrder() {
+    const user = getCurrentUser() || currentUser;
+    const email = (user && user.email ? String(user.email) : '').toLowerCase().trim();
+    return email === 'jackerman@donegalnatural.com' || !!(user && user.isViewAs) || !!localStorage.getItem('originalAdminUser');
+}
+
+function updateOpenOrderButtonVisibility() {
+    const btn = document.getElementById('salesman-open-order-btn');
+    if (!btn) return;
+    btn.style.display = canPlaceOpenOrder() ? '' : 'none';
+}
+
 
 function canEditCustomerCommission() {
     const user = getCurrentUser() || currentUser;
@@ -1605,8 +1619,10 @@ let currentPlaceOrderCustomer = null;
 let placeOrderItems = []; // { name, quantity, caseSize, unitPrice, isMarketPrice }
 
 function openWalkInPlaceOrder() {
-    alert('Open orders are placed from the Internal portal only.');
-    return;
+    if (!canPlaceOpenOrder()) {
+        alert('Open orders are placed from the Internal portal only.');
+        return;
+    }
     currentPlaceOrderCustomer = { id: null, walkIn: true, name: '' };
     placeOrderItems = [];
     const nameEl = document.getElementById('place-order-customer-name');
@@ -1988,6 +2004,10 @@ function openPlaceOrderConfirmModal() {
         : null;
 
     const isWalkIn = !!(customerObj && customerObj.walkIn);
+    if (isWalkIn && !canPlaceOpenOrder()) {
+        alert('Open orders are placed from the Internal portal only.');
+        return;
+    }
     const walkInName = (document.getElementById('po-walkin-name')?.value || '').trim();
     const walkInStreet = (document.getElementById('po-walkin-street')?.value || '').trim();
     const walkInCity = (document.getElementById('po-walkin-city')?.value || '').trim();
