@@ -7349,10 +7349,13 @@ async function initCustomerMap() {
         customerMap = new google.maps.Map(mapContainer, {
             center: { lat: 27.8, lng: -81.7 },
             zoom: 6,
+            mapId: '9c81a52bfd14d6f58716660f',
             mapTypeControl: false,
             streetViewControl: false,
             fullscreenControl: true
         });
+        const markerLib = await google.maps.importLibrary('marker');
+        const AdvancedMarkerElement = markerLib.AdvancedMarkerElement;
 
         await new Promise(function (resolve) {
             google.maps.event.addListenerOnce(customerMap, 'idle', resolve);
@@ -7403,40 +7406,23 @@ async function initCustomerMap() {
             const lat = Number(coords.lat);
             const lng = Number(coords.lng);
             if (!isFinite(lat) || !isFinite(lng)) return;
-            const overlay = new google.maps.OverlayView();
-            overlay.onAdd = function () {
-                const el = document.createElement('div');
-                el.style.cssText = 'position:absolute;transform:translate(-50%,-100%);cursor:pointer;z-index:999;';
-                el.title = customer.name || customer.company || 'Customer';
-                el.innerHTML = '<div style="width:16px;height:16px;background:#1E4D2B;border:2px solid #d4b78f;border-radius:50% 50% 50% 0;transform:rotate(-45deg);box-shadow:0 1px 4px rgba(0,0,0,.35);"></div>';
-                el.addEventListener('click', function () {
-                    new google.maps.InfoWindow({
-                        content:
-                            '<div style="color:#1E4D2B;max-width:240px;"><strong>' +
-                            escapeHtml(customer.name || 'Customer') + '</strong><br>' +
-                            escapeHtml(customer.company || '') + '<br>' +
-                            escapeHtml(addr || '') + '</div>',
-                        position: { lat: lat, lng: lng }
-                    }).open(customerMap);
-                });
-                overlay.el = el;
-                overlay.getPanes().floatPane.appendChild(el);
-            };
-            overlay.draw = function () {
-                if (!overlay.el || !overlay.getProjection()) return;
-                const point = overlay.getProjection().fromLatLngToDivPixel(
-                    new google.maps.LatLng(lat, lng)
-                );
-                if (!point) return;
-                overlay.el.style.left = point.x + 'px';
-                overlay.el.style.top = point.y + 'px';
-            };
-            overlay.onRemove = function () {
-                if (overlay.el && overlay.el.parentNode) overlay.el.parentNode.removeChild(overlay.el);
-                overlay.el = null;
-            };
-            overlay.setMap(customerMap);
-            window._customerMapMarkers.push(overlay);
+            const marker = new AdvancedMarkerElement({
+                position: { lat: lat, lng: lng },
+                map: customerMap,
+                title: customer.name || customer.company || 'Customer'
+            });
+            const info = new google.maps.InfoWindow({
+                content:
+                    '<div style="color:#1E4D2B;max-width:240px;"><strong>' +
+                    escapeHtml(customer.name || 'Customer') + '</strong><br>' +
+                    escapeHtml(customer.company || '') + '<br>' +
+                    escapeHtml(addr || '') + '</div>'
+            });
+            marker.addEventListener('gmp-click', function () {
+                info.setPosition({ lat: lat, lng: lng });
+                info.open(customerMap);
+            });
+            window._customerMapMarkers.push(marker);
             boundsObj.extend({ lat: lat, lng: lng });
             pinCount += 1;
         }
