@@ -10031,7 +10031,34 @@ async function confirmInquiryApproval() {
         // Do not store temp password in notes (security) — show once in alert + email only
         const notesSafe = notesParts.join('\n');
 
-                const customerPayload = {
+        let shipLat = null;
+        let shipLng = null;
+        let shipPlace = '';
+        try {
+            const { data: inqRow } = await supabaseClient
+                .from('wholesale_inquiries')
+                .select('notes')
+                .eq('id', inquiryId)
+                .maybeSingle();
+            const rawNotes = (inqRow && inqRow.notes) ? String(inqRow.notes) : '';
+            const latM = rawNotes.match(/\bLat:\s*(-?\d+(?:\.\d+)?)/i);
+            const lngM = rawNotes.match(/\bLng:\s*(-?\d+(?:\.\d+)?)/i);
+            const placeM = rawNotes.match(/Google place:\s*(\S+)/i);
+            if (latM) shipLat = parseFloat(latM[1]);
+            if (lngM) shipLng = parseFloat(lngM[1]);
+            if (placeM) shipPlace = placeM[1];
+        } catch (e) {
+            console.warn('inquiry coord parse:', e);
+        }
+        if ((!isFinite(shipLat) || !isFinite(shipLng)) && typeof geocodeAddress === 'function') {
+            const geo = await geocodeAddress(shipping);
+            if (geo) {
+                shipLat = geo.lat;
+                shipLng = geo.lng;
+            }
+        }
+
+        const customerPayload = {
             name: name,
             company: company,
             email: email,
@@ -10043,7 +10070,10 @@ async function confirmInquiryApproval() {
             salesman_email: salesmanEmail,
             assigned_at: salesmanId ? new Date().toISOString() : null,
             onboarding_complete: false,
-            password_changed: false
+            password_changed: false,
+            lat: isFinite(shipLat) ? shipLat : null,
+            lng: isFinite(shipLng) ? shipLng : null,
+            place_id: shipPlace || null
         };
 
         const { data: existing } = await supabaseClient
@@ -10052,11 +10082,44 @@ async function confirmInquiryApproval() {
             .eq('email', email)
             .maybeSingle();
 
+        let customerId = existing && existing.id ? existing.id : null;
         if (!existing) {
-            const { error: custError } = await supabaseClient
+            const { data: created, error: custError } = await supabaseClient
                 .from('customers')
-                .insert([customerPayload]);
+                .insert([customerPayload])
+                .select('id')
+                .single();
             if (custError) throw custError;
+            customerId = created && created.id ? created.id : null;
+        } else if (isFinite(shipLat) && isFinite(shipLng)) {
+            await supabaseClient
+                .from('customers')
+                .update({
+                    lat: shipLat,
+                    lng: shipLng,
+                    place_id: shipPlace || null,
+                    shipping_address: shipping || '',
+                    billing_address: billing || shipping || ''
+                })
+                .eq('id', customerId);
+        }
+
+        if (customerId) {
+            const { error: shipErr } = await supabaseClient
+                .from('customer_shipping_addresses')
+                .insert({
+                    customer_id: customerId,
+                    label: 'Primary',
+                    address_line1: shipStreet,
+                    city: shipCity,
+                    state: shipState,
+                    zip: shipZip,
+                    is_default: true,
+                    lat: isFinite(shipLat) ? shipLat : null,
+                    lng: isFinite(shipLng) ? shipLng : null,
+                    place_id: shipPlace || null
+                });
+            if (shipErr) console.warn('approval shipping insert:', shipErr.message);
         }
 
         const updatePayload = {
@@ -10078,6 +10141,8 @@ async function confirmInquiryApproval() {
 
         hideInquiryApprovalModal();
         await renderInquiries();
+        if (typeof loadCustomers === 'function') await loadCustomers();
+        if (typeof initCustomerMap === 'function') initCustomerMap();
 
         const emailOk = fnData && fnData.email_sent === true;
         const emailFailReason = (fnData && fnData.email_error) ? String(fnData.email_error) : '';
