@@ -6097,6 +6097,51 @@ async function assertCustomerEmailAvailable(email) {
     }
 }
 
+async function matchCustomerForInquiryApproval(email) {
+    const emailNorm = (email || '').trim().toLowerCase();
+    if (!emailNorm || !emailNorm.includes('@')) {
+        throw new Error('A valid email is required.');
+    }
+
+    const { data: profile, error: profileError } = await supabaseClient
+        .from('profiles')
+        .select('email, role')
+        .ilike('email', emailNorm)
+        .maybeSingle();
+    if (profileError) {
+        console.warn('profiles email check failed:', profileError);
+    }
+    if (profile && (profile.role === 'admin' || profile.role === 'salesman')) {
+        throw new Error('This email is already a ' + profile.role + ' login. Use a different customer email.');
+    }
+
+    const { data: matches, error: matchError } = await supabaseClient
+        .from('customers')
+        .select('id, name, company, email, status')
+        .ilike('email', emailNorm);
+    if (matchError) throw matchError;
+
+    const list = matches || [];
+    if (list.length > 1) {
+        const names = list.map((c) => (c.name || c.company || c.id)).join(', ');
+        throw new Error(
+            'This email matches more than one customer record (' + names + ').\n' +
+            'Fix the duplicate rows before approving this inquiry.'
+        );
+    }
+
+    const existing = list[0] || null;
+    if (existing && typeof shouldSkipCustomerLoginReset === 'function' && shouldSkipCustomerLoginReset(existing)) {
+        throw new Error(
+            'This email belongs to a protected account (' +
+            (existing.name || existing.company || emailNorm) +
+            '). It cannot be overwritten from an inquiry.'
+        );
+    }
+
+    return existing;
+}
+
 async function assertSalesmanEmailAvailable(email) {
     const emailNorm = (email || '').trim().toLowerCase();
     if (!emailNorm || !emailNorm.includes('@')) {
@@ -9868,11 +9913,26 @@ async function confirmInquiryApproval() {
         return;
     }
 
+    let existingCustomer = null;
     try {
-        await assertCustomerEmailAvailable(email);
+        existingCustomer = await matchCustomerForInquiryApproval(email);
     } catch (e) {
-        alert(e.message || 'This email cannot be used for a new customer.');
+        alert(e.message || 'This email cannot be used for a customer.');
         return;
+    }
+
+    if (existingCustomer) {
+        const who = [existingCustomer.name, existingCustomer.company].filter(Boolean).join(' / ') || email;
+        if (!confirm(
+            'This email already belongs to ' + who + '.\n' +
+            'Current status: ' + (existingCustomer.status || '—') + '\n\n' +
+            'Approve will update that existing customer (same id), reset their login, and send a new credentials email.\n' +
+            'Price approval, payment method, territory, and commission will be cleared.\n' +
+            'Status will be set to Active.\n\n' +
+            'OK to overwrite this returning customer?'
+        )) {
+            return;
+        }
     }
 
     const selectedOpt = salesmanSelect.options[salesmanSelect.selectedIndex];
@@ -9972,7 +10032,7 @@ async function confirmInquiryApproval() {
             shipping_address: shipping || '',
             billing_address: billing || shipping || '',
             notes: notesSafe,
-            status: 'Approved',
+            status: 'Active',
             salesman_email: salesmanEmail,
             assigned_at: salesmanId ? new Date().toISOString() : null,
             onboarding_complete: false,
@@ -9982,14 +10042,8 @@ async function confirmInquiryApproval() {
             place_id: shipPlace || null
         };
 
-        const { data: existing } = await supabaseClient
-            .from('customers')
-            .select('id')
-            .eq('email', email)
-            .maybeSingle();
-
-        let customerId = existing && existing.id ? existing.id : null;
-        if (!existing) {
+        let customerId = existingCustomer && existingCustomer.id ? existingCustomer.id : null;
+        if (!customerId) {
             const { data: created, error: custError } = await supabaseClient
                 .from('customers')
                 .insert([customerPayload])
@@ -9997,35 +10051,68 @@ async function confirmInquiryApproval() {
                 .single();
             if (custError) throw custError;
             customerId = created && created.id ? created.id : null;
-        } else if (isFinite(shipLat) && isFinite(shipLng)) {
-            await supabaseClient
+        } else {
+            const { error: updError } = await supabaseClient
                 .from('customers')
                 .update({
-                    lat: shipLat,
-                    lng: shipLng,
-                    place_id: shipPlace || null,
-                    shipping_address: shipping || '',
-                    billing_address: billing || shipping || ''
+                    name: customerPayload.name,
+                    company: customerPayload.company,
+                    email: customerPayload.email,
+                    phone: customerPayload.phone,
+                    shipping_address: customerPayload.shipping_address,
+                    billing_address: customerPayload.billing_address,
+                    notes: customerPayload.notes,
+                    status: 'Active',
+                    salesman_email: customerPayload.salesman_email,
+                    assigned_at: customerPayload.assigned_at,
+                    onboarding_complete: false,
+                    password_changed: false,
+                    lat: customerPayload.lat,
+                    lng: customerPayload.lng,
+                    place_id: customerPayload.place_id,
+                    last_login_at: null,
+                    payment_method: null,
+                    payment_method_status: null,
+                    pricing_approved_at: null,
+                    pricing_approved_by: null,
+                    territory: null,
+                    salesman_commission_percent: null,
+                    updated_at: new Date().toISOString()
                 })
                 .eq('id', customerId);
+            if (updError) throw updError;
         }
 
         if (customerId) {
-            const { error: shipErr } = await supabaseClient
+            const { data: existingShip } = await supabaseClient
                 .from('customer_shipping_addresses')
-                .insert({
-                    customer_id: customerId,
-                    label: 'Primary',
-                    address_line1: shipStreet,
-                    city: shipCity,
-                    state: shipState,
-                    zip: shipZip,
-                    is_default: true,
-                    lat: isFinite(shipLat) ? shipLat : null,
-                    lng: isFinite(shipLng) ? shipLng : null,
-                    place_id: shipPlace || null
-                });
-            if (shipErr) console.warn('approval shipping insert:', shipErr.message);
+                .select('id')
+                .eq('customer_id', customerId)
+                .eq('is_default', true)
+                .maybeSingle();
+            const shipFields = {
+                label: 'Primary',
+                address_line1: shipStreet,
+                city: shipCity,
+                state: shipState,
+                zip: shipZip,
+                is_default: true,
+                lat: isFinite(shipLat) ? shipLat : null,
+                lng: isFinite(shipLng) ? shipLng : null,
+                place_id: shipPlace || null
+            };
+            if (existingShip && existingShip.id) {
+                const { error: shipErr } = await supabaseClient
+                    .from('customer_shipping_addresses')
+                    .update(shipFields)
+                    .eq('id', existingShip.id);
+                if (shipErr) console.warn('approval shipping update:', shipErr.message);
+            } else {
+                const { error: shipErr } = await supabaseClient
+                    .from('customer_shipping_addresses')
+                    .insert(Object.assign({ customer_id: customerId }, shipFields));
+                if (shipErr) console.warn('approval shipping insert:', shipErr.message);
+            }
         }
 
         const updatePayload = {
@@ -10055,7 +10142,8 @@ async function confirmInquiryApproval() {
 
         alert(
             'Inquiry approved.\n' +
-            'Customer created.\n' +
+            (existingCustomer ? 'Existing customer updated (returning store).\n' : 'Customer created.\n') +
+            'Status set to Active.\n' +
             'Login account created.\n' +
             (salesmanId ? 'Assigned to: ' + salesmanName : 'No salesman assigned (you can assign later)') + '\n\n' +
             'Customer login (email + temp password):\n' +
