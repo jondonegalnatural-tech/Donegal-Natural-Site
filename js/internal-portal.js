@@ -6117,7 +6117,7 @@ async function matchCustomerForInquiryApproval(email) {
 
     const { data: matches, error: matchError } = await supabaseClient
         .from('customers')
-        .select('id, name, company, email, status')
+        .select('id, name, company, email, status, salesman_commission_percent')
         .ilike('email', emailNorm);
     if (matchError) throw matchError;
 
@@ -9972,7 +9972,8 @@ async function confirmInquiryApproval() {
             'This email already belongs to ' + who + '.\n' +
             'Current status: ' + (existingCustomer.status || '—') + '\n\n' +
             'Approve will update that existing customer (same id), reset their login, and send a new credentials email.\n' +
-            'Price approval, payment method, territory, and commission will be cleared.\n' +
+            'Price approval, payment method, and territory will be cleared.\n' +
+            'Commission stays, or transfers from the assigned salesman.\n' +
             'Status will be set to Active.\n\n' +
             'OK to overwrite this returning customer?'
         )) {
@@ -10069,6 +10070,34 @@ async function confirmInquiryApproval() {
             }
         }
 
+        let commissionPercent = null;
+        if (existingCustomer && existingCustomer.salesman_commission_percent != null && existingCustomer.salesman_commission_percent !== '') {
+            const kept = Number(existingCustomer.salesman_commission_percent);
+            if (isFinite(kept)) commissionPercent = kept;
+        }
+        if (salesmanId) {
+            let salesmanRate = null;
+            const cached = (typeof salesmen !== 'undefined' ? salesmen : []).find(function (s) {
+                return String(s.id) === String(salesmanId);
+            });
+            if (cached && cached.commission != null && cached.commission !== '') {
+                const n = Number(cached.commission);
+                if (isFinite(n)) salesmanRate = n;
+            }
+            if (salesmanRate == null) {
+                const { data: smRow } = await supabaseClient
+                    .from('salesmen')
+                    .select('commission')
+                    .eq('id', salesmanId)
+                    .maybeSingle();
+                if (smRow && smRow.commission != null && smRow.commission !== '') {
+                    const n = Number(smRow.commission);
+                    if (isFinite(n)) salesmanRate = n;
+                }
+            }
+            if (salesmanRate != null) commissionPercent = salesmanRate;
+        }
+
         const customerPayload = {
             name: name,
             company: company,
@@ -10080,6 +10109,7 @@ async function confirmInquiryApproval() {
             status: 'Active',
             salesman_email: salesmanEmail,
             assigned_at: salesmanId ? new Date().toISOString() : null,
+            salesman_commission_percent: commissionPercent,
             onboarding_complete: false,
             password_changed: false,
             lat: isFinite(shipLat) ? shipLat : null,
@@ -10121,7 +10151,7 @@ async function confirmInquiryApproval() {
                     pricing_approved_at: null,
                     pricing_approved_by: null,
                     territory: null,
-                    salesman_commission_percent: null,
+                    salesman_commission_percent: commissionPercent,
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', customerId);
