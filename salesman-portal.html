@@ -735,7 +735,12 @@
             Please allow 7 to 10 business days for your order to be shipped. It has been a pleasure doing business with you. Thank you.
         </p>
 
-        <div class="flex justify-end">
+        <div class="flex justify-end gap-3">
+            <button type="button" id="sm-inv-edit-order-btn"
+                    onclick="editOrderFromSalesmanInvoice()"
+                    class="hidden px-6 py-2 bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
+                Edit Order
+            </button>
             <button type="button" onclick="hideOrderInvoiceModal()"
                     class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
                 Close
@@ -744,6 +749,69 @@
     </div>
 </div>
 <!-- ================== END ORDER INVOICE MODAL ================== -->
+
+<div id="sm-edit-order-modal"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] p-4">
+    <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6"
+         onclick="event.stopImmediatePropagation()">
+        <div class="flex items-start justify-between mb-4">
+            <div>
+                <h2 class="text-2xl font-bold brand-green">Edit Order</h2>
+                <p class="text-sm text-[#6B4423]" id="sm-edit-subtitle">Change items, then save</p>
+            </div>
+            <button type="button" onclick="hideSalesmanEditOrderModal()"
+                    class="text-2xl text-[#6B4423] leading-none">&times;</button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4 text-sm">
+            <div class="bg-[#f8f4eb] rounded-xl p-3">
+                <p class="text-xs text-[#6B4423]">Customer</p>
+                <p class="font-semibold brand-green" id="sm-edit-customer">—</p>
+            </div>
+            <div class="bg-[#f8f4eb] rounded-xl p-3">
+                <p class="text-xs text-[#6B4423]">Invoice</p>
+                <p class="font-mono text-sm" id="sm-edit-invoice">—</p>
+            </div>
+            <div class="bg-[#f8f4eb] rounded-xl p-3">
+                <p class="text-xs text-[#6B4423]">Status</p>
+                <p class="font-semibold brand-green" id="sm-edit-status">—</p>
+            </div>
+        </div>
+        <div class="mb-4">
+            <label class="block text-sm font-semibold text-[#6B4423] mb-1">Commission %</label>
+            <input id="sm-edit-commission" type="text" inputmode="decimal"
+                   class="w-32 border-2 border-[#6B4423] rounded-xl px-4 py-2"
+                   placeholder="5">
+        </div>
+        <div class="mb-4">
+            <h3 class="font-bold brand-green mb-2">Line Items</h3>
+            <div id="sm-edit-items" class="space-y-2"></div>
+        </div>
+        <div id="sm-edit-change-summary"
+             class="mb-4 text-sm border border-[#d4b78f] rounded-xl p-3 bg-[#f8f4eb] text-[#6B4423]"></div>
+        <div class="mb-4 relative">
+            <label class="block text-sm font-semibold text-[#6B4423] mb-1">Add product</label>
+            <input type="text" id="sm-edit-product-search"
+                   oninput="renderSalesmanEditProductSearch()"
+                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"
+                   placeholder="Search products…">
+            <div id="sm-edit-product-results"
+                 class="hidden absolute z-50 w-full bg-white border-2 border-[#6B4423] rounded-xl mt-1 max-h-56 overflow-auto shadow-lg"></div>
+        </div>
+        <div class="flex justify-between items-center mb-6">
+            <p class="text-sm text-[#6B4423]">Subtotal <span id="sm-edit-subtotal" class="font-semibold text-[#1E4D2B]">$0.00</span></p>
+        </div>
+        <div class="flex justify-end gap-3">
+            <button type="button" onclick="hideSalesmanEditOrderModal()"
+                    class="px-5 py-2 border-2 border-[#6B4423] rounded-xl">
+                Cancel
+            </button>
+            <button type="button" onclick="saveSalesmanEditedOrder()"
+                    class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
+                Save Changes
+            </button>
+        </div>
+    </div>
+</div>
 <!-- Force Password Change Modal (salesman first login) -->
 <div id="password-change-modal"
      class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">

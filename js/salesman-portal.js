@@ -3230,9 +3230,348 @@ async function openSalesmanOrderInvoice(orderId) {
     }
     if (totalEl) totalEl.textContent = '$' + finalTotal.toFixed(2);
 
+    const editBtn = document.getElementById('sm-inv-edit-order-btn');
+    if (editBtn) {
+        const st = String(order.status || 'submitted').toLowerCase();
+        const canEdit = (typeof canEditSalesmanOrder === 'function') && canEditSalesmanOrder() &&
+            (st === 'submitted' || st === 'pending' || st === '' || st === 'received' || st === 'processing');
+        if (canEdit) {
+            editBtn.classList.remove('hidden');
+            editBtn.setAttribute('data-order-id', String(order.id));
+        } else {
+            editBtn.classList.add('hidden');
+            editBtn.removeAttribute('data-order-id');
+        }
+    }
+
     // Show modal
     const modal = document.getElementById('order-invoice-modal');
     if (modal) modal.classList.remove('hidden');
+}
+
+function canEditSalesmanOrder() {
+    const user = getCurrentUser() || currentUser;
+    const email = (user && user.email ? String(user.email) : '').toLowerCase().trim();
+    return email === 'jackerman@donegalnatural.com' || !!(user && user.isViewAs) || !!localStorage.getItem('originalAdminUser');
+}
+
+function editOrderFromSalesmanInvoice() {
+    const btn = document.getElementById('sm-inv-edit-order-btn');
+    const orderId = btn ? btn.getAttribute('data-order-id') : '';
+    if (!orderId) return;
+    if (typeof hideOrderInvoiceModal === 'function') hideOrderInvoiceModal();
+    openSalesmanEditOrder(orderId);
+}
+
+let smEditOrder = null;
+let smEditItems = [];
+
+async function openSalesmanEditOrder(orderId) {
+    if (!canEditSalesmanOrder()) {
+        alert('Only Jonathan can edit orders from Salesman View.');
+        return;
+    }
+    let order = (window._salesmanOrders || []).find(function (o) {
+        return String(o.id) === String(orderId);
+    });
+    if (!order && typeof supabaseClient !== 'undefined') {
+        const { data, error } = await supabaseClient
+            .from('orders')
+            .select('*')
+            .eq('id', orderId)
+            .maybeSingle();
+        if (error) {
+            alert('Could not load order.\n' + (error.message || ''));
+            return;
+        }
+        order = data;
+        if (order) {
+            window._salesmanOrders = window._salesmanOrders || [];
+            window._salesmanOrders.push(order);
+        }
+    }
+    if (!order) {
+        alert('Order not found.');
+        return;
+    }
+    const st = String(order.status || 'submitted').toLowerCase();
+    if (!(st === 'submitted' || st === 'pending' || st === '' || st === 'received' || st === 'processing')) {
+        alert('Shipped or denied orders cannot be edited.');
+        return;
+    }
+    smEditOrder = order;
+    smEditItems = (order.items || []).map(function (item) {
+        return {
+            product: item.product || item.name || '',
+            quantity: item.quantity || 1,
+            caseSize: item.caseSize || '',
+            unitPrice: item.unitPrice != null ? item.unitPrice : null,
+            displayPrice: item.displayPrice || '',
+            isMarketPrice: !!item.isMarketPrice
+        };
+    });
+    const customerEl = document.getElementById('sm-edit-customer');
+    const invoiceEl = document.getElementById('sm-edit-invoice');
+    const statusEl = document.getElementById('sm-edit-status');
+    const commissionEl = document.getElementById('sm-edit-commission');
+    if (customerEl) customerEl.textContent = order.customer_name || order.customer || '—';
+    if (invoiceEl) invoiceEl.textContent = (typeof displayInvoiceNumber === 'function') ? displayInvoiceNumber(order) : String(order.invoice_number || order.id);
+    if (statusEl) statusEl.textContent = order.status || 'submitted';
+    if (commissionEl) {
+        const raw = order.salesman_commission_percent != null ? order.salesman_commission_percent : 5;
+        commissionEl.value = String(raw);
+    }
+    const searchEl = document.getElementById('sm-edit-product-search');
+    if (searchEl) searchEl.value = '';
+    const resultsEl = document.getElementById('sm-edit-product-results');
+    if (resultsEl) {
+        resultsEl.innerHTML = '';
+        resultsEl.classList.add('hidden');
+    }
+    renderSalesmanEditItems();
+    document.getElementById('sm-edit-order-modal')?.classList.remove('hidden');
+}
+
+function hideSalesmanEditOrderModal() {
+    document.getElementById('sm-edit-order-modal')?.classList.add('hidden');
+    smEditOrder = null;
+    smEditItems = [];
+}
+
+function salesmanEditItemKey(item) {
+    return String((item && (item.product || item.name)) || '').trim().toLowerCase();
+}
+
+function salesmanEditItemQty(item) {
+    return parseInt(item && item.quantity, 10) || 0;
+}
+
+function salesmanEditItemUnit(item) {
+    const n = parseFloat(item && item.unitPrice);
+    return isFinite(n) ? n : 0;
+}
+
+function salesmanEditSum(items) {
+    return (items || []).reduce(function (sum, item) {
+        return sum + (salesmanEditItemQty(item) * salesmanEditItemUnit(item));
+    }, 0);
+}
+
+function renderSalesmanEditItems() {
+    const container = document.getElementById('sm-edit-items');
+    const subEl = document.getElementById('sm-edit-subtotal');
+    const summaryEl = document.getElementById('sm-edit-change-summary');
+    if (!container) return;
+    if (!smEditItems.length) {
+        container.innerHTML = '<p class="text-sm text-[#6B4423]">No line items.</p>';
+    } else {
+        container.innerHTML = smEditItems.map(function (item, index) {
+            const unit = salesmanEditItemUnit(item);
+            const qty = salesmanEditItemQty(item);
+            const line = unit * qty;
+            const priceLabel = unit > 0 ? ('$' + unit.toFixed(2)) : (item.displayPrice || '—');
+            return '<div class="flex flex-wrap items-center gap-2 border border-[#d4b78f] rounded-xl px-3 py-2 bg-[#f8f4eb]">' +
+                '<div class="flex-1 min-w-[160px]"><p class="font-semibold text-sm brand-green">' + escapeHtml(item.product) + '</p>' +
+                '<p class="text-xs text-[#6B4423]">' + escapeHtml(priceLabel) + (item.caseSize ? (' · ' + escapeHtml(item.caseSize)) : '') + '</p></div>' +
+                '<input type="number" min="1" step="1" value="' + qty + '" onchange="updateSalesmanEditQty(' + index + ', this.value)" class="w-20 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm">' +
+                '<p class="font-semibold text-sm brand-green min-w-[70px] text-right">' + (unit > 0 ? ('$' + line.toFixed(2)) : '—') + '</p>' +
+                '<button type="button" onclick="removeSalesmanEditItem(' + index + ')" class="px-3 py-1 text-xs bg-red-600 text-white rounded-lg">Remove</button></div>';
+        }).join('');
+    }
+    const nextTotal = salesmanEditSum(smEditItems);
+    if (subEl) subEl.textContent = '$' + nextTotal.toFixed(2);
+    if (summaryEl && smEditOrder) {
+        const before = smEditOrder.items || [];
+        const prevMap = {};
+        before.forEach(function (item) {
+            const key = salesmanEditItemKey(item);
+            if (key) prevMap[key] = salesmanEditItemQty(item);
+        });
+        const nextMap = {};
+        smEditItems.forEach(function (item) {
+            const key = salesmanEditItemKey(item);
+            if (key) nextMap[key] = salesmanEditItemQty(item);
+        });
+        const changes = [];
+        Object.keys(prevMap).forEach(function (key) {
+            if (nextMap[key] == null) changes.push(key + ': removed (was qty ' + prevMap[key] + ')');
+            else if (prevMap[key] !== nextMap[key]) changes.push(key + ': qty ' + prevMap[key] + ' → ' + nextMap[key]);
+        });
+        Object.keys(nextMap).forEach(function (key) {
+            if (prevMap[key] == null) changes.push(key + ': added qty ' + nextMap[key]);
+        });
+        const prevTotal = salesmanEditSum(before);
+        if (!changes.length && prevTotal === nextTotal) {
+            summaryEl.textContent = 'No item changes yet.';
+        } else {
+            summaryEl.innerHTML = '<p class="font-semibold text-[#1E4D2B] mb-1">Pending changes</p>' +
+                (changes.length ? ('<ul class="list-disc ml-5">' + changes.map(function (line) {
+                    return '<li>' + escapeHtml(line) + '</li>';
+                }).join('') + '</ul>') : '<p>Items unchanged</p>') +
+                '<p class="mt-2">Previous subtotal: $' + prevTotal.toFixed(2) + '</p>' +
+                '<p>Updated subtotal: $' + nextTotal.toFixed(2) + '</p>';
+        }
+    }
+}
+
+function updateSalesmanEditQty(index, value) {
+    if (!smEditItems[index]) return;
+    smEditItems[index].quantity = Math.max(1, parseInt(value, 10) || 1);
+    renderSalesmanEditItems();
+}
+
+function removeSalesmanEditItem(index) {
+    smEditItems.splice(index, 1);
+    renderSalesmanEditItems();
+}
+
+function renderSalesmanEditProductSearch() {
+    const input = document.getElementById('sm-edit-product-search');
+    const results = document.getElementById('sm-edit-product-results');
+    if (!input || !results || typeof PRODUCT_CATALOG === 'undefined') return;
+    const q = String(input.value || '').trim().toLowerCase();
+    if (!q) {
+        results.innerHTML = '';
+        results.classList.add('hidden');
+        return;
+    }
+    const matches = PRODUCT_CATALOG.filter(function (p) {
+        return String(p.name || '').toLowerCase().indexOf(q) !== -1;
+    }).slice(0, 12);
+    if (!matches.length) {
+        results.innerHTML = '<p class="p-3 text-sm text-[#6B4423]">No products</p>';
+        results.classList.remove('hidden');
+        return;
+    }
+    results.innerHTML = matches.map(function (p) {
+        const safe = String(p.name || '').replace(/'/g, "\\'");
+        return '<button type="button" class="w-full text-left px-3 py-2 hover:bg-[#f8f4eb]" onclick="addSalesmanEditProduct(\'' + safe + '\')">' +
+            escapeHtml(p.name) + '</button>';
+    }).join('');
+    results.classList.remove('hidden');
+}
+
+function addSalesmanEditProduct(productName) {
+    if (typeof PRODUCT_CATALOG === 'undefined') return;
+    const product = PRODUCT_CATALOG.find(function (p) { return p.name === productName; });
+    if (!product) return;
+    const existing = smEditItems.find(function (i) { return salesmanEditItemKey(i) === String(productName).toLowerCase(); });
+    if (existing) {
+        existing.quantity = salesmanEditItemQty(existing) + 1;
+    } else {
+        smEditItems.push({
+            product: product.name,
+            quantity: 1,
+            caseSize: product.caseSize || '',
+            unitPrice: product.isMarketPrice ? null : Number(product.unitPrice),
+            isMarketPrice: !!product.isMarketPrice,
+            displayPrice: product.isMarketPrice ? 'Market Price' : ('$' + Number(product.unitPrice).toFixed(2))
+        });
+    }
+    const searchEl = document.getElementById('sm-edit-product-search');
+    if (searchEl) searchEl.value = '';
+    const resultsEl = document.getElementById('sm-edit-product-results');
+    if (resultsEl) {
+        resultsEl.innerHTML = '';
+        resultsEl.classList.add('hidden');
+    }
+    renderSalesmanEditItems();
+}
+
+async function saveSalesmanEditedOrder() {
+    if (!canEditSalesmanOrder()) {
+        alert('Only Jonathan can edit orders from Salesman View.');
+        return;
+    }
+    if (!smEditOrder) return;
+    if (!smEditItems.length) {
+        alert('Order must have at least one line item.');
+        return;
+    }
+    const rawCommission = String((document.getElementById('sm-edit-commission') || {}).value || '').trim();
+    let commissionPercent = null;
+    if (rawCommission !== '') {
+        commissionPercent = Number(rawCommission);
+        if (!isFinite(commissionPercent) || commissionPercent < 0 || commissionPercent > 100) {
+            alert('Commission must be between 0 and 100.');
+            return;
+        }
+    }
+    const itemsPayload = smEditItems.map(function (item) {
+        return {
+            product: item.product,
+            quantity: item.quantity || 1,
+            caseSize: item.caseSize || '',
+            unitPrice: item.unitPrice,
+            displayPrice: item.displayPrice || '',
+            isMarketPrice: !!item.isMarketPrice
+        };
+    });
+    const before = smEditOrder.items || [];
+    const prevMap = {};
+    before.forEach(function (item) {
+        const key = salesmanEditItemKey(item);
+        if (key) prevMap[key] = { product: item.product || item.name || key, qty: salesmanEditItemQty(item) };
+    });
+    const nextMap = {};
+    itemsPayload.forEach(function (item) {
+        const key = salesmanEditItemKey(item);
+        if (key) nextMap[key] = { product: item.product, qty: salesmanEditItemQty(item) };
+    });
+    const changes = [];
+    Object.keys(prevMap).forEach(function (key) {
+        if (!nextMap[key]) changes.push(prevMap[key].product + ': removed (was qty ' + prevMap[key].qty + ')');
+        else if (prevMap[key].qty !== nextMap[key].qty) changes.push(prevMap[key].product + ': qty ' + prevMap[key].qty + ' → ' + nextMap[key].qty);
+    });
+    Object.keys(nextMap).forEach(function (key) {
+        if (!prevMap[key]) changes.push(nextMap[key].product + ': added qty ' + nextMap[key].qty);
+    });
+    const editBlock = [
+        'ORDER UPDATED',
+        'Edited: ' + new Date().toLocaleString(),
+        changes.length ? ('Changed items:\n- ' + changes.join('\n- ')) : 'Changed items: none',
+        'Previous subtotal: $' + salesmanEditSum(before).toFixed(2),
+        'Updated subtotal: $' + salesmanEditSum(itemsPayload).toFixed(2)
+    ];
+    if (commissionPercent != null) editBlock.push('Commission: ' + commissionPercent + '%');
+    const existingNotes = String(smEditOrder.notes || '').trim().replace(/\n*ORDER UPDATED[\s\S]*$/i, '').trim();
+    const notesToSave = existingNotes ? (existingNotes + '\n\n' + editBlock.join('\n')) : editBlock.join('\n');
+    const payload = { items: itemsPayload, notes: notesToSave };
+    if (commissionPercent != null) {
+        payload.salesman_commission_percent = commissionPercent;
+        payload.portal_commission_rate = commissionPercent;
+    }
+    try {
+        const { data, error } = await supabaseClient
+            .from('orders')
+            .update(payload)
+            .eq('id', smEditOrder.id)
+            .select('id');
+        if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Update matched 0 rows.');
+        if (typeof notifyMarshallProforma === 'function') {
+            await notifyMarshallProforma({
+                orderId: (typeof displayInvoiceNumber === 'function') ? displayInvoiceNumber(smEditOrder) : (smEditOrder.invoice_number || smEditOrder.id),
+                customerName: smEditOrder.customer_name || '',
+                companyName: smEditOrder.customer_company || '',
+                customerEmail: smEditOrder.customer_email || '',
+                salesmanName: smEditOrder.salesman_name || '',
+                items: itemsPayload,
+                notes: notesToSave,
+                shippingCost: smEditOrder.shipping_cost || 0,
+                credit: smEditOrder.credit || 0,
+                submittedAt: smEditOrder.submitted_at,
+                source: smEditOrder.source || 'salesman',
+                commissionRate: commissionPercent
+            });
+        }
+        hideSalesmanEditOrderModal();
+        if (typeof renderMyOrders === 'function') await renderMyOrders();
+        alert('Order updated.\nUpdated pro forma emailed.');
+    } catch (err) {
+        console.error(err);
+        alert('Could not update order.\n' + (err.message || ''));
+    }
 }
 
 function updateOrderStatus(orderId, newStatus) {
