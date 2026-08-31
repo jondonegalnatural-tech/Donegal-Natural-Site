@@ -3781,7 +3781,7 @@ function formatAnalysis(analysis) {
     if (analysis.fat) parts.push('Fat ' + analysis.fat);
     if (analysis.fiber) parts.push('Fiber ' + analysis.fiber);
     if (analysis.moisture) parts.push('Moisture ' + analysis.moisture);
-    return parts.length ? ('Guaranteed analysis: ' + parts.join(' · ')) : '';
+    return parts.length ? parts.join(' · ') : '';
 }
 
 function findIngredientRow(productName) {
@@ -3872,9 +3872,15 @@ function updateCardIngredients(el, productName) {
         return;
     }
     el.innerHTML =
-        (text ? ('<span class="card-ingredients-label">Ingredients: </span>' + escapeHtml(text)) : '') +
-        (text && analysis ? '<br>' : '') +
-        (analysis ? ('<span class="card-analysis">' + escapeHtml(analysis) + '</span>') : '');
+        (text
+            ? ('<span class="card-ingredients-label">Ingredients: </span>' + escapeHtml(text))
+            : '') +
+        (analysis
+            ? ((text ? '<div class="card-analysis">' : '<div class="card-analysis" style="margin-top:0">') +
+                '<span class="card-analysis-label">Guaranteed analysis: </span>' +
+                escapeHtml(analysis) +
+                '</div>')
+            : '');
     el.style.display = '';
 }
 
@@ -4443,8 +4449,8 @@ function showPackagedItemModal(name, price, cs, category, image = null, healthBe
                 const analysis = getAnalysisForProduct(name);
                 if (!text && !analysis) return '';
                 return '<div class="text-sm text-[#6B4423] mb-4">' +
-                    (text ? ('<p><span class="font-semibold text-[#1E4D2B]">Ingredients: </span>' + escapeHtml(text) + '</p>') : '') +
-                    (analysis ? ('<p class="mt-1">' + escapeHtml(analysis) + '</p>') : '') +
+                    (text ? ('<p class="mb-2"><span class="font-bold text-[#1E4D2B]">Ingredients: </span>' + escapeHtml(text) + '</p>') : '') +
+                    (analysis ? ('<p><span class="font-bold text-[#1E4D2B]">Guaranteed analysis: </span>' + escapeHtml(analysis) + '</p>') : '') +
                     '</div>';
             })()}
 
