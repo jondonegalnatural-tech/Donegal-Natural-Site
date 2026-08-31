@@ -3765,6 +3765,100 @@ function updateCardDescription(el, productName) {
     el.style.display = text ? '' : 'none';
 }
 
+let wholesaleIngredients = [];
+
+function normalizeIngredientKey(value) {
+    return String(value || '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
+function formatAnalysis(analysis) {
+    if (!analysis || typeof analysis !== 'object') return '';
+    const parts = [];
+    if (analysis.protein) parts.push('Protein ' + analysis.protein);
+    if (analysis.fat) parts.push('Fat ' + analysis.fat);
+    if (analysis.fiber) parts.push('Fiber ' + analysis.fiber);
+    if (analysis.moisture) parts.push('Moisture ' + analysis.moisture);
+    return parts.length ? ('Guaranteed analysis: ' + parts.join(' · ')) : '';
+}
+
+function findIngredientRow(productName) {
+    const want = normalizeIngredientKey(productName);
+    if (!want || !wholesaleIngredients.length) return null;
+    let match = wholesaleIngredients.find(function (row) {
+        const name = normalizeIngredientKey(row.name);
+        return name && (want.indexOf(name) !== -1 || name.indexOf(want) !== -1);
+    });
+    if (!match) {
+        match = wholesaleIngredients.find(function (row) {
+            const parts = String(row.name || '').split(/[\/,&+()]/).map(normalizeIngredientKey).filter(function (p) {
+                return p.length > 3;
+            });
+            return parts.some(function (part) {
+                return want.indexOf(part) !== -1;
+            });
+        });
+    }
+    return match || null;
+}
+
+function getIngredientsForProduct(productName) {
+    const match = findIngredientRow(productName);
+    return match && match.ingredients ? String(match.ingredients).trim() : '';
+}
+
+function getAnalysisForProduct(productName) {
+    const match = findIngredientRow(productName);
+    return match ? formatAnalysis(match.analysis) : '';
+}
+
+function buildCardIngredientsEl() {
+    const el = document.createElement('p');
+    el.className = 'card-ingredients';
+    return el;
+}
+
+function updateCardIngredients(el, productName) {
+    if (!el) return;
+    const text = getIngredientsForProduct(productName);
+    const analysis = getAnalysisForProduct(productName);
+    if (!text && !analysis) {
+        el.textContent = '';
+        el.style.display = 'none';
+        return;
+    }
+    el.innerHTML =
+        (text ? ('<span class="card-ingredients-label">Ingredients: </span>' + escapeHtml(text)) : '') +
+        (text && analysis ? '<br>' : '') +
+        (analysis ? ('<span class="card-analysis">' + escapeHtml(analysis) + '</span>') : '');
+    el.style.display = '';
+}
+
+async function loadWholesaleIngredients() {
+    try {
+        if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+        const { data, error } = await supabaseClient
+            .from('product_ingredients')
+            .select('name, ingredients, analysis')
+            .order('sort_order', { ascending: true });
+        if (error) throw error;
+        wholesaleIngredients = (data || []).map(function (row) {
+            return {
+                name: row.name || '',
+                ingredients: row.ingredients || '',
+                analysis: row.analysis || null
+            };
+        }).filter(function (row) {
+            return row.name && (row.ingredients || row.analysis);
+        });
+    } catch (err) {
+        console.warn('loadWholesaleIngredients:', err);
+        wholesaleIngredients = [];
+    }
+}
+
 function updateDogSizeRow(wrap, productName) {
     if (!wrap) return;
     const active = getRecommendedDogSizes(productName);
@@ -3808,6 +3902,7 @@ function buildCombinedCard(group) {
     meta.className = 'card-meta';
 
     const descEl = buildCardDescriptionEl();
+    const ingredientsEl = buildCardIngredientsEl();
     const sizeRow = buildDogSizeRow();
 
     const qtyRow = document.createElement('div');
@@ -3890,6 +3985,7 @@ function buildCombinedCard(group) {
             });
             const descName = (chosen[0] || preview).name;
             updateCardDescription(descEl, descName);
+            updateCardIngredients(ingredientsEl, descName);
             updateDogSizeRow(sizeRow, descName);
             syncCombinedOosButton(descName);
         }
@@ -3927,6 +4023,7 @@ function buildCombinedCard(group) {
 
         body.appendChild(flavorRow);
         body.appendChild(descEl);
+        body.appendChild(ingredientsEl);
         body.appendChild(sizeRow);
         body.appendChild(qtyRow);
         body.appendChild(btn);
@@ -3961,6 +4058,7 @@ function buildCombinedCard(group) {
                 });
             });
             updateCardDescription(descEl, selected.name);
+            updateCardIngredients(ingredientsEl, selected.name);
             updateDogSizeRow(sizeRow, selected.name);
         }
 
@@ -4002,6 +4100,7 @@ function buildCombinedCard(group) {
         };
 
         body.appendChild(descEl);
+        body.appendChild(ingredientsEl);
         body.appendChild(sizeRow);
         body.appendChild(qtyRow);
         body.appendChild(btn);
@@ -4076,9 +4175,13 @@ function buildProductCard(product) {
         );
     };
 
+    const ingredientsEl = buildCardIngredientsEl();
+    updateCardIngredients(ingredientsEl, product.name);
+
     body.appendChild(name);
     body.appendChild(meta);
     body.appendChild(descEl);
+    body.appendChild(ingredientsEl);
     body.appendChild(sizeRow);
     body.appendChild(btn);
     card.appendChild(photo);
@@ -4158,7 +4261,7 @@ function startRecommendedRotator() {
             return;
         }
         renderRecommendedCards();
-    }, 10000);
+    }, 45000);
 }
 
 function renderPortalProducts() {
@@ -4292,6 +4395,16 @@ function showPackagedItemModal(name, price, cs, category, image = null, healthBe
 
             <p class="font-semibold text-lg mb-1">${escapeHtml(name)}</p>
             <p class="text-sm text-[#6B4423] mb-4">${escapeHtml(cs)} • ${escapeHtml(price)}</p>
+
+            ${(function () {
+                const text = getIngredientsForProduct(name);
+                const analysis = getAnalysisForProduct(name);
+                if (!text && !analysis) return '';
+                return '<div class="text-sm text-[#6B4423] mb-4">' +
+                    (text ? ('<p><span class="font-semibold text-[#1E4D2B]">Ingredients: </span>' + escapeHtml(text) + '</p>') : '') +
+                    (analysis ? ('<p class="mt-1">' + escapeHtml(analysis) + '</p>') : '') +
+                    '</div>';
+            })()}
 
             ${benefitsHTML}
 
@@ -6730,6 +6843,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await Promise.all([
         loadWholesaleCatalog(),
+        loadWholesaleIngredients(),
         loadPortalInventory(),
         loadCustomerBackOrders()
     ]);

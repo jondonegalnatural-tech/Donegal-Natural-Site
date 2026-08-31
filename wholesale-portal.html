@@ -203,7 +203,27 @@
             color: #6B4423;
             font-size: 0.82rem;
             line-height: 1.35;
+                    .wholesale-product-card .card-desc {
+            color: #6B4423;
+            font-size: 0.82rem;
+            line-height: 1.35;
             margin: 0 0 0.55rem;
+        }
+        .wholesale-product-card .card-ingredients {
+            color: #6B4423;
+            font-size: 0.78rem;
+            line-height: 1.35;
+            margin: 0 0 0.55rem;
+        }
+        .wholesale-product-card .card-ingredients-label {
+            font-weight: 700;
+            color: #1E4D2B;
+        }
+        .wholesale-product-card .card-analysis {
+            color: #6B4423;
+            font-size: 0.75rem;
+            line-height: 1.35;
+        }        margin: 0 0 0.55rem;
         }
         .card-sizes {
             margin: 0 0 0.55rem;
@@ -442,7 +462,8 @@
 <body class="min-h-screen flex flex-col">
 
     <!-- ================== TOP NAVBAR ================== -->
-    <nav class="bg-white border-b-2 border-[#6B4423] sticky top-0 z-50">
+    <nav class="bg-white border-b-2 border-[#6B4423] stick    <div class="sticky top-0 z-50">
+    <nav class="bg-white border-b-2 border-[#6B4423]">y top-0 z-50">
         <div class="max-w-screen-2xl mx-auto px-4 md:px-6 py-3 md:py-4 flex flex-wrap items-center justify-between gap-3">
             <!-- Left: Logo + Brand -->
             <div class="flex items-center gap-2 md:gap-3 min-w-0">
@@ -471,17 +492,18 @@
         </div>
     </nav>
 
-    <div class="bg-[#f8f4eb] border-b-2 border-[#6B4423]">
-        <div class="max-w-screen-2xl mx-auto px-4 md:px-6 py-3 text-sm text-[#6B4423] leading-snug">
-            <p class="font-semibold text-[#1E4D2B]">Product photography</p>
-            <p>
+    <div class="bg-[#1E4D2B] border-b-2 border-[#6B4423]">
+        <div class="max-w-screen-2xl mx-auto px-4 md:px-6 py-3 text-[#d4b78f] leading-snug">
+            <p class="font-bold text-sm md:text-base tracking-wide">Product photography</p>
+            <p class="text-sm md:text-base">
                 Some catalog images are placeholders or may not yet match the current product.
                 Updated photos are being added. For questions about an item’s appearance,
                 please email
                 <a href="mailto:support@donegalnatural.com"
-                   class="font-semibold text-[#1E4D2B] underline">support@donegalnatural.com</a>.
+                   class="font-bold underline text-white">support@donegalnatural.com</a>.
             </p>
         </div>
+    </div>
     </div>
 
     <!-- Mobile section nav (phones / tablets) -->
