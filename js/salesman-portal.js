@@ -2614,7 +2614,11 @@ if (customerInfoForm) {
         notesParts.push("Shipping: " + shippingAddress);
         notesParts.push("Billing: " + billingAddress);
         if (notes) notesParts.push("Notes: " + notes);
-        notesParts.push("Submitted by: " + (user.fullName || user.name || user.email || "Salesman"));
+        notesParts.push(
+            "Submitted by: " +
+            (user.fullName || user.name || user.email || "Salesman") +
+            (user.email ? (" (" + user.email + ")") : "")
+        );
 
         try {
             const { error } = await supabaseClient

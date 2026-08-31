@@ -6139,6 +6139,16 @@ async function matchCustomerForInquiryApproval(email) {
         );
     }
 
+    if (!existing && profile && profile.role === 'customer') {
+        return {
+            id: null,
+            name: emailNorm,
+            company: '',
+            email: emailNorm,
+            status: 'login exists'
+        };
+    }
+
     return existing;
 }
 
@@ -9609,6 +9619,25 @@ function getInquiryLocation(inquiry) {
     return '—';
 }
 
+function getInquirySubmittedBy(inquiry) {
+    const notes = String((inquiry && inquiry.notes) || '');
+    const match = notes.match(/Submitted by:\s*(.+)/i);
+    return match ? match[1].trim() : '';
+}
+
+function formatInquirySource(inquiry) {
+    const source = String((inquiry && inquiry.source) || '').trim();
+    const submittedBy = getInquirySubmittedBy(inquiry);
+    if (source.toLowerCase() === 'salesman') {
+        return submittedBy ? ('Salesman — ' + submittedBy) : 'Salesman';
+    }
+    if (source.toLowerCase() === 'landing_page' || source.toLowerCase() === 'landing-page') {
+        return submittedBy ? ('Website — ' + submittedBy) : 'Website inquiry';
+    }
+    if (submittedBy) return (source || 'Inquiry') + ' — ' + submittedBy;
+    return source || '—';
+}
+
 function createInquiryCard(inquiry, showActions) {
     const div = document.createElement('div');
     div.className = 'border border-[#d4b78f] rounded-xl p-5 mb-4 bg-[#f8f4eb]';
@@ -9641,7 +9670,7 @@ function createInquiryCard(inquiry, showActions) {
                 </span>
                 <p class="text-xs text-[#6B4423] mt-1">Submitted: ${submitted}</p>
                 <p class="text-xs text-[#6B4423]">Source: ${inquiry.source || '—'}</p>
-            </div>
+            </div>                <p class="text-xs text-[#6B4423]">Source: ${escapeHtml(formatInquirySource(inquiry))}</p>
         </div>
         <div class="mb-3 bg-white rounded-lg p-3 text-sm space-y-1">
             <p><strong>Location:</strong> ${escapeHtml(location)}</p>
@@ -9855,17 +9884,33 @@ async function openInquiryApprovalModal(inquiryId) {
             }
         });
 
+        const submittedBy = (typeof getInquirySubmittedBy === 'function')
+            ? getInquirySubmittedBy(inquiry)
+            : '';
+        if (!suggestedId && submittedBy) {
+            const needle = submittedBy.toLowerCase();
+            const bySubmit = list.find((s) => {
+                const label = [s.first_name, s.last_name].filter(Boolean).join(' ').toLowerCase();
+                const em = String(s.email || '').toLowerCase();
+                return (label && (needle.indexOf(label) !== -1 || label.indexOf(needle) !== -1))
+                    || (em && needle.indexOf(em) !== -1);
+            });
+            if (bySubmit) suggestedId = bySubmit.id;
+        }
+
         if (suggestedId) {
             select.value = suggestedId;
             const match = list.find(s => s.id === suggestedId);
                         const matchName = match
                 ? ([match.first_name, match.last_name].filter(Boolean).join(' ') || match.email)
                 : '';
-            suggestedEl.textContent = matchName
-                ? 'Suggested (by territory): ' + matchName
-                : '';
+            suggestedEl.textContent = submittedBy
+                ? ('Submitted by: ' + submittedBy)
+                : (matchName ? ('Suggested (by territory): ' + matchName) : '');
         } else {
-            suggestedEl.textContent = 'No automatic match — please select a salesman.';
+            suggestedEl.textContent = submittedBy
+                ? ('Submitted by: ' + submittedBy + ' — select them in the list')
+                : 'No automatic match — please select a salesman.';
         }
 
         modal.classList.remove('hidden');
