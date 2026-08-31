@@ -6798,125 +6798,31 @@ async function setAllCustomersActive(enabled) {
         return;
     }
 
-    if (!enabled) {
-        if (!confirm(
-            'Disable ' + selected.length + ' selected customer(s)?\n\n' +
-            'They can still log in, but will only see Account and Order History.'
-        )) return;
-
-        try {
-            const ids = selected.map((c) => c.id);
-            const { error } = await supabaseClient
-                .from('customers')
-                .update({
-                    status: 'Inactive',
-                    updated_at: new Date().toISOString()
-                })
-                .in('id', ids);
-            if (error) throw error;
-            await loadCustomers();
-            if (typeof initCustomerMap === 'function') initCustomerMap();
-            alert(selected.length + ' customer(s) set to Inactive.');
-        } catch (err) {
-            console.error('setAllCustomersActive error:', err);
-            alert('Could not update customers.\n' + (err.message || ''));
-        }
-        return;
-    }
-
-    const resetList = selected.filter((c) => !shouldSkipCustomerLoginReset(c));
-    const skipped = selected.filter((c) => shouldSkipCustomerLoginReset(c));
-
-    if (!resetList.length) {
-        alert('Every selected customer is skipped (no email, test store, Adriana, or Gerald).');
-        return;
-    }
-
-    const preview = resetList
-        .slice(0, 12)
-        .map((c) => '- ' + (c.name || c.company || c.email) + ' <' + c.email + '>')
-        .join('\n');
-    const extra = resetList.length > 12 ? ('\n…and ' + (resetList.length - 12) + ' more') : '';
-    const skipNote = skipped.length
-        ? ('\n\nSkipped: ' + skipped.map((c) => c.name || c.company || c.email).join(', '))
-        : '';
-
+    const newStatus = enabled ? 'Active' : 'Inactive';
     if (!confirm(
-        'Enable ' + resetList.length + ' selected customer(s) as a fresh start?\n\n' +
-        preview + extra + skipNote + '\n\n' +
-        'This resets their password, emails a temp login, and forces password change + billing on next login.\n' +
-        'Brian stays assigned. Prices stay locked until he approves the sheet.'
+        (enabled ? 'Enable ' : 'Disable ') + selected.length + ' selected customer(s)?\n\n' +
+        (enabled
+            ? 'They will be set to Active only.\nNo password reset and no credentials email will be sent.\nApprove a pending inquiry to create a login and email credentials.'
+            : 'They can still log in, but will only see Account and Order History.')
     )) return;
 
-    const sent = [];
-    const failed = [];
-
-    for (let i = 0; i < resetList.length; i++) {
-        const customer = resetList[i];
-        const email = String(customer.email || '').toLowerCase().trim();
-        const tempPassword = 'DN' + Math.random().toString(36).slice(2, 8).toUpperCase() + '!';
-        try {
-            const fnRes = await fetch(SUPABASE_URL + '/functions/v1/create-customer-user', {
-                method: 'POST',
-                headers: await getEdgeFunctionHeaders(),
-                body: JSON.stringify({
-                    email: email,
-                    password: tempPassword,
-                    full_name: customer.name || '',
-                    company: customer.company || ''
-                })
-            });
-            const fnText = await fnRes.text();
-            let fnData = null;
-            try { fnData = JSON.parse(fnText); } catch (e) { fnData = { error: fnText || 'Empty response' }; }
-            if (!fnRes.ok || (fnData && fnData.error)) {
-                throw new Error((fnData && fnData.error) ? fnData.error : ('HTTP ' + fnRes.status));
-            }
-
-            const { error } = await supabaseClient
-                .from('customers')
-                .update({
-                    status: 'Active',
-                    password_changed: false,
-                    onboarding_complete: false,
-                    last_login_at: null,
-                    payment_method: null,
-                    payment_method_status: null,
-                    pricing_approved_at: null,
-                    pricing_approved_by: null,
-                    territory: null,
-                    salesman_commission_percent: null,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', customer.id);
-            if (error) throw error;
-
-            sent.push({
-                email: email,
-                password: tempPassword,
-                emailed: fnData && fnData.email_sent === true,
-                emailError: fnData && fnData.email_error ? String(fnData.email_error) : ''
-            });
-        } catch (err) {
-            failed.push({ email: email, error: err.message || String(err) });
-        }
+    try {
+        const ids = selected.map((c) => c.id);
+        const { error } = await supabaseClient
+            .from('customers')
+            .update({
+                status: newStatus,
+                updated_at: new Date().toISOString()
+            })
+            .in('id', ids);
+        if (error) throw error;
+        await loadCustomers();
+        if (typeof initCustomerMap === 'function') initCustomerMap();
+        alert(selected.length + ' customer(s) set to ' + newStatus + '.');
+    } catch (err) {
+        console.error('setAllCustomersActive error:', err);
+        alert('Could not update customers.\n' + (err.message || ''));
     }
-
-    await loadCustomers();
-    if (typeof initCustomerMap === 'function') initCustomerMap();
-
-    const sentLines = sent.map((r) =>
-        r.email + '  temp: ' + r.password + (r.emailed ? '  (email sent)' : ('  (EMAIL FAILED: ' + r.emailError + ')'))
-    ).join('\n');
-    const failLines = failed.map((r) => r.email + ' — ' + r.error).join('\n');
-
-    alert(
-        'Selected enable finished.\n\n' +
-        'Reset / activated: ' + sent.length + '\n' +
-        'Failed: ' + failed.length + '\n\n' +
-        (sentLines ? ('Sent:\n' + sentLines + '\n\n') : '') +
-        (failLines ? ('Failed:\n' + failLines) : '')
-    );
 }
 
 async function deactivateCustomer() {
