@@ -3785,23 +3785,65 @@ function formatAnalysis(analysis) {
 }
 
 function findIngredientRow(productName) {
-    const want = normalizeIngredientKey(productName);
-    if (!want || !wholesaleIngredients.length) return null;
-    let match = wholesaleIngredients.find(function (row) {
-        const name = normalizeIngredientKey(row.name);
-        return name && (want.indexOf(name) !== -1 || name.indexOf(want) !== -1);
-    });
-    if (!match) {
-        match = wholesaleIngredients.find(function (row) {
-            const parts = String(row.name || '').split(/[\/,&+()]/).map(normalizeIngredientKey).filter(function (p) {
-                return p.length > 3;
-            });
-            return parts.some(function (part) {
-                return want.indexOf(part) !== -1;
-            });
+    const raw = String(productName || '');
+    const want = normalizeIngredientKey(raw);
+    if (!want) return null;
+
+    function rowsMatching(keyword) {
+        const key = normalizeIngredientKey(keyword);
+        return (wholesaleIngredients || []).filter(function (row) {
+            return normalizeIngredientKey(row.name).indexOf(key) !== -1;
         });
     }
-    return match || null;
+
+    function firstRowOrFallback(rows, fallbackIngredients) {
+        if (rows && rows.length) return rows[0];
+        if (fallbackIngredients) {
+            return { name: '', ingredients: fallbackIngredients, analysis: null };
+        }
+        return null;
+    }
+
+    if (/honey\s*smoked/i.test(raw)) {
+        return firstRowOrFallback(rowsMatching('honey smoked'), 'Natural honey and natural smoke flavoring');
+    }
+
+    if (/vanilla/i.test(raw)) {
+        return firstRowOrFallback(rowsMatching('vanilla'), 'Flavored with natural vanilla');
+    }
+
+    if (/stuffed/i.test(raw) || /jerky/i.test(raw)) {
+        const jerky = rowsMatching('jerky');
+        const typeOrder = [
+            { tokens: ['venison', 'sweet potato'], fallback: 'Ground Venison, Sweet Potato, Rice Flour, Spices, Sugar, Salt and Garlic Powder' },
+            { tokens: ['elky', 'elk'], fallback: 'Ground Elk Meat, Rice Flour, Spices, Sugar, Salt and Garlic Powder' },
+            { tokens: ['turkey'], fallback: 'Ground Turkey Meat, Rice Flour, Spices, Sugar, Salt and Garlic Powder' },
+            { tokens: ['chicken'], fallback: 'Ground Chicken Meat, Rice Flour, Spices, Sugar, Salt and Garlic Powder' },
+            { tokens: ['beef'], fallback: 'Ground Beef Meat, Rice Flour, Spices, Sugar, Salt and Garlic Powder' }
+        ];
+        for (let i = 0; i < typeOrder.length; i++) {
+            const tokens = typeOrder[i].tokens;
+            if (!tokens.some(function (t) { return want.indexOf(t) !== -1; })) continue;
+            const hit = jerky.find(function (row) {
+                const name = normalizeIngredientKey(row.name);
+                return tokens.some(function (t) { return name.indexOf(t) !== -1; });
+            });
+            if (hit) return hit;
+            return { name: '', ingredients: typeOrder[i].fallback, analysis: null };
+        }
+        if (/peanut\s*butter/i.test(raw)) {
+            const pb = rowsMatching('peanut butter');
+            return firstRowOrFallback(pb, 'All natural peanut butter');
+        }
+        if (/jerky/i.test(raw) && jerky.length) return jerky[0];
+        return null;
+    }
+
+    if (/peanut\s*butter/i.test(raw)) {
+        return firstRowOrFallback(rowsMatching('peanut butter'), 'All natural peanut butter');
+    }
+
+    return null;
 }
 
 function getIngredientsForProduct(productName) {
