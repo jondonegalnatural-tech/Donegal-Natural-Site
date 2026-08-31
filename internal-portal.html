@@ -3114,10 +3114,21 @@ body { background: #f8f1e9; }
             </div>
         </div>
 
+        <div id="approve-ord-commission-wrap" class="hidden mb-4">
+            <label class="block text-sm font-semibold text-[#6B4423] mb-1">Commission %</label>
+            <input id="approve-ord-commission" type="text" inputmode="decimal"
+                   class="w-32 border-2 border-[#6B4423] rounded-xl px-4 py-2"
+                   placeholder="5">
+            <p class="text-xs text-[#6B4423] mt-1">Jonathan only. Saved on this order and used on the Dashboard commission card.</p>
+        </div>
+
         <div class="mb-4">
             <h3 class="font-bold brand-green mb-2">Line Items</h3>
             <div id="approve-ord-items" class="space-y-2"></div>
         </div>
+
+        <div id="approve-ord-change-summary"
+             class="mb-4 text-sm border border-[#d4b78f] rounded-xl p-3 bg-[#f8f4eb] text-[#6B4423]"></div>
 
         <div class="mb-4 relative">
             <label class="block text-sm font-semibold text-[#6B4423] mb-1">Add product</label>
@@ -3140,6 +3151,10 @@ body { background: #f8f1e9; }
             <button type="button" onclick="hideApproveOrderModal()"
                     class="px-5 py-2 border-2 border-[#6B4423] rounded-xl">
                 Cancel
+            </button>
+            <button type="button" onclick="saveEditedOrderItems()"
+                    class="px-5 py-2 border-2 border-[#6B4423] text-[#1E4D2B] font-semibold rounded-xl hover:bg-[#f8f4eb]">
+                Save Changes
             </button>
             <button type="button" onclick="confirmApproveOrder()"
                     class="px-5 py-2 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700">
@@ -3344,7 +3359,12 @@ body { background: #f8f1e9; }
             Please allow 7 to 10 business days for your order to be shipped. It has been a pleasure doing business with you. Thank you.
         </p>
 
-        <div class="flex justify-end">
+        <div class="flex justify-end gap-3">
+            <button type="button" id="inv-edit-order-btn"
+                    onclick="editOrderFromInvoice()"
+                    class="hidden px-6 py-2 bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
+                Edit Order
+            </button>
             <button type="button" onclick="hideOrderInvoiceModal()"
                     class="px-6 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
                 Close

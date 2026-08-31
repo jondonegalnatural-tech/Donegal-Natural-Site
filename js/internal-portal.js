@@ -1656,6 +1656,19 @@ function openOrderInvoiceModal(orderId) {
         loadCustomers();
     }
 
+    const editBtn = document.getElementById('inv-edit-order-btn');
+    if (editBtn) {
+        const st = String(order.status || 'submitted').toLowerCase();
+        const canEdit = st === 'submitted' || st === 'pending' || st === '' || st === 'received' || st === 'processing';
+        if (canEdit) {
+            editBtn.classList.remove('hidden');
+            editBtn.setAttribute('data-order-id', String(order.id));
+        } else {
+            editBtn.classList.add('hidden');
+            editBtn.removeAttribute('data-order-id');
+        }
+    }
+
     const modal = document.getElementById('order-invoice-modal');
     if (modal) modal.classList.remove('hidden');
 }
@@ -3596,6 +3609,21 @@ function openApproveOrderModal(orderId) {
     if (idEl) idEl.textContent = String(displayInvoiceNumber(order));
     if (subtitleEl) subtitleEl.textContent = 'Review line items, then approve or edit';
 
+    const commissionWrap = document.getElementById('approve-ord-commission-wrap');
+    const commissionInput = document.getElementById('approve-ord-commission');
+    if (commissionWrap && commissionInput) {
+        if (typeof isJonathanAdmin === 'function' && isJonathanAdmin()) {
+            commissionWrap.classList.remove('hidden');
+            const current = (typeof getOrderCommissionPercent === 'function')
+                ? getOrderCommissionPercent(order)
+                : 5;
+            commissionInput.value = String(current);
+        } else {
+            commissionWrap.classList.add('hidden');
+            commissionInput.value = '';
+        }
+    }
+
     const searchEl = document.getElementById('approve-ord-product-search');
     if (searchEl) searchEl.value = '';
     const resultsEl = document.getElementById('approve-ord-product-results');
@@ -3794,6 +3822,206 @@ function recalcApproveOrderTotals() {
 
     const subEl = document.getElementById('approve-ord-subtotal');
     if (subEl) subEl.textContent = '$' + subtotal.toFixed(2);
+    if (typeof renderApproveOrderChangeSummary === 'function') renderApproveOrderChangeSummary();
+}
+
+function editOrderFromInvoice() {
+    const btn = document.getElementById('inv-edit-order-btn');
+    const orderId = btn ? btn.getAttribute('data-order-id') : '';
+    if (!orderId) return;
+    if (typeof hideOrderInvoiceModal === 'function') hideOrderInvoiceModal();
+    if (typeof openApproveOrderModal === 'function') openApproveOrderModal(orderId);
+}
+
+function readApproveOrderCommissionPercent() {
+    const el = document.getElementById('approve-ord-commission');
+    if (!el || (typeof isJonathanAdmin === 'function' && !isJonathanAdmin())) return null;
+    const raw = String(el.value || '').trim();
+    if (raw === '') return null;
+    const n = Number(raw);
+    if (!isFinite(n) || n < 0 || n > 100) {
+        throw new Error('Commission must be between 0 and 100.');
+    }
+    return n;
+}
+
+function getOrderItemKey(item) {
+    return String((item && (item.product || item.name)) || '').trim().toLowerCase();
+}
+
+function getOrderItemQty(item) {
+    return parseInt(item && item.quantity, 10) || 0;
+}
+
+function getOrderItemUnit(item) {
+    const n = parseFloat(item && item.unitPrice);
+    return isFinite(n) ? n : 0;
+}
+
+function sumOrderItems(items) {
+    return (items || []).reduce(function (sum, item) {
+        return sum + (getOrderItemQty(item) * getOrderItemUnit(item));
+    }, 0);
+}
+
+function diffOrderItems(before, after) {
+    const prev = {};
+    (before || []).forEach(function (item) {
+        const key = getOrderItemKey(item);
+        if (!key) return;
+        prev[key] = { product: item.product || item.name || key, qty: getOrderItemQty(item) };
+    });
+    const next = {};
+    (after || []).forEach(function (item) {
+        const key = getOrderItemKey(item);
+        if (!key) return;
+        next[key] = { product: item.product || item.name || key, qty: getOrderItemQty(item) };
+    });
+    const changes = [];
+    Object.keys(prev).forEach(function (key) {
+        if (!next[key]) {
+            changes.push(prev[key].product + ': removed (was qty ' + prev[key].qty + ')');
+        } else if (prev[key].qty !== next[key].qty) {
+            changes.push(prev[key].product + ': qty ' + prev[key].qty + ' → ' + next[key].qty);
+        }
+    });
+    Object.keys(next).forEach(function (key) {
+        if (!prev[key]) {
+            changes.push(next[key].product + ': added qty ' + next[key].qty);
+        }
+    });
+    return changes;
+}
+
+function buildOrderEditNote(beforeItems, afterItems, extra) {
+    const when = new Date().toLocaleString();
+    const changes = diffOrderItems(beforeItems, afterItems);
+    const prevTotal = sumOrderItems(beforeItems);
+    const nextTotal = sumOrderItems(afterItems);
+    const lines = [
+        'ORDER UPDATED',
+        'Edited: ' + when,
+        changes.length ? ('Changed items:\n- ' + changes.join('\n- ')) : 'Changed items: none',
+        'Previous subtotal: $' + prevTotal.toFixed(2),
+        'Updated subtotal: $' + nextTotal.toFixed(2)
+    ];
+    if (extra && extra.commission != null && extra.commission !== '') {
+        lines.push('Commission: ' + extra.commission + '%');
+    }
+    return lines.join('\n');
+}
+
+function mergeOrderEditNotes(existing, editBlock) {
+    const raw = String(existing || '').trim();
+    const stripped = raw.replace(/\n*ORDER UPDATED[\s\S]*$/i, '').trim();
+    if (!stripped) return editBlock;
+    return stripped + '\n\n' + editBlock;
+}
+
+function renderApproveOrderChangeSummary() {
+    const el = document.getElementById('approve-ord-change-summary');
+    if (!el || !approveOrderOrder) return;
+    const changes = diffOrderItems(approveOrderOrder.items || [], approveOrderItems || []);
+    const prevTotal = sumOrderItems(approveOrderOrder.items || []);
+    const nextTotal = sumOrderItems(approveOrderItems || []);
+    if (!changes.length && prevTotal === nextTotal) {
+        el.textContent = 'No item changes yet.';
+        return;
+    }
+    el.innerHTML =
+        '<p class="font-semibold text-[#1E4D2B] mb-1">Pending changes</p>' +
+        (changes.length
+            ? ('<ul class="list-disc ml-5">' + changes.map(function (line) {
+                return '<li>' + escapeHtml(line) + '</li>';
+            }).join('') + '</ul>')
+            : '<p>Items unchanged</p>') +
+        '<p class="mt-2">Previous subtotal: $' + prevTotal.toFixed(2) + '</p>' +
+        '<p>Updated subtotal: $' + nextTotal.toFixed(2) + '</p>';
+}
+
+async function sendUpdatedOrderProforma(order, itemsPayload, notesToSave, commissionPercent) {
+    if (typeof notifyMarshallProforma !== 'function') return;
+    const shortId = (typeof displayInvoiceNumber === 'function')
+        ? displayInvoiceNumber(order)
+        : (order.invoiceNumber || order.id);
+    await notifyMarshallProforma({
+        orderId: shortId,
+        customerName: order.customer || order.customer_name || '',
+        companyName: order.customerCompany || order.customer_company || '',
+        customerEmail: order.customerEmail || order.customer_email || '',
+        salesmanName: order.salesman || order.salesman_name || '',
+        items: itemsPayload,
+        notes: notesToSave,
+        shippingCost: order.shippingCost ?? order.shipping_cost ?? 0,
+        credit: order.credit ?? 0,
+        submittedAt: order.submittedAt || order.submitted_at || new Date().toISOString(),
+        source: order.source || 'internal',
+        commissionRate: commissionPercent != null
+            ? commissionPercent
+            : (order.salesmanCommissionPercent || order.salesman_commission_percent || null)
+    });
+}
+
+function buildApproveItemsPayload() {
+    return (approveOrderItems || []).map(function (item) {
+        return {
+            product: item.product,
+            quantity: item.quantity || 1,
+            caseSize: item.caseSize || '',
+            unitPrice: item.unitPrice,
+            displayPrice: item.displayPrice || '',
+            isMarketPrice: !!item.isMarketPrice
+        };
+    });
+}
+
+async function saveEditedOrderItems() {
+    if (!approveOrderOrder) return;
+    if (!approveOrderItems.length) {
+        alert('Order must have at least one line item.');
+        return;
+    }
+
+    const orderId = approveOrderOrder.id;
+    const itemsPayload = buildApproveItemsPayload();
+
+    let commissionPercent = null;
+    try {
+        commissionPercent = readApproveOrderCommissionPercent();
+    } catch (e) {
+        alert(e.message || 'Invalid commission.');
+        return;
+    }
+
+    const editBlock = buildOrderEditNote(approveOrderOrder.items || [], itemsPayload, { commission: commissionPercent });
+    const notesToSave = mergeOrderEditNotes(approveOrderOrder.notes || '', editBlock);
+    const payload = {
+        items: itemsPayload,
+        notes: notesToSave
+    };
+    if (commissionPercent != null) {
+        payload.salesman_commission_percent = commissionPercent;
+        payload.portal_commission_rate = commissionPercent;
+    }
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('orders')
+            .update(payload)
+            .eq('id', orderId)
+            .select('id');
+        if (error) throw error;
+        if (!data || data.length === 0) {
+            throw new Error('Update matched 0 rows for order ' + orderId);
+        }
+        await sendUpdatedOrderProforma(approveOrderOrder, itemsPayload, notesToSave, commissionPercent);
+        hideApproveOrderModal();
+        await loadOrders();
+        alert('Order updated.\nUpdated pro forma emailed.');
+    } catch (err) {
+        console.error(err);
+        alert('Could not update order.\n' + (err.message || ''));
+    }
 }
 
 async function confirmApproveOrder() {
@@ -3805,25 +4033,35 @@ async function confirmApproveOrder() {
     }
 
     const orderId = approveOrderOrder.id;
+    const itemsPayload = buildApproveItemsPayload();
 
-    const itemsPayload = approveOrderItems.map(item => ({
-        product: item.product,
-        quantity: item.quantity || 1,
-        caseSize: item.caseSize || '',
-        unitPrice: item.unitPrice,
-        displayPrice: item.displayPrice || '',
-        isMarketPrice: !!item.isMarketPrice
-    }));
+    let commissionPercent = null;
+    try {
+        commissionPercent = readApproveOrderCommissionPercent();
+    } catch (e) {
+        alert(e.message || 'Invalid commission.');
+        return;
+    }
+
+    const editBlock = buildOrderEditNote(approveOrderOrder.items || [], itemsPayload, { commission: commissionPercent });
+    const notesToSave = mergeOrderEditNotes(approveOrderOrder.notes || '', editBlock);
+
+    const approveUpdate = {
+        status: 'received',
+        items: itemsPayload,
+        notes: notesToSave
+    };
+    if (commissionPercent != null) {
+        approveUpdate.salesman_commission_percent = commissionPercent;
+        approveUpdate.portal_commission_rate = commissionPercent;
+    }
 
     try {
-        console.log('confirmApproveOrder →', { orderId, type: typeof orderId });
+        console.log('confirmApproveOrder →', { orderId: orderId, type: typeof orderId });
 
         const { data, error } = await supabaseClient
             .from('orders')
-            .update({
-                status: 'received',
-                items: itemsPayload
-            })
+            .update(approveUpdate)
             .eq('id', orderId)
             .select('id, status');
 
@@ -3835,7 +4073,6 @@ async function confirmApproveOrder() {
                 '. Check that the order still exists and RLS allows admin updates on orders.'
             );
         }
-        // Insert any items marked Out of Stock during this approval
         if (approvePendingBackOrders.length > 0) {
             const { error: boError } = await supabaseClient
                 .from('back_orders')
@@ -3847,9 +4084,10 @@ async function confirmApproveOrder() {
             approvePendingBackOrders = [];
             if (typeof loadBackOrders === 'function') await loadBackOrders();
         }
+        await sendUpdatedOrderProforma(approveOrderOrder, itemsPayload, notesToSave, commissionPercent);
         hideApproveOrderModal();
         await loadOrders();
-        alert('Order approved.');
+        alert('Order approved.\nUpdated pro forma emailed.');
     } catch (err) {
         console.error(err);
         alert('Could not approve order.\n' + (err.message || ''));
