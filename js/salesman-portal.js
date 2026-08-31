@@ -1948,6 +1948,28 @@ function removePlaceOrderItem(index) {
     renderPlaceOrderItems();
 }
 
+function orderHasUpdateNote(order) {
+    return /ORDER UPDATED/i.test(String((order && (order.notes || order.changeLog)) || ''));
+}
+
+function markInvoiceUpdatedState(order) {
+    const titleEl = document.getElementById('inv-title');
+    const bannerEl = document.getElementById('inv-updated-banner');
+    const updated = orderHasUpdateNote(order);
+    if (titleEl) titleEl.textContent = updated ? 'UPDATED INVOICE' : 'INVOICE';
+    if (bannerEl) {
+        if (updated) {
+            const match = String(order.notes || '').match(/Edited:\s*(.+)/i);
+            bannerEl.textContent = match
+                ? ('THIS ORDER HAS BEEN UPDATED  ·  ' + match[1].trim())
+                : 'THIS ORDER HAS BEEN UPDATED';
+            bannerEl.classList.remove('hidden');
+        } else {
+            bannerEl.classList.add('hidden');
+        }
+    }
+}
+
 async function notifyMarshallProforma(order) {
     try {
         const res = await fetch(SUPABASE_URL + '/functions/v1/send-pro-forma-email', {
@@ -1965,7 +1987,13 @@ async function notifyMarshallProforma(order) {
                 credit: order.credit ?? 0,
                 submittedAt: order.submittedAt || order.submitted_at || new Date().toISOString(),
                 source: order.source || 'wholesale',
-                commissionRate: order.commissionRate || order.salesman_commission_percent || null
+                commissionRate: order.commissionRate || order.salesman_commission_percent || null,
+                isRevision: !!(order.isRevision || orderHasUpdateNote(order)),
+                changeLog: order.changeLog || '',
+                editedAt: order.editedAt || '',
+                previousSubtotal: order.previousSubtotal,
+                updatedSubtotal: order.updatedSubtotal,
+                subjectPrefix: (order.isRevision || orderHasUpdateNote(order)) ? 'UPDATED ' : ''
             })
         });
         if (!res.ok) {
@@ -3134,6 +3162,7 @@ async function openSalesmanOrderInvoice(orderId) {
     const invDate = document.getElementById('inv-date');
     const invStatus = document.getElementById('inv-status');
     if (invNumber) invNumber.textContent = displayInvoiceNumber(order);
+    if (typeof markInvoiceUpdatedState === 'function') markInvoiceUpdatedState(order);
     if (invDate) {
         const d = new Date(order.submitted_at || order.submittedAt || Date.now());
         invDate.textContent = isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
@@ -3192,7 +3221,7 @@ async function openSalesmanOrderInvoice(orderId) {
             'Created via Add Order',
             'Submitted via Wholesale Portal'
         ];
-        if (systemPhrases.some(p => notes === p || notes.startsWith(p))) {
+        if (systemPhrases.some(p => notes === p)) {
             notes = '';
         }
         notesEl.textContent = notes || '—';
@@ -3562,7 +3591,13 @@ async function saveSalesmanEditedOrder() {
                 credit: smEditOrder.credit || 0,
                 submittedAt: smEditOrder.submitted_at,
                 source: smEditOrder.source || 'salesman',
-                commissionRate: commissionPercent
+                commissionRate: commissionPercent,
+                isRevision: true,
+                editedAt: new Date().toLocaleString(),
+                previousSubtotal: salesmanEditSum(before),
+                updatedSubtotal: salesmanEditSum(itemsPayload),
+                changeLog: changes.join('\n'),
+                subjectPrefix: 'UPDATED '
             });
         }
         hideSalesmanEditOrderModal();

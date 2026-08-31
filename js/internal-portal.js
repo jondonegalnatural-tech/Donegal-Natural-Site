@@ -145,6 +145,28 @@ function displayInvoiceNumber(order) {
     return order?.invoice_number || order?.invoiceNumber || order?.id || '—';
 }
 
+function orderHasUpdateNote(order) {
+    return /ORDER UPDATED/i.test(String((order && (order.notes || order.changeLog)) || ''));
+}
+
+function markInvoiceUpdatedState(order) {
+    const titleEl = document.getElementById('inv-title');
+    const bannerEl = document.getElementById('inv-updated-banner');
+    const updated = orderHasUpdateNote(order);
+    if (titleEl) titleEl.textContent = updated ? 'UPDATED INVOICE' : 'INVOICE';
+    if (bannerEl) {
+        if (updated) {
+            const match = String(order.notes || '').match(/Edited:\s*(.+)/i);
+            bannerEl.textContent = match
+                ? ('THIS ORDER HAS BEEN UPDATED  ·  ' + match[1].trim())
+                : 'THIS ORDER HAS BEEN UPDATED';
+            bannerEl.classList.remove('hidden');
+        } else {
+            bannerEl.classList.add('hidden');
+        }
+    }
+}
+
 async function notifyMarshallProforma(order) {
     try {
         const res = await fetch(SUPABASE_URL + '/functions/v1/send-pro-forma-email', {
@@ -162,7 +184,13 @@ async function notifyMarshallProforma(order) {
                 credit: order.credit ?? 0,
                 submittedAt: order.submittedAt || order.submitted_at || new Date().toISOString(),
                 source: order.source || 'internal',
-                commissionRate: order.commissionRate || order.salesman_commission_percent || null
+                commissionRate: order.commissionRate || order.salesman_commission_percent || null,
+                isRevision: !!(order.isRevision || orderHasUpdateNote(order)),
+                changeLog: order.changeLog || '',
+                editedAt: order.editedAt || '',
+                previousSubtotal: order.previousSubtotal,
+                updatedSubtotal: order.updatedSubtotal,
+                subjectPrefix: (order.isRevision || orderHasUpdateNote(order)) ? 'UPDATED ' : ''
             })
         });
         if (!res.ok) {
@@ -1459,6 +1487,7 @@ function openOrderInvoiceModal(orderId) {
     // Invoice number + date
     const invNum = document.getElementById('inv-number');
     if (invNum) invNum.textContent = String(displayInvoiceNumber(order));
+    if (typeof markInvoiceUpdatedState === 'function') markInvoiceUpdatedState(order);
 
     const invDate = document.getElementById('inv-date');
     if (invDate) {
@@ -3944,6 +3973,11 @@ async function sendUpdatedOrderProforma(order, itemsPayload, notesToSave, commis
     const shortId = (typeof displayInvoiceNumber === 'function')
         ? displayInvoiceNumber(order)
         : (order.invoiceNumber || order.id);
+    const prevTotal = (typeof sumOrderItems === 'function') ? sumOrderItems(order.items || []) : 0;
+    const nextTotal = (typeof sumOrderItems === 'function') ? sumOrderItems(itemsPayload || []) : 0;
+    const changeLines = (typeof diffOrderItems === 'function')
+        ? diffOrderItems(order.items || [], itemsPayload || [])
+        : [];
     await notifyMarshallProforma({
         orderId: shortId,
         customerName: order.customer || order.customer_name || '',
@@ -3958,7 +3992,13 @@ async function sendUpdatedOrderProforma(order, itemsPayload, notesToSave, commis
         source: order.source || 'internal',
         commissionRate: commissionPercent != null
             ? commissionPercent
-            : (order.salesmanCommissionPercent || order.salesman_commission_percent || null)
+            : (order.salesmanCommissionPercent || order.salesman_commission_percent || null),
+        isRevision: true,
+        editedAt: new Date().toLocaleString(),
+        previousSubtotal: prevTotal,
+        updatedSubtotal: nextTotal,
+        changeLog: changeLines.join('\n'),
+        subjectPrefix: 'UPDATED '
     });
 }
 
