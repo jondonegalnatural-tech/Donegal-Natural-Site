@@ -5940,6 +5940,19 @@ function setCustomerMassFilter(filter) {
     renderCustomers();
 }
 
+let customerSalesmanFilter = '';
+
+function setCustomerSalesmanFilter(email) {
+    customerSalesmanFilter = String(email || '').toLowerCase().trim();
+    renderCustomers();
+}
+
+function clearCustomerListFilters() {
+    customerMassFilter = 'all';
+    customerSalesmanFilter = '';
+    renderCustomers();
+}
+
 function renderCustomers() {
     const container = document.getElementById('customer-list');
     if (!container) return;
@@ -5958,6 +5971,12 @@ function renderCustomers() {
         filteredCustomers = filteredCustomers.filter(c => isCustomerEnabled(c.status));
     } else if (customerMassFilter === 'inactive') {
         filteredCustomers = filteredCustomers.filter(c => !isCustomerEnabled(c.status));
+    }
+
+    if (customerSalesmanFilter) {
+        filteredCustomers = filteredCustomers.filter(c =>
+            (c.salesmanEmail || '').toLowerCase().trim() === customerSalesmanFilter
+        );
     }
 
     if ((!salesmen || salesmen.length === 0) && typeof loadSalesmen === 'function') {
@@ -5989,7 +6008,7 @@ function renderCustomers() {
                     customerMassFilter === 'inactive' ? 'No inactive customers.' :
                     'No customers found.'
                 }</p>
-                <button type="button" onclick="setCustomerMassFilter('all')"
+                <button type="button" onclick="clearCustomerListFilters()"
                         class="mt-4 px-4 py-2 text-sm font-semibold rounded-xl bg-[#1E4D2B] text-[#d4b78f]">
                     Show all customers
                 </button>
@@ -6003,7 +6022,8 @@ function renderCustomers() {
         .map(s => {
             const name = s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || s.email || '';
             const email = (s.email || '').toLowerCase().trim();
-            return `<option value="${escapeHtml(email)}">${escapeHtml(name)}${s.territory ? ' — ' + escapeHtml(s.territory) : ''}</option>`;
+            const selected = customerSalesmanFilter === email ? ' selected' : '';
+            return `<option value="${escapeHtml(email)}"${selected}>${escapeHtml(name)}${s.territory ? ' — ' + escapeHtml(s.territory) : ''}</option>`;
         }).join('');
 
     let html = `
@@ -6029,16 +6049,12 @@ function renderCustomers() {
                 </div>
             </div>
             <div class="flex flex-wrap items-center gap-3">
-                <select id="mass-assign-salesman"
+                <select id="customer-salesman-filter"
+                        onchange="setCustomerSalesmanFilter(this.value)"
                         class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm min-w-[200px]">
-                    <option value="">— Select salesman —</option>
+                    <option value="">All salesmen</option>
                     ${salesmanOptions}
                 </select>
-                <button type="button" onclick="massAssignSelectedCustomers()"
-                        class="px-4 py-2 text-sm font-semibold rounded-xl bg-[#1E4D2B] text-[#d4b78f] hover:bg-[#254a2f]">
-                    Assign selected
-                </button>
-                <span id="mass-assign-count" class="text-xs text-[#6B4423]"></span>
             </div>
         </div>
         <div class="col-span-full flex flex-wrap gap-3 mb-2">
