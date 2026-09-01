@@ -5933,7 +5933,7 @@ function salesmanHasApprovedSheet(email) {
     return !!(s && String(s.priceSheetStatus || '').toLowerCase() === 'approved');
 }
 
-let customerMassFilter = 'all'; // 'all' | 'unassigned'
+let customerMassFilter = 'all'; // 'all' | 'active' | 'inactive'
 
 function setCustomerMassFilter(filter) {
     customerMassFilter = filter || 'all';
@@ -5954,8 +5954,10 @@ function renderCustomers() {
         );
     }
 
-    if (customerMassFilter === 'unassigned') {
-        filteredCustomers = filteredCustomers.filter(c => !(c.salesmanEmail || '').trim());
+    if (customerMassFilter === 'active') {
+        filteredCustomers = filteredCustomers.filter(c => isCustomerEnabled(c.status));
+    } else if (customerMassFilter === 'inactive') {
+        filteredCustomers = filteredCustomers.filter(c => !isCustomerEnabled(c.status));
     }
 
     if ((!salesmen || salesmen.length === 0) && typeof loadSalesmen === 'function') {
@@ -5970,15 +5972,23 @@ function renderCustomers() {
                             class="px-3 py-1 text-xs font-semibold rounded-full border-2 ${customerMassFilter === 'all' ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]' : 'border-[#6B4423] text-[#6B4423] hover:bg-white'}">
                         All
                     </button>
-                    <button type="button" onclick="setCustomerMassFilter('unassigned')"
-                            class="px-3 py-1 text-xs font-semibold rounded-full border-2 ${customerMassFilter === 'unassigned' ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]' : 'border-[#6B4423] text-[#6B4423] hover:bg-white'}">
-                        Unassigned
+                    <button type="button" onclick="setCustomerMassFilter('active')"
+                            class="px-3 py-1 text-xs font-semibold rounded-full border-2 ${customerMassFilter === 'active' ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]' : 'border-[#6B4423] text-[#6B4423] hover:bg-white'}">
+                        Active
+                    </button>
+                    <button type="button" onclick="setCustomerMassFilter('inactive')"
+                            class="px-3 py-1 text-xs font-semibold rounded-full border-2 ${customerMassFilter === 'inactive' ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]' : 'border-[#6B4423] text-[#6B4423] hover:bg-white'}">
+                        Inactive
                     </button>
                 </div>
             </div>
             <div class="col-span-full text-center py-12">
                 <i class="fas fa-users text-6xl text-[#d4b78f] mb-4"></i>
-                <p class="text-[#6B4423]">${customerMassFilter === 'unassigned' ? 'No unassigned customers.' : 'No customers found.'}</p>
+                <p class="text-[#6B4423]">${
+                    customerMassFilter === 'active' ? 'No active customers.' :
+                    customerMassFilter === 'inactive' ? 'No inactive customers.' :
+                    'No customers found.'
+                }</p>
                 <button type="button" onclick="setCustomerMassFilter('all')"
                         class="mt-4 px-4 py-2 text-sm font-semibold rounded-xl bg-[#1E4D2B] text-[#d4b78f]">
                     Show all customers
