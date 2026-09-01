@@ -6899,8 +6899,9 @@ async function notifyCustomerPricingReady(customer) {
     try {
         const { data: storeRows } = await supabaseClient
             .from('customers')
-            .select('name, company, email')
-            .ilike('email', email);
+            .select('name, company, email, pricing_approved_at')
+            .ilike('email', email)
+            .not('pricing_approved_at', 'is', null);
         const seen = {};
         (storeRows || []).forEach(function (row) {
             const label = String(row.company || row.name || '').trim();
