@@ -48,12 +48,41 @@ async function notifyCustomerPricingReady(customer) {
     const company = (customer && (customer.company || customer.name)) || '';
     if (!email || email.indexOf('@') === -1) return;
     if (email === 'jackerman@donegalnatural.com') return;
+
+    let storeNames = [];
+    try {
+        const { data: storeRows } = await supabaseClient
+            .from('customers')
+            .select('name, company, email')
+            .ilike('email', email);
+        const seen = {};
+        (storeRows || []).forEach(function (row) {
+            const label = String(row.company || row.name || '').trim();
+            if (!label) return;
+            const key = label.toLowerCase();
+            if (seen[key]) return;
+            seen[key] = true;
+            storeNames.push(label);
+        });
+    } catch (e) {
+        storeNames = [];
+    }
+    if (!storeNames.length && company) storeNames = [company];
+    const storeLine = storeNames.join(', ');
+    const storeHtml = storeNames.map(function (s) { return escapeHtml(s); }).join(', ');
+    const multi = storeNames.length > 1;
+
     const subject = 'Your Donegal Natural wholesale pricing is ready';
     const text =
         'Hello ' + name + ',\n\n' +
         'Your wholesale pricing is now viewable in your Donegal Natural account.\n\n' +
+        (multi
+            ? ('Stores on this login: ' + storeLine + '.\n\n')
+            : (storeLine ? ('Store: ' + storeLine + '.\n\n') : '')) +
         'Sign in at https://www.donegalnaturaldogtreats.com/login-portal.html\n' +
-        'Open the wholesale portal to see case sizes and prices for ' + (company || 'your store') + '.\n\n' +
+        (multi
+            ? 'After you sign in, use Ordering as and Change, then Active Store on Account, to switch locations. Each store has its own prices.\n\n'
+            : 'Open the wholesale portal to see case sizes and prices.\n\n') +
         'Questions: support@donegalnatural.com\n\n' +
         'Thank you,\nDonegal Natural Dog Treats';
     const html =
@@ -61,8 +90,13 @@ async function notifyCustomerPricingReady(customer) {
         '<p style="font-size:16px;font-weight:700;color:#1E4D2B;margin:0 0 12px">Donegal Natural Dog Treats</p>' +
         '<p>Hello ' + escapeHtml(name) + ',</p>' +
         '<p>Your wholesale pricing is now viewable in your Donegal Natural account.</p>' +
-        '<p>Sign in at <a href="https://www.donegalnaturaldogtreats.com/login-portal.html">the wholesale login</a>, then open the portal to see case sizes and prices' +
-        (company ? (' for ' + escapeHtml(company)) : '') + '.</p>' +
+        (storeHtml
+            ? ('<p>' + (multi ? 'Stores on this login: ' : 'Store: ') + '<strong>' + storeHtml + '</strong>.</p>')
+            : '') +
+        '<p>Sign in at <a href="https://www.donegalnaturaldogtreats.com/login-portal.html">the wholesale login</a>.</p>' +
+        (multi
+            ? '<p>After you sign in, use <strong>Ordering as</strong> and <strong>Change</strong>, then <strong>Active Store</strong> on Account, to switch locations. Each store has its own prices.</p>'
+            : '<p>Open the wholesale portal to see case sizes and prices.</p>') +
         '<p>Questions: <a href="mailto:support@donegalnatural.com">support@donegalnatural.com</a></p>' +
         '<p>Thank you,<br>Donegal Natural Dog Treats</p>' +
         '</div>';
@@ -1638,6 +1672,7 @@ async function saveCustomerPricing() {
                 }, { onConflict: 'customer_id' });
             if (upsertErr) throw upsertErr;
 
+            const wasLocked = !customer.pricing_approved_at;
             const { error: custErr } = await supabaseClient
                 .from('customers')
                 .update({
@@ -1646,6 +1681,9 @@ async function saveCustomerPricing() {
                 })
                 .eq('id', customer.id);
             if (custErr) throw custErr;
+            if (wasLocked && typeof notifyCustomerPricingReady === 'function') {
+                await notifyCustomerPricingReady(customer);
+            }
 
             alert('Customer pricing saved. Customer can now see these prices.');
             hideCustomerPricingModal();
