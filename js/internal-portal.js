@@ -4762,30 +4762,19 @@ async function confirmShipInvoice() {
     }
 }
 
-function estimateMonthlyMid(amount) {
+function estimateMonthlyRange(amount) {
     const raw = String(amount || '')
         .replace(/\s/g, '')
         .replace(/[–—]/g, '-');
-    if (!raw) return 0;
-    if (/under\$?500/i.test(raw)) return 250;
-    if (raw.indexOf('$500') !== -1 && raw.indexOf('$1,000') !== -1) return 750;
-    if (raw.indexOf('$1,000') !== -1 && raw.indexOf('$2,500') !== -1) return 1750;
-    if (raw.indexOf('$2,500') !== -1 && raw.indexOf('$5,000') !== -1) return 3750;
-    if (raw.indexOf('$5,000+') !== -1 || raw.indexOf('$5000+') !== -1) return 5000;
+    if (!raw) return null;
+    if (/under\$?500/i.test(raw)) return { low: 0, high: 500, open: false };
+    if (raw.indexOf('$500') !== -1 && raw.indexOf('$1,000') !== -1) return { low: 500, high: 1000, open: false };
+    if (raw.indexOf('$1,000') !== -1 && raw.indexOf('$2,500') !== -1) return { low: 1000, high: 2500, open: false };
+    if (raw.indexOf('$2,500') !== -1 && raw.indexOf('$5,000') !== -1) return { low: 2500, high: 5000, open: false };
+    if (raw.indexOf('$5,000+') !== -1 || raw.indexOf('$5000+') !== -1) return { low: 5000, high: 5000, open: true };
     const n = parseFloat(String(amount).replace(/[^0-9.]/g, ''));
-    return isFinite(n) ? n : 0;
-}
-
-function estimateMonthlyMid(amount) {
-    const raw = String(amount || '').replace(/\s/g, '');
-    if (!raw) return 0;
-    if (raw.indexOf('Under$500') !== -1) return 250;
-    if (raw.indexOf('$500') !== -1 && raw.indexOf('$1,000') !== -1) return 750;
-    if (raw.indexOf('$1,000') !== -1 && raw.indexOf('$2,500') !== -1) return 1750;
-    if (raw.indexOf('$2,500') !== -1 && raw.indexOf('$5,000') !== -1) return 3750;
-    if (raw.indexOf('$5,000+') !== -1 || raw.indexOf('$5000+') !== -1) return 5000;
-    const n = parseFloat(String(amount).replace(/[^0-9.]/g, ''));
-    return isFinite(n) ? n : 0;
+    if (!isFinite(n) || n <= 0) return null;
+    return { low: n, high: n, open: false };
 }
 
 function updateEstimatedSpendCard() {
@@ -4798,18 +4787,23 @@ function updateEstimatedSpendCard() {
         if (!email || !amount) return;
         byEmail[email] = amount;
     });
-    let monthly = 0;
+    let low = 0;
+    let high = 0;
+    let openHigh = false;
     (allCustomers || []).forEach(function (c) {
         const email = String(c.email || '').toLowerCase().trim();
         const company = String(c.company || '').toLowerCase();
         if (email === 'jackerman@donegalnatural.com') return;
         if (company.indexOf('admin test store') !== -1) return;
-        const amount = c.monthlyAmount || byEmail[email] || '';
-        const mid = estimateMonthlyMid(amount);
-        if (!mid) return;
-        monthly += mid;
+        const range = estimateMonthlyRange(c.monthlyAmount || byEmail[email] || '');
+        if (!range) return;
+        low += range.low;
+        high += range.high;
+        if (range.open) openHigh = true;
     });
-    monthEl.textContent = '$' + Math.round(monthly).toLocaleString();
+    monthEl.textContent = '$' + Math.round(low).toLocaleString() +
+        ' – $' + Math.round(high).toLocaleString() +
+        (openHigh ? '+' : '');
 }
 
 
