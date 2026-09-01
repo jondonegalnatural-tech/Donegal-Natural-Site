@@ -1338,15 +1338,21 @@ body { background: #f8f1e9; }
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div>
                         <label class="block text-sm font-semibold text-[#6B4423] mb-1">Send to</label>
-                        <select id="mass-email-audience" onchange="updateMassEmailRecipientCount()"
+                        <select id="mass-email-audience" onchange="onMassEmailAudienceChange()"
                                 class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm w-full mb-3">
-                            <option value="active">Active customers (unique emails)</option>
-                            <option value="all">Everyone on the customer list (unique emails)</option>
-                            <option value="website">All website emails (Active + Inactive customers + extras)</option>
+                            <option value="individual" selected>Individual</option>
+                            <option value="active">Active customers</option>
+                            <option value="all">All customers</option>
                         </select>
-                        <div class="border-2 border-[#6B4423] rounded-xl p-3 mb-3">
+                        <div id="mass-email-individual-box" class="mb-3">
+                            <label class="block text-sm font-semibold text-[#6B4423] mb-1">To</label>
+                            <textarea id="mass-email-individual-to" rows="3"
+                                      class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm w-full"
+                                      placeholder="One email per line, or separate with commas"></textarea>
+                        </div>
+                        <div id="mass-email-extras-box" class="border-2 border-[#6B4423] rounded-xl p-3 mb-3 hidden">
                             <p class="text-sm font-semibold text-[#6B4423] mb-1">Extra emails</p>
-                            <p class="text-xs text-[#6B4423] mb-2">Saved addresses that are not already a customer. Included when Send to is All website emails.</p>
+                            <p class="text-xs text-[#6B4423] mb-2">Add an address that is not already on this customer list. It is included in the checklist below.</p>
                             <div class="flex flex-wrap gap-2 mb-2">
                                 <input id="mailing-extra-email" type="email" placeholder="email@store.com"
                                        class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm flex-1 min-w-[180px]">
@@ -1361,6 +1367,7 @@ body { background: #f8f1e9; }
                                 <p class="text-[#6B4423]">No extra emails yet.</p>
                             </div>
                         </div>
+                        <div id="mass-email-list-box" class="hidden">
                         <p id="mass-email-count" class="text-sm text-[#6B4423] mb-2">0 unique emails</p>
                         <div class="flex flex-wrap gap-2 mb-2">
                             <button type="button" onclick="setMassEmailChecks(true)"
@@ -1369,7 +1376,8 @@ body { background: #f8f1e9; }
                                     class="px-3 py-1 text-xs border-2 border-[#6B4423] rounded-lg hover:bg-[#f8f4eb]">Select none</button>
                         </div>
                         <div id="mass-email-recipient-list" class="max-h-48 overflow-y-auto border-2 border-[#6B4423] rounded-xl p-2 mb-3 text-sm space-y-1">
-                            <p class="text-[#6B4423] px-2 py-1">Pick a Send to list to load addresses.</p>
+                            <p class="text-[#6B4423] px-2 py-1">Pick Active or All customers to load addresses.</p>
+                        </div>
                         </div>
                         <label class="block text-sm font-semibold text-[#6B4423] mb-1">Subject</label>
                         <input id="mass-email-subject" type="text"

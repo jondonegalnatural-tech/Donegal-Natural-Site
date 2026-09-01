@@ -938,7 +938,8 @@ function showSection(section) {
             }
             if (typeof loadMailingListExtras === 'function') await loadMailingListExtras();
             if (typeof loadEmailLog === 'function') loadEmailLog();
-            if (typeof updateMassEmailRecipientCount === 'function') updateMassEmailRecipientCount();
+            if (typeof onMassEmailAudienceChange === 'function') onMassEmailAudienceChange();
+            else if (typeof updateMassEmailRecipientCount === 'function') updateMassEmailRecipientCount();
         })();
     }
 
@@ -13170,18 +13171,24 @@ function addMassEmailRecipient(map, email, name, storeLabel) {
 }
 
 function getMassEmailRecipients(audience) {
-    const mode = audience || (document.getElementById('mass-email-audience') || {}).value || 'active';
+    const mode = audience || (document.getElementById('mass-email-audience') || {}).value || 'individual';
     const map = new Map();
+    if (mode === 'individual') {
+        parseIndividualMassEmails().forEach(function (addr) {
+            addMassEmailRecipient(map, addr, addr, 'Individual');
+        });
+        return Array.from(map.values()).sort(function (a, b) {
+            return a.email.localeCompare(b.email);
+        });
+    }
     (allCustomers || []).forEach(function (c) {
         if (shouldSkipMassEmailStore(c)) return;
         if (mode === 'active' && String(c.status || '') !== 'Active' && String(c.status || '') !== 'Approved') return;
         addMassEmailRecipient(map, c.email, c.name || c.company || '', c.name || c.company || '');
     });
-    if (mode === 'website') {
-        (mailingListExtras || []).forEach(function (extra) {
-            addMassEmailRecipient(map, extra.email, extra.name || '', extra.name || 'Extra');
-        });
-    }
+    (mailingListExtras || []).forEach(function (extra) {
+        addMassEmailRecipient(map, extra.email, extra.name || '', extra.name || 'Extra');
+    });
     return Array.from(map.values()).sort(function (a, b) {
         return a.email.localeCompare(b.email);
     });
@@ -13246,7 +13253,7 @@ async function addMailingListExtra() {
         return String(c.email || '').toLowerCase().trim() === email;
     });
     if (alreadyCustomer) {
-        alert('That email is already on the customer list. All website emails will include it.');
+        alert('That email is already on the customer list. Check it in the list below.');
         return;
     }
     const alreadyExtra = (mailingListExtras || []).some(function (row) {
@@ -13292,10 +13299,37 @@ async function removeMailingListExtra(id) {
     }
 }
 
+function parseIndividualMassEmails() {
+    const raw = String((document.getElementById('mass-email-individual-to') || {}).value || '');
+    return raw.split(/[\s,;]+/).map(function (part) {
+        return part.toLowerCase().trim();
+    }).filter(function (part) {
+        return part.indexOf('@') !== -1 && !isBlockedMassEmailAddress(part);
+    });
+}
+
+function onMassEmailAudienceChange() {
+    const mode = (document.getElementById('mass-email-audience') || {}).value || 'individual';
+    const individualBox = document.getElementById('mass-email-individual-box');
+    const extrasBox = document.getElementById('mass-email-extras-box');
+    const listBox = document.getElementById('mass-email-list-box');
+    const isList = mode === 'active' || mode === 'all';
+    if (individualBox) individualBox.classList.toggle('hidden', isList);
+    if (extrasBox) extrasBox.classList.toggle('hidden', !isList);
+    if (listBox) listBox.classList.toggle('hidden', !isList);
+    if (isList) renderMassEmailRecipientChecks(getMassEmailRecipients());
+    updateMassEmailRecipientCount();
+}
+
 function updateMassEmailRecipientCount() {
     const el = document.getElementById('mass-email-count');
+    const mode = (document.getElementById('mass-email-audience') || {}).value || 'individual';
     const list = getMassEmailRecipients();
-    renderMassEmailRecipientChecks(list);
+    if (mode === 'active' || mode === 'all') {
+        const box = document.getElementById('mass-email-recipient-list');
+        const hasChecks = box && box.querySelectorAll('.mass-email-check').length;
+        if (!hasChecks) renderMassEmailRecipientChecks(list);
+    }
     const checked = getCheckedMassEmailRecipients(list);
     if (el) {
         el.textContent = checked.length + ' selected of ' + list.length + ' unique email' + (list.length === 1 ? '' : 's');
@@ -13315,7 +13349,7 @@ function renderMassEmailRecipientChecks(list) {
         const extra = r.stores && r.stores.length ? (' — ' + r.stores.join(' | ')) : '';
         return (
             '<label class="flex items-start gap-2 px-2 py-1">' +
-            '<input type="checkbox" class="mass-email-check mt-1" value="' + email + '" checked onchange="updateMassEmailRecipientCount()">' +
+            '<input type="checkbox" class="mass-email-check mt-1" value="' + email + '" checked onchange="updateMassEmailCheckedLabel()">' +
             '<span>' + email + escapeHtml(extra) + '</span>' +
             '</label>'
         );
@@ -13326,7 +13360,15 @@ function setMassEmailChecks(on) {
     document.querySelectorAll('.mass-email-check').forEach(function (el) {
         el.checked = !!on;
     });
-    updateMassEmailRecipientCount();
+    updateMassEmailCheckedLabel();
+}
+
+function updateMassEmailCheckedLabel() {
+    const el = document.getElementById('mass-email-count');
+    if (!el) return;
+    const list = getMassEmailRecipients();
+    const checked = getCheckedMassEmailRecipients(list);
+    el.textContent = checked.length + ' selected of ' + list.length + ' unique email' + (list.length === 1 ? '' : 's');
 }
 
 function getCheckedMassEmailRecipients(list) {
