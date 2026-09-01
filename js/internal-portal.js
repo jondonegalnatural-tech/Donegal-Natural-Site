@@ -13318,6 +13318,8 @@ function onMassEmailAudienceChange() {
     if (extrasBox) extrasBox.classList.toggle('hidden', !isList);
     if (listBox) listBox.classList.toggle('hidden', !isList);
     if (isList) renderMassEmailRecipientChecks(getMassEmailRecipients());
+    const btn = document.getElementById('mass-email-send-btn');
+    if (btn && !btn.disabled) btn.textContent = isList ? 'Send mass email' : 'Send email';
     updateMassEmailRecipientCount();
 }
 
@@ -13549,7 +13551,8 @@ async function sendMassCustomerEmail() {
 
     if (btn) {
         btn.disabled = false;
-        btn.textContent = 'Send mass email';
+        const mode = (document.getElementById('mass-email-audience') || {}).value || 'individual';
+        btn.textContent = (mode === 'active' || mode === 'all') ? 'Send mass email' : 'Send email';
     }
     if (progress) {
         progress.textContent = 'Done. Sent ' + sent + ', failed ' + failed + '.';
