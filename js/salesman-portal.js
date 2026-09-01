@@ -2572,35 +2572,154 @@ async function loadCustomerSubmissions() {
     }
 }
 
-function toggleSameAddress() {
-    const same = document.getElementById('cust-same-address');
-    const shipping = document.getElementById('cust-shipping');
-    const billing = document.getElementById('cust-billing');
-    if (!same || !shipping || !billing) return;
+let salesmanShipPlace = null;
+let salesmanBillPlace = null;
 
-    if (same.checked) {
-        billing.value = shipping.value;
-        billing.readOnly = true;
-        billing.classList.add('bg-gray-100');
-    } else {
-        billing.readOnly = false;
-        billing.classList.remove('bg-gray-100');
+function isPoBoxAddress(value) {
+    return /^\s*(p\.?\s*o\.?\s*box|post\s*office\s*box)\b/i.test(String(value || ''));
+}
+
+function setSalesmanCityStateZipVisible(prefix, show) {
+    const wrap = document.getElementById(prefix + '-city-state-zip-wrap');
+    if (!wrap) return;
+    wrap.style.display = show ? 'grid' : 'none';
+}
+
+function fillSalesmanAddressFromPlace(prefix, place) {
+    if (!place) return;
+    const comps = place.addressComponents || [];
+    const get = function (type, useShort) {
+        const part = comps.find(function (c) {
+            return (c.types || []).indexOf(type) !== -1;
+        });
+        if (!part) return '';
+        return useShort ? (part.shortText || '') : (part.longText || '');
+    };
+    const streetLine = [get('street_number'), get('route')].filter(Boolean).join(' ');
+    const city = get('locality') || get('sublocality') || get('administrative_area_level_3');
+    const state = get('administrative_area_level_1', true);
+    const zip = get('postal_code');
+    const apt = get('subpremise');
+    const streetEl = document.getElementById(prefix + '-street');
+    const cityEl = document.getElementById(prefix + '-city');
+    const stateEl = document.getElementById(prefix + '-state');
+    const zipEl = document.getElementById(prefix + '-zip');
+    const aptEl = document.getElementById(prefix + '-apt');
+    if (streetEl && streetLine) streetEl.value = streetLine;
+    if (cityEl && city) cityEl.value = city;
+    if (stateEl && state) stateEl.value = state;
+    if (zipEl && zip) zipEl.value = zip;
+    if (apt && aptEl && !aptEl.value.trim()) aptEl.value = apt;
+    const loc = place.location;
+    const picked = {
+        place_id: place.id || '',
+        formatted: place.formattedAddress || streetLine,
+        lat: loc && typeof loc.lat === 'function' ? loc.lat() : (loc && loc.lat) || null,
+        lng: loc && typeof loc.lng === 'function' ? loc.lng() : (loc && loc.lng) || null
+    };
+    if (prefix === 'cust-ship') salesmanShipPlace = picked;
+    else salesmanBillPlace = picked;
+}
+
+async function attachSalesmanPlacesWidget(prefix) {
+    const streetEl = document.getElementById(prefix + '-street');
+    const hintEl = document.getElementById(prefix + '-hint');
+    if (!streetEl) return;
+    if (document.getElementById(prefix + '-places')) return;
+    if (!window.google || !google.maps || !google.maps.importLibrary) return;
+    try {
+        const { PlaceAutocompleteElement } = await google.maps.importLibrary('places');
+        const widget = new PlaceAutocompleteElement({
+            includedRegionCodes: ['us'],
+            requestedLanguage: 'en'
+        });
+        widget.id = prefix + '-places';
+        widget.setAttribute('placeholder', 'e.g. 1310 Vermont Rd or PO Box 123');
+        widget.setAttribute('no-input-icon', '');
+        widget.setAttribute('no-clear-button', '');
+        streetEl.parentElement.insertBefore(widget, streetEl);
+        streetEl.classList.add('places-backed');
+        widget.addEventListener('gmp-select', async function (event) {
+            const prediction = event.placePrediction;
+            if (!prediction || typeof prediction.toPlace !== 'function') {
+                if (prefix === 'cust-ship') salesmanShipPlace = null;
+                else salesmanBillPlace = null;
+                return;
+            }
+            const place = prediction.toPlace();
+            await place.fetchFields({
+                fields: ['addressComponents', 'formattedAddress', 'location', 'id']
+            });
+            fillSalesmanAddressFromPlace(prefix, place);
+            setSalesmanCityStateZipVisible(prefix, false);
+        });
+        widget.addEventListener('input', function () {
+            const typed = widget.value || '';
+            streetEl.value = typed;
+            if (prefix === 'cust-ship') salesmanShipPlace = null;
+            else salesmanBillPlace = null;
+            setSalesmanCityStateZipVisible(prefix, isPoBoxAddress(typed));
+        });
+    } catch (err) {
+        console.warn('Salesman Places widget:', err);
+        if (hintEl) hintEl.textContent = 'Address lookup is unavailable. Type the full address.';
+        setSalesmanCityStateZipVisible(prefix, true);
     }
 }
 
-// Keep billing in sync while typing shipping if checkbox is checked
-(function setupSameAddressListeners() {
-    const shipping = document.getElementById('cust-shipping');
-    if (shipping) {
-        shipping.addEventListener('input', function () {
-            const same = document.getElementById('cust-same-address');
-            const billing = document.getElementById('cust-billing');
-            if (same && same.checked && billing) {
-                billing.value = shipping.value;
-            }
-        });
+window.initSalesmanInquiryPlaces = async function () {
+    await attachSalesmanPlacesWidget('cust-ship');
+    await attachSalesmanPlacesWidget('cust-bill');
+    if (typeof toggleSameAddress === 'function') toggleSameAddress();
+};
+
+function assembleSalesmanAddress(prefix) {
+    const street = (document.getElementById(prefix + '-street')?.value || '').trim();
+    const apt = (document.getElementById(prefix + '-apt')?.value || '').trim();
+    const city = (document.getElementById(prefix + '-city')?.value || '').trim();
+    const state = (document.getElementById(prefix + '-state')?.value || '').trim();
+    const zip = (document.getElementById(prefix + '-zip')?.value || '').trim();
+    const parts = [];
+    if (street) parts.push(street);
+    if (apt) parts.push(apt);
+    const cityLine = [city, state].filter(Boolean).join(', ') + (zip ? (' ' + zip) : '');
+    if (cityLine.trim()) parts.push(cityLine.trim());
+    return parts.join('\n');
+}
+
+function formatSalesmanPlaceNote(place) {
+    if (!place || !place.place_id) return '';
+    let block = 'Google place: ' + place.place_id;
+    if (place.lat != null && place.lat !== '') {
+        block += '\nLat: ' + place.lat + '\nLng: ' + place.lng;
     }
-    // Apply initial state once the form exists
+    return block;
+}
+
+function resetSalesmanAddressFields() {
+    ['cust-ship', 'cust-bill'].forEach(function (prefix) {
+        ['street', 'apt', 'city', 'zip'].forEach(function (field) {
+            const el = document.getElementById(prefix + '-' + field);
+            if (el) el.value = '';
+        });
+        const stateEl = document.getElementById(prefix + '-state');
+        if (stateEl) stateEl.value = '';
+        const widget = document.getElementById(prefix + '-places');
+        if (widget) widget.value = '';
+        setSalesmanCityStateZipVisible(prefix, false);
+    });
+    salesmanShipPlace = null;
+    salesmanBillPlace = null;
+}
+
+function toggleSameAddress() {
+    const same = document.getElementById('cust-same-address');
+    const billingBlock = document.getElementById('cust-billing-places-block');
+    if (!same || !billingBlock) return;
+    billingBlock.style.display = same.checked ? 'none' : 'block';
+}
+
+(function setupSameAddressListeners() {
     setTimeout(function () {
         if (typeof toggleSameAddress === 'function') toggleSameAddress();
     }, 300);
@@ -2626,12 +2745,27 @@ if (customerInfoForm) {
             document.getElementById("cust-phone").focus();
             return;
         }
-        const shippingAddress = document.getElementById("cust-shipping").value.trim();
+
+        const shippingAddress = assembleSalesmanAddress('cust-ship');
         const sameAddress = document.getElementById("cust-same-address")?.checked;
         const billingAddress = sameAddress
             ? shippingAddress
-            : document.getElementById("cust-billing").value.trim();
+            : assembleSalesmanAddress('cust-bill');
         const notes = document.getElementById("cust-notes").value.trim();
+        const shipStreet = (document.getElementById('cust-ship-street')?.value || '').trim();
+        const billStreet = (document.getElementById('cust-bill-street')?.value || '').trim();
+        const placesReady = !!(window.google && google.maps && google.maps.places);
+
+        if (placesReady && !salesmanShipPlace && !isPoBoxAddress(shipStreet)) {
+            alert('Please pick the shipping address from the Google list.\nPO Boxes can be typed in full.');
+            document.getElementById('cust-ship-street')?.focus();
+            return;
+        }
+        if (!sameAddress && placesReady && !salesmanBillPlace && !isPoBoxAddress(billStreet)) {
+            alert('Please pick the billing address from the Google list.\nPO Boxes can be typed in full.');
+            document.getElementById('cust-bill-street')?.focus();
+            return;
+        }
 
         if (!name || !company || !email || !phone || !shippingAddress || !billingAddress) {
             alert("Please fill in all required fields (Notes are optional).");
@@ -2640,7 +2774,13 @@ if (customerInfoForm) {
 
         const notesParts = [];
         notesParts.push("Shipping: " + shippingAddress);
+        const shipPlaceNote = formatSalesmanPlaceNote(salesmanShipPlace);
+        if (shipPlaceNote) notesParts.push(shipPlaceNote);
         notesParts.push("Billing: " + billingAddress);
+        if (!sameAddress) {
+            const billPlaceNote = formatSalesmanPlaceNote(salesmanBillPlace);
+            if (billPlaceNote) notesParts.push(billPlaceNote);
+        }
         if (notes) notesParts.push("Notes: " + notes);
         notesParts.push(
             "Submitted by: " +
@@ -2671,6 +2811,7 @@ if (customerInfoForm) {
             }
 
             this.reset();
+            resetSalesmanAddressFields();
             const sameEl = document.getElementById("cust-same-address");
             if (sameEl) sameEl.checked = true;
             if (typeof toggleSameAddress === "function") toggleSameAddress();
