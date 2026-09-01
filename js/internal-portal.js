@@ -971,7 +971,13 @@ function showSection(section) {
             }
             if (typeof loadMailingListExtras === 'function') await loadMailingListExtras();
             if (typeof loadEmailLog === 'function') loadEmailLog();
-            if (typeof onMassEmailAudienceChange === 'function') onMassEmailAudienceChange();
+            if (typeof loadInquiries === 'function') {
+                loadInquiries().then(function () {
+                    if (typeof onMassEmailAudienceChange === 'function') onMassEmailAudienceChange();
+                });
+            } else if (typeof onMassEmailAudienceChange === 'function') {
+                onMassEmailAudienceChange();
+            }
             else if (typeof updateMassEmailRecipientCount === 'function') updateMassEmailRecipientCount();
         })();
     }
@@ -5934,6 +5940,7 @@ async function loadCustomers() {
                 submittedByEmail: c.submitted_by_email,
                 salesmanEmail: c.salesman_email,
                 territory: c.territory || '',
+                monthlyAmount: c.monthly_amount || '',
                 balance: 0,
                 created_at: c.created_at,
                 payment_method: c.payment_method || null,
@@ -6808,7 +6815,8 @@ onboardingSection.innerHTML = `
         } else if (email) {
             display = email;
         }
-        salesmanEl.textContent = display;
+        const monthlyEl = document.getElementById('modal-customer-monthly-amount');
+        if (monthlyEl) monthlyEl.textContent = customer.monthlyAmount || 'Not set';
             // ===== Pricing status + assigned salesman's approved sheet (read-only) + Revoke =====
     let pricingSection = document.getElementById('modal-customer-pricing');
     if (!pricingSection) {
@@ -7109,6 +7117,8 @@ function showEditCustomerModal() {
     document.getElementById('edit-email').value = customer.email || '';
     document.getElementById('edit-phone').value = customer.phone || '';
     document.getElementById('edit-territory').value = customer.territory || '';
+    const monthlySel = document.getElementById('edit-monthly-amount');
+    if (monthlySel) monthlySel.value = customer.monthlyAmount || '';
     document.getElementById('edit-address').value =
         customer.shippingAddress || customer.address || '';
     document.getElementById('edit-notes').value = customer.notes || '';
@@ -7193,6 +7203,7 @@ async function saveEditedCustomer(e) {
                     territory: territory || null,
                     shipping_address: address || null,
                     notes: notes || null,
+                    monthly_amount: (document.getElementById('edit-monthly-amount')?.value || '').trim() || null,
                     salesman_email: salesmanEmail,
                     assigned_at: salesmanEmail ? new Date().toISOString() : null,
                     updated_at: new Date().toISOString()
@@ -13408,6 +13419,30 @@ function getMassEmailRecipients(audience) {
             return a.email.localeCompare(b.email);
         });
     }
+    if (mode === 'missing_spend') {
+        const hasAmount = {};
+        (typeof inquiries !== 'undefined' && inquiries ? inquiries : []).forEach(function (row) {
+            const addr = String(row.email || '').toLowerCase().trim();
+            const amount = String(row.monthly_amount || '').trim();
+            if (addr && amount) hasAmount[addr] = true;
+        });
+        (allCustomers || []).forEach(function (c) {
+            if (shouldSkipMassEmailStore(c)) return;
+            const addr = String(c.email || '').toLowerCase().trim();
+            if (!addr || hasAmount[addr]) return;
+            addMassEmailRecipient(map, addr, c.name || c.company || '', c.company || c.name || 'No estimate');
+        });
+        (typeof inquiries !== 'undefined' && inquiries ? inquiries : []).forEach(function (row) {
+            if (String(row.status || '').toLowerCase() !== 'approved') return;
+            const addr = String(row.email || '').toLowerCase().trim();
+            if (!addr || hasAmount[addr] || isBlockedMassEmailAddress(addr)) return;
+            if (map.has(addr)) return;
+            addMassEmailRecipient(map, addr, row.owner_name || row.company_name || '', row.company_name || 'No estimate');
+        });
+        return Array.from(map.values()).sort(function (a, b) {
+            return a.email.localeCompare(b.email);
+        });
+    }
     (allCustomers || []).forEach(function (c) {
         if (shouldSkipMassEmailStore(c)) return;
         if (mode === 'active' && String(c.status || '') !== 'Active' && String(c.status || '') !== 'Approved') return;
@@ -13540,13 +13575,33 @@ function onMassEmailAudienceChange() {
     const individualBox = document.getElementById('mass-email-individual-box');
     const extrasBox = document.getElementById('mass-email-extras-box');
     const listBox = document.getElementById('mass-email-list-box');
-    const isList = mode === 'active' || mode === 'all';
+    const isList = mode === 'active' || mode === 'all' || mode === 'missing_spend';
     if (individualBox) individualBox.classList.toggle('hidden', isList);
-    if (extrasBox) extrasBox.classList.toggle('hidden', !isList);
+    if (extrasBox) extrasBox.classList.toggle('hidden', mode !== 'active' && mode !== 'all');
     if (listBox) listBox.classList.toggle('hidden', !isList);
     if (isList) renderMassEmailRecipientChecks(getMassEmailRecipients());
     const btn = document.getElementById('mass-email-send-btn');
     if (btn && !btn.disabled) btn.textContent = isList ? 'Send mass email' : 'Send email';
+    if (mode === 'missing_spend') {
+        const subjectEl = document.getElementById('mass-email-subject');
+        const bodyEl = document.getElementById('mass-email-body');
+        if (subjectEl && !subjectEl.value) {
+            subjectEl.value = 'Quick question on your monthly wholesale volume';
+        }
+        if (bodyEl && !bodyEl.value) {
+            bodyEl.value =
+                'Hello,\n\n' +
+                'We are lining up inventory for the wholesale portal and do not have an estimated monthly purchase amount on file for your store.\n\n' +
+                'Please reply with the range that best matches what you expect to spend with Donegal Natural each month:\n\n' +
+                '• Under $500\n' +
+                '• $500–$1,000\n' +
+                '• $1,000–$2,500\n' +
+                '• $2,500–$5,000\n' +
+                '• $5,000+\n\n' +
+                'Include your store name if you have more than one location.\n\n' +
+                'Thank you,\nDonegal Natural Dog Treats';
+        }
+    }
     updateMassEmailRecipientCount();
 }
 
@@ -13554,7 +13609,7 @@ function updateMassEmailRecipientCount() {
     const el = document.getElementById('mass-email-count');
     const mode = (document.getElementById('mass-email-audience') || {}).value || 'individual';
     const list = getMassEmailRecipients();
-    if (mode === 'active' || mode === 'all') {
+    if (mode === 'active' || mode === 'all' || mode === 'missing_spend') {
         const box = document.getElementById('mass-email-recipient-list');
         const hasChecks = box && box.querySelectorAll('.mass-email-check').length;
         if (!hasChecks) renderMassEmailRecipientChecks(list);
