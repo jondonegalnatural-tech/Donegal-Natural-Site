@@ -1010,6 +1010,7 @@ function showSection(section) {
 }
 
     if (typeof updateDashboardOrders === 'function') updateDashboardOrders();
+    if (typeof updateEstimatedSpendCard === 'function') updateEstimatedSpendCard();
 }
 
 // ================== SALESMEN ==================
@@ -4760,6 +4761,82 @@ async function confirmShipInvoice() {
     }
 }
 
+function estimateMonthlyMid(amount) {
+    const raw = String(amount || '').replace(/\s/g, '');
+    if (!raw) return 0;
+    if (raw.indexOf('Under$500') !== -1) return 250;
+    if (raw.indexOf('$500') !== -1 && raw.indexOf('$1,000') !== -1) return 750;
+    if (raw.indexOf('$1,000') !== -1 && raw.indexOf('$2,500') !== -1) return 1750;
+    if (raw.indexOf('$2,500') !== -1 && raw.indexOf('$5,000') !== -1) return 3750;
+    if (raw.indexOf('$5,000+') !== -1 || raw.indexOf('$5000+') !== -1) return 5000;
+    const n = parseFloat(String(amount).replace(/[^0-9.]/g, ''));
+    return isFinite(n) ? n : 0;
+}
+
+function updateEstimatedSpendCard() {
+    const monthEl = document.getElementById('dash-estimated-spend');
+    const yearEl = document.getElementById('dash-estimated-spend-year');
+    let monthly = 0;
+    let counted = 0;
+    (allCustomers || []).forEach(function (c) {
+        const email = String(c.email || '').toLowerCase().trim();
+        const company = String(c.company || '').toLowerCase();
+        if (email === 'jackerman@donegalnatural.com') return;
+        if (company.indexOf('admin test store') !== -1) return;
+        const status = String(c.status || '').toLowerCase();
+        if (status !== 'active' && status !== 'approved') return;
+        const mid = estimateMonthlyMid(c.monthlyAmount);
+        if (!mid) return;
+        monthly += mid;
+        counted += 1;
+    });
+    if (monthEl) monthEl.textContent = '$' + Math.round(monthly).toLocaleString();
+    if (yearEl) {
+        yearEl.textContent = '$' + Math.round(monthly * 12).toLocaleString() + ' / yr' +
+            (counted ? (' · ' + counted + ' stores') : '');
+    }
+}
+
+
+function estimateMonthlyMid(amount) {
+    const raw = String(amount || '').replace(/\s/g, '');
+    if (!raw) return 0;
+    if (raw.indexOf('Under$500') !== -1) return 250;
+    if (raw.indexOf('$500') !== -1 && raw.indexOf('$1,000') !== -1) return 750;
+    if (raw.indexOf('$1,000') !== -1 && raw.indexOf('$2,500') !== -1) return 1750;
+    if (raw.indexOf('$2,500') !== -1 && raw.indexOf('$5,000') !== -1) return 3750;
+    if (raw.indexOf('$5,000+') !== -1 || raw.indexOf('$5000+') !== -1) return 5000;
+    const n = parseFloat(String(amount).replace(/[^0-9.]/g, ''));
+    return isFinite(n) ? n : 0;
+}
+
+function updateEstimatedSpendCard() {
+    const monthEl = document.getElementById('dash-estimated-spend');
+    if (!monthEl) return;
+    const byEmail = {};
+    (typeof inquiries !== 'undefined' && inquiries ? inquiries : []).forEach(function (row) {
+        const email = String(row.email || '').toLowerCase().trim();
+        const amount = String(row.monthly_amount || '').trim();
+        if (!email || !amount) return;
+        byEmail[email] = amount;
+    });
+    let monthly = 0;
+    (allCustomers || []).forEach(function (c) {
+        const email = String(c.email || '').toLowerCase().trim();
+        const company = String(c.company || '').toLowerCase();
+        if (email === 'jackerman@donegalnatural.com') return;
+        if (company.indexOf('admin test store') !== -1) return;
+        const status = String(c.status || '').toLowerCase();
+        if (status !== 'active' && status !== 'approved') return;
+        const amount = c.monthlyAmount || byEmail[email] || '';
+        const mid = estimateMonthlyMid(amount);
+        if (!mid) return;
+        monthly += mid;
+    });
+    monthEl.textContent = '$' + Math.round(monthly).toLocaleString();
+}
+
+
 function updateDashboardOrders() {
     if (!allOrders) return;
 
@@ -5966,6 +6043,7 @@ async function loadCustomers() {
 
     customersLoadedAt = Date.now();
     renderCustomers();
+    if (typeof updateEstimatedSpendCard === 'function') updateEstimatedSpendCard();
 }
 
 function salesmanHasApprovedSheet(email) {
@@ -6158,6 +6236,10 @@ function renderCustomers() {
                         <div>
                             <p class="text-[#6B4423] text-xs">Territory</p>
                             <p class="font-semibold">${escapeHtml(customer.territory || 'N/A')}</p>
+                        </div>
+                        <div>
+                            <p class="text-[#6B4423] text-xs">Est. monthly</p>
+                            <p class="font-semibold">${escapeHtml(customer.monthlyAmount || 'Not set')}</p>
                         </div>
                         <div class="text-right">
                             <p class="text-[#6B4423] text-xs">Balance Owed</p>
@@ -7235,6 +7317,7 @@ async function saveEditedCustomer(e) {
             salesmanHasApprovedSheet(salesmanEmail);
         hideEditCustomerModal();
         await loadCustomers();
+        if (typeof updateEstimatedSpendCard === 'function') updateEstimatedSpendCard();
         showCustomerDetail(name);
         if (justUnlocked) {
             await notifyCustomerPricingReady({
@@ -10687,6 +10770,12 @@ async function confirmInquiryApproval() {
             salesman_email: salesmanEmail,
             assigned_at: salesmanId ? new Date().toISOString() : null,
             salesman_commission_percent: commissionPercent,
+            monthly_amount: (function () {
+                const inquiryRow = (inquiries || []).find(function (row) {
+                    return String(row.id) === String(inquiryId);
+                });
+                return (inquiryRow && inquiryRow.monthly_amount) ? inquiryRow.monthly_amount : null;
+            })(),
             onboarding_complete: false,
             password_changed: false,
             lat: isFinite(shipLat) ? shipLat : null,
@@ -12405,6 +12494,7 @@ window.onload = async function() {
     // Pure UI updates from in-memory data (after loads settle)
     if (typeof updateDashboardSales === 'function') updateDashboardSales();
     if (typeof updateDashboardOrders === 'function') updateDashboardOrders();
+    if (typeof updateEstimatedSpendCard === 'function') updateEstimatedSpendCard();
     if (typeof updateDashboardPendingCount === 'function') updateDashboardPendingCount();
     if (typeof updateDashboardLowStock === 'function') updateDashboardLowStock();
     if (typeof updatePendingPOIndicators === 'function') updatePendingPOIndicators();
