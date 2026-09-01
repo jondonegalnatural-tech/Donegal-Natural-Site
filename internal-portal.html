@@ -1322,6 +1322,70 @@ body { background: #f8f1e9; }
                 <!-- ========== END COMPANY BASE PRICE SHEET ========== -->
             </div>
             <!-- ========== END OTHER REPORT CATEGORIES ========== -->
+
+            <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mt-6 mb-6">
+                <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="text-xl font-bold brand-green">Customer Email</h3>
+                        <p class="text-sm text-[#6B4423]">Mass email + send log for portal customer mail</p>
+                    </div>
+                    <button type="button" onclick="loadEmailLog()"
+                            class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                        <i class="fas fa-sync-alt mr-2"></i> Refresh Log
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-semibold text-[#6B4423] mb-1">Send to</label>
+                        <select id="mass-email-audience" onchange="updateMassEmailRecipientCount()"
+                                class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm w-full mb-3">
+                            <option value="active">Active customers (unique emails)</option>
+                            <option value="all">Everyone on the customer list (unique emails)</option>
+                        </select>
+                        <p id="mass-email-count" class="text-sm text-[#6B4423] mb-3">0 unique emails</p>
+                        <label class="block text-sm font-semibold text-[#6B4423] mb-1">Subject</label>
+                        <input id="mass-email-subject" type="text"
+                               class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm w-full mb-3"
+                               placeholder="Donegal Natural update">
+                        <label class="block text-sm font-semibold text-[#6B4423] mb-1">Message</label>
+                        <textarea id="mass-email-body" rows="7"
+                                  class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm w-full mb-3"
+                                  placeholder="Write the email in plain text. Line breaks are kept."></textarea>
+                        <div class="flex flex-wrap gap-3">
+                            <button type="button" onclick="previewMassEmailRecipients()"
+                                    class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                                Preview recipients
+                            </button>
+                            <button type="button" id="mass-email-send-btn" onclick="sendMassCustomerEmail()"
+                                    class="px-4 py-2 text-sm bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
+                                Send mass email
+                            </button>
+                        </div>
+                        <p id="mass-email-progress" class="text-sm text-[#6B4423] mt-3"></p>
+                    </div>
+                    <div>
+                        <p class="text-sm font-semibold text-[#6B4423] mb-2">Recent sends</p>
+                        <div class="overflow-x-auto max-h-80 overflow-y-auto border-2 border-[#6B4423] rounded-xl">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                                        <th class="p-2 text-left">When</th>
+                                        <th class="p-2 text-left">To</th>
+                                        <th class="p-2 text-left">Subject</th>
+                                        <th class="p-2 text-left">Type</th>
+                                        <th class="p-2 text-left">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="email-log-table">
+                                    <tr><td class="p-3 text-[#6B4423]" colspan="5">Loading…</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
 <!-- Free Shipping Legend -->
             <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mt-6">
                 <h3 class="text-lg font-bold brand-green mb-3">

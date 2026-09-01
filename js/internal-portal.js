@@ -936,6 +936,8 @@ function showSection(section) {
             if (typeof populateReportsSalesmanSelect === 'function') {
                 await populateReportsSalesmanSelect();
             }
+            if (typeof loadEmailLog === 'function') loadEmailLog();
+            if (typeof updateMassEmailRecipientCount === 'function') updateMassEmailRecipientCount();
         })();
     }
 
@@ -6628,6 +6630,18 @@ async function saveNewCustomer(event) {
 
         const emailOk = fnData && fnData.email_sent === true;
         const emailFailReason = (fnData && fnData.email_error) ? String(fnData.email_error) : '';
+        if (typeof logPortalEmail === 'function') {
+            await logPortalEmail({
+                email_type: 'credentials',
+                status: emailOk ? 'sent' : 'failed',
+                to_email: email,
+                to_name: name,
+                subject: 'Your Donegal Natural wholesale account is approved',
+                store_names: company || name,
+                related_customer_id: created && created.id ? created.id : null,
+                error: emailOk ? null : (emailFailReason || 'Credentials email was not sent')
+            });
+        }
 
         alert(
             'Customer added.\n' +
@@ -10529,6 +10543,19 @@ async function confirmInquiryApproval() {
         const emailOk = fnData && fnData.email_sent === true;
         const emailFailReason = (fnData && fnData.email_error) ? String(fnData.email_error) : '';
 
+        if (!loginExists && typeof logPortalEmail === 'function') {
+            await logPortalEmail({
+                email_type: 'credentials',
+                status: emailOk ? 'sent' : 'failed',
+                to_email: email,
+                to_name: name,
+                subject: 'Your Donegal Natural wholesale account is approved',
+                store_names: company || name,
+                related_customer_id: customerId || null,
+                error: emailOk ? null : (emailFailReason || 'Credentials email was not sent')
+            });
+        }
+
         if (loginExists) {
             alert(
                 'Inquiry approved.\n' +
@@ -13070,6 +13097,218 @@ function updateDashboardSales() {
     if (typeof updatePortalCommissionCard === 'function') {
         updatePortalCommissionCard();
     }
+}
+
+function shouldSkipMassEmailStore(customer) {
+    const email = String((customer && customer.email) || '').toLowerCase().trim();
+    const company = String((customer && customer.company) || '').toLowerCase();
+    const name = String((customer && customer.name) || '').toLowerCase();
+    if (!email || !email.includes('@')) return true;
+    if (email === 'jackerman@donegalnatural.com') return true;
+    if (company.includes('admin test store') || name.includes('admin test store')) return true;
+    return false;
+}
+
+function getMassEmailRecipients(audience) {
+    const mode = audience || (document.getElementById('mass-email-audience') || {}).value || 'active';
+    const map = new Map();
+    (allCustomers || []).forEach(function (c) {
+        if (shouldSkipMassEmailStore(c)) return;
+        if (mode === 'active' && String(c.status || '') !== 'Active') return;
+        const email = String(c.email || '').toLowerCase().trim();
+        if (!map.has(email)) {
+            map.set(email, {
+                email: email,
+                name: c.name || c.company || email,
+                stores: []
+            });
+        }
+        const label = c.name || c.company || '';
+        const rec = map.get(email);
+        if (label && rec.stores.indexOf(label) === -1) rec.stores.push(label);
+    });
+    return Array.from(map.values()).sort(function (a, b) {
+        return a.email.localeCompare(b.email);
+    });
+}
+
+function updateMassEmailRecipientCount() {
+    const el = document.getElementById('mass-email-count');
+    if (!el) return;
+    const list = getMassEmailRecipients();
+    el.textContent = list.length + ' unique email' + (list.length === 1 ? '' : 's');
+}
+
+function previewMassEmailRecipients() {
+    const list = getMassEmailRecipients();
+    if (!list.length) {
+        alert('No matching customer emails.');
+        return;
+    }
+    const lines = list.map(function (r) {
+        return r.email + (r.stores.length ? (' — ' + r.stores.join(' | ')) : '');
+    });
+    alert('Will send to ' + list.length + ' unique email(s):\n\n' + lines.join('\n'));
+}
+
+function buildMassEmailHtml(message) {
+    const safe = escapeHtml(message).replace(/\n/g, '<br>');
+    return (
+        '<div style="font-family:Arial,sans-serif;color:#3b2a1a;line-height:1.5">' +
+        '<p style="font-size:16px;font-weight:700;color:#1E4D2B;margin:0 0 12px">Donegal Natural Dog Treats</p>' +
+        '<div>' + safe + '</div>' +
+        '<p style="margin:20px 0 0;font-size:13px;color:#6B4423">Questions: support@donegalnatural.com</p>' +
+        '</div>'
+    );
+}
+
+async function logPortalEmail(entry) {
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const row = {
+            email_type: entry.email_type || 'other',
+            status: entry.status || 'sent',
+            to_email: String(entry.to_email || '').toLowerCase().trim(),
+            to_name: entry.to_name || '',
+            subject: entry.subject || '',
+            body_preview: String(entry.body_preview || '').slice(0, 500),
+            error: entry.error || null,
+            related_customer_id: entry.related_customer_id || null,
+            store_names: entry.store_names || '',
+            sent_by_email: user.email || user.username || '',
+            sent_at: entry.status === 'sent' ? new Date().toISOString() : null
+        };
+        const { error } = await supabaseClient.from('email_log').insert(row);
+        if (error) console.warn('email_log insert:', error.message);
+    } catch (e) {
+        console.warn('email_log insert:', e);
+    }
+}
+
+async function loadEmailLog() {
+    const tbody = document.getElementById('email-log-table');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td class="p-3 text-[#6B4423]" colspan="5">Loading…</td></tr>';
+    try {
+        const { data, error } = await supabaseClient
+            .from('email_log')
+            .select('id, created_at, sent_at, to_email, to_name, subject, email_type, status, error, store_names')
+            .order('created_at', { ascending: false })
+            .limit(100);
+        if (error) throw error;
+        const rows = data || [];
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td class="p-3 text-[#6B4423]" colspan="5">No emails logged yet.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map(function (r) {
+            const when = r.sent_at || r.created_at;
+            const whenText = when ? new Date(when).toLocaleString() : '—';
+            const statusColor = r.status === 'sent' ? 'text-green-700' : (r.status === 'failed' ? 'text-red-700' : 'text-[#6B4423]');
+            const toLabel = escapeHtml(r.to_email || '') +
+                (r.store_names ? ('<div class="text-xs text-[#6B4423]">' + escapeHtml(r.store_names) + '</div>') : '');
+            return (
+                '<tr class="border-t border-[#d4b78f] align-top">' +
+                '<td class="p-2 whitespace-nowrap">' + escapeHtml(whenText) + '</td>' +
+                '<td class="p-2">' + toLabel + '</td>' +
+                '<td class="p-2">' + escapeHtml(r.subject || '') + '</td>' +
+                '<td class="p-2">' + escapeHtml(r.email_type || '') + '</td>' +
+                '<td class="p-2 ' + statusColor + '">' + escapeHtml(r.status || '') +
+                (r.error ? ('<div class="text-xs text-red-700">' + escapeHtml(r.error) + '</div>') : '') +
+                '</td>' +
+                '</tr>'
+            );
+        }).join('');
+    } catch (err) {
+        tbody.innerHTML = '<tr><td class="p-3 text-red-700" colspan="5">Could not load email log. Run the Email Log SQL in Supabase if this table is new.<br>' +
+            escapeHtml(err.message || '') + '</td></tr>';
+    }
+}
+
+async function sendMassCustomerEmail() {
+    const subject = (document.getElementById('mass-email-subject') || {}).value || '';
+    const message = (document.getElementById('mass-email-body') || {}).value || '';
+    const btn = document.getElementById('mass-email-send-btn');
+    const progress = document.getElementById('mass-email-progress');
+    const list = getMassEmailRecipients();
+
+    if (!subject.trim() || !message.trim()) {
+        alert('Subject and message are required.');
+        return;
+    }
+    if (!list.length) {
+        alert('No matching customer emails.');
+        return;
+    }
+    if (!confirm('Send this email to ' + list.length + ' unique customer email(s)?')) return;
+    if (!confirm('Last check: this will email customers now. Continue?')) return;
+
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Sending…';
+    }
+
+    const html = buildMassEmailHtml(message);
+    const text = message.trim();
+    let sent = 0;
+    let failed = 0;
+
+    for (let i = 0; i < list.length; i++) {
+        const rec = list[i];
+        if (progress) {
+            progress.textContent = 'Sending ' + (i + 1) + ' of ' + list.length + ' — ' + rec.email;
+        }
+        try {
+            const fnRes = await fetch(SUPABASE_URL + '/functions/v1/send-customer-email', {
+                method: 'POST',
+                headers: await getEdgeFunctionHeaders(),
+                body: JSON.stringify({
+                    to: rec.email,
+                    subject: subject.trim(),
+                    html: html,
+                    text: text
+                })
+            });
+            const fnText = await fnRes.text();
+            let fnData = null;
+            try { fnData = JSON.parse(fnText); } catch (e) { fnData = { error: fnText || 'Empty response' }; }
+            if (!fnRes.ok || (fnData && fnData.error)) {
+                throw new Error((fnData && fnData.error) ? fnData.error : ('HTTP ' + fnRes.status));
+            }
+            sent += 1;
+            await logPortalEmail({
+                email_type: 'mass',
+                status: 'sent',
+                to_email: rec.email,
+                to_name: rec.name,
+                subject: subject.trim(),
+                body_preview: text,
+                store_names: rec.stores.join(' | ')
+            });
+        } catch (err) {
+            failed += 1;
+            await logPortalEmail({
+                email_type: 'mass',
+                status: 'failed',
+                to_email: rec.email,
+                to_name: rec.name,
+                subject: subject.trim(),
+                body_preview: text,
+                store_names: rec.stores.join(' | '),
+                error: err.message || String(err)
+            });
+        }
+    }
+
+    if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Send mass email';
+    }
+    if (progress) {
+        progress.textContent = 'Done. Sent ' + sent + ', failed ' + failed + '.';
+    }
+    await loadEmailLog();
+    alert('Mass email finished.\nSent: ' + sent + '\nFailed: ' + failed);
 }
 
 function isJonathanAdmin() {
