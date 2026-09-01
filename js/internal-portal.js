@@ -6375,6 +6375,20 @@ async function assertCustomerEmailAvailable(email) {
     }
 }
 
+function normalizeStoreKey(value) {
+    return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function findExactStoreMatch(matches, name, company) {
+    const want = [normalizeStoreKey(name), normalizeStoreKey(company)].filter(Boolean);
+    if (!want.length || !Array.isArray(matches) || !matches.length) return null;
+    const hits = matches.filter(function (c) {
+        const keys = [normalizeStoreKey(c.name), normalizeStoreKey(c.company)].filter(Boolean);
+        return keys.some(function (k) { return want.indexOf(k) !== -1; });
+    });
+    return hits.length === 1 ? hits[0] : null;
+}
+
 async function matchCustomerForInquiryApproval(email) {
     const emailNorm = (email || '').trim().toLowerCase();
     if (!emailNorm || !emailNorm.includes('@')) {
@@ -6400,34 +6414,22 @@ async function matchCustomerForInquiryApproval(email) {
     if (matchError) throw matchError;
 
     const list = matches || [];
-    if (list.length > 1) {
-        const names = list.map((c) => (c.name || c.company || c.id)).join(', ');
-        throw new Error(
-            'This email matches more than one customer record (' + names + ').\n' +
-            'Fix the duplicate rows before approving this inquiry.'
-        );
-    }
-
-    const existing = list[0] || null;
-    if (existing && typeof shouldSkipCustomerLoginReset === 'function' && shouldSkipCustomerLoginReset(existing)) {
+    const protectedHit = list.find(function (c) {
+        return typeof shouldSkipCustomerLoginReset === 'function' && shouldSkipCustomerLoginReset(c);
+    });
+    if (protectedHit) {
         throw new Error(
             'This email belongs to a protected account (' +
-            (existing.name || existing.company || emailNorm) +
+            (protectedHit.name || protectedHit.company || emailNorm) +
             '). It cannot be overwritten from an inquiry.'
         );
     }
 
-    if (!existing && profile && profile.role === 'customer') {
-        return {
-            id: null,
-            name: emailNorm,
-            company: '',
-            email: emailNorm,
-            status: 'login exists'
-        };
-    }
-
-    return existing;
+    return {
+        profile: profile || null,
+        matches: list,
+        loginExists: list.length > 0 || !!(profile && profile.role === 'customer')
+    };
 }
 
 async function assertSalesmanEmailAvailable(email) {
@@ -10236,24 +10238,45 @@ async function confirmInquiryApproval() {
         return;
     }
 
-    let existingCustomer = null;
+    let matchInfo = { profile: null, matches: [], loginExists: false };
     try {
-        existingCustomer = await matchCustomerForInquiryApproval(email);
+        matchInfo = await matchCustomerForInquiryApproval(email);
     } catch (e) {
         alert(e.message || 'This email cannot be used for a customer.');
         return;
     }
 
+    const existingCustomer = findExactStoreMatch(matchInfo.matches, name, company);
+    const loginExists = !!matchInfo.loginExists;
+    const existingStoreNames = (matchInfo.matches || []).map(function (c) {
+        return c.name || c.company || c.id;
+    }).filter(Boolean).join(', ');
+
     if (existingCustomer) {
-        const who = [existingCustomer.name, existingCustomer.company].filter(Boolean).join(' / ') || email;
         if (!confirm(
-            'This email already belongs to ' + who + '.\n' +
+            'This email already has this store (' +
+            ([existingCustomer.name, existingCustomer.company].filter(Boolean).join(' / ') || email) +
+            ').\n' +
             'Current status: ' + (existingCustomer.status || '—') + '\n\n' +
-            'Approve will update that existing customer (same id), reset their login, and send a new credentials email.\n' +
-            'Price approval, payment method, and territory will be cleared.\n' +
+            'Approve will update that store only.\n' +
+            'Login and password will not change. No credentials email will be sent.\n' +
             'Commission stays, or transfers from the assigned salesman.\n' +
             'Status will be set to Active.\n\n' +
-            'OK to overwrite this returning customer?'
+            'OK to update this store?'
+        )) {
+            return;
+        }
+    } else if (loginExists) {
+        if (!confirm(
+            'This email already logs into ' +
+            matchInfo.matches.length +
+            ' store(s)' +
+            (existingStoreNames ? (':\n' + existingStoreNames) : '.') +
+            '\n\n' +
+            'Approve will ADD this new store to that same login.\n' +
+            'Login and password will not change. No credentials email will be sent.\n' +
+            'The customer will see the new store in their store switcher.\n\n' +
+            'OK to attach this store?'
         )) {
             return;
         }
@@ -10285,37 +10308,40 @@ async function confirmInquiryApproval() {
         }
 
         const tempUsername = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-        const tempPassword = 'DN' + Math.random().toString(36).slice(2, 8).toUpperCase() + '!';
+        let tempPassword = '';
+        let fnData = { email_sent: false, skipped: true };
 
-        // Create Auth user + profile via Edge Function (raw fetch for real error text)
-        const fnUrl = SUPABASE_URL + '/functions/v1/create-customer-user';
-        const fnRes = await fetch(fnUrl, {
-            method: 'POST',
-            headers: await getEdgeFunctionHeaders(),
-            body: JSON.stringify({
-                email: email,
-                password: tempPassword,
-                full_name: name,
-                company: company
-            })
-        });
+        if (!loginExists) {
+            tempPassword = 'DN' + Math.random().toString(36).slice(2, 8).toUpperCase() + '!';
+            const fnUrl = SUPABASE_URL + '/functions/v1/create-customer-user';
+            const fnRes = await fetch(fnUrl, {
+                method: 'POST',
+                headers: await getEdgeFunctionHeaders(),
+                body: JSON.stringify({
+                    email: email,
+                    password: tempPassword,
+                    full_name: name,
+                    company: company
+                })
+            });
 
-        const fnText = await fnRes.text();
-        let fnData = null;
-        try {
-            fnData = JSON.parse(fnText);
-        } catch (e) {
-            fnData = { error: fnText || 'Empty response' };
-        }
+            const fnText = await fnRes.text();
+            fnData = null;
+            try {
+                fnData = JSON.parse(fnText);
+            } catch (e) {
+                fnData = { error: fnText || 'Empty response' };
+            }
 
-        if (!fnRes.ok) {
-            console.error('Edge function failed:', fnRes.status, fnData);
-            throw new Error(
-                (fnData && fnData.error) ? fnData.error : ('Function HTTP ' + fnRes.status + ': ' + fnText)
-            );
-        }
-        if (fnData && fnData.error) {
-            throw new Error(fnData.error);
+            if (!fnRes.ok) {
+                console.error('Edge function failed:', fnRes.status, fnData);
+                throw new Error(
+                    (fnData && fnData.error) ? fnData.error : ('Function HTTP ' + fnRes.status + ': ' + fnText)
+                );
+            }
+            if (fnData && fnData.error) {
+                throw new Error(fnData.error);
+            }
         }
 
         // Do not store temp password in notes (security) — show once in alert + email only
@@ -10395,6 +10421,13 @@ async function confirmInquiryApproval() {
             place_id: shipPlace || null
         };
 
+        if (loginExists) {
+            customerPayload.password_changed = true;
+            if (!existingCustomer) {
+                customerPayload.onboarding_complete = false;
+            }
+        }
+
         let customerId = existingCustomer && existingCustomer.id ? existingCustomer.id : null;
         if (!customerId) {
             const { data: created, error: custError } = await supabaseClient
@@ -10405,33 +10438,36 @@ async function confirmInquiryApproval() {
             if (custError) throw custError;
             customerId = created && created.id ? created.id : null;
         } else {
+            const updateFields = {
+                name: customerPayload.name,
+                company: customerPayload.company,
+                email: customerPayload.email,
+                phone: customerPayload.phone,
+                shipping_address: customerPayload.shipping_address,
+                billing_address: customerPayload.billing_address,
+                notes: customerPayload.notes,
+                status: 'Active',
+                salesman_email: customerPayload.salesman_email,
+                assigned_at: customerPayload.assigned_at,
+                lat: customerPayload.lat,
+                lng: customerPayload.lng,
+                place_id: customerPayload.place_id,
+                salesman_commission_percent: commissionPercent,
+                updated_at: new Date().toISOString()
+            };
+            if (!loginExists) {
+                updateFields.onboarding_complete = false;
+                updateFields.password_changed = false;
+                updateFields.last_login_at = null;
+                updateFields.payment_method = null;
+                updateFields.payment_method_status = null;
+                updateFields.pricing_approved_at = null;
+                updateFields.pricing_approved_by = null;
+                updateFields.territory = null;
+            }
             const { error: updError } = await supabaseClient
                 .from('customers')
-                .update({
-                    name: customerPayload.name,
-                    company: customerPayload.company,
-                    email: customerPayload.email,
-                    phone: customerPayload.phone,
-                    shipping_address: customerPayload.shipping_address,
-                    billing_address: customerPayload.billing_address,
-                    notes: customerPayload.notes,
-                    status: 'Active',
-                    salesman_email: customerPayload.salesman_email,
-                    assigned_at: customerPayload.assigned_at,
-                    onboarding_complete: false,
-                    password_changed: false,
-                    lat: customerPayload.lat,
-                    lng: customerPayload.lng,
-                    place_id: customerPayload.place_id,
-                    last_login_at: null,
-                    payment_method: null,
-                    payment_method_status: null,
-                    pricing_approved_at: null,
-                    pricing_approved_by: null,
-                    territory: null,
-                    salesman_commission_percent: commissionPercent,
-                    updated_at: new Date().toISOString()
-                })
+                .update(updateFields)
                 .eq('id', customerId);
             if (updError) throw updError;
         }
@@ -10493,21 +10529,34 @@ async function confirmInquiryApproval() {
         const emailOk = fnData && fnData.email_sent === true;
         const emailFailReason = (fnData && fnData.email_error) ? String(fnData.email_error) : '';
 
-        alert(
-            'Inquiry approved.\n' +
-            (existingCustomer ? 'Existing customer updated (returning store).\n' : 'Customer created.\n') +
-            'Status set to Active.\n' +
-            'Login account created.\n' +
-            (salesmanId ? 'Assigned to: ' + salesmanName : 'No salesman assigned (you can assign later)') + '\n\n' +
-            'Customer login (email + temp password):\n' +
-            'Email: ' + email + '\n' +
-            'Password: ' + tempPassword + '\n\n' +
-            (emailOk
-                ? 'Credentials email was sent to the customer.'
-                : ('Credentials email was NOT sent.\n' +
-                   (emailFailReason ? ('Reason: ' + emailFailReason + '\n') : '') +
-                   'Please give the customer the temp password above.'))
-        );
+        if (loginExists) {
+            alert(
+                'Inquiry approved.\n' +
+                (existingCustomer
+                    ? 'Existing store updated.\n'
+                    : 'New store attached to the existing login.\n') +
+                'Status set to Active.\n' +
+                'Login and password were not changed.\n' +
+                'No credentials email was sent.\n' +
+                (salesmanId ? 'Assigned to: ' + salesmanName : 'No salesman assigned (you can assign later)')
+            );
+        } else {
+            alert(
+                'Inquiry approved.\n' +
+                'Customer created.\n' +
+                'Status set to Active.\n' +
+                'Login account created.\n' +
+                (salesmanId ? 'Assigned to: ' + salesmanName : 'No salesman assigned (you can assign later)') + '\n\n' +
+                'Customer login (email + temp password):\n' +
+                'Email: ' + email + '\n' +
+                'Password: ' + tempPassword + '\n\n' +
+                (emailOk
+                    ? 'Credentials email was sent to the customer.'
+                    : ('Credentials email was NOT sent.\n' +
+                       (emailFailReason ? ('Reason: ' + emailFailReason + '\n') : '') +
+                       'Please give the customer the temp password above.'))
+            );
+        }
     } catch (err) {
         console.error('Confirm approval error:', err);
         alert('Could not complete approval.\n' + (err.message || ''));
