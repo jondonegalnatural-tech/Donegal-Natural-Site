@@ -13294,21 +13294,66 @@ async function removeMailingListExtra(id) {
 
 function updateMassEmailRecipientCount() {
     const el = document.getElementById('mass-email-count');
-    if (!el) return;
     const list = getMassEmailRecipients();
-    el.textContent = list.length + ' unique email' + (list.length === 1 ? '' : 's');
+    renderMassEmailRecipientChecks(list);
+    const checked = getCheckedMassEmailRecipients(list);
+    if (el) {
+        el.textContent = checked.length + ' selected of ' + list.length + ' unique email' + (list.length === 1 ? '' : 's');
+    }
+}
+
+function renderMassEmailRecipientChecks(list) {
+    const box = document.getElementById('mass-email-recipient-list');
+    if (!box) return;
+    const rows = list || getMassEmailRecipients();
+    if (!rows.length) {
+        box.innerHTML = '<p class="text-[#6B4423] px-2 py-1">No emails in this list.</p>';
+        return;
+    }
+    box.innerHTML = rows.map(function (r) {
+        const email = escapeHtml(r.email || '');
+        const extra = r.stores && r.stores.length ? (' — ' + r.stores.join(' | ')) : '';
+        return (
+            '<label class="flex items-start gap-2 px-2 py-1">' +
+            '<input type="checkbox" class="mass-email-check mt-1" value="' + email + '" checked onchange="updateMassEmailRecipientCount()">' +
+            '<span>' + email + escapeHtml(extra) + '</span>' +
+            '</label>'
+        );
+    }).join('');
+}
+
+function setMassEmailChecks(on) {
+    document.querySelectorAll('.mass-email-check').forEach(function (el) {
+        el.checked = !!on;
+    });
+    updateMassEmailRecipientCount();
+}
+
+function getCheckedMassEmailRecipients(list) {
+    const rows = list || getMassEmailRecipients();
+    const box = document.getElementById('mass-email-recipient-list');
+    if (!box) return rows;
+    const checks = box.querySelectorAll('.mass-email-check');
+    if (!checks.length) return rows;
+    const selected = {};
+    checks.forEach(function (el) {
+        if (el.checked) selected[String(el.value || '').toLowerCase().trim()] = true;
+    });
+    return rows.filter(function (r) {
+        return selected[r.email];
+    });
 }
 
 function previewMassEmailRecipients() {
-    const list = getMassEmailRecipients();
+    const list = getCheckedMassEmailRecipients();
     if (!list.length) {
-        alert('No matching emails.');
+        alert('Check at least one email.');
         return;
     }
     const lines = list.map(function (r) {
         return r.email + (r.stores.length ? (' — ' + r.stores.join(' | ')) : '');
     });
-    alert('Will send to ' + list.length + ' unique email(s):\n\n' + lines.join('\n'));
+    alert('Will send to ' + list.length + ' email(s):\n\n' + lines.join('\n'));
 }
 
 function buildMassEmailHtml(message) {
@@ -13390,17 +13435,17 @@ async function sendMassCustomerEmail() {
     const message = (document.getElementById('mass-email-body') || {}).value || '';
     const btn = document.getElementById('mass-email-send-btn');
     const progress = document.getElementById('mass-email-progress');
-    const list = getMassEmailRecipients();
+    const list = getCheckedMassEmailRecipients();
 
     if (!subject.trim() || !message.trim()) {
         alert('Subject and message are required.');
         return;
     }
     if (!list.length) {
-        alert('No matching emails.');
+        alert('Check at least one email.');
         return;
     }
-    if (!confirm('Send this email to ' + list.length + ' unique customer email(s)?')) return;
+    if (!confirm('Send this email to ' + list.length + ' address(es)?')) return;
     if (!confirm('Last check: this will email customers now. Continue?')) return;
 
     if (btn) {
@@ -13469,81 +13514,6 @@ async function sendMassCustomerEmail() {
     }
     await loadEmailLog();
     alert('Mass email finished.\nSent: ' + sent + '\nFailed: ' + failed);
-}
-
-async function sendIndividualCustomerEmail() {
-    const subject = (document.getElementById('mass-email-subject') || {}).value || '';
-    const message = (document.getElementById('mass-email-body') || {}).value || '';
-    const to = String((document.getElementById('single-email-to') || {}).value || '').toLowerCase().trim();
-    const btn = document.getElementById('single-email-send-btn');
-    const progress = document.getElementById('mass-email-progress');
-
-    if (!subject.trim() || !message.trim()) {
-        alert('Subject and message are required.');
-        return;
-    }
-    if (typeof isBlockedMassEmailAddress === 'function' && isBlockedMassEmailAddress(to)) {
-        alert('Enter one real store email. Company mailboxes and jackerman@ cannot be used.');
-        return;
-    }
-    if (!confirm('Send this email only to ' + to + '?')) return;
-
-    if (btn) {
-        btn.disabled = true;
-        btn.textContent = 'Sending…';
-    }
-    if (progress) progress.textContent = 'Sending one email — ' + to;
-
-    const html = buildMassEmailHtml(message);
-    const text = message.trim();
-    try {
-        const fnRes = await fetch(SUPABASE_URL + '/functions/v1/send-customer-email', {
-            method: 'POST',
-            headers: await getEdgeFunctionHeaders(),
-            body: JSON.stringify({
-                to: to,
-                subject: subject.trim(),
-                html: html,
-                text: text
-            })
-        });
-        const fnText = await fnRes.text();
-        let fnData = null;
-        try { fnData = JSON.parse(fnText); } catch (e) { fnData = { error: fnText || 'Empty response' }; }
-        if (!fnRes.ok || (fnData && fnData.error)) {
-            throw new Error((fnData && fnData.error) ? fnData.error : ('HTTP ' + fnRes.status));
-        }
-        await logPortalEmail({
-            email_type: 'individual',
-            status: 'sent',
-            to_email: to,
-            to_name: to,
-            subject: subject.trim(),
-            body_preview: text,
-            store_names: 'Individual'
-        });
-        if (progress) progress.textContent = 'Sent one email to ' + to + '.';
-        await loadEmailLog();
-        alert('Sent to ' + to + '.');
-    } catch (err) {
-        await logPortalEmail({
-            email_type: 'individual',
-            status: 'failed',
-            to_email: to,
-            to_name: to,
-            subject: subject.trim(),
-            body_preview: text,
-            store_names: 'Individual',
-            error: err.message || String(err)
-        });
-        if (progress) progress.textContent = 'Failed: ' + (err.message || String(err));
-        await loadEmailLog();
-        alert('Could not send.\n' + (err.message || String(err)));
-    }
-    if (btn) {
-        btn.disabled = false;
-        btn.textContent = 'Send one email';
-    }
 }
 
 function isJonathanAdmin() {
