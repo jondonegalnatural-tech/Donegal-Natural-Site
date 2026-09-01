@@ -936,6 +936,7 @@ function showSection(section) {
             if (typeof populateReportsSalesmanSelect === 'function') {
                 await populateReportsSalesmanSelect();
             }
+            if (typeof loadMailingListExtras === 'function') await loadMailingListExtras();
             if (typeof loadEmailLog === 'function') loadEmailLog();
             if (typeof updateMassEmailRecipientCount === 'function') updateMassEmailRecipientCount();
         })();
@@ -13129,14 +13130,43 @@ function updateDashboardSales() {
     }
 }
 
+let mailingListExtras = [];
+
+function isBlockedMassEmailAddress(email) {
+    const e = String(email || '').toLowerCase().trim();
+    if (!e || e.indexOf('@') === -1) return true;
+    if (e === 'jackerman@donegalnatural.com') return true;
+    if (e === 'support@donegalnatural.com') return true;
+    if (e === 'orders@donegalnatural.com') return true;
+    if (e === 'inquiry@donegalnatural.com') return true;
+    if (e === 'billing@donegalnatural.com') return true;
+    if (e === 'info@donegalnatural.com') return true;
+    if (e === 'noreply@donegalnatural.com') return true;
+    return false;
+}
+
 function shouldSkipMassEmailStore(customer) {
     const email = String((customer && customer.email) || '').toLowerCase().trim();
     const company = String((customer && customer.company) || '').toLowerCase();
     const name = String((customer && customer.name) || '').toLowerCase();
-    if (!email || !email.includes('@')) return true;
-    if (email === 'jackerman@donegalnatural.com') return true;
+    if (isBlockedMassEmailAddress(email)) return true;
     if (company.includes('admin test store') || name.includes('admin test store')) return true;
     return false;
+}
+
+function addMassEmailRecipient(map, email, name, storeLabel) {
+    const addr = String(email || '').toLowerCase().trim();
+    if (isBlockedMassEmailAddress(addr)) return;
+    if (!map.has(addr)) {
+        map.set(addr, {
+            email: addr,
+            name: name || addr,
+            stores: []
+        });
+    }
+    const rec = map.get(addr);
+    if (storeLabel && rec.stores.indexOf(storeLabel) === -1) rec.stores.push(storeLabel);
+    if (name && rec.name === rec.email) rec.name = name;
 }
 
 function getMassEmailRecipients(audience) {
@@ -13144,22 +13174,122 @@ function getMassEmailRecipients(audience) {
     const map = new Map();
     (allCustomers || []).forEach(function (c) {
         if (shouldSkipMassEmailStore(c)) return;
-        if (mode === 'active' && String(c.status || '') !== 'Active') return;
-        const email = String(c.email || '').toLowerCase().trim();
-        if (!map.has(email)) {
-            map.set(email, {
-                email: email,
-                name: c.name || c.company || email,
-                stores: []
-            });
-        }
-        const label = c.name || c.company || '';
-        const rec = map.get(email);
-        if (label && rec.stores.indexOf(label) === -1) rec.stores.push(label);
+        if (mode === 'active' && String(c.status || '') !== 'Active' && String(c.status || '') !== 'Approved') return;
+        addMassEmailRecipient(map, c.email, c.name || c.company || '', c.name || c.company || '');
     });
+    if (mode === 'website') {
+        (mailingListExtras || []).forEach(function (extra) {
+            addMassEmailRecipient(map, extra.email, extra.name || '', extra.name || 'Extra');
+        });
+    }
     return Array.from(map.values()).sort(function (a, b) {
         return a.email.localeCompare(b.email);
     });
+}
+
+function renderMailingListExtras() {
+    const box = document.getElementById('mailing-extra-list');
+    if (!box) return;
+    const rows = mailingListExtras || [];
+    if (!rows.length) {
+        box.innerHTML = '<p class="text-[#6B4423]">No extra emails yet.</p>';
+        return;
+    }
+    box.innerHTML = rows.map(function (row) {
+        const id = String(row.id || '');
+        const email = escapeHtml(row.email || '');
+        const name = escapeHtml(row.name || '');
+        return (
+            '<div class="flex items-center justify-between gap-2 border border-[#d4b78f] rounded-xl px-3 py-2">' +
+            '<div>' +
+            '<p class="font-medium">' + email + '</p>' +
+            (name ? ('<p class="text-xs text-[#6B4423]">' + name + '</p>') : '') +
+            '</div>' +
+            '<button type="button" onclick="removeMailingListExtra(\'' + id + '\')" ' +
+            'class="px-3 py-1 text-xs border-2 border-[#6B4423] rounded-lg hover:bg-[#f8f4eb]">Remove</button>' +
+            '</div>'
+        );
+    }).join('');
+}
+
+async function loadMailingListExtras() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('mailing_list_extras')
+            .select('id, email, name, notes, source, created_at, created_by_email')
+            .order('email');
+        if (error) throw error;
+        mailingListExtras = data || [];
+    } catch (err) {
+        console.warn('mailing_list_extras load:', err && err.message ? err.message : err);
+        mailingListExtras = [];
+        const box = document.getElementById('mailing-extra-list');
+        if (box) {
+            box.innerHTML = '<p class="text-red-700">Could not load extra emails. Run the mailing_list_extras SQL in Supabase if this table is new.<br>' +
+                escapeHtml((err && err.message) || '') + '</p>';
+        }
+        return;
+    }
+    renderMailingListExtras();
+}
+
+async function addMailingListExtra() {
+    const emailInput = document.getElementById('mailing-extra-email');
+    const nameInput = document.getElementById('mailing-extra-name');
+    const email = String((emailInput && emailInput.value) || '').toLowerCase().trim();
+    const name = String((nameInput && nameInput.value) || '').trim();
+    if (isBlockedMassEmailAddress(email)) {
+        alert('Enter a real store email. Company mailboxes and jackerman@ cannot be added.');
+        return;
+    }
+    const alreadyCustomer = (allCustomers || []).some(function (c) {
+        return String(c.email || '').toLowerCase().trim() === email;
+    });
+    if (alreadyCustomer) {
+        alert('That email is already on the customer list. All website emails will include it.');
+        return;
+    }
+    const alreadyExtra = (mailingListExtras || []).some(function (row) {
+        return String(row.email || '').toLowerCase().trim() === email;
+    });
+    if (alreadyExtra) {
+        alert('That email is already on the extra list.');
+        return;
+    }
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const { error } = await supabaseClient
+            .from('mailing_list_extras')
+            .insert({
+                email: email,
+                name: name || null,
+                source: 'manual',
+                created_by_email: user.email || user.username || ''
+            });
+        if (error) throw error;
+        if (emailInput) emailInput.value = '';
+        if (nameInput) nameInput.value = '';
+        await loadMailingListExtras();
+        updateMassEmailRecipientCount();
+    } catch (err) {
+        alert('Could not add email.\n' + ((err && err.message) || err));
+    }
+}
+
+async function removeMailingListExtra(id) {
+    if (!id) return;
+    if (!confirm('Remove this extra email from the website list?')) return;
+    try {
+        const { error } = await supabaseClient
+            .from('mailing_list_extras')
+            .delete()
+            .eq('id', id);
+        if (error) throw error;
+        await loadMailingListExtras();
+        updateMassEmailRecipientCount();
+    } catch (err) {
+        alert('Could not remove email.\n' + ((err && err.message) || err));
+    }
 }
 
 function updateMassEmailRecipientCount() {
@@ -13172,7 +13302,7 @@ function updateMassEmailRecipientCount() {
 function previewMassEmailRecipients() {
     const list = getMassEmailRecipients();
     if (!list.length) {
-        alert('No matching customer emails.');
+        alert('No matching emails.');
         return;
     }
     const lines = list.map(function (r) {
@@ -13267,7 +13397,7 @@ async function sendMassCustomerEmail() {
         return;
     }
     if (!list.length) {
-        alert('No matching customer emails.');
+        alert('No matching emails.');
         return;
     }
     if (!confirm('Send this email to ' + list.length + ' unique customer email(s)?')) return;

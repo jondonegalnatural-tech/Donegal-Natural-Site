@@ -1327,7 +1327,7 @@ body { background: #f8f1e9; }
                 <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
                     <div>
                         <h3 class="text-xl font-bold brand-green">Customer Email</h3>
-                        <p class="text-sm text-[#6B4423]">Mass email + send log for portal customer mail</p>
+                        <p class="text-sm text-[#6B4423]">Mass email + send log. From noreply@donegalnatural.com · Reply-To support@</p>
                     </div>
                     <button type="button" onclick="loadEmailLog()"
                             class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
@@ -1342,7 +1342,25 @@ body { background: #f8f1e9; }
                                 class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm w-full mb-3">
                             <option value="active">Active customers (unique emails)</option>
                             <option value="all">Everyone on the customer list (unique emails)</option>
+                            <option value="website">All website emails (Active + Inactive customers + extras)</option>
                         </select>
+                        <div class="border-2 border-[#6B4423] rounded-xl p-3 mb-3">
+                            <p class="text-sm font-semibold text-[#6B4423] mb-1">Extra emails</p>
+                            <p class="text-xs text-[#6B4423] mb-2">Saved addresses that are not already a customer. Included when Send to is All website emails.</p>
+                            <div class="flex flex-wrap gap-2 mb-2">
+                                <input id="mailing-extra-email" type="email" placeholder="email@store.com"
+                                       class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm flex-1 min-w-[180px]">
+                                <input id="mailing-extra-name" type="text" placeholder="Name (optional)"
+                                       class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm flex-1 min-w-[140px]">
+                                <button type="button" onclick="addMailingListExtra()"
+                                        class="px-4 py-2 text-sm bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
+                                    Add email
+                                </button>
+                            </div>
+                            <div id="mailing-extra-list" class="max-h-40 overflow-y-auto text-sm space-y-1">
+                                <p class="text-[#6B4423]">No extra emails yet.</p>
+                            </div>
+                        </div>
                         <p id="mass-email-count" class="text-sm text-[#6B4423] mb-3">0 unique emails</p>
                         <label class="block text-sm font-semibold text-[#6B4423] mb-1">Subject</label>
                         <input id="mass-email-subject" type="text"
