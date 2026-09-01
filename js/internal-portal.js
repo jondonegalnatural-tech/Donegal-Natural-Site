@@ -13471,6 +13471,81 @@ async function sendMassCustomerEmail() {
     alert('Mass email finished.\nSent: ' + sent + '\nFailed: ' + failed);
 }
 
+async function sendIndividualCustomerEmail() {
+    const subject = (document.getElementById('mass-email-subject') || {}).value || '';
+    const message = (document.getElementById('mass-email-body') || {}).value || '';
+    const to = String((document.getElementById('single-email-to') || {}).value || '').toLowerCase().trim();
+    const btn = document.getElementById('single-email-send-btn');
+    const progress = document.getElementById('mass-email-progress');
+
+    if (!subject.trim() || !message.trim()) {
+        alert('Subject and message are required.');
+        return;
+    }
+    if (typeof isBlockedMassEmailAddress === 'function' && isBlockedMassEmailAddress(to)) {
+        alert('Enter one real store email. Company mailboxes and jackerman@ cannot be used.');
+        return;
+    }
+    if (!confirm('Send this email only to ' + to + '?')) return;
+
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Sending…';
+    }
+    if (progress) progress.textContent = 'Sending one email — ' + to;
+
+    const html = buildMassEmailHtml(message);
+    const text = message.trim();
+    try {
+        const fnRes = await fetch(SUPABASE_URL + '/functions/v1/send-customer-email', {
+            method: 'POST',
+            headers: await getEdgeFunctionHeaders(),
+            body: JSON.stringify({
+                to: to,
+                subject: subject.trim(),
+                html: html,
+                text: text
+            })
+        });
+        const fnText = await fnRes.text();
+        let fnData = null;
+        try { fnData = JSON.parse(fnText); } catch (e) { fnData = { error: fnText || 'Empty response' }; }
+        if (!fnRes.ok || (fnData && fnData.error)) {
+            throw new Error((fnData && fnData.error) ? fnData.error : ('HTTP ' + fnRes.status));
+        }
+        await logPortalEmail({
+            email_type: 'individual',
+            status: 'sent',
+            to_email: to,
+            to_name: to,
+            subject: subject.trim(),
+            body_preview: text,
+            store_names: 'Individual'
+        });
+        if (progress) progress.textContent = 'Sent one email to ' + to + '.';
+        await loadEmailLog();
+        alert('Sent to ' + to + '.');
+    } catch (err) {
+        await logPortalEmail({
+            email_type: 'individual',
+            status: 'failed',
+            to_email: to,
+            to_name: to,
+            subject: subject.trim(),
+            body_preview: text,
+            store_names: 'Individual',
+            error: err.message || String(err)
+        });
+        if (progress) progress.textContent = 'Failed: ' + (err.message || String(err));
+        await loadEmailLog();
+        alert('Could not send.\n' + (err.message || String(err)));
+    }
+    if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Send one email';
+    }
+}
+
 function isJonathanAdmin() {
     try {
         const u = JSON.parse(localStorage.getItem('currentUser') || 'null');

@@ -1370,6 +1370,10 @@ body { background: #f8f1e9; }
                         <textarea id="mass-email-body" rows="7"
                                   class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm w-full mb-3"
                                   placeholder="Write the email in plain text. Line breaks are kept."></textarea>
+                        <label class="block text-sm font-semibold text-[#6B4423] mb-1">Send one email to</label>
+                        <input id="single-email-to" type="email" placeholder="store@email.com"
+                               class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm w-full mb-3">
+                        <div class="flex flex-wrap gap-3">
                         <div class="flex flex-wrap gap-3">
                             <button type="button" onclick="previewMassEmailRecipients()"
                                     class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
@@ -1378,6 +1382,10 @@ body { background: #f8f1e9; }
                             <button type="button" id="mass-email-send-btn" onclick="sendMassCustomerEmail()"
                                     class="px-4 py-2 text-sm bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
                                 Send mass email
+                            </button>
+                            <button type="button" id="single-email-send-btn" onclick="sendIndividualCustomerEmail()"
+                                    class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                                Send one email
                             </button>
                         </div>
                         <p id="mass-email-progress" class="text-sm text-[#6B4423] mt-3"></p>
