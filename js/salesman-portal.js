@@ -41,6 +41,46 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
+
+async function notifyCustomerPricingReady(customer) {
+    const email = String((customer && customer.email) || '').toLowerCase().trim();
+    const name = (customer && (customer.name || customer.company)) || 'there';
+    const company = (customer && (customer.company || customer.name)) || '';
+    if (!email || email.indexOf('@') === -1) return;
+    if (email === 'jackerman@donegalnatural.com') return;
+    const subject = 'Your Donegal Natural wholesale pricing is ready';
+    const text =
+        'Hello ' + name + ',\n\n' +
+        'Your wholesale pricing is now viewable in your Donegal Natural account.\n\n' +
+        'Sign in at https://www.donegalnaturaldogtreats.com/login-portal.html\n' +
+        'Open the wholesale portal to see case sizes and prices for ' + (company || 'your store') + '.\n\n' +
+        'Questions: support@donegalnatural.com\n\n' +
+        'Thank you,\nDonegal Natural Dog Treats';
+    const html =
+        '<div style="font-family:Arial,sans-serif;color:#3b2a1a;line-height:1.5">' +
+        '<p style="font-size:16px;font-weight:700;color:#1E4D2B;margin:0 0 12px">Donegal Natural Dog Treats</p>' +
+        '<p>Hello ' + escapeHtml(name) + ',</p>' +
+        '<p>Your wholesale pricing is now viewable in your Donegal Natural account.</p>' +
+        '<p>Sign in at <a href="https://www.donegalnaturaldogtreats.com/login-portal.html">the wholesale login</a>, then open the portal to see case sizes and prices' +
+        (company ? (' for ' + escapeHtml(company)) : '') + '.</p>' +
+        '<p>Questions: <a href="mailto:support@donegalnatural.com">support@donegalnatural.com</a></p>' +
+        '<p>Thank you,<br>Donegal Natural Dog Treats</p>' +
+        '</div>';
+    try {
+        const fnRes = await fetch(SUPABASE_URL + '/functions/v1/send-customer-email', {
+            method: 'POST',
+            headers: await getEdgeFunctionHeaders(),
+            body: JSON.stringify({ to: email, subject: subject, html: html, text: text })
+        });
+        if (!fnRes.ok) {
+            const fnText = await fnRes.text();
+            console.warn('pricing ready email:', fnRes.status, fnText);
+        }
+    } catch (err) {
+        console.warn('pricing ready email:', err && err.message ? err.message : err);
+    }
+}
+
 // Soft guard — fast redirect if no salesman/admin cache
 (function () {
     try {

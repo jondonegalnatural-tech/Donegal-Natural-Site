@@ -6218,6 +6218,20 @@ async function massAssignSelectedCustomers() {
                     .in('id', needUnlock);
 
                 if (unlockErr) throw unlockErr;
+                const unlockedRows = (allCustomers || []).filter(function (c) {
+                    return needUnlock.indexOf(c.id) !== -1;
+                });
+                for (let i = 0; i < unlockedRows.length; i++) {
+                    await notifyCustomerPricingReady(unlockedRows[i]);
+                }
+                for (let i = 0; i < needUnlock.length; i++) {
+                    const row = (allCustomers || []).find(function (c) {
+                        return String(c.id) === String(needUnlock[i]);
+                    });
+                    if (row && typeof notifyCustomerPricingReady === 'function') {
+                        await notifyCustomerPricingReady(row);
+                    }
+                }
             }
         }
 
@@ -6874,6 +6888,56 @@ async function openSetCustomerPricing(customerId) {
     }
 }
 
+async function notifyCustomerPricingReady(customer) {
+    const email = String((customer && customer.email) || '').toLowerCase().trim();
+    const name = (customer && (customer.name || customer.company)) || 'there';
+    const company = (customer && (customer.company || customer.name)) || '';
+    if (!email || email.indexOf('@') === -1) return;
+    if (typeof isBlockedMassEmailAddress === 'function' && isBlockedMassEmailAddress(email)) return;
+    const subject = 'Your Donegal Natural wholesale pricing is ready';
+    const text =
+        'Hello ' + name + ',\n\n' +
+        'Your wholesale pricing is now viewable in your Donegal Natural account.\n\n' +
+        'Sign in at https://www.donegalnaturaldogtreats.com/login-portal.html\n' +
+        'Open the wholesale portal to see case sizes and prices for ' + (company || 'your store') + '.\n\n' +
+        'Questions: support@donegalnatural.com\n\n' +
+        'Thank you,\nDonegal Natural Dog Treats';
+    const html =
+        '<div style="font-family:Arial,sans-serif;color:#3b2a1a;line-height:1.5">' +
+        '<p style="font-size:16px;font-weight:700;color:#1E4D2B;margin:0 0 12px">Donegal Natural Dog Treats</p>' +
+        '<p>Hello ' + escapeHtml(name) + ',</p>' +
+        '<p>Your wholesale pricing is now viewable in your Donegal Natural account.</p>' +
+        '<p>Sign in at <a href="https://www.donegalnaturaldogtreats.com/login-portal.html">the wholesale login</a>, then open the portal to see case sizes and prices' +
+        (company ? (' for ' + escapeHtml(company)) : '') + '.</p>' +
+        '<p>Questions: <a href="mailto:support@donegalnatural.com">support@donegalnatural.com</a></p>' +
+        '<p>Thank you,<br>Donegal Natural Dog Treats</p>' +
+        '</div>';
+    try {
+        const fnRes = await fetch(SUPABASE_URL + '/functions/v1/send-customer-email', {
+            method: 'POST',
+            headers: await getEdgeFunctionHeaders(),
+            body: JSON.stringify({ to: email, subject: subject, html: html, text: text })
+        });
+        const fnText = await fnRes.text();
+        let fnData = null;
+        try { fnData = JSON.parse(fnText); } catch (e) { fnData = { error: fnText || 'Empty response' }; }
+        if (typeof logPortalEmail === 'function') {
+            await logPortalEmail({
+                email_type: 'pricing_ready',
+                status: (fnRes.ok && !(fnData && fnData.error)) ? 'sent' : 'failed',
+                to_email: email,
+                to_name: name,
+                subject: subject,
+                store_names: company,
+                related_customer_id: customer && customer.id ? customer.id : null,
+                error: (fnRes.ok && !(fnData && fnData.error)) ? null : ((fnData && fnData.error) || ('HTTP ' + fnRes.status))
+            });
+        }
+    } catch (err) {
+        console.warn('pricing ready email:', err && err.message ? err.message : err);
+    }
+}
+
 async function approveCustomerPricingAccess() {
     const modal = document.getElementById('customer-modal');
     const customerId = modal && modal.dataset ? modal.dataset.customerId : '';
@@ -6898,6 +6962,7 @@ async function approveCustomerPricingAccess() {
             return String(c.id) === String(customerId);
         });
         if (refreshed) showCustomerDetail(refreshed.name);
+        if (refreshed) await notifyCustomerPricingReady(refreshed);
         alert('Pricing unlocked for this customer.');
     } catch (err) {
         console.error(err);
@@ -7083,9 +7148,23 @@ async function saveEditedCustomer(e) {
             return;
         }
 
+        const existingBefore = (allCustomers || []).find(function (c) {
+            return String(c.id) === String(customerId);
+        });
+        const justUnlocked = existingBefore && !existingBefore.pricingApprovedAt &&
+            salesmanEmail && typeof salesmanHasApprovedSheet === 'function' &&
+            salesmanHasApprovedSheet(salesmanEmail);
         hideEditCustomerModal();
         await loadCustomers();
         showCustomerDetail(name);
+        if (justUnlocked) {
+            await notifyCustomerPricingReady({
+                id: customerId,
+                email: email || existingBefore.email,
+                name: name,
+                company: company || existingBefore.company
+            });
+        }
         alert('Customer updated.');
 
     } catch (err) {
@@ -9629,6 +9708,12 @@ async function approvePriceProposal(id) {
                 })
                 .eq('id', customerId);
             if (custErr) throw custErr;
+            const pricedCustomer = (allCustomers || []).find(function (c) {
+                return String(c.id) === String(customerId);
+            });
+            if (pricedCustomer && !pricedCustomer.pricingApprovedAt) {
+                await notifyCustomerPricingReady(pricedCustomer);
+            }
 
             // 3. Mark proposal Approved
             const { error: propErr } = await supabaseClient
