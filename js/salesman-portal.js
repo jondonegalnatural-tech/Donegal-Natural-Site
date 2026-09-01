@@ -150,14 +150,24 @@ async function notifyCustomerPricingReady(customer) {
         }
         const prev = JSON.parse(localStorage.getItem('currentUser') || '{}');
         const viewingAsSalesman = !!(prev.isViewAs || localStorage.getItem('originalAdminUser'));
+        const viewAsEmail = String(prev.viewAsSalesmanEmail || localStorage.getItem('viewAsSalesmanEmail') || '').toLowerCase().trim();
+        const viewAsName = prev.viewAsSalesmanName || localStorage.getItem('viewAsSalesmanName') || '';
+        const seatEmail = (viewingAsSalesman && viewAsEmail) ? viewAsEmail : profile.email;
+        const seatName = viewingAsSalesman
+            ? (viewAsEmail && viewAsEmail !== 'jackerman@donegalnatural.com'
+                ? ('Jonathan (Operating as ' + (viewAsName || 'Brian') + ')')
+                : 'Jonathan (Sales View)')
+            : (profile.full_name || profile.email);
         const refreshed = {
             id: profile.id,
-            username: profile.email,
-            fullName: viewingAsSalesman ? 'Jonathan (Sales View)' : (profile.full_name || profile.email),
-            name: viewingAsSalesman ? 'Jonathan (Sales View)' : (profile.full_name || profile.email),
+            username: seatEmail,
+            fullName: seatName,
+            name: seatName,
             role: viewingAsSalesman ? 'salesman' : profile.role,
             company: profile.company || '',
-            email: profile.email,
+            email: seatEmail,
+            viewAsSalesmanEmail: viewingAsSalesman ? viewAsEmail : '',
+            viewAsSalesmanName: viewingAsSalesman ? viewAsName : '',
             mustChangePassword: !!profile.must_change_password,
             loginTime: prev.loginTime || new Date().toISOString(),
             supabase: true,
@@ -507,6 +517,8 @@ function goToAdminView() {
         if (original) {
             localStorage.setItem('currentUser', JSON.stringify(original));
             localStorage.removeItem('originalAdminUser');
+            localStorage.removeItem('viewAsSalesmanEmail');
+            localStorage.removeItem('viewAsSalesmanName');
         }
     } catch (e) {
         console.error('goToAdminView error:', e);

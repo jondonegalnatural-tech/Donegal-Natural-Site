@@ -260,6 +260,39 @@ function goToSalesmanView() {
     window.location.href = 'salesman-portal.html';
 }
 
+function goToBrianSalesmanView() {
+    try {
+        const original = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        const adminEmail = String((original && original.email) || '').toLowerCase().trim();
+        if (adminEmail !== 'jackerman@donegalnatural.com') {
+            alert('Only Jonathan can open Brian’s salesman portal.');
+            return;
+        }
+        if (original) {
+            localStorage.setItem('originalAdminUser', JSON.stringify(original));
+        }
+        localStorage.setItem('viewAsSalesmanEmail', 'donegaldogtreats@gmail.com');
+        localStorage.setItem('viewAsSalesmanName', 'Brian');
+        localStorage.setItem('currentUser', JSON.stringify({
+            id: original && original.id ? original.id : null,
+            username: 'donegaldogtreats@gmail.com',
+            fullName: 'Jonathan (Operating as Brian)',
+            name: 'Jonathan (Operating as Brian)',
+            role: 'salesman',
+            email: 'donegaldogtreats@gmail.com',
+            viewAsSalesmanEmail: 'donegaldogtreats@gmail.com',
+            viewAsSalesmanName: 'Brian',
+            mustChangePassword: false,
+            loginTime: new Date().toISOString(),
+            supabase: true,
+            isViewAs: true
+        }));
+    } catch (e) {
+        console.error('goToBrianSalesmanView error:', e);
+    }
+    window.location.href = 'salesman-portal.html';
+}
+
 function goToCustomerView() {
     try {
         const original = JSON.parse(localStorage.getItem('currentUser') || 'null');
