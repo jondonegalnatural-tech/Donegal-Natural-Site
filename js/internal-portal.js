@@ -994,6 +994,7 @@ function showSection(section) {
     if (typeof loadInquiries === 'function') {
         loadInquiries().then(() => {
             if (typeof updateInquiryStats === 'function') updateInquiryStats();
+            if (typeof updateEstimatedSpendCard === 'function') updateEstimatedSpendCard();
         });
     }
     if (typeof loadInventory === 'function') {
@@ -4762,9 +4763,11 @@ async function confirmShipInvoice() {
 }
 
 function estimateMonthlyMid(amount) {
-    const raw = String(amount || '').replace(/\s/g, '');
+    const raw = String(amount || '')
+        .replace(/\s/g, '')
+        .replace(/[–—]/g, '-');
     if (!raw) return 0;
-    if (raw.indexOf('Under$500') !== -1) return 250;
+    if (/under\$?500/i.test(raw)) return 250;
     if (raw.indexOf('$500') !== -1 && raw.indexOf('$1,000') !== -1) return 750;
     if (raw.indexOf('$1,000') !== -1 && raw.indexOf('$2,500') !== -1) return 1750;
     if (raw.indexOf('$2,500') !== -1 && raw.indexOf('$5,000') !== -1) return 3750;
@@ -4775,26 +4778,30 @@ function estimateMonthlyMid(amount) {
 
 function updateEstimatedSpendCard() {
     const monthEl = document.getElementById('dash-estimated-spend');
-    const yearEl = document.getElementById('dash-estimated-spend-year');
+    if (!monthEl) return;
+    const used = {};
     let monthly = 0;
-    let counted = 0;
+    function add(email, amount) {
+        const addr = String(email || '').toLowerCase().trim();
+        if (!addr || used[addr]) return;
+        if (addr === 'jackerman@donegalnatural.com') return;
+        const mid = estimateMonthlyMid(amount);
+        if (!mid) return;
+        used[addr] = true;
+        monthly += mid;
+    }
     (allCustomers || []).forEach(function (c) {
-        const email = String(c.email || '').toLowerCase().trim();
         const company = String(c.company || '').toLowerCase();
-        if (email === 'jackerman@donegalnatural.com') return;
         if (company.indexOf('admin test store') !== -1) return;
         const status = String(c.status || '').toLowerCase();
         if (status !== 'active' && status !== 'approved') return;
-        const mid = estimateMonthlyMid(c.monthlyAmount);
-        if (!mid) return;
-        monthly += mid;
-        counted += 1;
+        add(c.email, c.monthlyAmount);
     });
-    if (monthEl) monthEl.textContent = '$' + Math.round(monthly).toLocaleString();
-    if (yearEl) {
-        yearEl.textContent = '$' + Math.round(monthly * 12).toLocaleString() + ' / yr' +
-            (counted ? (' · ' + counted + ' stores') : '');
-    }
+    (typeof inquiries !== 'undefined' && inquiries ? inquiries : []).forEach(function (row) {
+        if (String(row.status || '').toLowerCase() !== 'approved') return;
+        add(row.email, row.monthly_amount);
+    });
+    monthEl.textContent = '$' + Math.round(monthly).toLocaleString();
 }
 
 
@@ -12485,6 +12492,7 @@ window.onload = async function() {
     if (typeof loadOrders === 'function') loads.push(loadOrders());
     if (typeof loadInventory === 'function') loads.push(loadInventory());
     if (typeof loadInquiries === 'function') loads.push(loadInquiries());
+    if (typeof loadCustomers === 'function') loads.push(loadCustomers());
     if (typeof loadVendors === 'function') loads.push(loadVendors());
     try {
         await Promise.all(loads);
