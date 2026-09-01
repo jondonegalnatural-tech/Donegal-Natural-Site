@@ -104,9 +104,22 @@ document.addEventListener('DOMContentLoaded', function() {
             // Record last login for customers (best-effort; await so redirect does not abort the request)
             if (profile.role === 'customer' && profile.email) {
                 try {
+                    const now = new Date().toISOString();
+                    const { data: existingRows, error: existingErr } = await supabaseClient
+                        .from('customers')
+                        .select('id, last_login_at')
+                        .ilike('email', profile.email);
+                    if (existingErr) {
+                        console.warn('customer login lookup failed:', existingErr.message || existingErr);
+                    }
+                    const firstLogin = !existingRows || existingRows.some(function (row) {
+                        return !row.last_login_at;
+                    });
+                    const patch = { last_login_at: now };
+                    if (firstLogin) patch.status = 'Active';
                     const { error: lastLoginError } = await supabaseClient
                         .from('customers')
-                        .update({ last_login_at: new Date().toISOString() })
+                        .update(patch)
                         .ilike('email', profile.email);
                     if (lastLoginError) {
                         console.warn('last_login_at update failed:', lastLoginError.message || lastLoginError);
