@@ -10366,6 +10366,69 @@ async function openInquiryApprovalModal(inquiryId) {
     }
 }
 
+async function notifySalesmanInquiryAssigned(opts) {
+    const to = String((opts && opts.salesmanEmail) || '').toLowerCase().trim();
+    if (!to || to.indexOf('@') === -1) return;
+    const salesmanName = (opts && opts.salesmanName) || 'there';
+    const storeName = (opts && (opts.company || opts.name)) || 'a new store';
+    const contactName = (opts && opts.name) || '';
+    const customerEmail = (opts && opts.email) || '';
+    const phone = (opts && opts.phone) || '';
+    const shipping = (opts && opts.shipping) || '';
+    const subject = 'New store assigned: ' + storeName;
+    const text =
+        'Hello ' + salesmanName + ',\n\n' +
+        'A wholesale inquiry was approved and this store is now assigned to you.\n\n' +
+        'Store: ' + storeName + '\n' +
+        (contactName ? ('Contact: ' + contactName + '\n') : '') +
+        (customerEmail ? ('Customer email: ' + customerEmail + '\n') : '') +
+        (phone ? ('Phone: ' + phone + '\n') : '') +
+        (shipping ? ('Shipping:\n' + shipping + '\n') : '') +
+        '\nOpen the salesman portal to review the account and set pricing so they can see prices.\n' +
+        'https://www.donegalnaturaldogtreats.com/login-portal.html\n\n' +
+        'Questions: support@donegalnatural.com\n\n' +
+        'Donegal Natural Dog Treats';
+    const html =
+        '<div style="font-family:Arial,sans-serif;color:#3b2a1a;line-height:1.5">' +
+        '<p style="font-size:16px;font-weight:700;color:#1E4D2B;margin:0 0 12px">Donegal Natural Dog Treats</p>' +
+        '<p>Hello ' + escapeHtml(salesmanName) + ',</p>' +
+        '<p>A wholesale inquiry was approved and this store is now assigned to you.</p>' +
+        '<p><strong>Store:</strong> ' + escapeHtml(storeName) + '<br>' +
+        (contactName ? ('<strong>Contact:</strong> ' + escapeHtml(contactName) + '<br>') : '') +
+        (customerEmail ? ('<strong>Customer email:</strong> ' + escapeHtml(customerEmail) + '<br>') : '') +
+        (phone ? ('<strong>Phone:</strong> ' + escapeHtml(phone) + '<br>') : '') +
+        (shipping ? ('<strong>Shipping:</strong><br>' + escapeHtml(shipping).replace(/\n/g, '<br>') + '<br>') : '') +
+        '</p>' +
+        '<p>Open the salesman portal to review the account and set pricing so they can see prices.<br>' +
+        '<a href="https://www.donegalnaturaldogtreats.com/login-portal.html">Wholesale login</a></p>' +
+        '<p>Questions: <a href="mailto:support@donegalnatural.com">support@donegalnatural.com</a></p>' +
+        '</div>';
+    try {
+        const fnRes = await fetch(SUPABASE_URL + '/functions/v1/send-customer-email', {
+            method: 'POST',
+            headers: await getEdgeFunctionHeaders(),
+            body: JSON.stringify({ to: to, subject: subject, html: html, text: text })
+        });
+        const fnText = await fnRes.text();
+        let fnData = null;
+        try { fnData = JSON.parse(fnText); } catch (e) { fnData = { error: fnText || 'Empty response' }; }
+        if (typeof logPortalEmail === 'function') {
+            await logPortalEmail({
+                email_type: 'salesman_assignment',
+                status: (fnRes.ok && !(fnData && fnData.error)) ? 'sent' : 'failed',
+                to_email: to,
+                to_name: salesmanName,
+                subject: subject,
+                store_names: storeName,
+                error: (fnRes.ok && !(fnData && fnData.error)) ? null : ((fnData && fnData.error) || ('HTTP ' + fnRes.status))
+            });
+        }
+    } catch (err) {
+        console.warn('salesman assignment email:', err && err.message ? err.message : err);
+    }
+}
+
+
 async function confirmInquiryApproval() {
     const inquiryId = document.getElementById('ia-inquiry-id').value;
     const name = document.getElementById('ia-name').value.trim();
@@ -10691,6 +10754,17 @@ async function confirmInquiryApproval() {
         await renderInquiries();
         if (typeof loadCustomers === 'function') await loadCustomers();
         if (typeof initCustomerMap === 'function') initCustomerMap();
+        if (salesmanEmail) {
+            await notifySalesmanInquiryAssigned({
+                salesmanEmail: salesmanEmail,
+                salesmanName: salesmanName,
+                name: name,
+                company: company,
+                email: email,
+                phone: phone,
+                shipping: shipping
+            });
+        }
 
         const emailOk = fnData && fnData.email_sent === true;
         const emailFailReason = (fnData && fnData.email_error) ? String(fnData.email_error) : '';
