@@ -672,7 +672,7 @@ async function renderCustomers() {
         data.forEach(c => {
             const safeName = (c.name || '').replace(/'/g, "\\'");
             const div = document.createElement("div");
-            div.style.cssText = "background:#fff;border:3px solid #6B4423;border-radius:12px;padding:1rem;cursor:pointer;";
+            div.style.cssText = "background:#fff;border:3px solid #6B4423;border-radius:12px;padding:1rem;cursor:pointer;position:relative;";
             div.onclick = function (e) {
                 if (e.target && e.target.closest && e.target.closest('button')) return;
                 showSalesmanCustomerDetail(c);
@@ -691,8 +691,17 @@ async function renderCustomers() {
                 ? `<div style="margin-top:0.5rem;font-size:0.75rem;font-weight:700;color:#c2410c;">Pricing not approved yet</div>`
                 : '';
 
+            const showCommission = (typeof canEditCustomerCommission === 'function' && canEditCustomerCommission())
+                && c.salesman_commission_percent != null
+                && c.salesman_commission_percent !== ''
+                && Number(c.salesman_commission_percent) > 0;
+            const commissionBadge = showCommission
+                ? `<div style="position:absolute;top:0.45rem;right:0.45rem;padding:0.1rem 0.4rem;background:#fff7ed;border:1.5px solid #c2410c;border-radius:999px;color:#c2410c;font-size:0.62rem;font-weight:800;line-height:1.2;white-space:nowrap;">${Number(c.salesman_commission_percent)}%</div>`
+                : '';
+
             div.innerHTML = `
-                <div style="font-weight:700;color:#1E4D2B;margin-bottom:0.3rem;">
+                ${commissionBadge}
+                <div style="font-weight:700;color:#1E4D2B;margin-bottom:0.3rem;padding-right:${showCommission ? '2.6rem' : '0'};">
                     ${escapeHtml(c.name || '')}${newBadge}
                 </div>
                 <div style="color:#6B4423;font-size:0.85rem;margin-bottom:0.4rem;">
@@ -701,9 +710,6 @@ async function renderCustomers() {
                 <div style="color:#6B4423;font-size:0.8rem;margin-bottom:0.6rem;">
                     ${escapeHtml(c.territory || c.status || '')}
                 </div>
-                ${Number(c.salesman_commission_percent) > 0
-                    ? `<div style="margin:0 0 0.5rem;padding:0.35rem 0.5rem;background:#fff7ed;border:2px solid #c2410c;border-radius:8px;color:#c2410c;font-size:0.75rem;font-weight:800;text-align:center;">COMMISSION ${Number(c.salesman_commission_percent)}%</div>`
-                    : ''}
                 ${pricingBadge}
                 <button type="button" onclick="event.stopPropagation(); placeOrderForCustomer('${safeName}')"
                     style="width:100%;background:#1E4D2B;color:#d4b78f;border:2px solid #6B4423;padding:0.55rem;border-radius:8px;font-weight:700;margin-top:0.5rem;">
