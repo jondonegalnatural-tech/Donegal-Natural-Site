@@ -4776,35 +4776,6 @@ function estimateMonthlyMid(amount) {
     return isFinite(n) ? n : 0;
 }
 
-function updateEstimatedSpendCard() {
-    const monthEl = document.getElementById('dash-estimated-spend');
-    if (!monthEl) return;
-    const used = {};
-    let monthly = 0;
-    function add(email, amount) {
-        const addr = String(email || '').toLowerCase().trim();
-        if (!addr || used[addr]) return;
-        if (addr === 'jackerman@donegalnatural.com') return;
-        const mid = estimateMonthlyMid(amount);
-        if (!mid) return;
-        used[addr] = true;
-        monthly += mid;
-    }
-    (allCustomers || []).forEach(function (c) {
-        const company = String(c.company || '').toLowerCase();
-        if (company.indexOf('admin test store') !== -1) return;
-        const status = String(c.status || '').toLowerCase();
-        if (status !== 'active' && status !== 'approved') return;
-        add(c.email, c.monthlyAmount);
-    });
-    (typeof inquiries !== 'undefined' && inquiries ? inquiries : []).forEach(function (row) {
-        if (String(row.status || '').toLowerCase() !== 'approved') return;
-        add(row.email, row.monthly_amount);
-    });
-    monthEl.textContent = '$' + Math.round(monthly).toLocaleString();
-}
-
-
 function estimateMonthlyMid(amount) {
     const raw = String(amount || '').replace(/\s/g, '');
     if (!raw) return 0;
@@ -4833,8 +4804,6 @@ function updateEstimatedSpendCard() {
         const company = String(c.company || '').toLowerCase();
         if (email === 'jackerman@donegalnatural.com') return;
         if (company.indexOf('admin test store') !== -1) return;
-        const status = String(c.status || '').toLowerCase();
-        if (status !== 'active' && status !== 'approved') return;
         const amount = c.monthlyAmount || byEmail[email] || '';
         const mid = estimateMonthlyMid(amount);
         if (!mid) return;
