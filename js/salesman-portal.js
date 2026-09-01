@@ -661,15 +661,35 @@ async function renderCustomers() {
             return;
         }
 
+        if (typeof updateSalesmanCustomerListTabs === 'function') updateSalesmanCustomerListTabs();
+
         if (!data || data.length === 0) {
             grid.innerHTML = `<p class="text-sm text-[#6B4423]">No approved customers yet.</p>`;
             return;
         }
 
         window._salesmanCustomers = data || [];
-        grid.innerHTML = '';
+        const jonathanView = typeof isJonathanSalesmanView === 'function' && isJonathanSalesmanView();
+        let list = data.slice();
+        if (jonathanView) {
+            if (salesmanCustomerListTab === 'test') {
+                list = list.filter(isJonathanTestCustomer);
+            } else {
+                list = list.filter(function (c) { return !isJonathanTestCustomer(c); });
+            }
+        } else {
+            list = list.filter(function (c) { return !isJonathanTestCustomer(c); });
+        }
 
-        data.forEach(c => {
+        grid.innerHTML = '';
+        if (!list.length) {
+            grid.innerHTML = `<p class="text-sm text-[#6B4423]">${
+                salesmanCustomerListTab === 'test' ? 'No test stores.' : 'No customers on this tab.'
+            }</p>`;
+            return;
+        }
+
+        list.forEach(c => {
             const safeName = (c.name || '').replace(/'/g, "\\'");
             const div = document.createElement("div");
             div.style.cssText = "background:#fff;border:3px solid #6B4423;border-radius:12px;padding:1rem;cursor:pointer;position:relative;";
@@ -903,6 +923,44 @@ function updateOpenOrderButtonVisibility() {
     btn.style.display = canPlaceOpenOrder() ? '' : 'none';
 }
 
+
+let salesmanCustomerListTab = 'live';
+
+function isJonathanSalesmanView() {
+    const user = getCurrentUser() || currentUser;
+    const email = (user && user.email ? String(user.email) : '').toLowerCase().trim();
+    return email === 'jackerman@donegalnatural.com' || !!(user && user.isViewAs) || !!localStorage.getItem('originalAdminUser');
+}
+
+function isJonathanTestCustomer(c) {
+    const name = String((c && c.name) || '').toLowerCase();
+    const company = String((c && c.company) || '').toLowerCase();
+    const email = String((c && c.email) || '').toLowerCase().trim();
+    if (email === 'jackerman@donegalnatural.com') return true;
+    if (name.includes('admin test store') || company.includes('admin test store')) return true;
+    if (name.includes('customer view') || company.includes('customer view')) return true;
+    if (name.includes('test store') || company.includes('test store')) return true;
+    return false;
+}
+
+function setSalesmanCustomerListTab(tab) {
+    salesmanCustomerListTab = (tab === 'test') ? 'test' : 'live';
+    if (typeof renderCustomers === 'function') renderCustomers();
+}
+
+function updateSalesmanCustomerListTabs() {
+    const wrap = document.getElementById('salesman-customer-list-tabs');
+    const liveBtn = document.getElementById('sm-cust-tab-live');
+    const testBtn = document.getElementById('sm-cust-tab-test');
+    if (!wrap) return;
+    const show = typeof isJonathanSalesmanView === 'function' && isJonathanSalesmanView();
+    wrap.style.display = show ? '' : 'none';
+    if (!show) return;
+    const on = 'px-3 py-1 text-xs font-semibold rounded-full border-2 border-[#1E4D2B] bg-[#1E4D2B] text-[#d4b78f]';
+    const off = 'px-3 py-1 text-xs font-semibold rounded-full border-2 border-[#6B4423] text-[#6B4423] hover:bg-[#f8f4eb]';
+    if (liveBtn) liveBtn.className = salesmanCustomerListTab === 'test' ? off : on;
+    if (testBtn) testBtn.className = salesmanCustomerListTab === 'test' ? on : off;
+}
 
 function canEditCustomerCommission() {
     const user = getCurrentUser() || currentUser;

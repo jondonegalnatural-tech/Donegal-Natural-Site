@@ -176,7 +176,19 @@
             <div id="tab-customers" class="tab-content">
                 <div class="section-card">
                     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-                        <h2 class="text-xl font-bold brand-green">Your Customers</h2>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <h2 class="text-xl font-bold brand-green">Your Customers</h2>
+                            <div id="salesman-customer-list-tabs" class="flex gap-2" style="display:none;">
+                                <button type="button" id="sm-cust-tab-live" onclick="setSalesmanCustomerListTab('live')"
+                                        class="px-3 py-1 text-xs font-semibold rounded-full border-2 border-[#1E4D2B] bg-[#1E4D2B] text-[#d4b78f]">
+                                    Customers
+                                </button>
+                                <button type="button" id="sm-cust-tab-test" onclick="setSalesmanCustomerListTab('test')"
+                                        class="px-3 py-1 text-xs font-semibold rounded-full border-2 border-[#6B4423] text-[#6B4423] hover:bg-[#f8f4eb]">
+                                    Test stores
+                                </button>
+                            </div>
+                        </div>
                         <button type="button" id="salesman-open-order-btn"
                                 onclick="openWalkInPlaceOrder()"
                                 class="px-4 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl text-sm font-semibold border-2 border-[#6B4423]"
