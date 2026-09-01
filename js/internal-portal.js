@@ -6018,9 +6018,13 @@ function renderCustomers() {
                             class="px-3 py-1 text-xs font-semibold rounded-full border-2 ${customerMassFilter === 'all' ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]' : 'border-[#6B4423] text-[#6B4423] hover:bg-white'}">
                         All
                     </button>
-                    <button type="button" onclick="setCustomerMassFilter('unassigned')"
-                            class="px-3 py-1 text-xs font-semibold rounded-full border-2 ${customerMassFilter === 'unassigned' ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]' : 'border-[#6B4423] text-[#6B4423] hover:bg-white'}">
-                        Unassigned
+                    <button type="button" onclick="setCustomerMassFilter('active')"
+                            class="px-3 py-1 text-xs font-semibold rounded-full border-2 ${customerMassFilter === 'active' ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]' : 'border-[#6B4423] text-[#6B4423] hover:bg-white'}">
+                        Active
+                    </button>
+                    <button type="button" onclick="setCustomerMassFilter('inactive')"
+                            class="px-3 py-1 text-xs font-semibold rounded-full border-2 ${customerMassFilter === 'inactive' ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]' : 'border-[#6B4423] text-[#6B4423] hover:bg-white'}">
+                        Inactive
                     </button>
                 </div>
             </div>
