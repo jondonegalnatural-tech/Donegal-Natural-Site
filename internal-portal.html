@@ -1451,6 +1451,87 @@ body { background: #f8f1e9; }
                 </div>
             </div>
 
+            <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mt-6 mb-6">
+                <h3 class="text-lg font-bold brand-green mb-3">
+                    <i class="fas fa-envelope mr-2"></i>Email Legend
+                </h3>
+                <p class="text-sm text-[#6B4423] mb-4">
+                    Live portal mail. From <strong>noreply@donegalnatural.com</strong> · Reply-To <strong>support@donegalnatural.com</strong> · SMTP auth <strong>jackerman@donegalnatural.com</strong> via Google Workspace.
+                    Customers are invoiced in QuickBooks by the owner — the portal pro forma is not a customer invoice.
+                </p>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                                <th class="p-3 text-left">Email</th>
+                                <th class="p-3 text-left">When it sends</th>
+                                <th class="p-3 text-left">To</th>
+                                <th class="p-3 text-left">How</th>
+                                <th class="p-3 text-left">On / Off</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="border-t border-[#d4b78f]">
+                                <td class="p-3 font-semibold">Customer credentials</td>
+                                <td class="p-3">Individual inquiry approve (new login only) or Add Customer. Not Enable selected.</td>
+                                <td class="p-3">That customer’s email</td>
+                                <td class="p-3">Edge Function <span class="font-mono text-xs">create-customer-user</span></td>
+                                <td class="p-3 font-semibold text-green-800">On</td>
+                            </tr>
+                            <tr class="border-t border-[#d4b78f] bg-[#f8f4eb]">
+                                <td class="p-3 font-semibold">Salesman credentials / reset</td>
+                                <td class="p-3">Create salesman, or Reset Password on the salesman card. Hidden for jackerman@.</td>
+                                <td class="p-3">That salesman’s email</td>
+                                <td class="p-3">Edge Function <span class="font-mono text-xs">create-salesman-user</span></td>
+                                <td class="p-3 font-semibold text-green-800">On</td>
+                            </tr>
+                            <tr class="border-t border-[#d4b78f]">
+                                <td class="p-3 font-semibold">Pricing ready</td>
+                                <td class="p-3">First time a store is unlocked (pricing_approved_at set). Not later price edits or Save &amp; Push.</td>
+                                <td class="p-3">Customer email. Skips jackerman@ and company mailboxes.</td>
+                                <td class="p-3">Edge Function <span class="font-mono text-xs">send-customer-email</span></td>
+                                <td class="p-3 font-semibold text-green-800">On</td>
+                            </tr>
+                            <tr class="border-t border-[#d4b78f] bg-[#f8f4eb]">
+                                <td class="p-3 font-semibold">Salesman assignment</td>
+                                <td class="p-3">Inquiry approved with a salesman selected</td>
+                                <td class="p-3">That salesman</td>
+                                <td class="p-3">Edge Function <span class="font-mono text-xs">send-customer-email</span></td>
+                                <td class="p-3 font-semibold text-green-800">On</td>
+                            </tr>
+                            <tr class="border-t border-[#d4b78f]">
+                                <td class="p-3 font-semibold">Reports customer email</td>
+                                <td class="p-3">You send it from Reports → Customer Email (individual, Active, all, extras)</td>
+                                <td class="p-3">The list you chose. Skips jackerman@, Admin Test Store, company mailboxes. Salesman may only email assigned stores.</td>
+                                <td class="p-3">Edge Function <span class="font-mono text-xs">send-customer-email</span> · logged in Email Log</td>
+                                <td class="p-3 font-semibold text-green-800">On</td>
+                            </tr>
+                            <tr class="border-t border-[#d4b78f] bg-[#f8f4eb]">
+                                <td class="p-3 font-semibold">Pro forma / updated invoice</td>
+                                <td class="p-3">Wholesale, salesman, or Internal order submit, and when an order is edited</td>
+                                <td class="p-3">marshallg@comcast.net and jackerman@donegalnatural.com. Test stores: jackerman@ only, subject starts with [TEST]. Not sent to the customer.</td>
+                                <td class="p-3">Edge Function <span class="font-mono text-xs">send-pro-forma-email</span></td>
+                                <td class="p-3 font-semibold text-green-800">On</td>
+                            </tr>
+                            <tr class="border-t border-[#d4b78f]">
+                                <td class="p-3 font-semibold">Order shipped / denied</td>
+                                <td class="p-3">Would send when an order is shipped or denied</td>
+                                <td class="p-3">Customer</td>
+                                <td class="p-3">Edge Function <span class="font-mono text-xs">send-order-status-email</span></td>
+                                <td class="p-3 font-semibold text-red-800">Off · EMAILS_ENABLED=false · QuickBooks handles customer invoices</td>
+                            </tr>
+                            <tr class="border-t border-[#d4b78f] bg-[#f8f4eb]">
+                                <td class="p-3 font-semibold">Stripe payment cleared</td>
+                                <td class="p-3">Would send when a portal payment clears</td>
+                                <td class="p-3">billing@donegalnatural.com</td>
+                                <td class="p-3">stripe-webhook</td>
+                                <td class="p-3 font-semibold text-[#6B4423]">Parked · Stripe not in use</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
 <!-- Free Shipping Legend -->
             <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mt-6">
                 <h3 class="text-lg font-bold brand-green mb-3">
