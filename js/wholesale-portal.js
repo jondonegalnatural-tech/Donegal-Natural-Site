@@ -272,12 +272,14 @@ function evaluateFreeShipping(subtotal, locationText) {
 
     const free = amount >= freeAt;
     const half = !free && halfAt != null && amount >= halfAt;
+    const remainingToFree = Math.max(0, freeAt - amount);
     if (free) {
         return {
             free: true,
             half: false,
             threshold: freeAt,
             remaining: 0,
+            remainingToFree: 0,
             reason: 'Free shipping: $' + freeAt.toLocaleString() + '+ in ' + zoneLabel
         };
     }
@@ -286,19 +288,18 @@ function evaluateFreeShipping(subtotal, locationText) {
             free: false,
             half: true,
             threshold: freeAt,
-            remaining: Math.max(0, freeAt - amount),
+            remaining: remainingToFree,
+            remainingToFree: remainingToFree,
             reason: 'Half freight unlocked in ' + zoneLabel
         };
     }
-    const next = halfAt != null ? halfAt : freeAt;
     return {
         free: false,
         half: false,
-        threshold: next,
-        remaining: Math.max(0, next - amount),
-        reason: halfAt != null
-            ? ('Half freight at $' + halfAt.toFixed(2) + ' in ' + zoneLabel)
-            : ('Free shipping at $' + freeAt.toFixed(2) + ' in ' + zoneLabel)
+        threshold: freeAt,
+        remaining: remainingToFree,
+        remainingToFree: remainingToFree,
+        reason: 'Free shipping at $' + freeAt.toFixed(2) + ' in ' + zoneLabel
     };
 }
 
@@ -320,10 +321,7 @@ function updateShippingPolicyCard() {
 
     const loc = getCustomerLocationText();
     if (!loc) {
-        el.innerHTML =
-            'Add a shipping address to see your threshold. ' +
-            'PA <strong>$200+ free</strong> · Florida <strong>$250–$399.99 half freight / $400+ free</strong> · ' +
-            'East <strong>$250–$1,499.99 half freight / $1,500+ free</strong> · West <strong>$250–$1,999.99 half freight / $2,000+ free</strong>.';
+        el.innerHTML = 'Add a shipping address to see your shipping policy.';
         return;
     }
 
@@ -4689,13 +4687,14 @@ function updateQuoteSidebar() {
         } else if (fs.half) {
             summaryHTML += `
                 <div class="mb-3 px-3 py-2 rounded-xl bg-[#f8f4eb] border border-[#d4b78f] text-[#6B4423] text-xs font-semibold">
-                    ✓ Half freight unlocked — ${fs.reason}. $${fs.remaining.toFixed(2)} more for free shipping.
+                    ✓ Half freight unlocked. $${fs.remaining.toFixed(2)} more to reach free shipping.
                 </div>
             `;
-        } else if (fs.threshold) {
+        } else {
+            const toFree = Number(fs.remainingToFree != null ? fs.remainingToFree : fs.remaining) || 0;
             summaryHTML += `
                 <div class="mb-3 px-3 py-2 rounded-xl bg-[#f8f4eb] border border-[#d4b78f] text-[#6B4423] text-xs">
-                    $${fs.remaining.toFixed(2)} more to reach the next shipping threshold (${fs.reason})
+                    $${toFree.toFixed(2)} more to reach free shipping.
                 </div>
             `;
         }
