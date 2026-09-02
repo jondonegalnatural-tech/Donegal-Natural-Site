@@ -6288,13 +6288,76 @@ async function openShippingAddressesModal() {
     const modal = document.getElementById('manage-addresses-modal');
     if (!modal) return;
 
-    // Show only shipping section, hide payment + resale
     modal.querySelectorAll('[data-section]').forEach(el => {
-        el.style.display = el.getAttribute('data-section') === 'shipping' ? 'block' : 'none';
+        const section = el.getAttribute('data-section');
+        el.style.display = (section === 'store' || section === 'shipping') ? 'block' : 'none';
     });
-    modal.querySelector('h2').textContent = 'Shipping Addresses';
+    const title = modal.querySelector('h2');
+    if (title) title.textContent = 'Edit Account';
     modal.style.display = 'flex';
+    fillAccountEditFields();
     await loadManageAddressesList();
+}
+
+function fillAccountEditFields() {
+    const c = window._currentCustomer;
+    const companyEl = document.getElementById('account-edit-company');
+    const nameEl = document.getElementById('account-edit-name');
+    const phoneEl = document.getElementById('account-edit-phone');
+    const shipEl = document.getElementById('account-edit-shipping');
+    const billEl = document.getElementById('account-edit-billing');
+    if (!c) return;
+    if (companyEl) companyEl.value = c.company || '';
+    if (nameEl) nameEl.value = c.name || '';
+    if (phoneEl) phoneEl.value = c.phone || '';
+    if (shipEl) shipEl.value = c.shipping_address || '';
+    if (billEl) billEl.value = c.billing_address || '';
+}
+
+async function saveAccountDetails() {
+    const c = window._currentCustomer;
+    if (!c || !c.id) {
+        alert('No store selected.');
+        return;
+    }
+    const company = (document.getElementById('account-edit-company')?.value || '').trim();
+    const name = (document.getElementById('account-edit-name')?.value || '').trim();
+    const phone = (document.getElementById('account-edit-phone')?.value || '').trim();
+    const shipping = (document.getElementById('account-edit-shipping')?.value || '').trim();
+    const billing = (document.getElementById('account-edit-billing')?.value || '').trim();
+    if (!company && !name) {
+        alert('Enter a company or contact name.');
+        return;
+    }
+    try {
+        const { error } = await supabaseClient
+            .from('customers')
+            .update({
+                company: company || name,
+                name: name || company,
+                phone: phone || null,
+                shipping_address: shipping || null,
+                billing_address: billing || null
+            })
+            .eq('id', c.id);
+        if (error) throw error;
+        window._currentCustomer = Object.assign({}, c, {
+            company: company || name,
+            name: name || company,
+            phone: phone || null,
+            shipping_address: shipping || null,
+            billing_address: billing || null
+        });
+        const accounts = window._customerAccounts || [];
+        const idx = accounts.findIndex(function (row) { return String(row.id) === String(c.id); });
+        if (idx >= 0) window._customerAccounts[idx] = window._currentCustomer;
+        if (typeof showAccountInfo === 'function') showAccountInfo();
+        if (typeof updateShippingPolicyCard === 'function') updateShippingPolicyCard();
+        alert('Account details saved.');
+    } catch (err) {
+        console.error(err);
+        alert('Could not save account details. ' + (err && err.message ? err.message : ''));
+    }
 }
 
 

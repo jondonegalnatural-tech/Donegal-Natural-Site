@@ -777,6 +777,43 @@
       <button onclick="closeManageAddressesModal()" class="text-2xl text-[#6B4423] leading-none">&times;</button>
     </div>
 
+    <!-- ========== STORE / ACCOUNT SECTION ========== -->
+    <div data-section="store">
+      <h3 class="font-semibold brand-green mb-3">Store details</h3>
+      <div class="space-y-2 mb-4">
+        <div>
+          <label class="block text-sm font-semibold text-[#6B4423] mb-1">Company / Store</label>
+          <input id="account-edit-company" type="text"
+                 class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-[#6B4423] mb-1">Contact name</label>
+          <input id="account-edit-name" type="text"
+                 class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-[#6B4423] mb-1">Phone</label>
+          <input id="account-edit-phone" type="text"
+                 class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-[#6B4423] mb-1">Shipping address</label>
+          <textarea id="account-edit-shipping" rows="3"
+                    class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2"></textarea>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-[#6B4423] mb-1">Billing address</label>
+          <textarea id="account-edit-billing" rows="3"
+                    class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2"></textarea>
+        </div>
+        <p class="text-xs text-[#6B4423]">Login email and assigned salesman cannot be changed here.</p>
+        <button type="button" onclick="saveAccountDetails()"
+                class="w-full mt-1 px-4 py-2.5 bg-[#1E4D2B] text-[#d4b78f] font-bold rounded-xl">
+          Save account details
+        </button>
+      </div>
+    </div>
+
     <!-- ========== SHIPPING SECTION ========== -->
     <div data-section="shipping">
       <div id="manage-addresses-list" class="space-y-3 mb-5">
