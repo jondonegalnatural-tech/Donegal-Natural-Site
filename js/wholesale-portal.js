@@ -6149,6 +6149,14 @@ function showAccountInfo() {
                     <p class="font-semibold text-[#1E4D2B]">${escapeHtml(active.company || active.name || '—')}</p>
                 </div>
                 <div>
+                    <p class="text-[#6B4423] font-semibold">Contact name</p>
+                    <p>${escapeHtml(active.name || '—')}</p>
+                </div>
+                <div>
+                    <p class="text-[#6B4423] font-semibold">Phone</p>
+                    <p>${escapeHtml(active.phone || '—')}</p>
+                </div>
+                <div>
                     <p class="text-[#6B4423] font-semibold">Assigned Salesman</p>
                 <p id="account-assigned-salesman">${escapeHtml(active.salesman_email || '—')}</p>
                 </div>
@@ -6354,6 +6362,7 @@ async function saveAccountDetails() {
         if (idx >= 0) window._customerAccounts[idx] = window._currentCustomer;
         if (typeof showAccountInfo === 'function') showAccountInfo();
         if (typeof updateShippingPolicyCard === 'function') updateShippingPolicyCard();
+        if (typeof closeManageAddressesModal === 'function') closeManageAddressesModal();
         alert('Account details saved.');
     } catch (err) {
         console.error(err);
