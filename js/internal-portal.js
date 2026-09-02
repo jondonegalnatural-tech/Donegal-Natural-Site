@@ -329,6 +329,22 @@ function filterCustomerInsights(filterType) {
     refreshCustomerInsights();
 }
 
+function toggleCustomerInsights() {
+    const body = document.getElementById('customer-insights-body');
+    const btn = document.getElementById('customer-insights-toggle');
+    if (!body) return;
+    const opening = body.classList.contains('hidden');
+    body.classList.toggle('hidden', !opening);
+    if (btn) {
+        btn.innerHTML = opening
+            ? '<i class="fas fa-chevron-up mr-2"></i> Collapse'
+            : '<i class="fas fa-chevron-down mr-2"></i> Expand';
+    }
+    if (opening && typeof refreshCustomerInsights === 'function') {
+        refreshCustomerInsights();
+    }
+}
+
 async function refreshCustomerInsights() {
     const tableBody = document.getElementById('customer-insights-table');
     const totalEl = document.getElementById('total-customers-count');

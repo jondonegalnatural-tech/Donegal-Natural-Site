@@ -1244,19 +1244,26 @@ body { background: #f8f1e9; }
             </div>                
                         <!-- ========== OTHER REPORT CATEGORIES ========== -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 items-start"></div>
                 <!-- ========== CUSTOMER INSIGHTS ========== -->
                 <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
-                    <div class="flex items-center justify-between mb-6">
+                    <div class="flex items-center justify-between mb-0">
                         <div>
                             <h3 class="text-xl font-bold brand-green">Customer Insights</h3>
                             <p class="text-sm text-[#6B4423]">Order activity and inactive customers</p>
                         </div>
-                        <button onclick="refreshCustomerInsights()" class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
-                            <i class="fas fa-sync-alt mr-2"></i> Refresh
-                        </button>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" id="customer-insights-toggle" onclick="toggleCustomerInsights()"
+                                    class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                                <i class="fas fa-chevron-down mr-2"></i> Expand
+                            </button>
+                            <button type="button" onclick="refreshCustomerInsights()" class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                                <i class="fas fa-sync-alt mr-2"></i> Refresh
+                            </button>
+                        </div>
                     </div>
 
+                    <div id="customer-insights-body" class="hidden mt-6">
                     <!-- Controls -->
                     <div class="flex flex-wrap gap-4 mb-6 items-end">
                         <div>
@@ -1304,6 +1311,7 @@ body { background: #f8f1e9; }
                             </thead>
                             <tbody id="customer-insights-table"></tbody>
                         </table>
+                    </div>
                     </div>
                 </div>
                 <!-- ========== END CUSTOMER INSIGHTS ========== -->
