@@ -1625,6 +1625,9 @@ function openOrderInvoiceModal(orderId) {
                 const unitText = hasPrice
                     ? ('$' + unit.toFixed(2))
                     : (item.isMarketPrice ? 'Market' : '—');
+                const marketNote = item.isMarketPrice
+                    ? '<div class="text-[11px] text-[#c56134] mt-1">Market price. Final invoice may be adjusted to current market cost at shipment.</div>'
+                    : '';
                 const totalText = hasPrice
                     ? ('$' + lineTotal.toFixed(2))
                     : '—';
@@ -1632,7 +1635,7 @@ function openOrderInvoiceModal(orderId) {
                 return `
                     <tr class="border-t border-[#d4b78f]">
                         <td class="p-3 text-left font-semibold">${qty}</td>
-                        <td class="p-3 text-left">${desc}</td>
+                        <td class="p-3 text-left">${desc}${marketNote}</td>
                         <td class="p-3 text-right">${unitText}</td>
                         <td class="p-3 text-right font-semibold">${totalText}</td>
                     </tr>`;

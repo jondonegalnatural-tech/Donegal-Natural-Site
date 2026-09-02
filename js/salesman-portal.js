@@ -1916,7 +1916,9 @@ function searchPlaceOrderProducts() {
 
     resultsEl.innerHTML = matches.map(p => {
         const priced = resolvePlaceOrderPrice(p);
-        const priceLabel = priced.displayPrice;
+        const priceLabel = priced.displayPrice + (priced.isMarketPrice
+            ? ' — Market price. Final invoice may be adjusted to current market cost at shipment.'
+            : '');
         const safeName = p.name.replace(/'/g, "\\'");
 
         const oos = typeof isSalesmanOos === 'function' && isSalesmanOos(p.name);
@@ -1990,7 +1992,7 @@ function resolvePlaceOrderPrice(product) {
             if (!isNaN(n)) {
                 return {
                     unitPrice: n,
-                    isMarketPrice: false,
+                    isMarketPrice: !!(product && product.isMarketPrice),
                     displayPrice: '$' + n.toFixed(2)
                 };
             }

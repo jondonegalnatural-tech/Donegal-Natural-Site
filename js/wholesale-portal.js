@@ -2894,12 +2894,29 @@ function pickRandomProducts(count) {
     return pool.slice(0, Math.min(count, pool.length));
 }
 
+const MARKET_PRICE_DISCLAIMER = 'Market price. Final invoice may be adjusted to current market cost at shipment.';
+
 function formatCardPrice(product) {
     let displayPrice = product.price || '';
     if (displayPrice && !displayPrice.toLowerCase().includes('market') && !displayPrice.includes('/')) {
         displayPrice += '/ea';
     }
     return displayPrice;
+}
+
+function isWholesaleMarketProduct(productOrName) {
+    if (productOrName && typeof productOrName === 'object') {
+        if (productOrName.isMarketPrice) return true;
+        if (String(productOrName.price || '').toLowerCase().includes('market')) return true;
+        productOrName = productOrName.name;
+    }
+    const name = String(productOrName || '');
+    const catalog = (WHOLESALE_PRICES || []).find(function (p) { return p && p.name === name; });
+    return !!(catalog && catalog.isMarketPrice);
+}
+
+function marketDisclaimerHtml() {
+    return '<p class="text-[11px] leading-snug text-[#c56134] mt-1">' + MARKET_PRICE_DISCLAIMER + '</p>';
 }
 
 
@@ -3959,6 +3976,11 @@ function buildCombinedCard(group) {
     const meta = document.createElement('p');
     meta.className = 'card-meta';
 
+    const marketNote = document.createElement('p');
+    marketNote.className = 'text-[11px] leading-snug text-[#c56134] mt-1';
+    marketNote.textContent = MARKET_PRICE_DISCLAIMER;
+    marketNote.classList.add('hidden');
+
     const descEl = buildCardDescriptionEl();
     const ingredientsEl = buildCardIngredientsEl();
     const sizeRow = buildDogSizeRow();
@@ -4014,6 +4036,7 @@ function buildCombinedCard(group) {
 
     body.appendChild(name);
     body.appendChild(meta);
+    body.appendChild(marketNote);
 
     if (group.mode === 'multi') {
         const selected = {};
@@ -4035,6 +4058,8 @@ function buildCombinedCard(group) {
             } else if (chosen.length === 1) {
                 const csText = chosen[0].cs ? ('Case size ' + chosen[0].cs) : '';
                 meta.textContent = [csText, formatCardPrice(chosen[0])].filter(Boolean).join(' · ');
+                marketNote.classList.toggle('hidden', !isWholesaleMarketProduct(chosen[0]));
+                if (marketNote) marketNote.classList.toggle('hidden', !isWholesaleMarketProduct(chosen[0]));
             } else {
                 meta.textContent = chosen.length + ' options selected';
             }
@@ -4106,6 +4131,7 @@ function buildCombinedCard(group) {
             selected = findSelected();
             const csText = selected.cs ? ('Case size ' + selected.cs) : '';
             meta.textContent = [csText, formatCardPrice(selected)].filter(Boolean).join(' · ');
+            marketNote.classList.toggle('hidden', !isWholesaleMarketProduct(selected));
             img.src = getProductImagePath(selected);
             img.alt = selected.name;
             dims.forEach(d => {
@@ -4236,8 +4262,14 @@ function buildProductCard(product) {
     const ingredientsEl = buildCardIngredientsEl();
     updateCardIngredients(ingredientsEl, product.name);
 
+    const marketNote = document.createElement('p');
+    marketNote.className = 'text-[11px] leading-snug text-[#c56134] mt-1';
+    marketNote.textContent = MARKET_PRICE_DISCLAIMER;
+    marketNote.classList.toggle('hidden', !isWholesaleMarketProduct(product));
+
     body.appendChild(name);
     body.appendChild(meta);
+    body.appendChild(marketNote);
     body.appendChild(descEl);
     body.appendChild(ingredientsEl);
     body.appendChild(sizeRow);
@@ -4535,7 +4567,8 @@ function addToQuote(name, price, cs, quantity) {
         name: name,
         price: price,
         cs: cs,
-        quantity: qty
+        quantity: qty,
+        isMarketPrice: isWholesaleMarketProduct(name)
     });
 
     localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
@@ -4568,16 +4601,18 @@ function updateQuoteSidebar() {
         const div = document.createElement('div');
         div.className = 'bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-3 mb-2 text-sm';
 
-        const isMarketPrice = item.price.toLowerCase().includes('market');
-        const isPerLb = item.price.toLowerCase().includes('/lb');
+        const isMarketPrice = !!(item.isMarketPrice || String(item.price || '').toLowerCase().includes('market'));
+        const isPerLb = String(item.price || '').toLowerCase().includes('/lb');
+        const numericPrice = parseFloat(String(item.price || '').replace(/[^0-9.]/g, '')) || 0;
 
         let priceInfo = '';
         let lineTotalHTML = '';
 
-        if (isMarketPrice) {
-            hasMarketPrice = true;
+        if (isMarketPrice) hasMarketPrice = true;
+
+        if (numericPrice <= 0 && isMarketPrice) {
             priceInfo = `<span class="text-[#c56134] font-semibold">Market Price</span>`;
-            lineTotalHTML = `<div class="text-right text-sm mt-1">Qty: ${item.quantity}</div>`;
+            lineTotalHTML = `<div class="text-right text-sm mt-1">Qty: ${item.quantity}</div>` + marketDisclaimerHtml();
         } else {
             const numericPrice = parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0;
             const lineTotalValue = numericPrice * item.quantity;
@@ -4628,7 +4663,7 @@ function updateQuoteSidebar() {
     if (hasMarketPrice) {
         summaryHTML += `
             <p class="text-xs text-[#c56134] mb-1">
-                * Market Price items will be confirmed on final invoice.
+                * ${MARKET_PRICE_DISCLAIMER}
             </p>
         `;
     }
@@ -4821,23 +4856,18 @@ function openQuoteConfirmModal() {
     let rows = '';
 
     quoteItems.forEach((item) => {
-        const isMarket = String(item.price || '').toLowerCase().includes('market');
+        const isMarket = !!(item.isMarketPrice || String(item.price || '').toLowerCase().includes('market'));
         const qty = item.quantity || 1;
-        let lineLabel = item.price || '—';
-        if (isMarket) {
-            hasMarket = true;
-            lineLabel = 'Market';
-        } else {
-            const unit = parseFloat(String(item.price).replace(/[^0-9.]/g, '')) || 0;
-            const line = unit * qty;
-            pricedTotal += line;
-            lineLabel = '$' + line.toFixed(2);
-        }
+        const unit = parseFloat(String(item.price || '').replace(/[^0-9.]/g, '')) || 0;
+        if (isMarket) hasMarket = true;
+        if (unit > 0) pricedTotal += unit * qty;
+        const lineLabel = unit > 0 ? ('$' + (unit * qty).toFixed(2)) : (isMarket ? 'Market' : (item.price || '—'));
         rows += `
             <div style="display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #f0e6d6;padding-bottom:8px;margin-bottom:8px;">
                 <div style="min-width:0;">
                     <p style="font-weight:600;color:#1E4D2B;margin:0;">${escapeHtml(item.name || 'Item')}</p>
                     <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.cs ? ' · ' + escapeHtml(item.cs) : ''}</p>
+                    ${isMarket ? '<p style="font-size:11px;color:#c2410c;margin:4px 0 0;">' + MARKET_PRICE_DISCLAIMER + '</p>' : ''}
                 </div>
                 <p style="font-weight:600;color:#1E4D2B;white-space:nowrap;margin:0;">${lineLabel}</p>
             </div>
@@ -4866,7 +4896,7 @@ function openQuoteConfirmModal() {
                     <span style="font-size:1.25rem;font-weight:700;color:#1E4D2B;">$${pricedTotal.toFixed(2)}</span>
                 </div>
                 ${hasMarket ? '<p style="font-size:12px;color:#c2410c;margin:8px 0 0;">Some items are market price and are not included in this total.</p>' : ''}
-            </div>
+            </div>                ${hasMarket ? '<p style="font-size:12px;color:#c2410c;margin:8px 0 0;">' + MARKET_PRICE_DISCLAIMER + '</p>' : ''}
             <div style="display:flex;gap:12px;padding:16px 20px;border-top:1px solid #d4b78f;">
                 <button type="button" onclick="hideQuoteConfirmModal()"
                     style="flex:1;padding:10px 16px;border:2px solid #6B4423;background:#fff;color:#6B4423;border-radius:12px;font-weight:600;cursor:pointer;">
@@ -4922,16 +4952,14 @@ async function submitQuote() {
     const customer = window._currentCustomer || null;
 
     const items = quoteItems.map(item => {
-        const isMarket = (item.price || "").toLowerCase().includes("market");
-        const numericPrice = isMarket
-            ? null
-            : parseFloat(String(item.price).replace(/[^0-9.]/g, "")) || 0;
+        const isMarket = !!(item.isMarketPrice || String(item.price || '').toLowerCase().includes('market'));
+        const numericPrice = parseFloat(String(item.price || '').replace(/[^0-9.]/g, '')) || 0;
 
         return {
             product: item.name,
             quantity: item.quantity || 1,
             caseSize: item.cs || "",
-            unitPrice: numericPrice,
+            unitPrice: numericPrice || null,
             displayPrice: item.price || "",
             isMarketPrice: isMarket
         };
@@ -6788,7 +6816,7 @@ async function loadWholesaleCatalog() {
 
         const { data, error } = await supabaseClient
             .from('products')
-            .select('id, name, category, sub_category, case_size, unit_price, active')
+            .select('id, name, category, sub_category, case_size, unit_price, is_market_price, active')
             .eq('active', true)
             .order('category', { ascending: true })
             .order('name', { ascending: true });
@@ -6807,7 +6835,8 @@ async function loadWholesaleCatalog() {
             cs: row.case_size || '',
             price: row.unit_price != null
                 ? ('$' + Number(row.unit_price).toFixed(2))
-                : ''
+                : '',
+            isMarketPrice: !!row.is_market_price
         }));
 
         console.log('loadWholesaleCatalog: loaded', WHOLESALE_PRICES.length, 'products from Supabase');
@@ -7245,7 +7274,7 @@ function showBrandedInvoice(order) {
                                 const lineTotal = price * qty;
                                 return `
                                     <tr class="border-b border-[#e8d9c2]">
-                                        <td class="py-3 text-[#1E4D2B]">${escapeHtml(item.product || item.name || 'Item')}</td>
+                                        <td class="py-3 text-[#1E4D2B]">${escapeHtml(item.product || item.name || 'Item')}${item.isMarketPrice ? '<p class="text-[11px] text-[#c56134] mt-1">' + MARKET_PRICE_DISCLAIMER + '</p>' : ''}</td>
                                         <td class="py-3 text-center text-[#6B4423]">${qty}</td>
                                         <td class="py-3 text-right font-medium">$${lineTotal.toFixed(2)}</td>
                                     </tr>
