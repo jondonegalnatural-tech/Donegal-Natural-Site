@@ -8319,60 +8319,65 @@ function openCustomerPriceVsBaseFromModal() {
  * @param {HTMLElement} listEl
  * @returns {number} number of products rendered
  */
+
 function renderCategorizedPriceSheetTable(prices, listEl) {
     if (!listEl) return 0;
-    if (!prices || typeof prices !== 'object') {
-        listEl.innerHTML = '<p class="text-sm text-[#6B4423]">No price sheet data.</p>';
-        return 0;
-    }
+    const source = (prices && typeof prices === 'object') ? prices : {};
 
     const catalogByName = {};
     if (typeof PRODUCT_CATALOG !== 'undefined') {
-        PRODUCT_CATALOG.forEach(p => {
-            catalogByName[p.name] = p;
+        PRODUCT_CATALOG.forEach(function (p) {
+            if (p && p.name) catalogByName[p.name] = p;
+        });
+    }
+
+    const nameSet = {};
+    Object.keys(source).forEach(function (name) {
+        if (name) nameSet[name] = true;
+    });
+    if (window._spsEditing) {
+        Object.keys(catalogByName).forEach(function (name) {
+            nameSet[name] = true;
         });
     }
 
     const grouped = {};
     const unmatched = [];
 
-    Object.keys(prices).forEach(name => {
-        const price = Number(prices[name]);
-        if (!name || isNaN(price)) return;
-        const p = catalogByName[name];
-        if (p) {
-            const cat = p.category || 'Other';
+    Object.keys(nameSet).forEach(function (name) {
+        const catalog = catalogByName[name];
+        const raw = source[name];
+        const fromSheet = raw != null && raw !== '' && !isNaN(Number(raw));
+        const fromCatalog = catalog && catalog.unitPrice != null && catalog.unitPrice !== '' && !isNaN(Number(catalog.unitPrice));
+        const price = fromSheet ? Number(raw) : (fromCatalog ? Number(catalog.unitPrice) : NaN);
+        if (!name) return;
+        if (isNaN(price) && !window._spsEditing) return;
+        const row = {
+            name: name,
+            caseSize: catalog ? (catalog.caseSize || '') : '',
+            price: price,
+            priceAsOf: catalog ? (catalog.priceAsOf || '—') : '—'
+        };
+        if (catalog) {
+            const cat = catalog.category || 'Other';
             if (!grouped[cat]) grouped[cat] = [];
-            grouped[cat].push({
-                name,
-                caseSize: p.caseSize || '',
-                price,
-                priceAsOf: p.priceAsOf || '—'
-            });
+            grouped[cat].push(row);
         } else {
-            unmatched.push({
-                name,
-                caseSize: '',
-                price,
-                priceAsOf: '—'
-            });
+            unmatched.push(row);
         }
     });
 
-    // Alphabetical within each category
-    Object.keys(grouped).forEach(cat => {
-        grouped[cat].sort((a, b) => a.name.localeCompare(b.name));
+    Object.keys(grouped).forEach(function (cat) {
+        grouped[cat].sort(function (a, b) { return a.name.localeCompare(b.name); });
     });
-    unmatched.sort((a, b) => a.name.localeCompare(b.name));
+    unmatched.sort(function (a, b) { return a.name.localeCompare(b.name); });
 
-    // Same category order style as Company Base (alphabetical)
     const categories = Object.keys(grouped).sort();
     if (unmatched.length) categories.push('Other');
 
     let total = 0;
-    categories.forEach(cat => {
-        if (cat === 'Other') total += unmatched.length;
-        else total += (grouped[cat] || []).length;
+    categories.forEach(function (cat) {
+        total += (cat === 'Other' ? unmatched : (grouped[cat] || [])).length;
     });
 
     if (total === 0) {
@@ -8380,15 +8385,16 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
         return 0;
     }
 
+    const editing = !!window._spsEditing;
     let html = '';
 
-    categories.forEach(cat => {
+    categories.forEach(function (cat) {
         const rows = cat === 'Other' ? unmatched : grouped[cat];
-        if (!rows || rows.length === 0) return;
+        if (!rows || !rows.length) return;
 
         html += `
             <div>
-                <h3 class="text-base font-bold brand-green mb-2 border-b border-[#d4b78f] pb-1">${cat}</h3>
+                <h3 class="text-base font-bold brand-green mb-2 border-b border-[#d4b78f] pb-1">${escapeHtml(cat)}</h3>
                 <div class="overflow-x-auto border border-[#d4b78f] rounded-xl mb-4">
                     <table class="w-full text-sm">
                         <thead>
@@ -8402,14 +8408,20 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
                         <tbody>
         `;
 
-        rows.forEach((row, i) => {
+        rows.forEach(function (row, i) {
             const bg = i % 2 ? 'bg-[#f8f4eb]' : 'bg-white';
+            const nameAttr = String(row.name || '').replace(/"/g, '&quot;');
+            const hasPrice = !isNaN(Number(row.price));
+            const priceCell = editing
+                ? ('<input type="number" step="0.01" min="0" class="sps-price w-24 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-right" data-name="' +
+                    nameAttr + '" value="' + (hasPrice ? Number(row.price).toFixed(2) : '') + '">')
+                : ('<span class="font-semibold">' + (hasPrice ? ('$' + Number(row.price).toFixed(2)) : '—') + '</span>');
             html += `
                 <tr class="border-t border-[#e8d9b8] ${bg}">
-                    <td class="p-2.5">${row.name}</td>
-                    <td class="p-2.5 text-[#6B4423]">${row.caseSize || '—'}</td>
-                    <td class="p-2.5 text-right font-semibold">$${row.price.toFixed(2)}</td>
-                    <td class="p-2.5 text-center text-xs text-[#6B4423]">${row.priceAsOf || '—'}</td>
+                    <td class="p-2.5">${escapeHtml(row.name)}</td>
+                    <td class="p-2.5 text-[#6B4423]">${escapeHtml(row.caseSize || '—')}</td>
+                    <td class="p-2.5 text-right">${priceCell}</td>
+                    <td class="p-2.5 text-center text-xs text-[#6B4423]">${escapeHtml(row.priceAsOf || '—')}</td>
                 </tr>
             `;
         });
@@ -8428,6 +8440,10 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
 
 
 async function openSalesmanPriceSheetModal() {
+    window._spsCanEdit = true;
+    window._spsEditing = false;
+    window._spsSheet = null;
+    if (typeof setSalesmanPriceSheetEditMode === 'function') setSalesmanPriceSheetEditMode(false);
     const detailModal = document.getElementById('salesman-modal');
     const salesmanId = detailModal?.dataset?.salesmanId;
     const salesman = salesmanId
@@ -8467,7 +8483,16 @@ async function openSalesmanPriceSheetModal() {
             return;
         }
 
-         const count = renderCategorizedPriceSheetTable(data.prices, listEl);
+        window._spsSheet = {
+            id: data.id,
+            email: email,
+            name: salesman.name || data.salesman_name || email,
+            prices: data.prices
+        };
+        window._spsCanEdit = true;
+        window._spsEditing = false;
+        if (typeof setSalesmanPriceSheetEditMode === 'function') setSalesmanPriceSheetEditMode(false);
+        const count = renderCategorizedPriceSheetTable(data.prices, listEl);
 
         if (subEl) {
             const updated = data.updated_at ? new Date(data.updated_at).toLocaleString() : '';
@@ -8485,6 +8510,155 @@ function hideSalesmanPriceSheetModal() {
     if (!modal) return;
     modal.classList.add('hidden');
     modal.style.display = 'none';
+    window._spsEditing = false;
+    window._spsCanEdit = false;
+    window._spsSheet = null;
+    if (typeof setSalesmanPriceSheetEditMode === 'function') setSalesmanPriceSheetEditMode(false);
+}
+
+function setSalesmanPriceSheetEditMode(on) {
+    const editBtn = document.getElementById('sps-edit-btn');
+    const saveBtn = document.getElementById('sps-save-btn');
+    const hint = document.getElementById('sps-edit-hint');
+    const canEdit = !!window._spsCanEdit && !!window._spsSheet;
+    if (editBtn) {
+        editBtn.classList.toggle('hidden', !canEdit);
+        editBtn.textContent = on ? 'Cancel Edit' : 'Edit';
+    }
+    if (saveBtn) saveBtn.classList.toggle('hidden', !(canEdit && on));
+    if (hint) hint.classList.toggle('hidden', !(canEdit && on));
+}
+
+function toggleSalesmanPriceSheetEdit() {
+    if (!window._spsCanEdit || !window._spsSheet) return;
+    window._spsEditing = !window._spsEditing;
+    setSalesmanPriceSheetEditMode(window._spsEditing);
+    const listEl = document.getElementById('price-sheet-modal-list');
+    renderCategorizedPriceSheetTable(window._spsSheet.prices || {}, listEl);
+}
+
+function collectSalesmanPriceSheetInputs() {
+    const next = Object.assign({}, (window._spsSheet && window._spsSheet.prices) || {});
+    document.querySelectorAll('#price-sheet-modal-list input.sps-price').forEach(function (inp) {
+        const name = inp.getAttribute('data-name');
+        if (!name) return;
+        const raw = String(inp.value || '').trim();
+        if (raw === '') return;
+        const n = Number(raw);
+        if (isNaN(n) || n < 0) return;
+        next[name] = Math.round(n * 100) / 100;
+    });
+    return next;
+}
+
+function shouldSkipSalesmanPricePush(customer) {
+    const email = String((customer && customer.email) || '').toLowerCase().trim();
+    const company = String((customer && customer.company) || '').toLowerCase();
+    const name = String((customer && customer.name) || '').toLowerCase();
+    if (email === 'jackerman@donegalnatural.com') return true;
+    if (company.indexOf('admin test store') !== -1) return true;
+    if (name.indexOf('admin test store') !== -1) return true;
+    return false;
+}
+
+async function saveSalesmanPriceSheetAndPush() {
+    if (!window._spsSheet || !window._spsSheet.id || !window._spsSheet.email) {
+        alert('No salesman sheet is loaded.');
+        return;
+    }
+    const prices = collectSalesmanPriceSheetInputs();
+    if (!Object.keys(prices).length) {
+        alert('No prices to save.');
+        return;
+    }
+
+    const email = String(window._spsSheet.email || '').toLowerCase().trim();
+    const salesmanName = window._spsSheet.name || email;
+
+    let assigned = [];
+    try {
+        const { data, error } = await supabaseClient
+            .from('customers')
+            .select('id, name, company, email, salesman_email')
+            .ilike('salesman_email', email);
+        if (error) throw error;
+        assigned = data || [];
+    } catch (err) {
+        console.error('saveSalesmanPriceSheetAndPush load customers:', err);
+        alert('Could not load assigned stores.\n' + (err.message || ''));
+        return;
+    }
+
+    const skipped = assigned.filter(shouldSkipSalesmanPricePush);
+    const targets = assigned.filter(function (c) { return !shouldSkipSalesmanPricePush(c); });
+
+    const ok = confirm(
+        'Save the price sheet for ' + salesmanName + ' and push these prices to ' +
+        targets.length + ' assigned store(s)?\n\n' +
+        'This overwrites each store\'s customer price sheet with this full map.\n' +
+        (skipped.length ? ('Skipped: ' + skipped.length + ' protected store(s).\n') : '') +
+        '\nThis cannot be undone from this screen.'
+    );
+    if (!ok) return;
+
+    const saveBtn = document.getElementById('sps-save-btn');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Pushing…';
+    }
+
+    try {
+        const nowIso = new Date().toISOString();
+        const { error: sheetErr } = await supabaseClient
+            .from('salesman_price_sheets')
+            .update({
+                prices: prices,
+                salesman_name: salesmanName,
+                updated_at: nowIso
+            })
+            .eq('id', window._spsSheet.id);
+        if (sheetErr) throw sheetErr;
+
+        let pushed = 0;
+        for (let i = 0; i < targets.length; i++) {
+            const c = targets[i];
+            const { error: upsertErr } = await supabaseClient
+                .from('customer_price_sheets')
+                .upsert({
+                    customer_id: c.id,
+                    salesman_email: email,
+                    prices: prices,
+                    updated_at: nowIso
+                }, { onConflict: 'customer_id' });
+            if (upsertErr) throw upsertErr;
+            pushed += 1;
+        }
+
+        window._spsSheet.prices = prices;
+        window._spsEditing = false;
+        setSalesmanPriceSheetEditMode(false);
+        const listEl = document.getElementById('price-sheet-modal-list');
+        const count = renderCategorizedPriceSheetTable(prices, listEl);
+        const subEl = document.getElementById('price-sheet-modal-subtitle');
+        if (subEl) {
+            subEl.textContent = salesmanName + ' · ' + count + ' products · Updated ' +
+                new Date(nowIso).toLocaleString();
+        }
+
+        alert(
+            'Saved ' + salesmanName + '\'s sheet.\n' +
+            'Pushed prices to ' + pushed + ' store(s).' +
+            (skipped.length ? ('\nSkipped ' + skipped.length + ' protected store(s).') : '')
+        );
+    } catch (err) {
+        console.error('saveSalesmanPriceSheetAndPush:', err);
+        alert('Could not save / push prices.\n' + (err.message || ''));
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save & Push to Customers';
+        }
+    }
 }
 
 // ========== Reports: Salesman → Customers price-sheet drill-down ==========
@@ -8634,6 +8808,10 @@ async function openReportsCustomerPriceSheet(customerId) {
     const listEl = document.getElementById('price-sheet-modal-list');
     const modal = document.getElementById('salesman-price-sheet-modal');
 
+    window._spsCanEdit = false;
+    window._spsEditing = false;
+    window._spsSheet = null;
+    if (typeof setSalesmanPriceSheetEditMode === 'function') setSalesmanPriceSheetEditMode(false);
     if (titleEl) titleEl.textContent = 'Customer Price Sheet';
     if (subEl) subEl.textContent = (customer.name || customer.email || customerId) + (customer.company ? ' · ' + customer.company : '');
     if (listEl) listEl.innerHTML = '<p class="text-sm text-[#6B4423]"><i class="fas fa-spinner fa-spin mr-2"></i>Loading…</p>';
