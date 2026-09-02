@@ -206,6 +206,17 @@ function isPennsylvaniaLocation(text) {
     );
 }
 
+function isFloridaLocation(text) {
+    const t = (text || '').toUpperCase();
+    return (
+        t.includes('FLORIDA') ||
+        t.includes(', FL') ||
+        t.includes(' FL ') ||
+        t.endsWith(' FL') ||
+        t.includes(' FL,')
+    );
+}
+
 function isWestOfMississippiLocation(text) {
     const t = (text || '').toUpperCase();
     return WEST_OF_MISSISSIPPI_STATES.some(state => {
@@ -235,62 +246,59 @@ function isMidAtlantic650Location(text) {
 }
 
 /**
- * Priority: PA ($250) → MD/NY/NJ/OH/WV ($650) → west ($2,000) → other east ($1,200)
- * Returns { free, threshold, remaining, reason }
+ * PA $200 free · FL half $250–$399.99 / free $400 ·
+ * East half $250–$1,499.99 / free $1,500 · West half $250–$1,999.99 / free $2,000
  */
 function evaluateFreeShipping(subtotal, locationText) {
     const amount = Number(subtotal) || 0;
     const loc = locationText || '';
+    let halfAt = 250;
+    let freeAt = 1500;
+    let zoneLabel = 'east of the Mississippi';
 
     if (isPennsylvaniaLocation(loc)) {
-        const threshold = 250;
-        const free = amount >= threshold;
-        return {
-            free,
-            threshold,
-            remaining: Math.max(0, threshold - amount),
-            reason: free
-                ? 'Free shipping: $250+ in Pennsylvania'
-                : 'Pennsylvania threshold: $250.00'
-        };
+        halfAt = null;
+        freeAt = 200;
+        zoneLabel = 'Pennsylvania';
+    } else if (isFloridaLocation(loc)) {
+        halfAt = 250;
+        freeAt = 400;
+        zoneLabel = 'Florida';
+    } else if (isWestOfMississippiLocation(loc)) {
+        halfAt = 250;
+        freeAt = 2000;
+        zoneLabel = 'west of the Mississippi';
     }
 
-    if (isMidAtlantic650Location(loc)) {
-        const threshold = 650;
-        const free = amount >= threshold;
+    const free = amount >= freeAt;
+    const half = !free && halfAt != null && amount >= halfAt;
+    if (free) {
         return {
-            free,
-            threshold,
-            remaining: Math.max(0, threshold - amount),
-            reason: free
-                ? 'Free shipping: $650+ (MD / NY / NJ / OH / WV)'
-                : 'MD / NY / NJ / OH / WV threshold: $650.00'
+            free: true,
+            half: false,
+            threshold: freeAt,
+            remaining: 0,
+            reason: 'Free shipping: $' + freeAt.toLocaleString() + '+ in ' + zoneLabel
         };
     }
-
-    if (isWestOfMississippiLocation(loc)) {
-        const threshold = 2000;
-        const free = amount >= threshold;
+    if (half) {
         return {
-            free,
-            threshold,
-            remaining: Math.max(0, threshold - amount),
-            reason: free
-                ? 'Free shipping: $2,000+ west of the Mississippi'
-                : 'West of Mississippi threshold: $2,000.00'
+            free: false,
+            half: true,
+            threshold: freeAt,
+            remaining: Math.max(0, freeAt - amount),
+            reason: 'Half freight unlocked in ' + zoneLabel
         };
     }
-
-    // Default: other east of Mississippi
-    const threshold = 1200;
-    const free = amount >= threshold;
+    const next = halfAt != null ? halfAt : freeAt;
     return {
-        free,
-        threshold,
-        remaining: Math.max(0, threshold - amount),
-        reason: free
-            ? 'Free shipping: $1,200+ east of the Mississippi'
-            : 'East of Mississippi threshold: $1,200.00'
+        free: false,
+        half: false,
+        threshold: next,
+        remaining: Math.max(0, next - amount),
+        reason: halfAt != null
+            ? ('Half freight at $' + halfAt.toFixed(2) + ' in ' + zoneLabel)
+            : ('Free shipping at $' + freeAt.toFixed(2) + ' in ' + zoneLabel)
     };
 }
 
@@ -313,24 +321,24 @@ function updateShippingPolicyCard() {
     const loc = getCustomerLocationText();
     if (!loc) {
         el.innerHTML =
-            'Add a shipping address to see your free-shipping threshold. ' +
-            'PA <strong>$250+</strong> · MD/NY/NJ/OH/WV <strong>$650+</strong> · ' +
-            'other East <strong>$1,200+</strong> · West <strong>$2,000+</strong>.';
+            'Add a shipping address to see your threshold. ' +
+            'PA <strong>$200+ free</strong> · Florida <strong>$250–$399.99 half freight / $400+ free</strong> · ' +
+            'East <strong>$250–$1,499.99 half freight / $1,500+ free</strong> · West <strong>$250–$1,999.99 half freight / $2,000+ free</strong>.';
         return;
     }
 
     if (isPennsylvaniaLocation(loc)) {
         el.innerHTML =
-            'Your location: <strong>Pennsylvania</strong>. Free shipping on orders of <strong>$250.00+</strong>.';
-    } else if (isMidAtlantic650Location(loc)) {
+            'Your location: <strong>Pennsylvania</strong>. Free shipping on orders of <strong>$200.00+</strong>.';
+    } else if (isFloridaLocation(loc)) {
         el.innerHTML =
-            'Your region: <strong>MD / NY / NJ / OH / WV</strong>. Free shipping on orders of <strong>$650.00+</strong>.';
+            'Your location: <strong>Florida</strong>. Half freight <strong>$250–$399.99</strong>. Free shipping <strong>$400.00+</strong>.';
     } else if (isWestOfMississippiLocation(loc)) {
         el.innerHTML =
-            'Your region: <strong>west of the Mississippi</strong>. Free shipping on orders of <strong>$2,000.00+</strong>.';
+            'Your region: <strong>west of the Mississippi</strong>. Half freight <strong>$250–$1,999.99</strong>. Free shipping <strong>$2,000.00+</strong>.';
     } else {
         el.innerHTML =
-            'Your region: <strong>east of the Mississippi</strong>. Free shipping on orders of <strong>$1,200.00+</strong>.';
+            'Your region: <strong>east of the Mississippi</strong>. Half freight <strong>$250–$1,499.99</strong>. Free shipping <strong>$1,500.00+</strong>.';
     }
 }
 // ================== END FREE SHIPPING HELPERS ==================
@@ -4678,10 +4686,16 @@ function updateQuoteSidebar() {
                     ✓ Free shipping unlocked — ${fs.reason}
                 </div>
             `;
+        } else if (fs.half) {
+            summaryHTML += `
+                <div class="mb-3 px-3 py-2 rounded-xl bg-[#f8f4eb] border border-[#d4b78f] text-[#6B4423] text-xs font-semibold">
+                    ✓ Half freight unlocked — ${fs.reason}. $${fs.remaining.toFixed(2)} more for free shipping.
+                </div>
+            `;
         } else if (fs.threshold) {
             summaryHTML += `
                 <div class="mb-3 px-3 py-2 rounded-xl bg-[#f8f4eb] border border-[#d4b78f] text-[#6B4423] text-xs">
-                    $${fs.remaining.toFixed(2)} more for free shipping (${fs.reason})
+                    $${fs.remaining.toFixed(2)} more to reach the next shipping threshold (${fs.reason})
                 </div>
             `;
         }
@@ -5222,11 +5236,19 @@ async function loadMyQuotes() {
                             ? [quoteCust.shipping_address, quoteCust.billing_address, quoteCust.territory].filter(Boolean).join(' ').toUpperCase()
                             : getCustomerLocationText();
                         const fs = evaluateFreeShipping(total, loc || '');
-                        if (!fs.free) return '';
-                        return `
+                        if (fs.free) {
+                            return `
                             <div class="mb-3 px-3 py-2 rounded-xl bg-green-50 border border-green-200 text-green-800 text-xs font-semibold">
                                 ✓ Free shipping qualified — ${fs.reason}
                             </div>`;
+                        }
+                        if (fs.half) {
+                            return `
+                            <div class="mb-3 px-3 py-2 rounded-xl bg-[#f8f4eb] border border-[#d4b78f] text-[#6B4423] text-xs font-semibold">
+                                ✓ Half freight qualified — ${fs.reason}
+                            </div>`;
+                        }
+                        return '';
                     })()}
 
                     ${(() => {

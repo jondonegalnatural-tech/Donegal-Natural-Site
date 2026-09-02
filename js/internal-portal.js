@@ -4232,30 +4232,56 @@ function isMidAtlantic650Location(text) {
 }
 
 function evaluateFreeShipping(subtotal, locationText) {
-    const sub = Number(subtotal) || 0;
-    if (isPennsylvaniaLocation(locationText)) {
-        if (sub >= 250) {
-            return { free: true, reason: 'Free shipping: $250+ in Pennsylvania' };
-        }
-        return { free: false, reason: 'Free shipping at $250+ in Pennsylvania', threshold: 250 };
+    const amount = Number(subtotal) || 0;
+    const loc = locationText || '';
+    let halfAt = 250;
+    let freeAt = 1500;
+    let zoneLabel = 'east of the Mississippi';
+
+    if (isPennsylvaniaLocation(loc)) {
+        halfAt = null;
+        freeAt = 200;
+        zoneLabel = 'Pennsylvania';
+    } else if (isFloridaLocation(loc)) {
+        halfAt = 250;
+        freeAt = 400;
+        zoneLabel = 'Florida';
+    } else if (isWestOfMississippiLocation(loc)) {
+        halfAt = 250;
+        freeAt = 2000;
+        zoneLabel = 'west of the Mississippi';
     }
-    if (isMidAtlantic650Location(locationText)) {
-        if (sub >= 650) {
-            return { free: true, reason: 'Free shipping: $650+ (MD / NY / NJ / OH / WV)' };
-        }
-        return { free: false, reason: 'Free shipping at $650+ for MD/NY/NJ/OH/WV', threshold: 650 };
+
+    const free = amount >= freeAt;
+    const half = !free && halfAt != null && amount >= halfAt;
+    if (free) {
+        return {
+            free: true,
+            half: false,
+            threshold: freeAt,
+            remaining: 0,
+            reason: 'Free shipping: $' + freeAt.toLocaleString() + '+ in ' + zoneLabel
+        };
     }
-    if (isWestOfMississippiLocation(locationText)) {
-        if (sub >= 2000) {
-            return { free: true, reason: 'Free shipping: $2,000+ west of the Mississippi' };
-        }
-        return { free: false, reason: 'Free shipping at $2,000+ west of the Mississippi', threshold: 2000 };
+    if (half) {
+        return {
+            free: false,
+            half: true,
+            threshold: freeAt,
+            remaining: Math.max(0, freeAt - amount),
+            reason: 'Half freight unlocked in ' + zoneLabel
+        };
     }
-    // Other east of Mississippi
-    if (sub >= 1200) {
-        return { free: true, reason: 'Free shipping: $1,200+ east of the Mississippi' };
-    }
-    return { free: false, reason: 'Free shipping at $1,200+ east of the Mississippi', threshold: 1200 };
+    const next = halfAt != null ? halfAt : freeAt;
+    return {
+        free: false,
+        half: false,
+        threshold: next,
+        remaining: Math.max(0, next - amount),
+        reason: halfAt != null
+            ? ('Half freight at $' + halfAt.toFixed(2) + ' in ' + zoneLabel)
+            : ('Free shipping at $' + freeAt.toFixed(2) + ' in ' + zoneLabel)
+    };
 }
 
 function getShipInvoiceLocationText(order) {
@@ -4296,6 +4322,17 @@ function isPennsylvaniaLocation(text) {
         t.includes(' PA ') ||
         t.endsWith(' PA') ||
         t.includes(' PA,')
+    );
+}
+
+function isFloridaLocation(text) {
+    const t = (text || '').toUpperCase();
+    return (
+        t.includes('FLORIDA') ||
+        t.includes(', FL') ||
+        t.includes(' FL ') ||
+        t.endsWith(' FL') ||
+        t.includes(' FL,')
     );
 }
 
@@ -4352,6 +4389,17 @@ function applyAutoShippingRules() {
         shippingEl.type = 'text';
         shippingEl.value = 'Free Shipping';
         if (noteEl) noteEl.textContent = result.reason;
+    } else if (result.half) {
+        shippingEl.readOnly = false;
+        shippingEl.type = 'number';
+        shippingEl.classList.remove('bg-gray-100', 'text-green-800', 'font-semibold');
+        if (noteEl) {
+            noteEl.textContent = result.reason + ' — enter half of quoted freight ($)';
+        }
+        const currentHalf = parseFloat(shippingEl.value);
+        shippingEl.value = (!isNaN(currentHalf) && currentHalf >= 0)
+            ? currentHalf.toFixed(2)
+            : '0.00';
     } else {
         shippingEl.readOnly = false;
         shippingEl.type = 'number';
