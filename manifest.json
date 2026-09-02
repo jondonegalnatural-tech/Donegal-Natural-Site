@@ -1,0 +1,25 @@
+{
+  "name": "Donegal Natural Admin",
+  "short_name": "DN Admin",
+  "description": "Donegal Natural internal portal",
+  "start_url": "/internal-portal.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f8f1e9",
+  "theme_color": "#1E4D2B",
+  "icons": [
+    {
+      "src": "/media/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/media/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

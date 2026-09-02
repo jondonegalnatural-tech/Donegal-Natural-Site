@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Donegal Natural | Internal Portal</title>
 <meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1E4D2B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="DN Admin">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="media/logo.png">
 <script>
 // Auth guard — runs before any content paints
 (function () {
@@ -170,6 +177,19 @@ body { background: #f8f1e9; }
     </div>
 </nav>
 <!-- ==================== END TOP NAVIGATION ==================== -->
+ 
+<div id="pwa-install-banner" class="hidden px-4 py-3 border-b-2 border-[#6B4423] bg-[#f8f1e9]">
+    <div class="flex items-start justify-between gap-3">
+        <p class="text-sm text-[#6B4423]">
+            <span class="font-semibold brand-green">Add to Home Screen.</span>
+            On iPhone Safari tap Share, then Add to Home Screen. Use Safari, not Chrome.
+        </p>
+        <button type="button" id="pwa-install-dismiss"
+                class="px-3 py-1 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-medium">
+            Dismiss
+        </button>
+    </div>
+</div>
 
 <!-- Mobile sidebar overlay -->
 <div id="mobile-sidebar-overlay" onclick="closeMobileSidebar()"></div>
@@ -3898,6 +3918,27 @@ body { background: #f8f1e9; }
     }
     window.toggleMobileSidebar = toggleMenu;
     window.closeMobileSidebar = closeMenu;
+})();
+
+(function () {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(function () {});
+    }
+    var banner = document.getElementById('pwa-install-banner');
+    var dismissBtn = document.getElementById('pwa-install-dismiss');
+    if (!banner) return;
+    var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    var dismissed = localStorage.getItem('dn_pwa_hint_dismissed') === '1';
+    var isAdmin = typeof isJonathanAdmin === 'function' && isJonathanAdmin();
+    if (isAdmin && !standalone && !dismissed) {
+        banner.classList.remove('hidden');
+    }
+    if (dismissBtn) {
+        dismissBtn.addEventListener('click', function () {
+            localStorage.setItem('dn_pwa_hint_dismissed', '1');
+            banner.classList.add('hidden');
+        });
+    }
 })();
 </script>
 </body>
