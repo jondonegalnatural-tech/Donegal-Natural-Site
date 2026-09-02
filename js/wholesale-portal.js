@@ -2929,7 +2929,7 @@ function marketDisclaimerHtml() {
 
 function getProductImagePath(product) {
     const name = String((product && product.name) || '');
-    const rules = [
+            const rules = [
         { match: /thin green line/i, file: 'Green Line Bully Stick (Full picture).jpg' },
         { match: /regular green line/i, file: 'Green Line Reg Bully Stick.jpg' },
         { match: /green line/i, file: 'Green Line Bully Stick (Full picture).jpg' },
@@ -2943,9 +2943,10 @@ function getProductImagePath(product) {
         { match: /turkey jerky stuffed/i, file: 'Stuffed Buffalo Bone (End Shot).jpg' },
         { match: /turkey jerky/i, file: 'Turkey Jerky (Full Shot).jpg' },
         { match: /elky.*stuffed buffalo/i, file: 'Elk Jerky Stuffed Buffalo Bone (Close up of Jerky).jpg' },
-        { match: /elky jerky|elky training/i, file: 'Elky Sticks  (Full Shot).jpg' },
+        { match: /elky training/i, file: 'Jerky Squares Full Product shot.jpg' },
+        { match: /elky jerky/i, file: 'Elky Sticks  (Full Shot).jpg' },
         { match: /stuffed buffalo/i, file: 'Stuffed Buffalo Bone (End Shot).jpg' },
-        { match: /beef jerky|jerky treats/i, file: 'Jerky Squares Full Product shot.jpg' },
+        { match: /beef jerky/i, file: 'Elky Sticks  (Full Shot).jpg' },
         { match: /hairy beef ear|hairy cow ear/i, file: 'Hairy Cow Ears (Full Product).jpg' },
         { match: /vanilla cow ear/i, file: 'Vanilla Cow Ear (Full Shot).jpg' },
         { match: /buffalo ear/i, file: 'Buffalo Ears (Full Product Shot).jpg' },
