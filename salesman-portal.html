@@ -695,15 +695,22 @@
 
 <!-- New Assigned Customers Alert -->
 <div id="new-customers-modal"
-     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-md p-8">
-        <h2 class="text-2xl font-bold brand-green mb-2">New customer assigned</h2>
-        <p class="text-sm text-[#6B4423] mb-4">
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-[80] p-3 sm:p-4"
+     onclick="dismissNewCustomersModal()">
+    <div onclick="event.stopPropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col p-4 sm:p-6">
+        <div class="flex items-start justify-between gap-3 mb-2">
+            <h2 class="text-xl sm:text-2xl font-bold brand-green">New customer assigned</h2>
+            <button type="button" onclick="dismissNewCustomersModal()"
+                    class="flex-shrink-0 w-9 h-9 rounded-full border-2 border-[#6B4423] text-[#6B4423] text-xl font-bold leading-none"
+                    aria-label="Close">×</button>
+        </div>
+        <p class="text-sm text-[#6B4423] mb-3">
             The following customer(s) were recently assigned to you. Approve pricing so they can see rates.
         </p>
-        <div id="new-customers-list" class="space-y-2 mb-6"></div>
+        <div id="new-customers-list" class="space-y-2 mb-4 overflow-y-auto flex-1 min-h-0"></div>
         <button type="button" onclick="dismissNewCustomersModal()"
-                class="w-full bg-[#1E4D2B] text-[#d4b78f] font-bold py-3 rounded-xl">
+                class="w-full bg-[#1E4D2B] text-[#d4b78f] font-bold py-3 rounded-xl flex-shrink-0">
             Got it
         </button>
     </div>

@@ -1139,6 +1139,7 @@ async function saveSalesmanCustomerCommission() {
 async function checkNewAssignedCustomers() {
     const user = getCurrentUser() || currentUser;
     if (!user || !user.email) return;
+    if (user.isViewAs || localStorage.getItem('originalAdminUser')) return;
 
     const email = (user.email || '').toLowerCase().trim();
     const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
