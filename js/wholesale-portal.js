@@ -151,6 +151,11 @@ function switchActiveCustomer(customerId) {
 
     localStorage.setItem('activeCustomerId', next.id);
     window._currentCustomer = next;
+    if (typeof applyBrianWholesaleSheetPrices === 'function') {
+        applyBrianWholesaleSheetPrices().then(function () {
+            if (typeof renderPortalProducts === 'function') renderPortalProducts();
+        });
+    }
 
     // Soft restriction follows the active store
     if (isCustomerInactive(next)) {
@@ -351,6 +356,11 @@ function setActiveCustomer(id) {
 
     window._currentCustomer = found;
     localStorage.setItem('activeCustomerId', String(found.id));
+    if (typeof applyBrianWholesaleSheetPrices === 'function') {
+        applyBrianWholesaleSheetPrices().then(function () {
+            if (typeof renderPortalProducts === 'function') renderPortalProducts();
+        });
+    }
 
     // Refresh anything that depends on the active store
     if (typeof updateShippingPolicyCard === 'function') updateShippingPolicyCard();
@@ -6714,6 +6724,61 @@ async function filterWholesaleCatalogForSalesman() {
     }
 }
 
+
+
+const BRIAN_SEAT_EMAIL = 'donegaldogtreats@gmail.com';
+
+function isBrianAssignedCustomer(customer) {
+    const email = String((customer && (customer.salesman_email || customer.salesmanEmail)) || '').toLowerCase().trim();
+    return email === BRIAN_SEAT_EMAIL;
+}
+
+async function applyBrianWholesaleSheetPrices() {
+    if (Array.isArray(window._wholesaleCatalogBase) && window._wholesaleCatalogBase.length) {
+        WHOLESALE_PRICES = window._wholesaleCatalogBase.map(function (p) {
+            return Object.assign({}, p);
+        });
+    }
+    const customer = window._currentCustomer;
+    if (!isBrianAssignedCustomer(customer) || !customer.id) return;
+    let prices = null;
+    try {
+        const { data: custSheet } = await supabaseClient
+            .from('customer_price_sheets')
+            .select('prices')
+            .eq('customer_id', customer.id)
+            .maybeSingle();
+        if (custSheet && custSheet.prices && typeof custSheet.prices === 'object') {
+            prices = custSheet.prices;
+        }
+    } catch (err) {
+        console.warn('applyBrianWholesaleSheetPrices customer:', err);
+    }
+    if (!prices) {
+        try {
+            const { data: salesSheet } = await supabaseClient
+                .from('salesman_price_sheets')
+                .select('prices')
+                .eq('salesman_email', BRIAN_SEAT_EMAIL)
+                .maybeSingle();
+            if (salesSheet && salesSheet.prices && typeof salesSheet.prices === 'object') {
+                prices = salesSheet.prices;
+            }
+        } catch (err) {
+            console.warn('applyBrianWholesaleSheetPrices salesman:', err);
+        }
+    }
+    if (!prices) return;
+    (WHOLESALE_PRICES || []).forEach(function (p) {
+        if (!p || !p.name) return;
+        const raw = prices[p.name];
+        if (raw == null || raw === '') return;
+        const n = Number(raw);
+        if (isNaN(n)) return;
+        p.price = '$' + n.toFixed(2);
+    });
+}
+
 async function loadWholesaleCatalog() {
     try {
         if (typeof supabaseClient === 'undefined' || !supabaseClient) {
@@ -6748,6 +6813,10 @@ async function loadWholesaleCatalog() {
         console.log('loadWholesaleCatalog: loaded', WHOLESALE_PRICES.length, 'products from Supabase');
         await filterWholesaleCatalogForSalesman();
         await loadWholesaleOutOfStock();
+        window._wholesaleCatalogBase = (WHOLESALE_PRICES || []).map(function (p) {
+            return Object.assign({}, p);
+        });
+        await applyBrianWholesaleSheetPrices();
     } catch (err) {
         console.error('loadWholesaleCatalog error — keeping hardcoded list:', err);
     }

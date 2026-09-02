@@ -1827,6 +1827,13 @@ function placeOrderForCustomer(customerName) {
     }
 
     placeOrderItems = [];
+    window._placeOrderBrianPrices = {};
+    const priceCustomer = (typeof currentPlaceOrderCustomer === 'object' && currentPlaceOrderCustomer)
+        ? currentPlaceOrderCustomer
+        : customerObj;
+    if (priceCustomer && typeof loadBrianPlaceOrderPrices === 'function') {
+        loadBrianPlaceOrderPrices(priceCustomer);
+    }
 
     const displayName = (typeof currentPlaceOrderCustomer === 'object' && currentPlaceOrderCustomer)
         ? (currentPlaceOrderCustomer.name || customerName || '')
@@ -1908,9 +1915,8 @@ function searchPlaceOrderProducts() {
     }
 
     resultsEl.innerHTML = matches.map(p => {
-        const priceLabel = p.isMarketPrice
-            ? "Market Price"
-            : "$" + Number(p.unitPrice).toFixed(2);
+        const priced = resolvePlaceOrderPrice(p);
+        const priceLabel = priced.displayPrice;
         const safeName = p.name.replace(/'/g, "\\'");
 
         const oos = typeof isSalesmanOos === 'function' && isSalesmanOos(p.name);
@@ -1967,6 +1973,69 @@ if (document.readyState === 'loading') {
     loadSalesmanOutOfStock();
 }
 
+const BRIAN_SEAT_EMAIL = 'donegaldogtreats@gmail.com';
+
+function isBrianAssignedCustomer(customer) {
+    const email = String((customer && (customer.salesman_email || customer.salesmanEmail)) || '').toLowerCase().trim();
+    return email === BRIAN_SEAT_EMAIL;
+}
+
+function resolvePlaceOrderPrice(product) {
+    const name = product && product.name;
+    const map = window._placeOrderBrianPrices;
+    if (name && map && typeof map === 'object') {
+        const raw = map[name];
+        if (raw != null && raw !== '') {
+            const n = Number(raw);
+            if (!isNaN(n)) {
+                return {
+                    unitPrice: n,
+                    isMarketPrice: false,
+                    displayPrice: '$' + n.toFixed(2)
+                };
+            }
+        }
+    }
+    if (product && product.isMarketPrice) {
+        return { unitPrice: null, isMarketPrice: true, displayPrice: 'Market Price' };
+    }
+    return {
+        unitPrice: Number(product && product.unitPrice),
+        isMarketPrice: false,
+        displayPrice: '$' + Number(product && product.unitPrice).toFixed(2)
+    };
+}
+
+async function loadBrianPlaceOrderPrices(customer) {
+    window._placeOrderBrianPrices = {};
+    if (!isBrianAssignedCustomer(customer) || !customer || !customer.id) return;
+    try {
+        const { data: custSheet } = await supabaseClient
+            .from('customer_price_sheets')
+            .select('prices')
+            .eq('customer_id', customer.id)
+            .maybeSingle();
+        if (custSheet && custSheet.prices && typeof custSheet.prices === 'object' && Object.keys(custSheet.prices).length) {
+            window._placeOrderBrianPrices = custSheet.prices;
+            return;
+        }
+    } catch (err) {
+        console.warn('loadBrianPlaceOrderPrices customer:', err);
+    }
+    try {
+        const { data: salesSheet } = await supabaseClient
+            .from('salesman_price_sheets')
+            .select('prices')
+            .eq('salesman_email', BRIAN_SEAT_EMAIL)
+            .maybeSingle();
+        if (salesSheet && salesSheet.prices && typeof salesSheet.prices === 'object') {
+            window._placeOrderBrianPrices = salesSheet.prices;
+        }
+    } catch (err) {
+        console.warn('loadBrianPlaceOrderPrices salesman:', err);
+    }
+}
+
 function addProductToPlaceOrder(productName) {
     if (typeof PRODUCT_CATALOG === "undefined") return;
 
@@ -1981,15 +2050,14 @@ function addProductToPlaceOrder(productName) {
     if (existing) {
         existing.quantity += 1;
     } else {
+        const priced = resolvePlaceOrderPrice(product);
         placeOrderItems.push({
             name: product.name,
             quantity: 1,
             caseSize: product.caseSize || "",
-            unitPrice: product.isMarketPrice ? null : Number(product.unitPrice),
-            isMarketPrice: !!product.isMarketPrice,
-            displayPrice: product.isMarketPrice
-                ? "Market Price"
-                : "$" + Number(product.unitPrice).toFixed(2)
+            unitPrice: priced.unitPrice,
+            isMarketPrice: priced.isMarketPrice,
+            displayPrice: priced.displayPrice
         });
     }
 
