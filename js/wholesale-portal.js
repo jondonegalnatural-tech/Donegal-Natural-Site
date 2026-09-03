@@ -2925,10 +2925,76 @@ function marketDisclaimerHtml() {
     return '<p class="text-[11px] leading-snug text-[#c56134] mt-1">' + MARKET_PRICE_DISCLAIMER + '</p>';
 }
 
+let _wholesaleProductImages = [];
+
+const PHOTO_FAMILY_LINKS = {
+    'cow-ears-6pack': 'cow-ears',
+    'chunky-bags': 'chunky-bulk',
+    'binkeys': 'supreme-chips-bulk'
+};
+
+function wholesalePhotoSlug(name) {
+    return String(name || '')
+        .toLowerCase()
+        .replace(/[“”"']/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 48);
+}
+
+function wholesalePhotoUrl(path) {
+    if (!path) return '';
+    try {
+        const pub = supabaseClient.storage.from('product-photos').getPublicUrl(path);
+        return (pub && pub.data && pub.data.publicUrl) || '';
+    } catch (err) {
+        return '';
+    }
+}
+
+function getPhotoFamilyKeyForName(name) {
+    const group = (typeof getCombinedGroupForName === 'function')
+        ? getCombinedGroupForName(name)
+        : null;
+    if (group && group.id) return group.id;
+    return wholesalePhotoSlug(name);
+}
+
+function galleryRowsForFamily(key) {
+    return (_wholesaleProductImages || []).filter(function (row) {
+        return row.family_key === key;
+    });
+}
+
+function getGalleryCardHeroPath(name) {
+    const key = getPhotoFamilyKeyForName(name);
+    const rows = galleryRowsForFamily(key);
+    const hero = rows.find(function (row) { return row.is_card_hero; }) ||
+        rows.find(function (row) { return row.scope === 'packaged'; }) ||
+        rows.find(function (row) { return row.scope === 'family'; });
+    return hero ? wholesalePhotoUrl(hero.storage_path) : '';
+}
+
+async function loadWholesaleProductImages() {
+    try {
+        if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+        const { data, error } = await supabaseClient
+            .from('product_images')
+            .select('family_key, linked_family_key, scope, variant_name, is_card_hero, sort_order, storage_path')
+            .order('sort_order', { ascending: true });
+        if (error) throw error;
+        _wholesaleProductImages = data || [];
+    } catch (err) {
+        console.warn('loadWholesaleProductImages:', err);
+        _wholesaleProductImages = [];
+    }
+}
 
 
 function getProductImagePath(product) {
     const name = String((product && product.name) || '');
+    const galleryHero = getGalleryCardHeroPath(name);
+    if (galleryHero) return galleryHero;
             const rules = [
         { match: /thin green line/i, file: 'Green Line Bully Stick (Full picture).jpg' },
         { match: /regular green line/i, file: 'Green Line Reg Bully Stick.jpg' },
@@ -2999,11 +3065,50 @@ function getProductImagePaths(productOrTitle) {
     const title = typeof productOrTitle === 'string'
         ? productOrTitle
         : ((productOrTitle && productOrTitle.name) || '');
+    const familyKey = getPhotoFamilyKeyForName(title);
+    const rows = galleryRowsForFamily(familyKey).slice();
+    const linkedKey = (rows[0] && rows[0].linked_family_key) || PHOTO_FAMILY_LINKS[familyKey] || '';
+    const linkedRows = linkedKey ? galleryRowsForFamily(linkedKey) : [];
+    const urls = [];
+
+    function addRow(row) {
+        const url = row && wholesalePhotoUrl(row.storage_path);
+        if (url && urls.indexOf(url) === -1) urls.push(url);
+    }
+
+    const ownHero = rows.find(function (row) { return row.is_card_hero; }) ||
+        rows.find(function (row) { return row.scope === 'packaged'; }) ||
+        rows.find(function (row) { return row.scope === 'family'; });
+    if (ownHero) addRow(ownHero);
+
+    rows.filter(function (row) {
+        return row.scope === 'packaged' || row.scope === 'family';
+    }).forEach(addRow);
+
+    linkedRows.filter(function (row) {
+        return row.is_card_hero || row.scope === 'family';
+    }).forEach(addRow);
+
+    const flavorNeedle = String(title || '').toLowerCase();
+    function variantMatch(row) {
+        if (row.scope !== 'variant') return false;
+        const label = String(row.variant_name || '').toLowerCase();
+        if (!label) return false;
+        return flavorNeedle.indexOf(label) !== -1 || label.indexOf(flavorNeedle) !== -1;
+    }
+    rows.filter(variantMatch).forEach(addRow);
+    linkedRows.filter(variantMatch).forEach(addRow);
+    rows.filter(function (row) { return row.scope === 'variant'; }).forEach(addRow);
+    linkedRows.filter(function (row) { return row.scope === 'variant'; }).forEach(addRow);
+    rows.forEach(addRow);
+
+    if (urls.length) return urls;
+
     const group = getCombinedGroupForName(title);
     const galleryKey = group ? group.title : title;
     const fromMap = PRODUCT_IMAGE_GALLERY[galleryKey];
     if (fromMap && fromMap.length) {
-        return fromMap.map(f => encodeURI(f));
+        return fromMap.map(function (f) { return encodeURI(f); });
     }
     const single = getProductImagePath(
         typeof productOrTitle === 'string' ? { name: productOrTitle } : productOrTitle
@@ -7099,7 +7204,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         loadWholesaleCatalog(),
         loadWholesaleIngredients(),
         loadPortalInventory(),
-        loadCustomerBackOrders()
+        loadCustomerBackOrders(),
+        loadWholesaleProductImages()
     ]);
     renderCategoryFilters();
     renderPortalProducts();
