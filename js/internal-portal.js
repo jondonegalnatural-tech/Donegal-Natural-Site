@@ -8877,11 +8877,15 @@ function loadSheetLogoDataUrl() {
         const img = new Image();
         img.onload = function () {
             try {
+                const size = 96;
                 const canvas = document.createElement('canvas');
-                canvas.width = img.naturalWidth || img.width;
-                canvas.height = img.naturalHeight || img.height;
-                canvas.getContext('2d').drawImage(img, 0, 0);
-                resolve(canvas.toDataURL('image/png'));
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#1E4D2B';
+                ctx.fillRect(0, 0, size, size);
+                ctx.drawImage(img, 0, 0, size, size);
+                resolve(canvas.toDataURL('image/jpeg', 0.55));
             } catch (e) {
                 resolve('');
             }
@@ -8907,7 +8911,7 @@ async function exportOpenSalesmanPriceSheetPdf() {
     const title = sheet.title || 'Salesman Price Sheet';
     const stamp = new Date().toLocaleDateString();
     const logo = await loadSheetLogoDataUrl();
-    const doc = new jsPdfCtor({ unit: 'pt', format: 'letter' });
+    const doc = new jsPdfCtor({ unit: 'pt', format: 'letter', compress: true });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const green = [30, 77, 43];
@@ -8919,7 +8923,7 @@ async function exportOpenSalesmanPriceSheetPdf() {
         doc.setFillColor(green[0], green[1], green[2]);
         doc.rect(0, 0, pageWidth, 78, 'F');
         if (logo) {
-            try { doc.addImage(logo, 'PNG', 28, 14, 50, 50); } catch (e) {}
+            try { doc.addImage(logo, 'JPEG', 28, 14, 50, 50, 'dnLogo', 'FAST'); } catch (e) {}
         }
         const left = logo ? 90 : 28;
         doc.setTextColor(gold[0], gold[1], gold[2]);
@@ -8959,7 +8963,6 @@ async function exportOpenSalesmanPriceSheetPdf() {
         });
         if (cursorY > pageHeight - 120) {
             doc.addPage();
-            drawPageChrome();
             cursorY = 100;
         }
         doc.setFillColor(green[0], green[1], green[2]);
