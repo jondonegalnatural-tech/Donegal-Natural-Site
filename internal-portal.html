@@ -1356,6 +1356,19 @@ body { background: #f8f1e9; }
                 </div>
                 <!-- ========== END COMPANY BASE PRICE SHEET ========== -->
             </div>
+                        <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mt-6 mb-6">
+                <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="text-xl font-bold brand-green">Product Photo Gallery</h3>
+                        <p class="text-sm text-[#6B4423]">Add or remove photos by family. Packaged cards get their own main photo. Wholesale cards still use media/ until the next step.</p>
+                    </div>
+                    <button type="button" onclick="openProductPhotoGallery()"
+                            class="px-4 py-2 text-sm bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
+                        <i class="fas fa-images mr-2"></i> View Gallery
+                    </button>
+                </div>
+            </div>
+
             <!-- ========== END OTHER REPORT CATEGORIES ========== -->
 
             <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mt-6 mb-6">
@@ -3730,6 +3743,61 @@ body { background: #f8f1e9; }
                     class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
                 Close
             </button>
+        </div>
+    </div>
+</div>
+
+<div id="product-photo-gallery-modal"
+     onclick="hideProductPhotoGallery()"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+    <div onclick="event.stopImmediatePropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-5xl mx-4 p-6 max-h-[92vh] overflow-y-auto">
+        <div class="flex flex-wrap justify-between items-start gap-3 mb-4">
+            <div>
+                <h2 class="text-xl font-bold brand-green">Product Photo Gallery</h2>
+                <p class="text-sm text-[#6B4423]" id="photo-gallery-subtitle">Loading…</p>
+            </div>
+            <button type="button" onclick="hideProductPhotoGallery()"
+                    class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+        <div class="mb-4 flex flex-wrap items-center gap-3" id="photo-gallery-search-wrap">
+            <input type="text" id="photo-gallery-search" placeholder="Search families…"
+                   class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-full max-w-md"
+                   oninput="renderProductPhotoGallery()">
+        </div>
+        <button type="button" id="photo-gallery-back" onclick="photoGalleryBackToGrid()"
+                class="hidden mb-4 px-3 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+            ← All families
+        </button>
+        <div id="photo-gallery-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"></div>
+        <div id="photo-gallery-family-view" class="hidden">
+            <p id="photo-gallery-family-meta" class="text-sm text-[#6B4423] mb-4"></p>
+            <div class="flex flex-wrap items-end gap-3 mb-4 p-3 bg-[#f8f4eb] border border-[#d4b78f] rounded-xl">
+                <div>
+                    <label class="block text-xs font-semibold text-[#6B4423] mb-1">Photo</label>
+                    <input type="file" id="photo-gallery-file" accept="image/jpeg,image/png,image/webp"
+                           class="text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-[#6B4423] mb-1">Apply as</label>
+                    <select id="photo-gallery-scope" onchange="onPhotoGalleryScopeChange()"
+                            class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm">
+                        <option value="family">Whole family (card / product shot)</option>
+                        <option value="packaged">Packaged main (bag)</option>
+                        <option value="variant">This flavor only</option>
+                    </select>
+                </div>
+                <div id="photo-gallery-variant-wrap" class="hidden">
+                    <label class="block text-xs font-semibold text-[#6B4423] mb-1">Flavor</label>
+                    <select id="photo-gallery-variant"
+                            class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm"></select>
+                </div>
+                <button type="button" id="photo-gallery-add-btn" onclick="addProductPhoto()"
+                        class="px-4 py-2 text-sm bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
+                    Add photo
+                </button>
+            </div>
+            <div id="photo-gallery-family-photos" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
         </div>
     </div>
 </div>
