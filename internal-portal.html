@@ -3634,6 +3634,14 @@ body { background: #f8f1e9; }
             Edit unit prices, then Save &amp; Push to write this sheet onto every store assigned to this salesman. Admin Test Store and jackerman@ are skipped.
         </p>
         <div class="mt-6 flex flex-wrap justify-end gap-2">
+            <button type="button" id="sps-print-btn" onclick="printOpenSalesmanPriceSheet()"
+                    class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
+                Print
+            </button>
+            <button type="button" id="sps-export-btn" onclick="exportOpenSalesmanPriceSheetExcel()"
+                    class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
+                Export Excel
+            </button>
             <button type="button" id="sps-edit-btn" onclick="toggleSalesmanPriceSheetEdit()"
                     class="hidden px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
                 Edit

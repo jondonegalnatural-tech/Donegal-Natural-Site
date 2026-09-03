@@ -8558,6 +8558,11 @@ async function openSalesmanPriceSheetModal() {
             name: salesman.name || data.salesman_name || email,
             prices: data.prices
         };
+        window._spsExport = {
+            title: salesman.name || data.salesman_name || email,
+            subtitle: email,
+            prices: data.prices
+        };
         window._spsCanEdit = true;
         window._spsEditing = false;
         if (typeof setSalesmanPriceSheetEditMode === 'function') setSalesmanPriceSheetEditMode(false);
@@ -8582,6 +8587,7 @@ function hideSalesmanPriceSheetModal() {
     window._spsEditing = false;
     window._spsCanEdit = false;
     window._spsSheet = null;
+    window._spsExport = null;
     if (typeof setSalesmanPriceSheetEditMode === 'function') setSalesmanPriceSheetEditMode(false);
 }
 
@@ -8628,6 +8634,138 @@ function shouldSkipSalesmanPricePush(customer) {
     if (company.indexOf('admin test store') !== -1) return true;
     if (name.indexOf('admin test store') !== -1) return true;
     return false;
+}
+
+
+
+function getOpenSalesmanSheetForExport() {
+    if (window._spsEditing && typeof collectSalesmanPriceSheetInputs === 'function' && window._spsSheet) {
+        return {
+            title: window._spsSheet.name || window._spsSheet.email || 'Salesman',
+            subtitle: window._spsSheet.email || '',
+            prices: collectSalesmanPriceSheetInputs()
+        };
+    }
+    if (window._spsExport && window._spsExport.prices && typeof window._spsExport.prices === 'object') {
+        return window._spsExport;
+    }
+    if (window._spsSheet && window._spsSheet.prices && typeof window._spsSheet.prices === 'object') {
+        return {
+            title: window._spsSheet.name || window._spsSheet.email || 'Salesman',
+            subtitle: window._spsSheet.email || '',
+            prices: window._spsSheet.prices
+        };
+    }
+    return null;
+}
+
+function salesmanSheetFileSlug(name) {
+    const slug = String(name || 'Salesman')
+        .replace(/[^a-zA-Z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+    return slug || 'Salesman';
+}
+
+function buildSalesmanSheetExportRows(prices) {
+    const source = (prices && typeof prices === 'object') ? prices : {};
+    const catalogByName = {};
+    if (typeof PRODUCT_CATALOG !== 'undefined') {
+        PRODUCT_CATALOG.forEach(function (p) {
+            if (p && p.name) catalogByName[p.name] = p;
+        });
+    }
+    return Object.keys(source).sort().map(function (name) {
+        const catalog = catalogByName[name] || {};
+        const raw = source[name];
+        const n = Number(raw);
+        return {
+            Category: catalog.category || '',
+            'Sub Category': catalog.subCategory || '',
+            Product: name,
+            'Case Size': catalog.caseSize || '',
+            'Unit Price': isNaN(n) ? '' : n,
+            'Market Price': catalog.isMarketPrice ? 'Yes' : 'No'
+        };
+    });
+}
+
+function printOpenSalesmanPriceSheet() {
+    const sheet = getOpenSalesmanSheetForExport();
+    if (!sheet || !sheet.prices || !Object.keys(sheet.prices).length) {
+        alert('No price sheet is loaded.');
+        return;
+    }
+    const rows = buildSalesmanSheetExportRows(sheet.prices);
+    const grouped = {};
+    rows.forEach(function (row) {
+        const cat = row.Category || 'Other';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(row);
+    });
+    const categories = Object.keys(grouped).sort();
+    const today = new Date().toLocaleDateString();
+    const title = sheet.title || 'Salesman Price Sheet';
+    let body = '';
+    categories.forEach(function (cat) {
+        body += '<h2 style="margin:18px 0 6px;font-size:15px;color:#1E4D2B;border-bottom:1px solid #1E4D2B;padding-bottom:3px;">' +
+            escapeHtml(cat) + '</h2>';
+        body += '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px;">' +
+            '<thead><tr style="background:#1E4D2B;color:#d4b78f;">' +
+            '<th style="padding:6px 8px;text-align:left;border:1px solid #999;">Product</th>' +
+            '<th style="padding:6px 8px;text-align:left;border:1px solid #999;width:90px;">Case Size</th>' +
+            '<th style="padding:6px 8px;text-align:right;border:1px solid #999;width:90px;">Unit Price</th>' +
+            '</tr></thead><tbody>';
+        grouped[cat].forEach(function (row) {
+            const price = row['Unit Price'] === '' ? '—' : ('$' + Number(row['Unit Price']).toFixed(2));
+            body += '<tr>' +
+                '<td style="padding:5px 8px;border:1px solid #ccc;">' + escapeHtml(row.Product) + '</td>' +
+                '<td style="padding:5px 8px;border:1px solid #ccc;">' + escapeHtml(row['Case Size'] || '—') + '</td>' +
+                '<td style="padding:5px 8px;border:1px solid #ccc;text-align:right;font-weight:600;">' + price + '</td>' +
+                '</tr>';
+        });
+        body += '</tbody></table>';
+    });
+    const html = '<!DOCTYPE html><html><head><title>' + escapeHtml(title) + ' – Donegal Natural</title>' +
+        '<style>body{font-family:Arial,sans-serif;margin:24px;color:#222;}' +
+        '.company{font-size:20px;font-weight:bold;color:#1E4D2B;}' +
+        '.title{font-size:18px;font-weight:bold;text-align:right;}' +
+        '.meta{font-size:12px;margin-top:4px;color:#555;}' +
+        'hr{border:none;border-top:2px solid #1E4D2B;margin:12px 0;}' +
+        '.footer{margin-top:28px;text-align:center;font-size:11px;color:#666;}</style></head><body>' +
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">' +
+        '<div><div class="company">Donegal Natural Dog Treats</div>' +
+        '<div class="meta">258 W Front St · Marietta, PA 17547</div>' +
+        '<div class="meta">(800) 223-0017</div></div>' +
+        '<div class="title">' + escapeHtml(title.toUpperCase()) + '<div class="meta">Printed: ' + escapeHtml(today) + '</div>' +
+        '<div class="meta">' + rows.length + ' products</div></div></div><hr>' + body +
+        '<div class="footer">Donegal Natural Dog Treats — ' + escapeHtml(title) + '</div></body></html>';
+    const win = window.open('', '_blank');
+    if (!win) {
+        alert('Please allow pop-ups to print the price sheet.');
+        return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(function () { win.print(); }, 350);
+}
+
+function exportOpenSalesmanPriceSheetExcel() {
+    const sheet = getOpenSalesmanSheetForExport();
+    if (!sheet || !sheet.prices || !Object.keys(sheet.prices).length) {
+        alert('No price sheet is loaded.');
+        return;
+    }
+    if (typeof XLSX === 'undefined') {
+        alert('Excel library not loaded.');
+        return;
+    }
+    const rows = buildSalesmanSheetExportRows(sheet.prices);
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Price Sheet');
+    const stamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, salesmanSheetFileSlug(sheet.title) + '_Price_Sheet_' + stamp + '.xlsx');
 }
 
 async function saveSalesmanPriceSheetAndPush() {
