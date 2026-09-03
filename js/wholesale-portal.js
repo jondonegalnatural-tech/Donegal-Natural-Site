@@ -4443,11 +4443,49 @@ function updateProductsHeading(text) {
     if (heading) heading.textContent = text;
 }
 
+function isJonathanCardPreview() {
+    try {
+        const emails = [];
+        const current = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        const original = JSON.parse(localStorage.getItem('originalAdminUser') || 'null');
+        if (current && current.email) emails.push(String(current.email).toLowerCase().trim());
+        if (original && original.email) emails.push(String(original.email).toLowerCase().trim());
+        return emails.some(function (e) {
+            return e === 'jackerman@donegalnatural.com' || e.indexOf('jackerman') !== -1;
+        });
+    } catch (err) {
+        return false;
+    }
+}
+
+function insertWholesaleTestCard(container) {
+    if (!container || !isJonathanCardPreview()) return;
+    const existing = document.getElementById('wholesale-test-card-wrap');
+    if (existing) existing.remove();
+    const group = (COMBINED_CARD_GROUPS || []).find(function (g) {
+        return g.id === 'cow-ears';
+    });
+    if (!group || typeof buildCombinedCard !== 'function') return;
+    const wrap = document.createElement('div');
+    wrap.id = 'wholesale-test-card-wrap';
+    wrap.className = 'mb-6';
+    const label = document.createElement('p');
+    label.className = 'text-xs font-bold text-[#1E4D2B] mb-2';
+    label.textContent = 'TEST CARD — only you can see this. Live Cow Ears below is unchanged.';
+    wrap.appendChild(label);
+    const card = buildCombinedCard(group);
+    card.classList.add('wholesale-test-card');
+    wrap.appendChild(card);
+    container.insertBefore(wrap, container.firstChild);
+}
+
+
 function renderRecommendedCards() {
     const container = document.getElementById('portal-products');
     if (!container) return;
     updateProductsHeading('Recommended for you');
     renderProductCardGrid(container, pickRandomProducts(4), 'No products available yet.');
+    insertWholesaleTestCard(container);
 }
 
 function startRecommendedRotator() {
@@ -4552,6 +4590,7 @@ function renderPortalProducts() {
     if (!shown) {
         container.innerHTML = '<p class="text-center py-8 text-[#6B4423]">No products found in this category.</p>';
     }
+    insertWholesaleTestCard(container);
 }
 // ================== ADD TO QUOTE SYSTEM ==================
 function showPackagedItemModal(name, price, cs, category, image = null, healthBenefits = null) {
