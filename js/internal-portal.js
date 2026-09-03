@@ -8702,6 +8702,15 @@ function priceSheetDisplayCategory(name, catalog) {
     return (catalog && catalog.category) ? catalog.category : '';
 }
 
+function priceSheetCategorySortIndex(cat) {
+    const name = String(cat || '');
+    if (typeof INVENTORY_CATEGORY_ORDER !== 'undefined') {
+        const i = INVENTORY_CATEGORY_ORDER.indexOf(name);
+        if (i >= 0) return i;
+    }
+    return 900;
+}
+
 function buildSalesmanSheetExportRows(prices) {
     const source = (prices && typeof prices === 'object') ? prices : {};
     const catalogByName = {};
@@ -8711,15 +8720,15 @@ function buildSalesmanSheetExportRows(prices) {
         });
     }
     const rows = [];
-    Object.keys(source).sort().forEach(function (name) {
+    Object.keys(source).forEach(function (name) {
         const catalog = catalogByName[name] || {};
         const raw = source[name];
         const n = Number(raw);
         const cats = priceSheetDisplayCategories(name, catalog);
-        const list = cats.length ? cats : [catalog.category || ''];
+        const list = cats.length ? cats : [catalog.category || 'Other'];
         list.forEach(function (cat) {
             rows.push({
-                Category: cat,
+                Category: cat || 'Other',
                 'Sub Category': catalog.subCategory || '',
                 Product: name,
                 'Case Size': catalog.caseSize || '',
@@ -8728,7 +8737,31 @@ function buildSalesmanSheetExportRows(prices) {
             });
         });
     });
+    rows.sort(function (a, b) {
+        const order = priceSheetCategorySortIndex(a.Category) - priceSheetCategorySortIndex(b.Category);
+        if (order !== 0) return order;
+        const cat = String(a.Category || '').localeCompare(String(b.Category || ''));
+        if (cat !== 0) return cat;
+        return String(a.Product || '').localeCompare(String(b.Product || ''));
+    });
     return rows;
+}
+
+function groupSalesmanSheetRowsByCategory(rows) {
+    const grouped = {};
+    (rows || []).forEach(function (row) {
+        const cat = row.Category || 'Other';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(row);
+    });
+    const known = (typeof INVENTORY_CATEGORY_ORDER !== 'undefined') ? INVENTORY_CATEGORY_ORDER.slice() : [];
+    const extra = Object.keys(grouped).filter(function (cat) {
+        return known.indexOf(cat) === -1;
+    }).sort();
+    const categories = known.concat(extra).filter(function (cat) {
+        return grouped[cat] && grouped[cat].length;
+    });
+    return { grouped: grouped, categories: categories };
 }
 
 function printOpenSalesmanPriceSheet() {
@@ -8738,17 +8771,11 @@ function printOpenSalesmanPriceSheet() {
         return;
     }
     const rows = buildSalesmanSheetExportRows(sheet.prices);
-    const grouped = {};
-    rows.forEach(function (row) {
-        const cat = row.Category || 'Other';
-        if (!grouped[cat]) grouped[cat] = [];
-        grouped[cat].push(row);
-    });
-    const categories = Object.keys(grouped).sort();
+    const packed = groupSalesmanSheetRowsByCategory(rows);
     const today = new Date().toLocaleDateString();
     const title = sheet.title || 'Salesman Price Sheet';
     let body = '';
-    categories.forEach(function (cat) {
+    packed.categories.forEach(function (cat) {
         body += '<h2 style="margin:18px 0 6px;font-size:15px;color:#1E4D2B;border-bottom:1px solid #1E4D2B;padding-bottom:3px;">' +
             escapeHtml(cat) + '</h2>';
         body += '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:10px;">' +
@@ -8757,10 +8784,11 @@ function printOpenSalesmanPriceSheet() {
             '<th style="padding:6px 8px;text-align:left;border:1px solid #999;width:90px;">Case Size</th>' +
             '<th style="padding:6px 8px;text-align:right;border:1px solid #999;width:90px;">Unit Price</th>' +
             '</tr></thead><tbody>';
-        grouped[cat].forEach(function (row) {
+        packed.grouped[cat].forEach(function (row) {
             const price = row['Unit Price'] === '' ? '—' : ('$' + Number(row['Unit Price']).toFixed(2));
+            const market = row['Market Price'] === 'Yes' ? ' (Market)' : '';
             body += '<tr>' +
-                '<td style="padding:5px 8px;border:1px solid #ccc;">' + escapeHtml(row.Product) + '</td>' +
+                '<td style="padding:5px 8px;border:1px solid #ccc;">' + escapeHtml(row.Product) + market + '</td>' +
                 '<td style="padding:5px 8px;border:1px solid #ccc;">' + escapeHtml(row['Case Size'] || '—') + '</td>' +
                 '<td style="padding:5px 8px;border:1px solid #ccc;text-align:right;font-weight:600;">' + price + '</td>' +
                 '</tr>';
@@ -8768,18 +8796,27 @@ function printOpenSalesmanPriceSheet() {
         body += '</tbody></table>';
     });
     const html = '<!DOCTYPE html><html><head><title>' + escapeHtml(title) + ' – Donegal Natural</title>' +
-        '<style>body{font-family:Arial,sans-serif;margin:24px;color:#222;}' +
+        '<style>' +
+        'body{font-family:Arial,sans-serif;margin:24px;color:#222;}' +
+        '.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;gap:16px;}' +
+        '.brand{display:flex;align-items:center;gap:12px;}' +
+        '.brand img{height:52px;width:auto;}' +
         '.company{font-size:20px;font-weight:bold;color:#1E4D2B;}' +
-        '.title{font-size:18px;font-weight:bold;text-align:right;}' +
+        '.title{font-size:18px;font-weight:bold;text-align:right;color:#1E4D2B;}' +
         '.meta{font-size:12px;margin-top:4px;color:#555;}' +
         'hr{border:none;border-top:2px solid #1E4D2B;margin:12px 0;}' +
-        '.footer{margin-top:28px;text-align:center;font-size:11px;color:#666;}</style></head><body>' +
-        '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">' +
+        '.footer{margin-top:28px;text-align:center;font-size:11px;color:#666;}' +
+        '@media print{body{margin:12px;}}' +
+        '</style></head><body>' +
+        '<div class="header">' +
+        '<div class="brand"><img src="media/logo.png" alt="Donegal Natural">' +
         '<div><div class="company">Donegal Natural Dog Treats</div>' +
         '<div class="meta">258 W Front St · Marietta, PA 17547</div>' +
-        '<div class="meta">(800) 223-0017</div></div>' +
-        '<div class="title">' + escapeHtml(title.toUpperCase()) + '<div class="meta">Printed: ' + escapeHtml(today) + '</div>' +
-        '<div class="meta">' + rows.length + ' products</div></div></div><hr>' + body +
+        '<div class="meta">(800) 223-0017</div></div></div>' +
+        '<div class="title">' + escapeHtml(title.toUpperCase()) +
+        '<div class="meta">Printed: ' + escapeHtml(today) + '</div>' +
+        '<div class="meta">' + rows.length + ' products</div></div></div>' +
+        '<hr>' + body +
         '<div class="footer">Donegal Natural Dog Treats — ' + escapeHtml(title) + '</div></body></html>';
     const win = window.open('', '_blank', 'noopener,width=1100,height=900');
     if (!win) {
@@ -8803,24 +8840,36 @@ function exportOpenSalesmanPriceSheetExcel() {
         return;
     }
     const rows = buildSalesmanSheetExportRows(sheet.prices);
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const colWidths = [
-        { wch: 18 },
-        { wch: 22 },
-        { wch: 56 },
-        { wch: 16 },
-        { wch: 12 },
-        { wch: 14 }
+    const packed = groupSalesmanSheetRowsByCategory(rows);
+    const title = sheet.title || 'Salesman Price Sheet';
+    const stamp = new Date().toISOString().slice(0, 10);
+    const aoa = [
+        ['Donegal Natural Dog Treats'],
+        ['258 W Front St · Marietta, PA 17547'],
+        ['(800) 223-0017'],
+        [title],
+        ['Price sheet as of ' + stamp],
+        []
     ];
-    rows.forEach(function (row) {
-        const productLen = String(row.Product || '').length + 2;
-        if (productLen > colWidths[2].wch) colWidths[2].wch = Math.min(productLen, 72);
+    packed.categories.forEach(function (cat) {
+        aoa.push([cat]);
+        aoa.push(['Product', 'Case Size', 'Unit Price']);
+        packed.grouped[cat].forEach(function (row) {
+            const price = row['Unit Price'] === '' ? '' : Number(row['Unit Price']);
+            const market = row['Market Price'] === 'Yes' ? ' (Market)' : '';
+            aoa.push([
+                (row.Product || '') + market,
+                row['Case Size'] || '',
+                price
+            ]);
+        });
+        aoa.push([]);
     });
-    ws['!cols'] = colWidths;
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ wch: 56 }, { wch: 16 }, { wch: 12 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Price Sheet');
-    const stamp = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, salesmanSheetFileSlug(sheet.title) + '_Price_Sheet_' + stamp + '.xlsx');
+    XLSX.writeFile(wb, salesmanSheetFileSlug(title) + '_Price_Sheet_' + stamp + '.xlsx');
 }
 
 async function saveSalesmanPriceSheetAndPush() {
