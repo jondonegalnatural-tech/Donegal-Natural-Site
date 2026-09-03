@@ -1391,8 +1391,17 @@ body { background: #f8f1e9; }
                             <option value="individual" selected>Individual</option>
                             <option value="active">Active customers</option>
                             <option value="all">All customers</option>
+                            <option value="salesman">Salesman customers</option>
                             <option value="missing_spend">Missing monthly estimate</option>
                         </select>
+                        <div id="mass-email-salesman-box" class="mb-3 hidden">
+                            <label class="block text-sm font-semibold text-[#6B4423] mb-1">Salesman</label>
+                            <select id="mass-email-salesman" onchange="onMassEmailSalesmanChange()"
+                                    class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm w-full">
+                                <option value="">— Choose a salesman —</option>
+                            </select>
+                            <p class="text-xs text-[#6B4423] mt-1">Loads that salesman’s Active stores only. Jackerman and Admin Test Store stay skipped.</p>
+                        </div>
                         <div id="mass-email-individual-box" class="mb-3">
                             <label class="block text-sm font-semibold text-[#6B4423] mb-1">To</label>
                             <textarea id="mass-email-individual-to" rows="3"

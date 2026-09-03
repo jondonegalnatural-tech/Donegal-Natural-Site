@@ -13920,6 +13920,22 @@ function getMassEmailRecipients(audience) {
             return a.email.localeCompare(b.email);
         });
     }
+    if (mode === 'salesman') {
+        const selected = String((document.getElementById('mass-email-salesman') || {}).value || '').toLowerCase().trim();
+        if (!selected) {
+            return [];
+        }
+        (allCustomers || []).forEach(function (c) {
+            if (shouldSkipMassEmailStore(c)) return;
+            if (String(c.status || '') !== 'Active') return;
+            const assigned = String(c.salesmanEmail || '').toLowerCase().trim();
+            if (assigned !== selected) return;
+            addMassEmailRecipient(map, c.email, c.name || c.company || '', c.company || c.name || '');
+        });
+        return Array.from(map.values()).sort(function (a, b) {
+            return a.email.localeCompare(b.email);
+        });
+    }
     if (mode === 'missing_spend') {
         const hasAmount = {};
         (typeof inquiries !== 'undefined' && inquiries ? inquiries : []).forEach(function (row) {
