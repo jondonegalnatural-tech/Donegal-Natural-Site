@@ -6138,7 +6138,7 @@ function showAccountInfo() {
                 <h3 class="font-bold brand-green">
                     ${accounts.length > 1 ? 'Selected Store Details' : 'Store Details'}
                 </h3>
-                <button onclick="openShippingAddressesModal()"
+                <button type="button" id="account-edit-btn"
                         class="px-4 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold text-[#1E4D2B]">
                     Edit
                 </button>
@@ -6201,6 +6201,15 @@ function showAccountInfo() {
     `;
 
     container.innerHTML = html;
+
+    const editBtn = document.getElementById('account-edit-btn');
+    if (editBtn) {
+        editBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            openShippingAddressesModal();
+        });
+    }
 
     // Load resale cert summary asynchronously
     loadAccountResaleSummary();    
@@ -6295,7 +6304,10 @@ async function loadAccountResaleSummary() {
 // ================== MANAGE SHIPPING ADDRESSES ==================
 async function openShippingAddressesModal() {
     const modal = document.getElementById('manage-addresses-modal');
-    if (!modal) return;
+    if (!modal) {
+        alert('Edit form is missing from the page. Hard-refresh and try again.');
+        return;
+    }
 
     modal.querySelectorAll('[data-section]').forEach(el => {
         const section = el.getAttribute('data-section');
@@ -6303,7 +6315,9 @@ async function openShippingAddressesModal() {
     });
     const title = modal.querySelector('h2');
     if (title) title.textContent = 'Edit Account';
-    modal.style.display = 'flex';
+    modal.classList.remove('hidden');
+    modal.style.cssText = 'display:flex;position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);padding:1rem;';
+    document.body.appendChild(modal);
     fillAccountEditFields();
     await loadManageAddressesList();
 }
