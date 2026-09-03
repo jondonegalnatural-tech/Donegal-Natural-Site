@@ -986,7 +986,9 @@ function showSection(section) {
                 await populateReportsSalesmanSelect();
             }
             if (typeof loadMailingListExtras === 'function') await loadMailingListExtras();
-            if (typeof loadEmailLog === 'function') loadEmailLog();
+            if (typeof renderProductPhotoGallery === 'function' && _photoGalleryFamily) {
+                renderProductPhotoGallery();
+            }
             if (typeof loadInquiries === 'function') {
                 loadInquiries().then(function () {
                     if (typeof onMassEmailAudienceChange === 'function') onMassEmailAudienceChange();
@@ -17579,6 +17581,412 @@ async function markSelectedInStock() {
         alert('Could not mark In Stock.\n' + (err.message || ''));
     }
 }
+// ================== PRODUCT PHOTO GALLERY ==================
+const PHOTO_BUCKET = 'product-photos';
+const PHOTO_FAMILIES = [
+    { key: 'green-line', title: 'Green Line Bully Sticks', names: ['6” Thin Green Line Bully Sticks (Bulk)', '12” Thin Green Line Bully Sticks (Bulk)', '6” Regular Green Line Bully Sticks (Bulk)', '12” Regular Green Line Bully Sticks (Bulk)', '6” “Thick” Green Line Bully Sticks (Bulk)', '12” “Thick” Green Line Bully Sticks (Bulk)', '6” “Super Thick” Green Line Bully Sticks (Bulk)', '12” “Super Thick” Green Line Bully Sticks (Bulk)'] },
+    { key: 'bully-canes', title: 'Bully Canes', names: ['24-28” Bully Cane', '32-36” Bully Cane'] },
+    { key: 'braided-bully', title: 'Braided Bully Sticks', names: ['6” Braided Bully Sticks (Bulk)', '12” Braided Bully Sticks (Bulk)', '6” “Super” Braided Bully Sticks (Bulk)', '12” “Super” Braided Bully Sticks (Bulk)'] },
+    { key: 'euro-bully', title: 'Euro Bully Sticks', names: ['6” Euro Bully Stick (Bulk)', '6” Euro Bully Stick (Display)', '12” Euro Bully Stick (Bulk)', '12” Euro Bully Sticks (Display)'] },
+    { key: 'bully-pieces', title: 'Bully Pieces', names: ['8oz. Bag of Bully Pieces', '10oz. Bag of Bully Pieces', '16oz. Bag of Bully Pieces'], kind: 'packaged' },
+    { key: 'beef-jerky', title: 'USA Beef Jerky Treats', names: ['USA Beef Jerky Treats (Bulk)', 'USA Beef Jerky Treats (Display)'] },
+    { key: 'turkey-jerky', title: 'USA Turkey Jerky Treats', names: ['USA Turkey Jerky Treats (Bulk)', 'USA Turkey Jerky Treats (Display)'] },
+    { key: 'chicken-jerky', title: 'USA Chicken Jerky Treats', names: ['USA Chicken Jerky Treats (Bulk)', 'USA Chicken Jerky Treats (Display)'] },
+    { key: 'elky-jerky', title: 'USA Elky Jerky Treats', names: ['USA Elky Jerky Treats (Bulk)', 'USA Elky Jerky Treats (Display)'] },
+    { key: 'venison-jerky', title: 'USA Venison & Sweet Potato Jerky', names: ['USA Venison & Sweet Potato Jerky Treats (Bulk)', 'USA Venison & Sweet Potato Jerky Treats (Display)'] },
+    { key: 'elky-training', title: 'USA Elky Training Treats', names: ['6oz. Bags of USA Elky Training Treats', '10oz. Bags of USA Elky Training Treats', '16oz. Bags of USA Elky Training Treats', 'USA Elky Training Treats (per lb.)'], kind: 'packaged' },
+    { key: 'cow-ears', title: 'Cow Ears', names: ['Natural Cow Ears (Bulk)', 'Vanilla Cow Ears (Bulk)', 'Honey Smoked Cow Ears (Bulk)'] },
+    { key: 'cow-ears-6pack', title: '6-Pack Cow Ears', names: ['6-Pack, Natural Cow Ears', '6-Pack Natural Cow Ears', '6-Pack, Vanilla Cow Ears', '6-Pack Vanilla Cow Ears', '6-Pack, Honey Smoked Cow Ears', '6-Pack Honey Smoked Cow Ears'], linkedFamilyKey: 'cow-ears', kind: 'packaged' },
+    { key: 'buffalo-ears', title: 'Buffalo Ears', names: ['MAGNA Buffalo Ears (Bulk)', 'Honey Smoked MAGNA Buffalo Ears (Bulk)'] },
+    { key: 'lamb-ears', title: 'Lamb Ears', names: ['White Lamb Ears (Bulk)', 'Vanilla Lamb Ears (Bulk)'] },
+    { key: 'hairy-beef-ears', title: 'Hairy Beef Ears', names: ['Hairy Beef Ears (Bulk)', '5-Pack Hairy Beef Ears'] },
+    { key: 'pig-ears', title: 'Pig Ears', names: ['Polish Pig Ears (Bulk)'] },
+    { key: 'rabbit-ears', title: 'Fuzzy Rabbit Ears', names: ['Fuzzy Rabbit Ears (Bulk)', '10-Pack of Fuzzy Rabbit Ears', '10-Pack Fuzzy Rabbit Ears'] },
+    { key: 'rabbit-feet', title: 'Fuzzy Rabbit Feet', names: ['Fuzzy Rabbit Feet (Bulk)', '10-Pack of Fuzzy Rabbit Feet', '10-Pack Fuzzy Rabbit Feet'] },
+    { key: 'natural-rollio', title: 'Natural Rollio', names: ['5-6” Natural Rollio (Bulk)', '10-12” Natural Rollio (Bulk)'] },
+    { key: 'regular-rollio', title: 'Regular Rollio', names: ['5-6” Regular Rollio (Bulk)', '10-12” Regular Rollio (Bulk)'] },
+    { key: 'vanilla-rollio', title: 'Vanilla Rollio', names: ['5-6” Vanilla Rollio (Bulk)', '10-12” Vanilla Rollio (Bulk)'] },
+    { key: 'honey-rollio', title: 'Honey Smoked Rollio', names: ['5-6” Honey Smoked Rollio (Bulk)', '10-12” Honey Smoked Rollio (Bulk)'] },
+    { key: 'phat-rollio', title: 'PHAT Rollio', names: ['5-6” PHAT Rollio (Bulk)', '10-12” PHAT Rollio (Bulk)', '5-6” Vanilla PHAT Rollio (Bulk)', '10-12” Vanilla PHAT Rollio (Bulk)', '5-6” Honey Smoked PHAT Rollio (Bulk)', '10-12” Honey Smoked PHAT Rollio (Bulk)'] },
+    { key: 'pb-rollio', title: 'Peanut Butter Rollio', names: ['5-6” Peanut Butter Rollio (Bulk)', '10-12” Peanut Butter Rollio (Bulk)'] },
+    { key: 'cheek-slabs', title: 'Cow Cheek Slabs', names: ['5-6” Cow Cheek Slab (Bulk per lb.)', '5-6” Vanilla Cow Cheek Slab (Bulk per lb.)', '10-12” Cow Cheek Slab (Bulk per lb.)', '10-12” Vanilla Cow Cheek Slab (Bulk per lb.)', '10-12” Natural Cow Cheek Slabs (Bulk per lb.)'] },
+    { key: 'chunky-bulk', title: 'Chunky Cheeks (Bulk)', names: ['White Chunky Cheeks (Bulk)', 'Vanilla Chunky Cheeks (Bulk)'] },
+    { key: 'chunky-bags', title: 'Chunky Cheeks (Bags)', names: ['8oz. Bags of White Chunky Cheeks', '8oz. Bags of Vanilla Chunky Cheeks', '16oz. Bags of White Chunky Cheeks', '16oz. Bags of Vanilla Chunky Cheeks'], linkedFamilyKey: 'chunky-bulk', kind: 'packaged' },
+    { key: 'pressed-bones', title: 'Pressed Bones', names: ['4.5” Pressed Bone (Bulk)', '6.5” Pressed Bone (Bulk)', '8.5” Pressed Bone (Bulk)', '10.5” Pressed Bone (Bulk)', '12.5” Pressed Bone (Bulk)'] },
+    { key: 'pressed-ring', title: 'Supreme Pressed Ring', names: ['6” Supreme Pressed Ring (Bulk)'] },
+    { key: 'pressed-stick', title: 'Supreme Pressed Stick', names: ['10” x 20mm Supreme Pressed Stick (Bulk)'] },
+    { key: 'buffalo-knuckle', title: 'Buffalo Knuckle', names: ['Small Meaty Buffalo Knuckle'] },
+    { key: 'femur', title: 'Jumbo Meaty Femur', names: ['14-16” Jumbo Meaty Femur Knuckle Bone'] },
+    { key: 'beef-gullet', title: 'Beef Gullet / Esophagus', names: ['Beef Gullet', 'Beef Esophagus', 'Braided Esophagus'] },
+    { key: 'ox-tails', title: 'Ox Tails', names: ['Regular Ox Tails (Bulk)', 'Smoked Ox Tails (Bulk)'] },
+    { key: 'duck-necks', title: 'Duck Necks', names: ['Crunchy Baked Duck Necks (Bulk)', '10-Pack of Crunchy Duck Necks'] },
+    { key: 'duck-heads', title: 'Duck Heads', names: ['Crunchy Baked Duck Heads (Bulk)', '5-Pack of Crunchy Duck Heads', '10-Pack of Duck Heads'] },
+    { key: 'chicken-feet', title: 'Chicken Feet', names: ['Crunchy Euro Chicken Feet (Bulk)', '10-Pack Euro Chicken Feet'] },
+    { key: 'braided-esophagus', title: 'Braided Esophagus', names: ['6” Braided Esophagus (Bulk)', '12” Braided Esophagus (Bulk)', '6” Braided Esophagus (Display)', '12” Braided Esophagus (Display)'] },
+    { key: 'hide-donuts', title: 'USA Hide Braided Donuts', names: ['5-7” Braided USA Hide Donuts (Bulk)', '5-7” Vanilla USA Hide Braided Donuts (Bulk)', '8-9” Braided USA Hide Donuts (Bulk)', '8-9” Vanilla USA Hide Braided Donuts (Bulk)', '10-11” Braided USA Hide Donuts (Bulk)', '10-11” Vanilla USA Hide Braided Donuts (Bulk)'] },
+    { key: 'binkeys', title: 'Binky’s Supreme Chips', names: ['8oz. Bags of White Supreme Chips (Binkey’s)', '8oz. Bags of Peanut Butter Supreme Chips (Binkey’s)', '8oz. Bags of Vanilla Supreme Chips (Binkey’s)', '16oz. Bags of White Supreme Chips (Binkey’s)', '16oz. Bags of Peanut Butter Supreme Chips (Binkey’s)', '16oz. Bags of Vanilla Supreme Chips (Binkey’s)'], linkedFamilyKey: 'supreme-chips-bulk', kind: 'packaged' },
+    { key: 'supreme-chips-bulk', title: 'Supreme Hide Chips (Bulk)', names: ['White USA Supreme Hide Chips (Bulk per lb.)', 'Vanilla USA Supreme Chips (Bulk per lb.)', 'Peanut Butter Basted USA Supreme Hide Chips (Bulk per lb.)'] }
+];
+
+let _photoGalleryImages = [];
+let _photoGalleryFamilyKey = null;
+
+function photoFamilySlug(name) {
+    return String(name || '')
+        .toLowerCase()
+        .replace(/[“”"']/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 48);
+}
+
+function getPhotoFamilies() {
+    const list = PHOTO_FAMILIES.map(function (f) {
+        return Object.assign({}, f);
+    });
+    const covered = {};
+    list.forEach(function (f) {
+        (f.names || []).forEach(function (n) {
+            covered[String(n).toLowerCase()] = true;
+        });
+    });
+    const catalog = (typeof PRODUCT_CATALOG !== 'undefined' && Array.isArray(PRODUCT_CATALOG))
+        ? PRODUCT_CATALOG
+        : [];
+    catalog.forEach(function (p) {
+        const name = String((p && p.name) || '').trim();
+        if (!name || covered[name.toLowerCase()]) return;
+        if (p.active === false) return;
+        list.push({
+            key: photoFamilySlug(name) || ('item-' + list.length),
+            title: name,
+            names: [name]
+        });
+        covered[name.toLowerCase()] = true;
+    });
+    return list;
+}
+
+function getPhotoFamilyByKey(key) {
+    return getPhotoFamilies().find(function (f) {
+        return f.key === key;
+    }) || null;
+}
+
+function photoPublicUrl(path) {
+    if (!path) return '';
+    try {
+        const pub = supabaseClient.storage.from(PHOTO_BUCKET).getPublicUrl(path);
+        return (pub && pub.data && pub.data.publicUrl) || '';
+    } catch (err) {
+        return '';
+    }
+}
+
+function isPackagedPhotoFamily(family) {
+    if (!family) return false;
+    if (family.kind === 'packaged' || family.linkedFamilyKey) return true;
+    const blob = ((family.title || '') + ' ' + (family.names || []).join(' ')).toLowerCase();
+    return /\b(6-pack|10-pack|8oz|10oz|16oz|bag|bags|display)\b/.test(blob) && !/\(bulk\)/.test(blob);
+}
+
+async function loadProductImages() {
+    const { data, error } = await supabaseClient
+        .from('product_images')
+        .select('id, family_key, linked_family_key, scope, variant_name, is_card_hero, sort_order, storage_path, created_at')
+        .order('sort_order', { ascending: true });
+    if (error) throw error;
+    _photoGalleryImages = data || [];
+}
+
+function photosForFamily(familyKey) {
+    return _photoGalleryImages.filter(function (row) {
+        return row.family_key === familyKey;
+    });
+}
+
+function heroForFamily(familyKey) {
+    const rows = photosForFamily(familyKey);
+    return rows.find(function (r) {
+        return r.is_card_hero;
+    }) || rows[0] || null;
+}
+
+async function openProductPhotoGallery() {
+    const modal = document.getElementById('product-photo-gallery-modal');
+    if (!modal) {
+        alert('Photo gallery modal is missing. Paste the HTML from step 2 first.');
+        return;
+    }
+    _photoGalleryFamilyKey = null;
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+    const sub = document.getElementById('photo-gallery-subtitle');
+    if (sub) sub.textContent = 'Loading…';
+    try {
+        await loadProductImages();
+        renderProductPhotoGallery();
+    } catch (err) {
+        console.error(err);
+        if (sub) sub.textContent = 'Could not load photos. ' + (err.message || '');
+    }
+}
+
+function hideProductPhotoGallery() {
+    const modal = document.getElementById('product-photo-gallery-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+    _photoGalleryFamilyKey = null;
+}
+
+function photoGalleryBackToGrid() {
+    _photoGalleryFamilyKey = null;
+    renderProductPhotoGallery();
+}
+
+function onPhotoGalleryScopeChange() {
+    const scopeEl = document.getElementById('photo-gallery-scope');
+    const wrap = document.getElementById('photo-gallery-variant-wrap');
+    if (!wrap) return;
+    wrap.classList.toggle('hidden', !(scopeEl && scopeEl.value === 'variant'));
+}
+
+function renderProductPhotoGallery() {
+    const grid = document.getElementById('photo-gallery-grid');
+    const familyView = document.getElementById('photo-gallery-family-view');
+    const backBtn = document.getElementById('photo-gallery-back');
+    const searchWrap = document.getElementById('photo-gallery-search-wrap');
+    const sub = document.getElementById('photo-gallery-subtitle');
+    if (!grid) return;
+
+    if (_photoGalleryFamilyKey) {
+        if (searchWrap) searchWrap.classList.add('hidden');
+        grid.classList.add('hidden');
+        if (familyView) familyView.classList.remove('hidden');
+        if (backBtn) backBtn.classList.remove('hidden');
+        renderProductPhotoFamilyView();
+        return;
+    }
+
+    if (searchWrap) searchWrap.classList.remove('hidden');
+    grid.classList.remove('hidden');
+    if (familyView) familyView.classList.add('hidden');
+    if (backBtn) backBtn.classList.add('hidden');
+
+    const q = String((document.getElementById('photo-gallery-search') || {}).value || '').toLowerCase().trim();
+    const families = getPhotoFamilies().filter(function (f) {
+        if (!q) return true;
+        const hay = (f.title + ' ' + f.key + ' ' + (f.names || []).join(' ')).toLowerCase();
+        return hay.indexOf(q) !== -1;
+    });
+
+    if (sub) {
+        sub.textContent = families.length + ' families · photos save here first · wholesale cards still use media/';
+    }
+
+    if (!families.length) {
+        grid.innerHTML = '<p class="text-sm text-[#6B4423] col-span-full">No families match that search.</p>';
+        return;
+    }
+
+    grid.innerHTML = families.map(function (f) {
+        const rows = photosForFamily(f.key);
+        const hero = heroForFamily(f.key);
+        const thumb = hero ? photoPublicUrl(hero.storage_path) : '';
+        const packaged = isPackagedPhotoFamily(f);
+        return (
+            '<button type="button" onclick="openPhotoFamily(\'' + String(f.key).replace(/'/g, '') + '\')" ' +
+            'class="text-left bg-[#f8f4eb] border-2 border-[#6B4423] rounded-xl overflow-hidden hover:bg-[#f0e6d9]">' +
+            (thumb
+                ? '<img src="' + escapeHtml(thumb) + '" alt="" class="w-full h-28 object-contain bg-white">'
+                : '<div class="w-full h-28 bg-white flex items-center justify-center text-xs text-[#6B4423]">No photo</div>') +
+            '<div class="p-2">' +
+            '<p class="text-sm font-semibold brand-green">' + escapeHtml(f.title) + '</p>' +
+            '<p class="text-xs text-[#6B4423]">' + rows.length + ' photo' + (rows.length === 1 ? '' : 's') +
+            (packaged ? ' · packaged' : '') + '</p>' +
+            '</div></button>'
+        );
+    }).join('');
+}
+
+function openPhotoFamily(key) {
+    _photoGalleryFamilyKey = key;
+    renderProductPhotoGallery();
+}
+
+function renderProductPhotoFamilyView() {
+    const family = getPhotoFamilyByKey(_photoGalleryFamilyKey);
+    const meta = document.getElementById('photo-gallery-family-meta');
+    const photosEl = document.getElementById('photo-gallery-family-photos');
+    const scopeEl = document.getElementById('photo-gallery-scope');
+    const variantEl = document.getElementById('photo-gallery-variant');
+    const sub = document.getElementById('photo-gallery-subtitle');
+    if (!family || !photosEl) return;
+
+    if (sub) sub.textContent = family.title;
+
+    const rows = photosForFamily(family.key);
+    if (meta) {
+        meta.textContent = (family.names || []).join(' · ') +
+            (family.linkedFamilyKey ? ' · linked bulk family: ' + family.linkedFamilyKey : '');
+    }
+
+    if (scopeEl) {
+        scopeEl.value = isPackagedPhotoFamily(family) ? 'packaged' : 'family';
+        onPhotoGalleryScopeChange();
+    }
+
+    if (variantEl) {
+        variantEl.innerHTML = (family.names || []).map(function (n) {
+            return '<option value="' + escapeHtml(n) + '">' + escapeHtml(n) + '</option>';
+        }).join('');
+    }
+
+    if (!rows.length) {
+        photosEl.innerHTML = '<p class="text-sm text-[#6B4423]">No photos yet. Add the main product shot first.</p>';
+        return;
+    }
+
+    photosEl.innerHTML = rows.map(function (row) {
+        const url = photoPublicUrl(row.storage_path);
+        const label = row.scope === 'variant'
+            ? ('Flavor: ' + (row.variant_name || ''))
+            : (row.scope === 'packaged' ? 'Packaged main' : 'Family / product');
+        return (
+            '<div class="border-2 border-[#6B4423] rounded-xl overflow-hidden bg-white">' +
+            '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener">' +
+            '<img src="' + escapeHtml(url) + '" alt="" class="w-full h-40 object-contain bg-[#f8f4eb]">' +
+            '</a>' +
+            '<div class="p-3">' +
+            '<p class="text-xs font-semibold text-[#6B4423] mb-2">' + escapeHtml(label) +
+            (row.is_card_hero ? ' · Card photo' : '') + '</p>' +
+            '<div class="flex flex-wrap gap-2">' +
+            (row.is_card_hero
+                ? ''
+                : '<button type="button" onclick="setPhotoAsCardHero(\'' + row.id + '\')" class="px-3 py-1.5 text-xs border-2 border-[#6B4423] rounded-lg hover:bg-[#f8f4eb]">Use as card photo</button>') +
+            '<button type="button" onclick="removeProductPhoto(\'' + row.id + '\', \'' + String(row.storage_path || '').replace(/'/g, '') + '\')" class="px-3 py-1.5 text-xs border-2 border-red-600 text-red-700 rounded-lg hover:bg-red-50">Remove</button>' +
+            '</div></div></div>'
+        );
+    }).join('');
+}
+
+async function addProductPhoto() {
+    const family = getPhotoFamilyByKey(_photoGalleryFamilyKey);
+    const fileEl = document.getElementById('photo-gallery-file');
+    const scopeEl = document.getElementById('photo-gallery-scope');
+    const variantEl = document.getElementById('photo-gallery-variant');
+    const btn = document.getElementById('photo-gallery-add-btn');
+    if (!family || !fileEl || !fileEl.files || !fileEl.files[0]) {
+        alert('Choose a photo first.');
+        return;
+    }
+
+    const file = fileEl.files[0];
+    const type = String(file.type || '').toLowerCase();
+    if (['image/jpeg', 'image/png', 'image/webp'].indexOf(type) === -1) {
+        alert('Use a JPG, PNG, or WebP file.');
+        return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+        alert('File is over 5 MB.');
+        return;
+    }
+
+    const scope = (scopeEl && scopeEl.value) || (isPackagedPhotoFamily(family) ? 'packaged' : 'family');
+    const variantName = scope === 'variant' ? String((variantEl && variantEl.value) || '') : null;
+    if (scope === 'variant' && !variantName) {
+        alert('Pick a flavor.');
+        return;
+    }
+
+    const ext = type === 'image/png' ? '.png' : (type === 'image/webp' ? '.webp' : '.jpg');
+    const path = family.key + '/' + (window.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now())) + ext;
+    const existing = photosForFamily(family.key);
+    const makeHero = scope !== 'variant' && !existing.some(function (r) {
+        return r.is_card_hero;
+    });
+
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Uploading…';
+    }
+
+    try {
+        const { error: upErr } = await supabaseClient.storage
+            .from(PHOTO_BUCKET)
+            .upload(path, file, { upsert: false, contentType: file.type, cacheControl: '3600' });
+        if (upErr) throw upErr;
+
+        const { data: sessionData } = await supabaseClient.auth.getSession();
+        const uid = sessionData && sessionData.session && sessionData.session.user && sessionData.session.user.id;
+
+        const { error: insErr } = await supabaseClient.from('product_images').insert({
+            family_key: family.key,
+            linked_family_key: family.linkedFamilyKey || null,
+            scope: scope,
+            variant_name: variantName,
+            is_card_hero: makeHero,
+            sort_order: existing.length,
+            storage_path: path,
+            created_by: uid || null
+        });
+        if (insErr) throw insErr;
+
+        fileEl.value = '';
+        await loadProductImages();
+        renderProductPhotoGallery();
+    } catch (err) {
+        console.error(err);
+        alert('Could not add photo.\n' + (err.message || err));
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Add photo';
+        }
+    }
+}
+
+async function setPhotoAsCardHero(id) {
+    if (!_photoGalleryFamilyKey) return;
+    try {
+        const { error: clearErr } = await supabaseClient
+            .from('product_images')
+            .update({ is_card_hero: false })
+            .eq('family_key', _photoGalleryFamilyKey);
+        if (clearErr) throw clearErr;
+
+        const { error } = await supabaseClient
+            .from('product_images')
+            .update({ is_card_hero: true })
+            .eq('id', id);
+        if (error) throw error;
+
+        await loadProductImages();
+        renderProductPhotoGallery();
+    } catch (err) {
+        console.error(err);
+        alert('Could not set card photo.\n' + (err.message || err));
+    }
+}
+
+async function removeProductPhoto(id, path) {
+    if (!confirm('Remove this photo?')) return;
+    try {
+        if (path) {
+            await supabaseClient.storage.from(PHOTO_BUCKET).remove([path]);
+        }
+        const { error } = await supabaseClient.from('product_images').delete().eq('id', id);
+        if (error) throw error;
+        await loadProductImages();
+        renderProductPhotoGallery();
+    } catch (err) {
+        console.error(err);
+        alert('Could not remove photo.\n' + (err.message || err));
+    }
+}
+// ================== END PRODUCT PHOTO GALLERY ==================
+
 // ================== END COMPANY BASE PRICE SHEET ==================
 
 // ================== FINAL NOTE ==================
