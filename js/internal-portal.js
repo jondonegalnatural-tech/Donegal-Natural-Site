@@ -986,7 +986,7 @@ function showSection(section) {
                 await populateReportsSalesmanSelect();
             }
             if (typeof loadMailingListExtras === 'function') await loadMailingListExtras();
-            if (typeof renderProductPhotoGallery === 'function' && _photoGalleryFamily) {
+            if (typeof renderProductPhotoGallery === 'function' && typeof _photoGalleryFamilyKey !== 'undefined' && _photoGalleryFamilyKey) {
                 renderProductPhotoGallery();
             }
             if (typeof loadInquiries === 'function') {
@@ -14374,6 +14374,10 @@ async function sendMassCustomerEmail() {
     try {
         attachment = await readMassEmailAttachment();
     } catch (err) {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Send email';
+        }
         alert(err.message || 'Could not read the attachment.');
         return;
     }
@@ -14387,9 +14391,11 @@ async function sendMassCustomerEmail() {
         text: text
     };
     if (attachment) payload.attachments = [attachment];
+    const preview = text + (attachment ? ('\n[attachment: ' + attachment.filename + ']') : '');
 
     let sent = 0;
     let failed = 0;
+    let lastErr = '';
 
     for (let i = 0; i < list.length; i++) {
         const rec = list[i];
@@ -14412,23 +14418,23 @@ async function sendMassCustomerEmail() {
             sent += 1;
             await logPortalEmail({
                 email_type: 'mass',
-                status: 'failed',
+                status: 'sent',
                 to_email: rec.email,
                 to_name: rec.name,
                 subject: subject.trim(),
-                body_preview: text + (attachment ? ('\n[attachment: ' + attachment.filename + ']') : ''),
-                store_names: rec.stores.join(' | '),
-                error: err.message || String(err)
+                body_preview: preview,
+                store_names: rec.stores.join(' | ')
             });
         } catch (err) {
             failed += 1;
+            lastErr = err.message || String(err);
             await logPortalEmail({
                 email_type: 'mass',
                 status: 'failed',
                 to_email: rec.email,
                 to_name: rec.name,
                 subject: subject.trim(),
-                body_preview: text,
+                body_preview: preview,
                 store_names: rec.stores.join(' | '),
                 error: err.message || String(err)
             });
@@ -14444,7 +14450,7 @@ async function sendMassCustomerEmail() {
         progress.textContent = 'Done. Sent ' + sent + ', failed ' + failed + '.';
     }
     await loadEmailLog();
-    alert('Mass email finished.\nSent: ' + sent + '\nFailed: ' + failed);
+    alert('Mass email finished.\nSent: ' + sent + '\nFailed: ' + failed + (lastErr ? ('\n\nLast error:\n' + lastErr) : ''));
 }
 
 function isJonathanAdmin() {
