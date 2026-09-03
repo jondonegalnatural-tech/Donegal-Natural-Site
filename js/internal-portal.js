@@ -8910,7 +8910,6 @@ async function exportOpenSalesmanPriceSheetPdf() {
     const packed = groupSalesmanSheetRowsByCategory(rows);
     const title = sheet.title || 'Salesman Price Sheet';
     const stamp = new Date().toLocaleDateString();
-    const logo = await loadSheetLogoDataUrl();
     const doc = new jsPdfCtor({ unit: 'pt', format: 'letter', compress: true });
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -8922,10 +8921,7 @@ async function exportOpenSalesmanPriceSheetPdf() {
     function drawPageChrome() {
         doc.setFillColor(green[0], green[1], green[2]);
         doc.rect(0, 0, pageWidth, 78, 'F');
-        if (logo) {
-            try { doc.addImage(logo, 'JPEG', 28, 14, 50, 50, 'dnLogo', 'FAST'); } catch (e) {}
-        }
-        const left = logo ? 90 : 28;
+        const left = 28;
         doc.setTextColor(gold[0], gold[1], gold[2]);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(16);
