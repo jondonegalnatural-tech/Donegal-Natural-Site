@@ -14257,6 +14257,50 @@ async function loadEmailLog() {
     }
 }
 
+const MASS_EMAIL_ATTACH_MAX = 6 * 1024 * 1024;
+const MASS_EMAIL_ATTACH_TYPES = {
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'xls': 'application/vnd.ms-excel',
+    'pdf': 'application/pdf',
+    'csv': 'text/csv',
+    'txt': 'text/plain',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+};
+
+function readMassEmailAttachment() {
+    return new Promise(function (resolve, reject) {
+        const input = document.getElementById('mass-email-attachment');
+        if (!input || !input.files || !input.files[0]) {
+            resolve(null);
+            return;
+        }
+        const file = input.files[0];
+        const ext = String(file.name || '').split('.').pop().toLowerCase();
+        if (!MASS_EMAIL_ATTACH_TYPES[ext]) {
+            reject(new Error('Use PDF, Excel, Word, CSV, or a text file.'));
+            return;
+        }
+        if (file.size > MASS_EMAIL_ATTACH_MAX) {
+            reject(new Error('Attachment is over 6 MB. Export a smaller Excel or PDF.'));
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = function () {
+            const result = String(reader.result || '');
+            const comma = result.indexOf(',');
+            resolve({
+                filename: file.name,
+                contentType: file.type || MASS_EMAIL_ATTACH_TYPES[ext],
+                content: comma >= 0 ? result.slice(comma + 1) : result
+            });
+        };
+        reader.onerror = function () {
+            reject(new Error('Could not read the attachment.'));
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
 async function sendMassCustomerEmail() {
     const subject = (document.getElementById('mass-email-subject') || {}).value || '';
     const message = (document.getElementById('mass-email-body') || {}).value || '';
@@ -14272,7 +14316,9 @@ async function sendMassCustomerEmail() {
         alert('Check at least one email.');
         return;
     }
-    if (!confirm('Send this email to ' + list.length + ' address(es)?')) return;
+    const attachInput = document.getElementById('mass-email-attachment');
+    const attachName = attachInput && attachInput.files && attachInput.files[0] ? attachInput.files[0].name : '';
+    if (!confirm('Send this email to ' + list.length + ' address(es)' + (attachName ? (' with ' + attachName + ' attached') : '') + '?')) return;
     if (!confirm('Last check: this will email customers now. Continue?')) return;
 
     if (btn) {
@@ -14280,13 +14326,30 @@ async function sendMassCustomerEmail() {
         btn.textContent = 'Sending…';
     }
 
+    let attachment = null;
+    try {
+        attachment = await readMassEmailAttachment();
+    } catch (err) {
+        alert(err.message || 'Could not read the attachment.');
+        return;
+    }
+
     const html = buildMassEmailHtml(message);
     const text = message.trim();
+    const payload = {
+        to: '',
+        subject: subject.trim(),
+        html: html,
+        text: text
+    };
+    if (attachment) payload.attachments = [attachment];
+
     let sent = 0;
     let failed = 0;
 
     for (let i = 0; i < list.length; i++) {
         const rec = list[i];
+        payload.to = rec.email;
         if (progress) {
             progress.textContent = 'Sending ' + (i + 1) + ' of ' + list.length + ' — ' + rec.email;
         }
@@ -14294,12 +14357,7 @@ async function sendMassCustomerEmail() {
             const fnRes = await fetch(SUPABASE_URL + '/functions/v1/send-customer-email', {
                 method: 'POST',
                 headers: await getEdgeFunctionHeaders(),
-                body: JSON.stringify({
-                    to: rec.email,
-                    subject: subject.trim(),
-                    html: html,
-                    text: text
-                })
+                body: JSON.stringify(payload)
             });
             const fnText = await fnRes.text();
             let fnData = null;
@@ -14310,12 +14368,13 @@ async function sendMassCustomerEmail() {
             sent += 1;
             await logPortalEmail({
                 email_type: 'mass',
-                status: 'sent',
+                status: 'failed',
                 to_email: rec.email,
                 to_name: rec.name,
                 subject: subject.trim(),
-                body_preview: text,
-                store_names: rec.stores.join(' | ')
+                body_preview: text + (attachment ? ('\n[attachment: ' + attachment.filename + ']') : ''),
+                store_names: rec.stores.join(' | '),
+                error: err.message || String(err)
             });
         } catch (err) {
             failed += 1;

@@ -1436,6 +1436,11 @@ body { background: #f8f1e9; }
                         <textarea id="mass-email-body" rows="7"
                                   class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm w-full mb-3"
                                   placeholder="Write the email in plain text. Line breaks are kept."></textarea>
+                        <label class="block text-sm font-semibold text-[#6B4423] mb-1">Attachment (optional)</label>
+                        <input id="mass-email-attachment" type="file"
+                               accept=".xlsx,.xls,.pdf,.csv,.txt,.docx"
+                               class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm w-full mb-1">
+                        <p id="mass-email-attachment-label" class="text-xs text-[#6B4423] mb-3">PDF, Excel, Word, CSV, or text. Max 6 MB. Same file goes to every selected address.</p>
                         <div class="flex flex-wrap gap-3">
                             <button type="button" onclick="previewMassEmailRecipients()"
                                     class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
