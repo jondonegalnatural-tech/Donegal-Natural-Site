@@ -8427,10 +8427,12 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
             price: price,
             priceAsOf: catalog ? (catalog.priceAsOf || '—') : '—'
         };
-        if (catalog) {
-            const cat = priceSheetDisplayCategory(name, catalog) || 'Other';
-            if (!grouped[cat]) grouped[cat] = [];
-            grouped[cat].push(row);
+        const cats = priceSheetDisplayCategories(name, catalog);
+        if (cats.length) {
+            cats.forEach(function (cat) {
+                if (!grouped[cat]) grouped[cat] = [];
+                grouped[cat].push(row);
+            });
         } else {
             unmatched.push(row);
         }
@@ -8666,8 +8668,37 @@ function salesmanSheetFileSlug(name) {
     return slug || 'Salesman';
 }
 
+function priceSheetDisplayCategories(name, catalog) {
+    const n = String(name || '').toLowerCase();
+    const base = (catalog && catalog.category) ? String(catalog.category) : '';
+    const cats = [];
+    function add(cat) {
+        if (!cat) return;
+        if (cats.indexOf(cat) === -1) cats.push(cat);
+    }
+    const isRabbit = /rabbit|bunny/i.test(n);
+    const isPack = /\d+-pack|\bpack\b|packaged/i.test(n) || /packaged/i.test(base);
+    if (isRabbit && isPack) {
+        add('Rabbit');
+        add(base && /pack/i.test(base) ? base : 'Packaged Items');
+    } else if (isRabbit && /ear/i.test(n)) {
+        add('Ears');
+        add('Rabbit');
+    } else if (isRabbit && /feet|foot/i.test(n)) {
+        add('Feet');
+        add('Rabbit');
+    } else if (isRabbit) {
+        add('Rabbit');
+        add(base);
+    } else {
+        add(base);
+    }
+    return cats;
+}
+
 function priceSheetDisplayCategory(name, catalog) {
-    if (/rabbit/i.test(String(name || ''))) return 'Rabbit';
+    const cats = priceSheetDisplayCategories(name, catalog);
+    if (cats.length) return cats[0];
     return (catalog && catalog.category) ? catalog.category : '';
 }
 
@@ -8679,19 +8710,25 @@ function buildSalesmanSheetExportRows(prices) {
             if (p && p.name) catalogByName[p.name] = p;
         });
     }
-    return Object.keys(source).sort().map(function (name) {
+    const rows = [];
+    Object.keys(source).sort().forEach(function (name) {
         const catalog = catalogByName[name] || {};
         const raw = source[name];
         const n = Number(raw);
-        return {
-            Category: priceSheetDisplayCategory(name, catalog) || catalog.category || '',
-            'Sub Category': catalog.subCategory || '',
-            Product: name,
-            'Case Size': catalog.caseSize || '',
-            'Unit Price': isNaN(n) ? '' : n,
-            'Market Price': catalog.isMarketPrice ? 'Yes' : 'No'
-        };
+        const cats = priceSheetDisplayCategories(name, catalog);
+        const list = cats.length ? cats : [catalog.category || ''];
+        list.forEach(function (cat) {
+            rows.push({
+                Category: cat,
+                'Sub Category': catalog.subCategory || '',
+                Product: name,
+                'Case Size': catalog.caseSize || '',
+                'Unit Price': isNaN(n) ? '' : n,
+                'Market Price': catalog.isMarketPrice ? 'Yes' : 'No'
+            });
+        });
     });
+    return rows;
 }
 
 function printOpenSalesmanPriceSheet() {
