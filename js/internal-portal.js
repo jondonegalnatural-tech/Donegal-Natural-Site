@@ -8428,7 +8428,7 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
             priceAsOf: catalog ? (catalog.priceAsOf || '—') : '—'
         };
         if (catalog) {
-            const cat = catalog.category || 'Other';
+            const cat = priceSheetDisplayCategory(name, catalog) || 'Other';
             if (!grouped[cat]) grouped[cat] = [];
             grouped[cat].push(row);
         } else {
@@ -8666,6 +8666,11 @@ function salesmanSheetFileSlug(name) {
     return slug || 'Salesman';
 }
 
+function priceSheetDisplayCategory(name, catalog) {
+    if (/rabbit/i.test(String(name || ''))) return 'Rabbit';
+    return (catalog && catalog.category) ? catalog.category : '';
+}
+
 function buildSalesmanSheetExportRows(prices) {
     const source = (prices && typeof prices === 'object') ? prices : {};
     const catalogByName = {};
@@ -8679,7 +8684,7 @@ function buildSalesmanSheetExportRows(prices) {
         const raw = source[name];
         const n = Number(raw);
         return {
-            Category: catalog.category || '',
+            Category: priceSheetDisplayCategory(name, catalog) || catalog.category || '',
             'Sub Category': catalog.subCategory || '',
             Product: name,
             'Case Size': catalog.caseSize || '',
@@ -8739,7 +8744,7 @@ function printOpenSalesmanPriceSheet() {
         '<div class="title">' + escapeHtml(title.toUpperCase()) + '<div class="meta">Printed: ' + escapeHtml(today) + '</div>' +
         '<div class="meta">' + rows.length + ' products</div></div></div><hr>' + body +
         '<div class="footer">Donegal Natural Dog Treats — ' + escapeHtml(title) + '</div></body></html>';
-    const win = window.open('', '_blank');
+    const win = window.open('', '_blank', 'noopener,width=1100,height=900');
     if (!win) {
         alert('Please allow pop-ups to print the price sheet.');
         return;
@@ -8762,6 +8767,19 @@ function exportOpenSalesmanPriceSheetExcel() {
     }
     const rows = buildSalesmanSheetExportRows(sheet.prices);
     const ws = XLSX.utils.json_to_sheet(rows);
+    const colWidths = [
+        { wch: 18 },
+        { wch: 22 },
+        { wch: 56 },
+        { wch: 16 },
+        { wch: 12 },
+        { wch: 14 }
+    ];
+    rows.forEach(function (row) {
+        const productLen = String(row.Product || '').length + 2;
+        if (productLen > colWidths[2].wch) colWidths[2].wch = Math.min(productLen, 72);
+    });
+    ws['!cols'] = colWidths;
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Price Sheet');
     const stamp = new Date().toISOString().slice(0, 10);
