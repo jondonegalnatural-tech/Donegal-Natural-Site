@@ -14087,15 +14087,43 @@ function parseIndividualMassEmails() {
     });
 }
 
+function populateMassEmailSalesmanSelect() {
+    const select = document.getElementById('mass-email-salesman');
+    if (!select) return;
+    const active = (salesmen || []).filter(function (s) {
+        return s.active !== false && (s.email || '').trim();
+    });
+    const current = select.value;
+    select.innerHTML = '<option value="">— Choose a salesman —</option>' +
+        active.map(function (s) {
+            const name = s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || s.email;
+            const email = (s.email || '').toLowerCase().trim();
+            return '<option value="' + escapeHtml(email) + '">' + escapeHtml(name) + '</option>';
+        }).join('');
+    if (current && Array.from(select.options).some(function (o) { return o.value === current; })) {
+        select.value = current;
+    }
+}
+
+function onMassEmailSalesmanChange() {
+    renderMassEmailRecipientChecks(getMassEmailRecipients());
+    updateMassEmailRecipientCount();
+}
+
 function onMassEmailAudienceChange() {
     const mode = (document.getElementById('mass-email-audience') || {}).value || 'individual';
     const individualBox = document.getElementById('mass-email-individual-box');
     const extrasBox = document.getElementById('mass-email-extras-box');
     const listBox = document.getElementById('mass-email-list-box');
-    const isList = mode === 'active' || mode === 'all' || mode === 'missing_spend';
+    const salesmanBox = document.getElementById('mass-email-salesman-box');
+    const isList = mode === 'active' || mode === 'all' || mode === 'missing_spend' || mode === 'salesman';
     if (individualBox) individualBox.classList.toggle('hidden', isList);
     if (extrasBox) extrasBox.classList.toggle('hidden', mode !== 'active' && mode !== 'all');
+    if (salesmanBox) salesmanBox.classList.toggle('hidden', mode !== 'salesman');
     if (listBox) listBox.classList.toggle('hidden', !isList);
+    if (mode === 'salesman' && typeof populateMassEmailSalesmanSelect === 'function') {
+        populateMassEmailSalesmanSelect();
+    }
     if (isList) renderMassEmailRecipientChecks(getMassEmailRecipients());
     const btn = document.getElementById('mass-email-send-btn');
     if (btn && !btn.disabled) btn.textContent = isList ? 'Send mass email' : 'Send email';
@@ -14126,7 +14154,7 @@ function updateMassEmailRecipientCount() {
     const el = document.getElementById('mass-email-count');
     const mode = (document.getElementById('mass-email-audience') || {}).value || 'individual';
     const list = getMassEmailRecipients();
-    if (mode === 'active' || mode === 'all' || mode === 'missing_spend') {
+    if (mode === 'active' || mode === 'all' || mode === 'missing_spend' || mode === 'salesman') {
         const box = document.getElementById('mass-email-recipient-list');
         const hasChecks = box && box.querySelectorAll('.mass-email-check').length;
         if (!hasChecks) renderMassEmailRecipientChecks(list);
@@ -14410,7 +14438,7 @@ async function sendMassCustomerEmail() {
     if (btn) {
         btn.disabled = false;
         const mode = (document.getElementById('mass-email-audience') || {}).value || 'individual';
-        btn.textContent = (mode === 'active' || mode === 'all') ? 'Send mass email' : 'Send email';
+        btn.textContent = (mode === 'active' || mode === 'all' || mode === 'salesman') ? 'Send mass email' : 'Send email';
     }
     if (progress) {
         progress.textContent = 'Done. Sent ' + sent + ', failed ' + failed + '.';
