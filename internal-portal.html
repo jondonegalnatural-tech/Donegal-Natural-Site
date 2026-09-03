@@ -149,6 +149,8 @@ body { background: #f8f1e9; }
 </style>
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA3w15On3HstCQaS_XfKNXbO0I0ipHsQCg&loading=async" async defer></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body class="min-h-screen">
@@ -3652,9 +3654,9 @@ body { background: #f8f1e9; }
                     class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
                 Print
             </button>
-            <button type="button" id="sps-export-btn" onclick="exportOpenSalesmanPriceSheetExcel()"
+            <button type="button" id="sps-export-btn" onclick="exportOpenSalesmanPriceSheetPdf()"
                     class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
-                Export Excel
+                Export PDF
             </button>
             <button type="button" id="sps-edit-btn" onclick="toggleSalesmanPriceSheetEdit()"
                     class="hidden px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">

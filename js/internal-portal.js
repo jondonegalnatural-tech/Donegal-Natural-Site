@@ -8872,6 +8872,139 @@ function exportOpenSalesmanPriceSheetExcel() {
     XLSX.writeFile(wb, salesmanSheetFileSlug(title) + '_Price_Sheet_' + stamp + '.xlsx');
 }
 
+function loadSheetLogoDataUrl() {
+    return new Promise(function (resolve) {
+        const img = new Image();
+        img.onload = function () {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth || img.width;
+                canvas.height = img.naturalHeight || img.height;
+                canvas.getContext('2d').drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/png'));
+            } catch (e) {
+                resolve('');
+            }
+        };
+        img.onerror = function () { resolve(''); };
+        img.src = 'media/logo.png';
+    });
+}
+
+async function exportOpenSalesmanPriceSheetPdf() {
+    const sheet = getOpenSalesmanSheetForExport();
+    if (!sheet || !sheet.prices || !Object.keys(sheet.prices).length) {
+        alert('No price sheet is loaded.');
+        return;
+    }
+    const jsPdfCtor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : window.jsPDF;
+    if (!jsPdfCtor) {
+        alert('PDF library not loaded. Hard-refresh and try again.');
+        return;
+    }
+    const rows = buildSalesmanSheetExportRows(sheet.prices);
+    const packed = groupSalesmanSheetRowsByCategory(rows);
+    const title = sheet.title || 'Salesman Price Sheet';
+    const stamp = new Date().toLocaleDateString();
+    const logo = await loadSheetLogoDataUrl();
+    const doc = new jsPdfCtor({ unit: 'pt', format: 'letter' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const green = [30, 77, 43];
+    const gold = [212, 183, 143];
+    const cream = [248, 244, 235];
+    const brown = [107, 68, 35];
+
+    function drawPageChrome() {
+        doc.setFillColor(green[0], green[1], green[2]);
+        doc.rect(0, 0, pageWidth, 78, 'F');
+        if (logo) {
+            try { doc.addImage(logo, 'PNG', 28, 14, 50, 50); } catch (e) {}
+        }
+        const left = logo ? 90 : 28;
+        doc.setTextColor(gold[0], gold[1], gold[2]);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text('Donegal Natural Dog Treats', left, 32);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text('258 W Front St  ·  Marietta, PA 17547  ·  (800) 223-0017', left, 48);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.text(String(title).toUpperCase(), pageWidth - 28, 32, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text('As of ' + stamp, pageWidth - 28, 48, { align: 'right' });
+        doc.setFillColor(gold[0], gold[1], gold[2]);
+        doc.rect(0, 78, pageWidth, 6, 'F');
+        doc.setFillColor(green[0], green[1], green[2]);
+        doc.rect(0, pageHeight - 32, pageWidth, 32, 'F');
+        doc.setTextColor(gold[0], gold[1], gold[2]);
+        doc.setFontSize(8);
+        doc.text(
+            'Donegal Natural Dog Treats  ·  ' + title + '  ·  Page ' + doc.internal.getCurrentPageInfo().pageNumber,
+            pageWidth / 2,
+            pageHeight - 14,
+            { align: 'center' }
+        );
+    }
+
+    drawPageChrome();
+    let cursorY = 100;
+    packed.categories.forEach(function (cat) {
+        const body = packed.grouped[cat].map(function (row) {
+            const price = row['Unit Price'] === '' ? '—' : ('$' + Number(row['Unit Price']).toFixed(2));
+            const market = row['Market Price'] === 'Yes' ? ' (Market)' : '';
+            return [String(row.Product || '') + market, String(row['Case Size'] || '—'), price];
+        });
+        if (cursorY > pageHeight - 120) {
+            doc.addPage();
+            drawPageChrome();
+            cursorY = 100;
+        }
+        doc.setFillColor(green[0], green[1], green[2]);
+        doc.roundedRect(28, cursorY, pageWidth - 56, 22, 3, 3, 'F');
+        doc.setTextColor(gold[0], gold[1], gold[2]);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text(String(cat), 40, cursorY + 15);
+        cursorY += 26;
+        doc.autoTable({
+            startY: cursorY,
+            head: [['Product', 'Case Size', 'Unit Price']],
+            body: body,
+            theme: 'grid',
+            styles: {
+                font: 'helvetica',
+                fontSize: 9,
+                textColor: [40, 28, 16],
+                lineColor: [212, 183, 143],
+                lineWidth: 0.4,
+                cellPadding: 5
+            },
+            headStyles: {
+                fillColor: brown,
+                textColor: gold,
+                fontStyle: 'bold'
+            },
+            alternateRowStyles: { fillColor: cream },
+            columnStyles: {
+                0: { cellWidth: 340 },
+                1: { cellWidth: 90 },
+                2: { cellWidth: 86, halign: 'right', fontStyle: 'bold', textColor: green }
+            },
+            margin: { left: 28, right: 28, top: 100, bottom: 44 },
+            didDrawPage: function () {
+                drawPageChrome();
+            }
+        });
+        cursorY = doc.lastAutoTable.finalY + 16;
+    });
+
+    const fileStamp = new Date().toISOString().slice(0, 10);
+    doc.save(salesmanSheetFileSlug(title) + '_Price_Sheet_' + fileStamp + '.pdf');
+}
+
 async function saveSalesmanPriceSheetAndPush() {
     if (!window._spsSheet || !window._spsSheet.id || !window._spsSheet.email) {
         alert('No salesman sheet is loaded.');
