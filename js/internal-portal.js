@@ -18516,6 +18516,11 @@ function getPhotoFamilies() {
     categories.forEach(function (category) {
         const subs = PHOTO_GALLERY_TREE[category] || {};
         Object.keys(subs).forEach(function (sub) {
+            if ((category === 'Ears' && sub === 'Packaged Ears') ||
+                (category === 'Feet' && sub === 'Packaged Feet') ||
+                (category === 'Duck and Goose' && sub === 'Packaged Duck and Goose')) {
+                return;
+            }
             const rawNames = subs[sub] || [];
             const names = [];
             const seen = {};
