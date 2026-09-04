@@ -169,6 +169,7 @@ function switchActiveCustomer(customerId) {
     if (typeof renderPortalProducts === 'function') renderPortalProducts();
     if (typeof displayWelcome === 'function') displayWelcome();
     if (typeof updateQuoteSidebar === 'function') updateQuoteSidebar();
+    if (typeof schedulePersistOpenQuote === 'function') schedulePersistOpenQuote();
 
     // If this store still needs onboarding, show the modal
     if (!next.onboarding_complete) {
@@ -4684,6 +4685,80 @@ function closeAddToQuoteModal() {
     if (modal) modal.remove();
 }
 
+let _openQuoteSaveTimer = null;
+
+function buildOpenQuoteItems() {
+    return (quoteItems || []).map(function (item) {
+        const isMarket = !!(item.isMarketPrice || String(item.price || '').toLowerCase().includes('market'));
+        const numericPrice = parseFloat(String(item.price || '').replace(/[^0-9.]/g, '')) || 0;
+        return {
+            product: item.name,
+            quantity: item.quantity || 1,
+            caseSize: item.cs || "",
+            unitPrice: numericPrice || null,
+            displayPrice: item.price || "",
+            isMarketPrice: isMarket
+        };
+    });
+}
+
+function openQuoteEstimatedSubtotal(items) {
+    let total = 0;
+    (items || []).forEach(function (item) {
+        if (item.isMarketPrice) return;
+        const price = parseFloat(item.unitPrice) || 0;
+        const qty = parseInt(item.quantity, 10) || 0;
+        total += price * qty;
+    });
+    return total;
+}
+
+function schedulePersistOpenQuote() {
+    if (_openQuoteSaveTimer) clearTimeout(_openQuoteSaveTimer);
+    _openQuoteSaveTimer = setTimeout(function () {
+        _openQuoteSaveTimer = null;
+        persistOpenQuoteNow();
+    }, 1000);
+}
+
+async function persistOpenQuoteNow() {
+    try {
+        if (typeof supabaseClient === 'undefined' || !supabaseClient) return;
+        const customer = window._currentCustomer;
+        if (!customer || !customer.id) return;
+        if (_openQuoteSaveTimer) {
+            clearTimeout(_openQuoteSaveTimer);
+            _openQuoteSaveTimer = null;
+        }
+        if (!quoteItems || quoteItems.length === 0) {
+            const { error } = await supabaseClient
+                .from('customer_open_quotes')
+                .delete()
+                .eq('customer_id', customer.id);
+            if (error) console.warn('persistOpenQuoteNow delete:', error.message);
+            return;
+        }
+        const items = buildOpenQuoteItems();
+        const { error } = await supabaseClient
+            .from('customer_open_quotes')
+            .upsert({
+                customer_id: customer.id,
+                customer_email: (customer.email || '').toLowerCase().trim() || null,
+                customer_name: customer.name || null,
+                customer_company: customer.company || null,
+                salesman_email: customer.salesman_email || null,
+                items: items,
+                item_count: items.length,
+                estimated_subtotal: openQuoteEstimatedSubtotal(items),
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'customer_id' });
+        if (error) console.warn('persistOpenQuoteNow upsert:', error.message);
+    } catch (err) {
+        console.warn('persistOpenQuoteNow:', err && err.message ? err.message : err);
+    }
+}
+
+
 function addToQuoteFromModal() {
     const pending = window._pendingQuoteItem;
     if (!pending) {
@@ -4703,6 +4778,7 @@ function addToQuoteFromModal() {
 
     localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
     updateQuoteSidebar();
+    if (typeof schedulePersistOpenQuote === 'function') schedulePersistOpenQuote();
     closeAddToQuoteModal();
     window._pendingQuoteItem = null;
 }
@@ -4724,6 +4800,7 @@ function addToQuote(name, price, cs, quantity) {
 
     localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
     updateQuoteSidebar();
+    if (typeof schedulePersistOpenQuote === 'function') schedulePersistOpenQuote();
     closeAddToQuoteModal();
 }
 
@@ -4914,6 +4991,7 @@ function removeFromQuote(index) {
     quoteItems.splice(index, 1);
     localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
     updateQuoteSidebar();
+    if (typeof schedulePersistOpenQuote === 'function') schedulePersistOpenQuote();
 }
 
 function clearQuote() {
@@ -4921,6 +4999,7 @@ function clearQuote() {
         quoteItems = [];
         localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
         updateQuoteSidebar();
+        if (typeof persistOpenQuoteNow === 'function') persistOpenQuoteNow();
     }
 }
 
@@ -5174,6 +5253,7 @@ async function submitQuote() {
         quoteItems = [];
         localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
         updateQuoteSidebar();
+        if (typeof persistOpenQuoteNow === 'function') persistOpenQuoteNow();
 
         // Phase 1: open pro forma immediately with the new order
         const newOrder = {
@@ -7250,6 +7330,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderPortalProducts();
     if (typeof updateShippingPolicyCard === 'function') updateShippingPolicyCard();
     updateQuoteSidebar();
+    if (typeof schedulePersistOpenQuote === 'function') schedulePersistOpenQuote();
     setupSearch();
     displayWelcome();
         // Shipping address confirmation (shows until customer confirms)
