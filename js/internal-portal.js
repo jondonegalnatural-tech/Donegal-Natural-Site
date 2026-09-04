@@ -18325,8 +18325,14 @@ function getPhotoFamilies() {
         if (!p || p.active === false) return;
         const name = String(p.name || '').trim();
         if (!name) return;
-        const category = String(p.category || p.category_name || 'Other').trim() || 'Other';
-        const sub = String(p.subCategory || p.sub_category || '').trim();
+        let category = String(p.category || p.category_name || 'Other').trim() || 'Other';
+        let sub = String(p.subCategory || p.sub_category || '').trim();
+        const packedName = /\b(5-pack|6-pack|10-pack|8oz|10oz|16oz|bag|bags|display)\b/i.test(name) &&
+            !/\(bulk\)/i.test(name);
+        if (packedName || /packaged/i.test(category)) {
+            if (!sub) sub = category;
+            category = 'Packaged Items';
+        }
         const bucketKey = category + '\0' + (sub || category);
         if (!buckets[bucketKey]) {
             buckets[bucketKey] = {
@@ -18462,6 +18468,59 @@ function productHasComingSoon(familyKey, productName) {
             photoNameKey(row.variant_name) === needle;
     });
 }
+
+async function setAllPackagedComingSoon(enabled) {
+    const families = getPhotoFamilies().filter(function (f) {
+        return f.category === 'Packaged Items' || isPackagedPhotoFamily(f);
+    });
+    if (!families.length) {
+        alert('No packaged items found.');
+        return;
+    }
+    if (enabled && !confirm('Mark every packaged item as Photograph Coming Soon?')) return;
+    if (!enabled && !confirm('Clear Photograph Coming Soon on every packaged item?')) return;
+    try {
+        for (let i = 0; i < families.length; i++) {
+            const family = families[i];
+            const names = family.names || [];
+            for (let n = 0; n < names.length; n++) {
+                const already = productHasComingSoon(family.key, names[n]);
+                if (enabled && already) continue;
+                if (!enabled && !already) continue;
+                if (enabled) {
+                    const { error } = await supabaseClient.from('product_images').insert({
+                        family_key: family.key,
+                        scope: 'variant',
+                        variant_name: names[n],
+                        storage_path: comingSoonStoragePath(family.key, names[n]),
+                        is_card_hero: false,
+                        sort_order: 999
+                    });
+                    if (error) throw error;
+                } else {
+                    const flags = photosForFamily(family.key).filter(function (row) {
+                        return (row.scope === 'coming_soon' || isComingSoonPath(row.storage_path)) &&
+                            photoNameKey(row.variant_name) === photoNameKey(names[n]);
+                    });
+                    for (let f = 0; f < flags.length; f++) {
+                        const { error } = await supabaseClient.from('product_images').delete().eq('id', flags[f].id);
+                        if (error) throw error;
+                    }
+                }
+            }
+        }
+        await loadProductImages();
+        renderProductPhotoGallery();
+    } catch (err) {
+        console.error(err);
+        alert('Could not update packaged coming soon.\n' + (err.message || err));
+        try {
+            await loadProductImages();
+            renderProductPhotoGallery();
+        } catch (e) {}
+    }
+}
+
 
 async function toggleProductComingSoon(familyKey, productName, enabled) {
     const key = familyKey || _photoGalleryFamilyKey;
@@ -18623,7 +18682,13 @@ function renderProductPhotoGallery() {
         return hay.indexOf(q) !== -1;
     });
     if (sub) sub.textContent = _photoGalleryCategory + ' · choose a subcategory';
-    grid.innerHTML = subs.map(function (f) {
+    const packagedBtns = (_photoGalleryCategory === 'Packaged Items')
+        ? '<div class="col-span-full flex flex-wrap gap-2 mb-2">' +
+            '<button type="button" onclick="setAllPackagedComingSoon(true)" class="px-3 py-2 text-sm bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl">Mark all packaged coming soon</button>' +
+            '<button type="button" onclick="setAllPackagedComingSoon(false)" class="px-3 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">Clear packaged coming soon</button>' +
+          '</div>'
+        : '';
+    grid.innerHTML = packagedBtns + subs.map(function (f) {
         const hero = heroForFamily(f.key);
         const thumb = hero ? photoPublicUrl(hero.storage_path) : '';
         const safeKey = String(f.key).replace(/'/g, '');
