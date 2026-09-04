@@ -2967,6 +2967,29 @@ function galleryRowsForFamily(key) {
     });
 }
 
+function photoNameKey(value) {
+    return String(value || '').toLowerCase().replace(/,/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function isWholesaleComingSoon(name) {
+    const needle = photoNameKey(name);
+    if (!needle) return false;
+    return (_wholesaleProductImages || []).some(function (row) {
+        return (row.scope === 'coming_soon' || row.storage_path === 'COMING_SOON') &&
+            photoNameKey(row.variant_name) === needle;
+    });
+}
+
+function applyWholesaleComingSoon(photoEl, imgEl, name) {
+    if (!photoEl) return;
+    const coming = isWholesaleComingSoon(name);
+    photoEl.classList.toggle('is-coming-soon', coming);
+    photoEl.style.cursor = coming ? 'default' : 'pointer';
+    photoEl.title = coming ? 'Photograph coming soon' : 'Click to enlarge';
+    if (imgEl) imgEl.style.cursor = coming ? 'default' : 'pointer';
+}
+
+
 function getGalleryCardHeroPath(name) {
     const key = getPhotoFamilyKeyForName(name);
     const rows = galleryRowsForFamily(key);
@@ -4072,9 +4095,9 @@ function buildCombinedCard(group) {
         this.src = 'media/placeholder-bully-stick.png';
     };
     photo.appendChild(img);
-    photo.style.cursor = 'pointer';
-    photo.title = 'Click to enlarge';
+    applyWholesaleComingSoon(photo, img, fallback.name || group.title);
     photo.onclick = () => {
+        if (photo.classList.contains('is-coming-soon')) return;
         const currentName = (img.alt && img.alt !== group.title) ? img.alt : (fallback.name || group.title);
         openProductImageLightbox(getProductImagePaths(currentName), 0);
     };
@@ -4166,6 +4189,7 @@ function buildCombinedCard(group) {
             const preview = chosen[0] || fallback;
             img.src = getProductImagePath(preview);
             img.alt = preview.name;
+            applyWholesaleComingSoon(photo, img, preview.name);
             if (!chosen.length) {
                 meta.textContent = 'Select one or more options';
             } else if (chosen.length === 1) {
@@ -4247,6 +4271,7 @@ function buildCombinedCard(group) {
             marketNote.classList.toggle('hidden', !isWholesaleMarketProduct(selected));
             img.src = getProductImagePath(selected);
             img.alt = selected.name;
+            applyWholesaleComingSoon(photo, img, selected.name);
             dims.forEach(d => {
                 const row = rows[d];
                 if (!row) return;
@@ -4323,9 +4348,9 @@ function buildProductCard(product) {
     };
     img.alt = product.name || 'Donegal Natural treat';
     photo.appendChild(img);
-    photo.style.cursor = 'pointer';
-    photo.title = 'Click to enlarge';
+    applyWholesaleComingSoon(photo, img, product.name);
     photo.onclick = () => {
+        if (photo.classList.contains('is-coming-soon')) return;
         openProductImageLightbox(getProductImagePaths(product), 0);
     };
 

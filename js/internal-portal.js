@@ -18379,6 +18379,59 @@ function photosForFamily(familyKey) {
     });
 }
 
+function visiblePhotosForFamily(familyKey) {
+    return photosForFamily(familyKey).filter(function (row) {
+        return row.scope !== 'coming_soon' && row.storage_path !== 'COMING_SOON';
+    });
+}
+
+function photoNameKey(value) {
+    return String(value || '').toLowerCase().replace(/,/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function productHasComingSoon(familyKey, productName) {
+    const needle = photoNameKey(productName);
+    return photosForFamily(familyKey).some(function (row) {
+        return (row.scope === 'coming_soon' || row.storage_path === 'COMING_SOON') &&
+            photoNameKey(row.variant_name) === needle;
+    });
+}
+
+async function toggleProductComingSoon(familyKey, productName, enabled) {
+    const key = familyKey || _photoGalleryFamilyKey;
+    const name = String(productName || '').trim();
+    if (!key || !name) return;
+    try {
+        if (enabled) {
+            if (!productHasComingSoon(key, name)) {
+                const { error } = await supabaseClient.from('product_images').insert({
+                    family_key: key,
+                    scope: 'coming_soon',
+                    variant_name: name,
+                    storage_path: 'COMING_SOON',
+                    is_card_hero: false,
+                    sort_order: 999
+                });
+                if (error) throw error;
+            }
+        } else {
+            const flags = photosForFamily(key).filter(function (row) {
+                return (row.scope === 'coming_soon' || row.storage_path === 'COMING_SOON') &&
+                    photoNameKey(row.variant_name) === photoNameKey(name);
+            });
+            for (let i = 0; i < flags.length; i++) {
+                const { error } = await supabaseClient.from('product_images').delete().eq('id', flags[i].id);
+                if (error) throw error;
+            }
+        }
+        await loadProductImages();
+        renderProductPhotoGallery();
+    } catch (err) {
+        console.error(err);
+        alert('Could not update coming-soon flag.\n' + (err.message || err));
+    }
+}
+
 function heroForFamily(familyKey) {
     const rows = photosForFamily(familyKey);
     return rows.find(function (r) {
@@ -18500,10 +18553,35 @@ function renderProductPhotoFamilyView() {
 
     if (sub) sub.textContent = family.title;
 
-    const rows = photosForFamily(family.key);
+    const rows = visiblePhotosForFamily(family.key);
+    const uniqueNames = [];
+    const seenNames = {};
+    (family.names || []).forEach(function (n) {
+        const k = photoNameKey(n);
+        if (!k || seenNames[k]) return;
+        seenNames[k] = true;
+        uniqueNames.push(n);
+    });
     if (meta) {
-        meta.textContent = (family.names || []).join(' · ') +
-            (family.linkedFamilyKey ? ' · linked bulk family: ' + family.linkedFamilyKey : '');
+        const safeKey = String(family.key).replace(/'/g, '');
+        meta.innerHTML =
+            '<p class="mb-3">' + escapeHtml((family.linkedFamilyKey ? ('Linked bulk family: ' + family.linkedFamilyKey) : '')) + '</p>' +
+            '<p class="text-sm font-semibold text-[#6B4423] mb-2">Mark individual products</p>' +
+            '<div class="space-y-2">' +
+            uniqueNames.map(function (n) {
+                const coming = productHasComingSoon(family.key, n);
+                const safeName = String(n).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                return '<label class="flex items-center justify-between gap-3 bg-white border-2 border-[#6B4423] rounded-xl px-3 py-2 cursor-pointer ' +
+                    (coming ? 'opacity-70' : '') + '">' +
+                    '<span class="' + (coming ? 'text-[#6B4423]' : 'text-[#1E4D2B]') + ' font-medium">' +
+                    escapeHtml(n) +
+                    (coming ? ' <span class="text-xs font-semibold">· Photograph coming soon</span>' : '') +
+                    '</span>' +
+                    '<input type="checkbox" ' + (coming ? 'checked ' : '') +
+                    'onchange="toggleProductComingSoon(\'' + safeKey + '\', \'' + safeName + '\', this.checked)">' +
+                    '</label>';
+            }).join('') +
+            '</div>';
     }
 
     if (scopeEl) {
