@@ -18304,6 +18304,7 @@ const PHOTO_FAMILIES = [
 
 let _photoGalleryImages = [];
 let _photoGalleryFamilyKey = null;
+let _photoGalleryQueue = [];
 
 function photoFamilySlug(name) {
     return String(name || '')
@@ -18628,45 +18629,57 @@ function renderProductPhotoFamilyView() {
     }).join('');
 }
 
-function onPhotoGalleryFilePicked() {
+function photoGalleryFileAllowed(file) {
+    return ['image/jpeg', 'image/png', 'image/webp'].indexOf(String((file && file.type) || '').toLowerCase()) !== -1;
+}
+
+function syncPhotoGalleryQueueLabel() {
     const fileEl = document.getElementById('photo-gallery-file');
     const label = document.getElementById('photo-gallery-file-label');
+    if (fileEl) {
+        try {
+            const dt = new DataTransfer();
+            _photoGalleryQueue.forEach(function (file) { dt.items.add(file); });
+            fileEl.files = dt.files;
+        } catch (err) {}
+    }
     if (!label) return;
-    const files = fileEl && fileEl.files ? Array.from(fileEl.files) : [];
-    if (!files.length) {
+    if (!_photoGalleryQueue.length) {
         label.textContent = 'Drop photos here, or choose files';
-        return;
+    } else if (_photoGalleryQueue.length === 1) {
+        label.textContent = _photoGalleryQueue[0].name;
+    } else {
+        label.textContent = _photoGalleryQueue.length + ' photos selected';
     }
-    if (files.length === 1) {
-        label.textContent = files[0].name;
-        return;
-    }
-    label.textContent = files.length + ' photos selected';
+}
+
+function enqueuePhotoGalleryFiles(list) {
+    Array.from(list || []).forEach(function (file) {
+        if (!photoGalleryFileAllowed(file)) return;
+        const exists = _photoGalleryQueue.some(function (queued) {
+            return queued.name === file.name && queued.size === file.size && queued.lastModified === file.lastModified;
+        });
+        if (!exists) _photoGalleryQueue.push(file);
+    });
+    syncPhotoGalleryQueueLabel();
+}
+
+function onPhotoGalleryFilePicked() {
+    const fileEl = document.getElementById('photo-gallery-file');
+    enqueuePhotoGalleryFiles(fileEl && fileEl.files);
 }
 
 function onPhotoGalleryDrop(event) {
     event.preventDefault();
     const drop = document.getElementById('photo-gallery-drop');
     if (drop) drop.classList.remove('ring-2', 'ring-[#1E4D2B]');
-    const fileEl = document.getElementById('photo-gallery-file');
-    if (!fileEl || !event.dataTransfer || !event.dataTransfer.files || !event.dataTransfer.files.length) return;
-    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
-    const incoming = Array.from(event.dataTransfer.files).filter(function (file) {
-        return allowed.indexOf(String(file.type || '').toLowerCase()) !== -1;
-    });
+    if (!event.dataTransfer || !event.dataTransfer.files || !event.dataTransfer.files.length) return;
+    const incoming = Array.from(event.dataTransfer.files).filter(photoGalleryFileAllowed);
     if (!incoming.length) {
         alert('Use JPG, PNG, or WebP files.');
         return;
     }
-    try {
-        const dt = new DataTransfer();
-        incoming.forEach(function (file) { dt.items.add(file); });
-        fileEl.files = dt.files;
-    } catch (err) {
-        alert('Could not attach those files. Use Choose File instead.');
-        return;
-    }
-    onPhotoGalleryFilePicked();
+    enqueuePhotoGalleryFiles(incoming);
 }
 
 
@@ -18741,8 +18754,9 @@ async function addProductPhoto() {
             if (makeHero) hasHero = true;
         }
 
+        _photoGalleryQueue = [];
         fileEl.value = '';
-        if (typeof onPhotoGalleryFilePicked === 'function') onPhotoGalleryFilePicked();
+        if (typeof syncPhotoGalleryQueueLabel === 'function') syncPhotoGalleryQueueLabel();
         await loadProductImages();
         renderProductPhotoGallery();
     } catch (err) {
