@@ -18336,7 +18336,6 @@ const PHOTO_GALLERY_TREE = {
         'Pig Ears': ['Polish Pig Ears (Bulk)'],
         'Lamb Ears': ['White Lamb Ears (Bulk)', 'Vanilla Lamb Ears (Bulk)'],
         'Fuzzy Rabbit Ears': ['Fuzzy Rabbit Ears (Bulk)', '10-Pack Fuzzy Rabbit Ears', '10-Pack of Fuzzy Rabbit Ears'],
-        'Packaged Ears': ['6-Pack Natural Cow Ears', '6-Pack, Natural Cow Ears', '6-Pack Vanilla Cow Ears', '6-Pack, Vanilla Cow Ears', '6-Pack Honey Smoked Cow Ears', '6-Pack, Honey Smoked Cow Ears', '5-Pack Hairy Beef Ears', '10-Pack Fuzzy Rabbit Ears', '10-Pack of Fuzzy Rabbit Ears']
     },
     'Cow Cheeks': {
         'All Natural Rollio': ['5-6” Natural Rollio (Bulk)', '10-12” Natural Rollio (Bulk)'],
@@ -18359,7 +18358,6 @@ const PHOTO_GALLERY_TREE = {
         'Duck Heads': ['Crunchy Baked Duck Heads (Bulk)', '5-Pack of Crunchy Duck Heads', '10-Pack of Duck Heads', '10-Pack of Crunch Duck Heads'],
         'Duck Feet': ['Euro Duck Feet (Bulk)', 'Euro Duck Feet (Display)', '10-Pack Euro Duck Feet', '10-Pack of Euro Duck Feet'],
         'Goose Neck': ['Goose Neck (Bulk)', '10-Pack of Crunchy Goose Necks'],
-        'Packaged Duck and Goose': ['5-Pack of Crunchy Duck Heads', '10-Pack of Duck Heads', '10-Pack of Crunch Duck Heads', '10-Pack Euro Duck Feet', '10-Pack of Euro Duck Feet', '10-Pack of Crunchy Goose Necks']
     },
     'Beef': {
         'Beef Jerky Treats': ['USA Beef Jerky Treats (Bulk)'],
@@ -18392,7 +18390,6 @@ const PHOTO_GALLERY_TREE = {
         'Chicken Feet': ['Crunchy Euro Chicken Feet (Bulk)', 'Euro White Chicken Feet (Bulk)', 'Vanilla Flavored White Euro Chicken Feet (Bulk)', '10-Pack Euro Chicken Feet', '10-Pack of Euro Chicken Feet', '10-Pack White Euro Chicken Feet', '10-Pack of White Euro Chicken Feet', '10-Pack Vanilla Euro Chicken Feet', '10-Pack of Vanilla Euro Chicken Feet'],
         'Duck Feet': ['Euro Duck Feet (Bulk)', 'Euro Duck Feet (Display)', '10-Pack Euro Duck Feet', '10-Pack of Euro Duck Feet'],
         'Fuzzy Rabbit Feet': ['Fuzzy Rabbit Feet (Bulk)', '10-Pack Fuzzy Rabbit Feet', '10-Pack of Fuzzy Rabbit Feet'],
-        'Packaged Feet': ['10-Pack Euro Chicken Feet', '10-Pack of Euro Chicken Feet', '10-Pack White Euro Chicken Feet', '10-Pack of White Euro Chicken Feet', '10-Pack Vanilla Euro Chicken Feet', '10-Pack of Vanilla Euro Chicken Feet', '10-Pack Euro Duck Feet', '10-Pack of Euro Duck Feet', '10-Pack Fuzzy Rabbit Feet', '10-Pack of Fuzzy Rabbit Feet']
     },
     'Horns': {
         'Rams Horn': ['Large Rams Horn (Bulk)', 'Medium Rams Horn (Bulk)', 'Small Rams Horn (Bulk)'],
