@@ -2975,8 +2975,11 @@ function isWholesaleComingSoon(name) {
     const needle = photoNameKey(name);
     if (!needle) return false;
     return (_wholesaleProductImages || []).some(function (row) {
-        return (row.scope === 'coming_soon' || row.storage_path === 'COMING_SOON') &&
-            photoNameKey(row.variant_name) === needle;
+        const path = String(row.storage_path || '');
+        const isFlag = row.scope === 'coming_soon' ||
+            path === 'COMING_SOON' ||
+            path.indexOf('COMING_SOON/') === 0;
+        return isFlag && photoNameKey(row.variant_name) === needle;
     });
 }
 

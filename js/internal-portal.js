@@ -18380,20 +18380,30 @@ function photosForFamily(familyKey) {
     });
 }
 
-function visiblePhotosForFamily(familyKey) {
-    return photosForFamily(familyKey).filter(function (row) {
-        return row.scope !== 'coming_soon' && row.storage_path !== 'COMING_SOON';
-    });
-}
-
 function photoNameKey(value) {
     return String(value || '').toLowerCase().replace(/,/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function isComingSoonPath(path) {
+    const p = String(path || '');
+    return p === 'COMING_SOON' || p.indexOf('COMING_SOON/') === 0;
+}
+
+function comingSoonStoragePath(familyKey, productName) {
+    const slug = photoNameKey(productName).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48);
+    return 'COMING_SOON/' + String(familyKey || 'item') + '/' + (slug || 'item');
+}
+
+function visiblePhotosForFamily(familyKey) {
+    return photosForFamily(familyKey).filter(function (row) {
+        return row.scope !== 'coming_soon' && !isComingSoonPath(row.storage_path);
+    });
 }
 
 function productHasComingSoon(familyKey, productName) {
     const needle = photoNameKey(productName);
     return photosForFamily(familyKey).some(function (row) {
-        return (row.scope === 'coming_soon' || row.storage_path === 'COMING_SOON') &&
+        return (row.scope === 'coming_soon' || isComingSoonPath(row.storage_path)) &&
             photoNameKey(row.variant_name) === needle;
     });
 }
@@ -18409,7 +18419,7 @@ async function toggleProductComingSoon(familyKey, productName, enabled) {
                     family_key: key,
                     scope: 'variant',
                     variant_name: name,
-                    storage_path: 'COMING_SOON',
+                    storage_path: comingSoonStoragePath(key, name),
                     is_card_hero: false,
                     sort_order: 999
                 });
@@ -18417,7 +18427,7 @@ async function toggleProductComingSoon(familyKey, productName, enabled) {
             }
         } else {
             const flags = photosForFamily(key).filter(function (row) {
-                return (row.scope === 'coming_soon' || row.storage_path === 'COMING_SOON') &&
+                return (row.scope === 'coming_soon' || isComingSoonPath(row.storage_path)) &&
                     photoNameKey(row.variant_name) === photoNameKey(name);
             });
             for (let i = 0; i < flags.length; i++) {
