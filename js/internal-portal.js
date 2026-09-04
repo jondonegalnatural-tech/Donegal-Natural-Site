@@ -18383,6 +18383,74 @@ function packagedSubForName(name) {
     return '';
 }
 
+function getPhotoFamilies() {
+    const catalog = (typeof PRODUCT_CATALOG !== 'undefined' && Array.isArray(PRODUCT_CATALOG))
+        ? PRODUCT_CATALOG
+        : [];
+    const buckets = {};
+    catalog.forEach(function (p) {
+        if (!p || p.active === false) return;
+        const name = String(p.name || '').trim();
+        if (!name) return;
+        let category = String(p.category || p.category_name || 'Other').trim() || 'Other';
+        let sub = String(p.subCategory || p.sub_category || '').trim();
+        const packSub = packagedSubForName(name);
+        if (packSub) {
+            category = 'Packaged Items';
+            sub = packSub;
+        }
+        const bucketKey = category + '\0' + (sub || category);
+        if (!buckets[bucketKey]) {
+            buckets[bucketKey] = {
+                category: category,
+                subCategory: sub,
+                names: []
+            };
+        }
+        if (buckets[bucketKey].names.indexOf(name) === -1) {
+            buckets[bucketKey].names.push(name);
+        }
+    });
+
+    const oldFamilies = (typeof PHOTO_FAMILIES !== 'undefined' && Array.isArray(PHOTO_FAMILIES))
+        ? PHOTO_FAMILIES
+        : [];
+
+    return Object.keys(buckets).map(function (bucketKey) {
+        const bucket = buckets[bucketKey];
+        const title = bucket.subCategory || bucket.category;
+        const nameSet = {};
+        bucket.names.forEach(function (n) {
+            nameSet[String(n).toLowerCase()] = true;
+        });
+        const matches = oldFamilies.filter(function (old) {
+            return (old.names || []).some(function (n) {
+                return nameSet[String(n).toLowerCase()];
+            });
+        });
+        const aliasKeys = matches.map(function (old) { return old.key; });
+        bucket.names.forEach(function (n) {
+            const leftover = photoFamilySlug(n);
+            if (leftover && aliasKeys.indexOf(leftover) === -1) aliasKeys.push(leftover);
+        });
+        const key = (matches[0] && matches[0].key)
+            ? matches[0].key
+            : (photoFamilySlug(bucket.category + '-' + (bucket.subCategory || bucket.category)) || ('fam-' + title));
+        if (aliasKeys.indexOf(key) === -1) aliasKeys.unshift(key);
+        return {
+            key: key,
+            title: title,
+            category: bucket.category,
+            names: bucket.names.slice(),
+            aliasKeys: aliasKeys,
+            kind: /packaged/i.test(bucket.category) ? 'packaged' : undefined
+        };
+    }).sort(function (a, b) {
+        const cat = String(a.category || '').localeCompare(String(b.category || ''));
+        if (cat !== 0) return cat;
+        return String(a.title || '').localeCompare(String(b.title || ''));
+    });
+}
 
 function getPhotoFamilyByKey(key) {
     return getPhotoFamilies().find(function (f) {
