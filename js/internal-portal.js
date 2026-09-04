@@ -18566,7 +18566,10 @@ function renderProductPhotoFamilyView() {
         const safeKey = String(family.key).replace(/'/g, '');
         meta.innerHTML =
             '<p class="mb-3">' + escapeHtml((family.linkedFamilyKey ? ('Linked bulk family: ' + family.linkedFamilyKey) : '')) + '</p>' +
-            '<p class="text-sm font-semibold text-[#6B4423] mb-2">Mark individual products</p>' +
+            '<div class="flex items-end justify-between gap-3 mb-2">' +
+            '<p class="text-sm font-semibold text-[#6B4423]">Mark individual products</p>' +
+            '<p class="text-xs font-semibold text-[#6B4423] w-28 text-center leading-tight">Mark as coming soon</p>' +
+            '</div>' +
             '<div class="space-y-2">' +
             uniqueNames.map(function (n) {
                 const coming = productHasComingSoon(family.key, n);
@@ -18577,8 +18580,10 @@ function renderProductPhotoFamilyView() {
                     escapeHtml(n) +
                     (coming ? ' <span class="text-xs font-semibold">· Photograph coming soon</span>' : '') +
                     '</span>' +
+                    '<span class="flex flex-col items-center w-28 shrink-0">' +
                     '<input type="checkbox" ' + (coming ? 'checked ' : '') +
                     'onchange="toggleProductComingSoon(\'' + safeKey + '\', \'' + safeName + '\', this.checked)">' +
+                    '</span>' +
                     '</label>';
             }).join('') +
             '</div>';
