@@ -18463,7 +18463,8 @@ function visiblePhotosForFamily(familyKey) {
 
 function productHasComingSoon(familyKey, productName) {
     const needle = photoNameKey(productName);
-    return photosForFamily(familyKey).some(function (row) {
+    if (!needle) return false;
+    return (_photoGalleryImages || []).some(function (row) {
         return (row.scope === 'coming_soon' || isComingSoonPath(row.storage_path)) &&
             photoNameKey(row.variant_name) === needle;
     });
@@ -18540,7 +18541,7 @@ async function toggleProductComingSoon(familyKey, productName, enabled) {
                 if (error) throw error;
             }
         } else {
-            const flags = photosForFamily(key).filter(function (row) {
+            const flags = (_photoGalleryImages || []).filter(function (row) {
                 return (row.scope === 'coming_soon' || isComingSoonPath(row.storage_path)) &&
                     photoNameKey(row.variant_name) === photoNameKey(name);
             });
