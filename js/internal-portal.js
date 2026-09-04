@@ -18628,6 +18628,38 @@ function renderProductPhotoFamilyView() {
     }).join('');
 }
 
+function onPhotoGalleryFilePicked() {
+    const fileEl = document.getElementById('photo-gallery-file');
+    const label = document.getElementById('photo-gallery-file-label');
+    if (!label) return;
+    const file = fileEl && fileEl.files && fileEl.files[0];
+    label.textContent = file ? file.name : 'Drop a JPG, PNG, or WebP here, or choose a file';
+}
+
+function onPhotoGalleryDrop(event) {
+    event.preventDefault();
+    const drop = document.getElementById('photo-gallery-drop');
+    if (drop) drop.classList.remove('ring-2', 'ring-[#1E4D2B]');
+    const fileEl = document.getElementById('photo-gallery-file');
+    if (!fileEl || !event.dataTransfer || !event.dataTransfer.files || !event.dataTransfer.files[0]) return;
+    const file = event.dataTransfer.files[0];
+    const type = String(file.type || '').toLowerCase();
+    if (['image/jpeg', 'image/png', 'image/webp'].indexOf(type) === -1) {
+        alert('Use a JPG, PNG, or WebP file.');
+        return;
+    }
+    try {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fileEl.files = dt.files;
+    } catch (err) {
+        alert('Could not attach that file. Use Choose File instead.');
+        return;
+    }
+    onPhotoGalleryFilePicked();
+}
+
+
 async function addProductPhoto() {
     const family = getPhotoFamilyByKey(_photoGalleryFamilyKey);
     const fileEl = document.getElementById('photo-gallery-file');
@@ -18691,6 +18723,7 @@ async function addProductPhoto() {
         if (insErr) throw insErr;
 
         fileEl.value = '';
+        if (typeof onPhotoGalleryFilePicked === 'function') onPhotoGalleryFilePicked();
         await loadProductImages();
         renderProductPhotoGallery();
     } catch (err) {
