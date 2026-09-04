@@ -999,9 +999,10 @@ async function attachOpenOrderToCustomer() {
 }
 
 function canPlaceOpenOrder() {
-    const user = getCurrentUser() || currentUser;
-    const email = (user && user.email ? String(user.email) : '').toLowerCase().trim();
-    return email === 'jackerman@donegalnatural.com' || !!(user && user.isViewAs) || !!localStorage.getItem('originalAdminUser');
+    const seat = (typeof getOperatingSalesmanEmail === 'function')
+        ? getOperatingSalesmanEmail()
+        : '';
+    return seat === 'jackerman@donegalnatural.com';
 }
 
 function updateOpenOrderButtonVisibility() {
@@ -1977,9 +1978,21 @@ if (document.readyState === 'loading') {
 
 const BRIAN_SEAT_EMAIL = 'donegaldogtreats@gmail.com';
 
+function getOperatingSalesmanEmail() {
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || 'null') || {};
+        const viewAs = String(user.viewAsSalesmanEmail || localStorage.getItem('viewAsSalesmanEmail') || '').toLowerCase().trim();
+        if (viewAs) return viewAs;
+        return String(user.email || '').toLowerCase().trim();
+    } catch (e) {
+        return '';
+    }
+}
+
 function isBrianAssignedCustomer(customer) {
     const email = String((customer && (customer.salesman_email || customer.salesmanEmail)) || '').toLowerCase().trim();
-    return email === BRIAN_SEAT_EMAIL;
+    const seat = getOperatingSalesmanEmail() || BRIAN_SEAT_EMAIL;
+    return !!email && email === seat;
 }
 
 function resolvePlaceOrderPrice(product) {
@@ -2028,7 +2041,7 @@ async function loadBrianPlaceOrderPrices(customer) {
         const { data: salesSheet } = await supabaseClient
             .from('salesman_price_sheets')
             .select('prices')
-            .eq('salesman_email', BRIAN_SEAT_EMAIL)
+            .eq('salesman_email', getOperatingSalesmanEmail() || BRIAN_SEAT_EMAIL)
             .maybeSingle();
         if (salesSheet && salesSheet.prices && typeof salesSheet.prices === 'object') {
             window._placeOrderBrianPrices = salesSheet.prices;
