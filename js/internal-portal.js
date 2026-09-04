@@ -18406,7 +18406,7 @@ async function toggleProductComingSoon(familyKey, productName, enabled) {
             if (!productHasComingSoon(key, name)) {
                 const { error } = await supabaseClient.from('product_images').insert({
                     family_key: key,
-                    scope: 'coming_soon',
+                    scope: 'variant',
                     variant_name: name,
                     storage_path: 'COMING_SOON',
                     is_card_hero: false,
