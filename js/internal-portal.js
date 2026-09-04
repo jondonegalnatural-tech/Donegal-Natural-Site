@@ -18316,6 +18316,133 @@ function photoFamilySlug(name) {
         .slice(0, 48);
 }
 
+const PHOTO_GALLERY_TREE = {
+    'Bully Sticks': {
+        'Green Line': ['6” Thin Green Line Bully Sticks (Bulk)', '12” Thin Green Line Bully Sticks (Bulk)', '6” Regular Green Line Bully Sticks (Bulk)', '12” Regular Green Line Bully Sticks (Bulk)', '6” “Thick” Green Line Bully Sticks (Bulk)', '12” “Thick” Green Line Bully Sticks (Bulk)', '6” “Super Thick” Green Line Bully Sticks (Bulk)', '12” “Super Thick” Green Line Bully Sticks (Bulk)'],
+        'Canes': ['24-28” Bully Cane', '32-36” Bully Cane'],
+        'Braided Bully': ['6” Braided Bully Sticks (Bulk)', '12” Braided Bully Sticks (Bulk)', '6” “Super” Braided Bully Sticks (Bulk)', '12” “Super” Braided Bully Sticks (Bulk)'],
+        'Euro Bully': ['6” Euro Bully Stick (Bulk)', '6” Euro Bully Stick (Display)', '12” Euro Bully Stick (Bulk)', '12” Euro Bully Sticks (Display)'],
+        'Bully Pieces': ['8oz. Bag of Bully Pieces', '10oz. Bag of Bully Pieces', '16oz. Bag of Bully Pieces']
+    },
+    'Jerky': {
+        'Jerky Stick Treats': ['USA Beef Jerky Treats (Bulk)', 'USA Beef Jerky Treats (Display)', 'USA Turkey Jerky Treats (Bulk)', 'USA Turkey Jerky Treats (Display)', 'USA Chicken Jerky Treats (Bulk)', 'USA Chicken Jerky Treats (Display)', 'USA Elky Jerky Treats (Bulk)', 'USA Elky Jerky Treats (Display)', 'USA Venison & Sweet Potato Jerky Treats (Bulk)', 'USA Venison & Sweet Potato Jerky Treats (Display)'],
+        'Training Treats': ['6oz. Bags of USA Elky Training Treats', '10oz. Bags of USA Elky Training Treats'],
+        'Jerky Stuffed Bones': ['Large Turkey Jerky Stuffed Buffalo Bone', 'Large Elky Jerky Stuffed Buffalo Bone', 'Large Venison and Sweet Potato Stuffed Buffalo Bone']
+    },
+    'Ears': {
+        'Natural/Flavored Cow Ears': ['Natural Cow Ears (Bulk)', 'Vanilla Cow Ears (Bulk)', 'Honey Smoked Cow Ears (Bulk)'],
+        'Hairy Beef Ears': ['Hairy Beef Ears (Bulk)'],
+        'Buffalo Ears': ['MAGNA Buffalo Ears (Bulk)', 'Honey Smoked MAGNA Buffalo Ears (Bulk)'],
+        'Pig Ears': ['Polish Pig Ears (Bulk)'],
+        'Lamb Ears': ['White Lamb Ears (Bulk)', 'Vanilla Lamb Ears (Bulk)'],
+        'Fuzzy Rabbit Ears': ['Fuzzy Rabbit Ears (Bulk)', '10-Pack Fuzzy Rabbit Ears', '10-Pack of Fuzzy Rabbit Ears'],
+        'Packaged Ears': ['6-Pack Natural Cow Ears', '6-Pack, Natural Cow Ears', '6-Pack Vanilla Cow Ears', '6-Pack, Vanilla Cow Ears', '6-Pack Honey Smoked Cow Ears', '6-Pack, Honey Smoked Cow Ears', '5-Pack Hairy Beef Ears', '10-Pack Fuzzy Rabbit Ears', '10-Pack of Fuzzy Rabbit Ears']
+    },
+    'Cow Cheeks': {
+        'All Natural Rollio': ['5-6” Natural Rollio (Bulk)', '10-12” Natural Rollio (Bulk)'],
+        'Natural/Flavored Rollios': ['5-6” Regular Rollio (Bulk)', '10-12” Regular Rollio (Bulk)', '5-6” Vanilla Rollio (Bulk)', '10-12” Vanilla Rollio (Bulk)', '5-6” Honey Smoked Rollio (Bulk)', '10-12” Honey Smoked Rollio (Bulk)'],
+        'PHAT Rollios': ['5-6” PHAT Rollio (Bulk)', '10-12” PHAT Rollio (Bulk)', '5-6” Vanilla PHAT Rollio (Bulk)', '10-12” Vanilla PHAT Rollio (Bulk)', '5-6” Honey Smoked PHAT Rollio (Bulk)', '10-12” Honey Smoked PHAT Rollio (Bulk)'],
+        'Peanut Butter Rollios': ['5-6” Peanut Butter Rollio (Bulk)', '10-12” Peanut Butter Rollio (Bulk)'],
+        'Cow Cheek Slabs': ['5-6” Cow Cheek Slab (Bulk per lb.)', '5-6” Vanilla Cow Cheek Slab (Bulk per lb.)', '10-12” Cow Cheek Slab (Bulk per lb.)', '10-12” Vanilla Cow Cheek Slab (Bulk per lb.)', '10-12” Natural Cow Cheek Slabs (Bulk per lb.)'],
+        'Chunky Cheeks': ['White Chunky Cheeks (Bulk)', 'Vanilla Chunky Cheeks (Bulk)', '8oz. Bags of White Chunky Cheeks', '8oz. Bags of Vanilla Chunky Cheeks', '16oz. Bags of White Chunky Cheeks', '16oz. Bags of Vanilla Chunky Cheeks']
+    },
+    'Ox Tails': {
+        'MAGNA Ox Tails': ['6” MAGNA Natural Ox Tails (Bulk)', '12” MAGNA Natural Ox Tails (Bulk)'],
+        'Ox Tails': ['6” White Ox Tails (Bulk)', '12” White Ox Tails (Bulk)', '6” Vanilla Ox Tails (Bulk)', '12” Vanilla Ox Tails (Bulk)', '6” Honey Smoked Ox Tails (Bulk)', '12” Honey Smoked Ox Tails (Bulk)']
+    },
+    'Rabbit': {
+        'Fuzzy Rabbit Ears': ['Fuzzy Rabbit Ears (Bulk)', 'Fuzzy Bunny Ears (Bulk)', '10-Pack Fuzzy Rabbit Ears', '10-Pack of Fuzzy Rabbit Ears', '10-Pack of Fuzzy Bunny Ears'],
+        'Fuzzy Rabbit Feet': ['Fuzzy Rabbit Feet (Bulk)', '10-Pack Fuzzy Rabbit Feet', '10-Pack of Fuzzy Rabbit Feet']
+    },
+    'Duck and Goose': {
+        'Duck Neck': ['Crunchy Baked Duck Necks (Bulk)', '10-Pack of Crunchy Duck Necks'],
+        'Duck Heads': ['Crunchy Baked Duck Heads (Bulk)', '5-Pack of Crunchy Duck Heads', '10-Pack of Duck Heads', '10-Pack of Crunch Duck Heads'],
+        'Duck Feet': ['Euro Duck Feet (Bulk)', 'Euro Duck Feet (Display)', '10-Pack Euro Duck Feet', '10-Pack of Euro Duck Feet'],
+        'Goose Neck': ['Goose Neck (Bulk)', '10-Pack of Crunchy Goose Necks'],
+        'Packaged Duck and Goose': ['5-Pack of Crunchy Duck Heads', '10-Pack of Duck Heads', '10-Pack of Crunch Duck Heads', '10-Pack Euro Duck Feet', '10-Pack of Euro Duck Feet', '10-Pack of Crunchy Goose Necks']
+    },
+    'Beef': {
+        'Beef Jerky Treats': ['USA Beef Jerky Treats (Bulk)'],
+        'Hairy Beef Ears': ['Hairy Beef Ears (Bulk)'],
+        'Super Meaty Beef Tendons': ['Super Meaty Beef Tendons (Bulk)'],
+        'Paddywacks (Neck Tendons)': ['6” Paddywack (Bulk)', '12” Paddywack (Bulk)'],
+        'Corium Sticks (Collagen)': ['6” Corium Sticks (Bulk)', '12” Corium Sticks (Bulk)', '6” Beef Wrapped Corium Sticks (Bulk)', '12” Beef Wrapped Corium Sticks (Bulk)'],
+        'Beef Lung': ['8oz. Bag of Beef Lung', '16oz. Bag of Beef Lung'],
+        'Trachea and Trachea Pieces': ['5-6” Beef Trachea', '10-13” Beef Trachea', '8oz. Bags of Beef Trachea Pieces', '16oz. Bags of Beef Trachea Pieces'],
+        'Packaged': ['8oz. Bags of Beef Trachea Pieces', '16oz. Bags of Beef Trachea Pieces', '8oz. Bag of Beef Lung', '16oz. Bag of Beef Lung', '5-Pack Hairy Beef Ears']
+    },
+    'Buffalo': {
+        'Buffalo Ears': ['MAGNA Buffalo Ears (Bulk)', 'Honey Smoked MAGNA Buffalo Ears (Bulk)'],
+        'Buffalo Bone and Knuckle': ['Reg Large Meaty Buffalo Bone', 'Small Meaty Buffalo Knuckle'],
+        'Stuffed Buffalo Bones': ['Large Turkey Jerky Stuffed Buffalo Bone', 'Large Elky Jerky Stuffed Buffalo Bone', 'Large Venison and Sweet Potato Stuffed Buffalo Bone', 'Large Peanut Butter Stuffed Buffalo Bone'],
+        'Buffalo Horns': ['Large Buffalo Horn (Bulk)', 'Medium Buffalo Horn (Bulk)', 'Small Buffalo Horn (Bulk)'],
+        'Buffalo Collagen': ['6” Buffalo Collagen Sticks']
+    },
+    'Deer (Venison)': {
+        'Deer (Venison)': ['USA Venison & Sweet Potato Jerky Treats (Bulk)', 'USA Venison & Sweet Potato Jerky Treats (Display)', 'Large Venison and Sweet Potato Stuffed Buffalo Bone', 'Deer Skin Chips (Bulk)']
+    },
+    'Elk': {
+        'Elk': ['USA Elky Jerky Treats (Bulk)', 'USA Elky Jerky Treats (Display)', '6oz. Bags of USA Elky Training Treats', '10oz. Bags of USA Elky Training Treats']
+    },
+    'Chicken and Turkey': {
+        'Chicken': ['Crunchy Euro Chicken Feet (Bulk)', 'Euro White Chicken Feet (Bulk)', 'Vanilla Flavored White Euro Chicken Feet (Bulk)', '10-Pack Euro Chicken Feet', '10-Pack of Euro Chicken Feet', '10-Pack White Euro Chicken Feet', '10-Pack of White Euro Chicken Feet', '10-Pack Vanilla Euro Chicken Feet', '10-Pack of Vanilla Euro Chicken Feet', 'USA Chicken Jerky Treats (Bulk)', 'USA Chicken Jerky Treats (Display)'],
+        'Turkey': ['USA Turkey Jerky Treats (Bulk)', 'USA Turkey Jerky Treats (Display)', 'Large Turkey Jerky Stuffed Buffalo Bone']
+    },
+    'Feet': {
+        'Chicken Feet': ['Crunchy Euro Chicken Feet (Bulk)', 'Euro White Chicken Feet (Bulk)', 'Vanilla Flavored White Euro Chicken Feet (Bulk)', '10-Pack Euro Chicken Feet', '10-Pack of Euro Chicken Feet', '10-Pack White Euro Chicken Feet', '10-Pack of White Euro Chicken Feet', '10-Pack Vanilla Euro Chicken Feet', '10-Pack of Vanilla Euro Chicken Feet'],
+        'Duck Feet': ['Euro Duck Feet (Bulk)', 'Euro Duck Feet (Display)', '10-Pack Euro Duck Feet', '10-Pack of Euro Duck Feet'],
+        'Fuzzy Rabbit Feet': ['Fuzzy Rabbit Feet (Bulk)', '10-Pack Fuzzy Rabbit Feet', '10-Pack of Fuzzy Rabbit Feet'],
+        'Packaged Feet': ['10-Pack Euro Chicken Feet', '10-Pack of Euro Chicken Feet', '10-Pack White Euro Chicken Feet', '10-Pack of White Euro Chicken Feet', '10-Pack Vanilla Euro Chicken Feet', '10-Pack of Vanilla Euro Chicken Feet', '10-Pack Euro Duck Feet', '10-Pack of Euro Duck Feet', '10-Pack Fuzzy Rabbit Feet', '10-Pack of Fuzzy Rabbit Feet']
+    },
+    'Horns': {
+        'Rams Horn': ['Large Rams Horn (Bulk)', 'Medium Rams Horn (Bulk)', 'Small Rams Horn (Bulk)'],
+        'Buffalo Horn': ['Large Buffalo Horn (Bulk)', 'Medium Buffalo Horn (Bulk)', 'Small Buffalo Horn (Bulk)']
+    },
+    'Hooves': {
+        'Hooves': ['Regular Cow Hooves (Bulk)', 'Smoked Cow Hooves (Bulk)', '“Super” Cow Hooves (Bulk)']
+    },
+    'Braided': {
+        'Braided Bully Sticks': ['6” Braided Bully Sticks (Bulk)', '12” Braided Bully Sticks (Bulk)', '6” “Super” Braided Bully Sticks (Bulk)', '12” “Super” Braided Bully Sticks (Bulk)'],
+        'Braided Esophagus': ['6” Braided Esophagus (Bulk)', '12” Braided Esophagus (Bulk)', '6” Braided Esophagus (Display)', '12” Braided Esophagus (Display)'],
+        'Supreme USA Hide Braided Donuts': ['5-7” Braided USA Hide Donuts (Bulk)', '5-7” Vanilla USA Hide Braided Donuts (Bulk)', '8-9” Braided USA Hide Donuts (Bulk)', '8-9” Vanilla USA Hide Braided Donuts (Bulk)', '10-11” Braided USA Hide Donuts (Bulk)', '10-11” Vanilla USA Hide Braided Donuts (Bulk)']
+    },
+    'Large Meaty Femur/Bone/Knuckles': {
+        'Large Buffalo Bone': ['Reg Large Meaty Buffalo Bone'],
+        'Buffalo Knuckle': ['Small Meaty Buffalo Knuckle'],
+        'Stuffed Buffalo Bone': ['Large Turkey Jerky Stuffed Buffalo Bone', 'Large Elky Jerky Stuffed Buffalo Bone', 'Large Venison and Sweet Potato Stuffed Buffalo Bone', 'Large Peanut Butter Stuffed Buffalo Bone'],
+        'Jumbo Meaty Femur': ['14-16” Jumbo Meaty Femur Knuckle Bone']
+    },
+    'Pressed Bones': {
+        'Supreme Pressed Ring': ['6” Supreme Pressed Ring (Bulk)'],
+        'Supreme Pressed Stick': ['10” x 20mm Supreme Pressed Stick (Bulk)'],
+        'Supreme Pressed Bones': ['4.5” Pressed Bone (Bulk)', '6.5” Pressed Bone (Bulk)', '8.5” Pressed Bone (Bulk)', '10.5” Pressed Bone (Bulk)', '12.5” Pressed Bone (Bulk)']
+    },
+    'Twisty Q’s and Natural Munchy Sticks': {
+        'Munch Sticks': ['12” x 20mm Natural Munchy Sticks (Bulk)', '5” x 10mm Natural Munchy Sticks (Bulk)', '6.5” Bacon Munchy Sticks (Bulk)'],
+        'Twisty Q’s': ['10” White Twisty Q’s (Bulk)', '10” Vanilla Twisty Q’s (Bulk)'],
+        "Twisty's": ['5” x 4/6mm White Twisty-100/inner (Bulk)', '5” x 9/10mm White Twisty-50/inner (Bulk)', '10” x 9/10mm White Twisty (Bulk)']
+    },
+    'Supreme Hide Chips': {
+        'Supreme USA Hide Chips': ['White USA Supreme Hide Chips (Bulk per lb.)', 'Vanilla USA Supreme Chips (Bulk per lb.)', 'Peanut Butter Basted USA Supreme Hide Chips (Bulk per lb.)', "8oz. Bags of White Supreme Chips (Binkey's)"],
+        "Binky's": ["8oz. Bags of Peanut Butter Supreme Chips (Binkey's)", "8oz. Bags of Vanilla Supreme Chips (Binkey's)", "16oz. Bags of White Supreme Chips (Binkey's)", "16oz. Bags of Peanut Butter Supreme Chips (Binkey's)", "16oz. Bags of Vanilla Supreme Chips (Binkey's)"]
+    },
+    'Retrievers': {
+        'USA White Hide Retriever': ['6/9” White Supreme Retriever (Bulk)', '10-11” x 30mm White Supreme Retriever (Bulk)'],
+        'Vanilla Flavored Retriever': ['6/9” Vanilla Supreme Retriever (Bulk)', '10-11” x 30mm Vanilla MAGNA Retriever (Bulk)']
+    },
+    'Packaged Items': {
+        'Duck and Goose': ['5-Pack of Crunchy Duck Heads', '5-Pack of Duck Heads', '10-Pack of Crunchy Duck Necks', '10-Pack of Crunchy Goose Necks', '10-Pack Euro Duck Feet', '10-Pack of Euro Duck Feet', '10-Pack of Duck Heads'],
+        'Ears': ['6-Pack Natural Cow Ears', '6-Pack, Natural Cow Ears', '6-Pack Vanilla Cow Ears', '6-Pack, Vanilla Cow Ears', '6-Pack Honey Smoked Cow Ears', '6-Pack, Honey Smoked Cow Ears', '10-Pack of Fuzzy Bunny Ears', '10-Pack Fuzzy Rabbit Ears', '5-Pack Hairy Beef Ears'],
+        'Feet': ['10-Pack Fuzzy Rabbit Feet', '10-Pack of Fuzzy Rabbit Feet', '10-Pack of Fuzzy Bunny Feet', '10-Pack Euro Chicken Feet', '10-Pack of Euro Chicken Feet', '10-Pack White Euro Chicken Feet', '10-Pack of White Euro Chicken Feet', '10-Pack Vanilla Euro Chicken Feet', '10-Pack of Vanilla Euro Chicken Feet'],
+        'Chunky Cheeks': ['8oz. Bags of White Chunky Cheeks', '8oz. Bags of Vanilla Chunky Cheeks', '16oz. Bags of White Chunky Cheeks', '16oz. Bags of Vanilla Chunky Cheeks'],
+        'Beef Lung': ['8oz. Bag of Beef Lung', '16oz. Bag of Beef Lung'],
+        'Bully Pieces': ['8oz. Bag of Bully Pieces', '10oz. Bag of Bully Pieces', '16oz. Bag of Bully Pieces'],
+        'Jerky': ['6oz. Bags of USA Elky Training Treats', '10oz. Bags of USA Elky Training Treats'],
+        'Trachea Pieces': ['8oz. Bags of Beef Trachea Pieces', '16oz. Bags of Beef Trachea Pieces'],
+        "Binky's": ["8oz. Bags of White Supreme Chips (Binkey's)", "8oz. Bags of Peanut Butter Supreme Chips (Binkey's)", "8oz. Bags of Vanilla Supreme Chips (Binkey's)", "16oz. Bags of White Supreme Chips (Binkey's)", "16oz. Bags of Peanut Butter Supreme Chips (Binkey's)", "16oz. Bags of Vanilla Supreme Chips (Binkey's)"]
+    }
+};
+
 const PHOTO_PACKAGED_ITEMS = {
     'Duck and Goose': [
         '5-Pack of Crunchy Duck Heads',
@@ -18384,72 +18511,50 @@ function packagedSubForName(name) {
 }
 
 function getPhotoFamilies() {
-    const catalog = (typeof PRODUCT_CATALOG !== 'undefined' && Array.isArray(PRODUCT_CATALOG))
-        ? PRODUCT_CATALOG
-        : [];
-    const buckets = {};
-    catalog.forEach(function (p) {
-        if (!p || p.active === false) return;
-        const name = String(p.name || '').trim();
-        if (!name) return;
-        let category = String(p.category || p.category_name || 'Other').trim() || 'Other';
-        let sub = String(p.subCategory || p.sub_category || '').trim();
-        const packSub = packagedSubForName(name);
-        if (packSub) {
-            category = 'Packaged Items';
-            sub = packSub;
-        }
-        const bucketKey = category + '\0' + (sub || category);
-        if (!buckets[bucketKey]) {
-            buckets[bucketKey] = {
-                category: category,
-                subCategory: sub,
-                names: []
-            };
-        }
-        if (buckets[bucketKey].names.indexOf(name) === -1) {
-            buckets[bucketKey].names.push(name);
-        }
-    });
-
     const oldFamilies = (typeof PHOTO_FAMILIES !== 'undefined' && Array.isArray(PHOTO_FAMILIES))
         ? PHOTO_FAMILIES
         : [];
-
-    return Object.keys(buckets).map(function (bucketKey) {
-        const bucket = buckets[bucketKey];
-        const title = bucket.subCategory || bucket.category;
-        const nameSet = {};
-        bucket.names.forEach(function (n) {
-            nameSet[String(n).toLowerCase()] = true;
-        });
-        const matches = oldFamilies.filter(function (old) {
-            return (old.names || []).some(function (n) {
-                return nameSet[String(n).toLowerCase()];
+    const list = [];
+    const categories = Object.keys(PHOTO_GALLERY_TREE);
+    categories.forEach(function (category) {
+        const subs = PHOTO_GALLERY_TREE[category] || {};
+        Object.keys(subs).forEach(function (sub) {
+            const rawNames = subs[sub] || [];
+            const names = [];
+            const seen = {};
+            rawNames.forEach(function (n) {
+                const k = photoNameKey(n);
+                if (!k || seen[k]) return;
+                seen[k] = true;
+                names.push(n);
+            });
+            if (!names.length) return;
+            const nameSet = {};
+            names.forEach(function (n) { nameSet[photoNameKey(n)] = true; });
+            const matches = oldFamilies.filter(function (old) {
+                return (old.names || []).some(function (n) { return nameSet[photoNameKey(n)]; });
+            });
+            const aliasKeys = matches.map(function (old) { return old.key; });
+            names.forEach(function (n) {
+                const leftover = photoFamilySlug(n);
+                if (leftover && aliasKeys.indexOf(leftover) === -1) aliasKeys.push(leftover);
+            });
+            const key = photoFamilySlug(category + '-' + sub) || ('fam-' + list.length);
+            if (aliasKeys.indexOf(key) === -1) aliasKeys.unshift(key);
+            matches.forEach(function (old) {
+                if (aliasKeys.indexOf(old.key) === -1) aliasKeys.push(old.key);
+            });
+            list.push({
+                key: key,
+                title: sub,
+                category: category,
+                names: names,
+                aliasKeys: aliasKeys,
+                kind: /packaged/i.test(category + ' ' + sub) ? 'packaged' : undefined
             });
         });
-        const aliasKeys = matches.map(function (old) { return old.key; });
-        bucket.names.forEach(function (n) {
-            const leftover = photoFamilySlug(n);
-            if (leftover && aliasKeys.indexOf(leftover) === -1) aliasKeys.push(leftover);
-        });
-        const key = (matches[0] && matches[0].key)
-            ? matches[0].key
-            : (photoFamilySlug(bucket.category + '-' + (bucket.subCategory || bucket.category)) || ('fam-' + title));
-        if (aliasKeys.indexOf(key) === -1) aliasKeys.unshift(key);
-        return {
-            key: key,
-            title: title,
-            category: bucket.category,
-            names: bucket.names.slice(),
-            aliasKeys: aliasKeys,
-            kind: /packaged/i.test(bucket.category) ? 'packaged' : undefined
-        };
-    }).sort(function (a, b) {
-        const cat = String(a.category || '').localeCompare(String(b.category || ''));
-        if (cat !== 0) return cat;
-        return String(a.title || '').localeCompare(String(b.title || ''));
     });
+    return list;
 }
 
 function getPhotoFamilyByKey(key) {
@@ -18502,8 +18607,15 @@ function photosForFamily(familyKey) {
             keys[String(k || '')] = true;
         });
     }
-    return _photoGalleryImages.filter(function (row) {
-        return keys[String(row.family_key || '')];
+    const nameSet = {};
+    if (family) {
+        (family.names || []).forEach(function (n) {
+            nameSet[photoNameKey(n)] = true;
+        });
+    }
+    return (_photoGalleryImages || []).filter(function (row) {
+        if (keys[String(row.family_key || '')]) return true;
+        return !!(nameSet[photoNameKey(row.variant_name)]);
     });
 }
 
