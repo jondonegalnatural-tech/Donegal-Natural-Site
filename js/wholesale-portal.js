@@ -993,8 +993,6 @@ let WHOLESALE_PRICES = [
 
     { category: "Jerky", subCategory: "Training Treats", name: "6oz. Bags of USA Elky Training Treats", cs: "50/cs", price: "$3.90" },
     { category: "Jerky", subCategory: "Training Treats", name: "10oz. Bags of USA Elky Training Treats", cs: "35/cs", price: "$7.91" },
-    { category: "Jerky", subCategory: "Training Treats", name: "16oz. Bags of USA Elky Training Treats", cs: "20/cs", price: "$19.94" },
-    { category: "Jerky", subCategory: "Training Treats", name: "USA Elky Training Treats (per lb.)", cs: "20lbs/cs", price: "$19.46" },
 
     // Jerky Stuffed Bones (duplicated in Buffalo & Large Meaty Bones)
     { category: "Jerky", subCategory: "Jerky Stuffed Bones", name: "Large Turkey Jerky Stuffed Buffalo Bone", cs: "50/cs", price: "$4.07" },
@@ -1130,8 +1128,6 @@ let WHOLESALE_PRICES = [
     { category: "Elk", subCategory: "", name: "USA Elky Jerky Treats (Display)", cs: "250/display", price: "$0.60" },
     { category: "Elk", subCategory: "", name: "6oz. Bags of USA Elky Training Treats", cs: "50/cs", price: "$3.90" },
     { category: "Elk", subCategory: "", name: "10oz. Bags of USA Elky Training Treats", cs: "35/cs", price: "$7.91" },
-    { category: "Elk", subCategory: "", name: "16oz. Bags of USA Elky Training Treats", cs: "20/cs", price: "$19.94" },
-    { category: "Elk", subCategory: "", name: "USA Elky Training Treats (Bulk per lb.)", cs: "20lbs/cs", price: "$19.46" },
 
     // ================== CHICKEN AND TURKEY ==================
     { category: "Chicken and Turkey", subCategory: "Chicken", name: "Crunchy Euro Chicken Feet (Bulk)", cs: "750/cs", price: "$0.30" },
@@ -1271,8 +1267,6 @@ let WHOLESALE_PRICES = [
 
     { category: "Packaged Items", subCategory: "Jerky", name: "6oz. Bags of USA Elky Training Treats", cs: "50/cs", price: "$3.90" },
     { category: "Packaged Items", subCategory: "Jerky", name: "10oz. Bags of USA Elky Training Treats", cs: "35/cs", price: "$7.91" },
-    { category: "Packaged Items", subCategory: "Jerky", name: "16oz. Bags of USA Elky Training Treats", cs: "20/cs", price: "$19.94" },
-    { category: "Packaged Items", subCategory: "Jerky", name: "USA Elky Training Treats (per lb.)", cs: "20lbs/cs", price: "$19.46" },
 
     { category: "Packaged Items", subCategory: "Trachea Pieces", name: "8oz. Bags of Beef Trachea Pieces", cs: "24bags/cs", price: "$3.11" },
     { category: "Packaged Items", subCategory: "Trachea Pieces", name: "16oz. Bags of Beef Trachea Pieces", cs: "12/cs", price: "$5.99" },
@@ -1584,14 +1578,6 @@ const ITEM_SPECIFIC_BENEFITS = {
         ]
     },
     "10oz. Bags of USA Elky Training Treats": {
-        bullets: [
-            "Small, soft training treats made with real elk",
-            "Perfect for frequent rewarding and positive reinforcement",
-            "Easy to break into tiny pieces",
-            "High protein and low fat"
-        ]
-    },
-    "16oz. Bags of USA Elky Training Treats": {
         bullets: [
             "Small, soft training treats made with real elk",
             "Perfect for frequent rewarding and positive reinforcement",
@@ -3329,9 +3315,7 @@ const COMBINED_CARD_GROUPS = [
         dims: ['bag'],
         names: [
             '6oz. Bags of USA Elky Training Treats',
-            '10oz. Bags of USA Elky Training Treats',
-            '16oz. Bags of USA Elky Training Treats',
-            'USA Elky Training Treats (per lb.)'
+            '10oz. Bags of USA Elky Training Treats'
         ]
     },
     {

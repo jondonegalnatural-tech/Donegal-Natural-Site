@@ -262,8 +262,7 @@ const PRODUCT_CATALOG = [
     // ========== JERKY - Training Treats ==========
     { name: "6oz. Bags of USA Elky Training Treats", category: "Jerky", subCategory: "Training Treats", caseSize: "50/cs", unitPrice: 3.90, isMarketPrice: false, marketPriceNote: null, landedCost: null, grossProfit: null, priceAsOf: "July 2026" },
     { name: "10oz. Bags of USA Elky Training Treats", category: "Jerky", subCategory: "Training Treats", caseSize: "35/cs", unitPrice: 7.91, isMarketPrice: false, marketPriceNote: null, landedCost: null, grossProfit: null, priceAsOf: "July 2026" },
-    { name: "16oz. Bags of USA Elky Training Treats", category: "Jerky", subCategory: "Training Treats", caseSize: "20/cs", unitPrice: 19.94, isMarketPrice: false, marketPriceNote: null, landedCost: null, grossProfit: null, priceAsOf: "July 2026" },
-    { name: "USA Elky Training Treats (per lb.)", category: "Jerky", subCategory: "Training Treats", caseSize: "20lbs/cs", unitPrice: 19.46, isMarketPrice: false, marketPriceNote: null, landedCost: null, grossProfit: null, priceAsOf: "July 2026" },
+
 
     // ========== JERKY - Jerky Stuffed Bones ==========
     { name: "Large Turkey Jerky Stuffed Buffalo Bone", category: "Jerky", subCategory: "Jerky Stuffed Bones", caseSize: "50/cs", unitPrice: 4.07, isMarketPrice: false, marketPriceNote: null, landedCost: null, grossProfit: null, priceAsOf: "July 2026" },
