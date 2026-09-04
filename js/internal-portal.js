@@ -18304,6 +18304,7 @@ const PHOTO_FAMILIES = [
 
 let _photoGalleryImages = [];
 let _photoGalleryFamilyKey = null;
+let _photoGalleryCategory = null;
 let _photoGalleryQueue = [];
 
 function photoFamilySlug(name) {
@@ -18535,6 +18536,16 @@ function hideProductPhotoGallery() {
 }
 
 function photoGalleryBackToGrid() {
+    if (_photoGalleryFamilyKey) {
+        _photoGalleryFamilyKey = null;
+    } else {
+        _photoGalleryCategory = null;
+    }
+    renderProductPhotoGallery();
+}
+
+function openPhotoGalleryCategory(category) {
+    _photoGalleryCategory = category;
     _photoGalleryFamilyKey = null;
     renderProductPhotoGallery();
 }
@@ -18543,7 +18554,7 @@ function onPhotoGalleryScopeChange() {
     const scopeEl = document.getElementById('photo-gallery-scope');
     const wrap = document.getElementById('photo-gallery-variant-wrap');
     if (!wrap) return;
-    wrap.classList.toggle('hidden', !(scopeEl && scopeEl.value === 'variant'));
+    wrap.classList.toggle('hidden', !(scopeEl && scopeEl.value === 'product'));
 }
 
 function renderProductPhotoGallery() {
@@ -18558,7 +18569,10 @@ function renderProductPhotoGallery() {
         if (searchWrap) searchWrap.classList.add('hidden');
         grid.classList.add('hidden');
         if (familyView) familyView.classList.remove('hidden');
-        if (backBtn) backBtn.classList.remove('hidden');
+        if (backBtn) {
+            backBtn.classList.remove('hidden');
+            backBtn.textContent = '← ' + (_photoGalleryCategory || 'Subcategories');
+        }
         renderProductPhotoFamilyView();
         return;
     }
@@ -18566,45 +18580,65 @@ function renderProductPhotoGallery() {
     if (searchWrap) searchWrap.classList.remove('hidden');
     grid.classList.remove('hidden');
     if (familyView) familyView.classList.add('hidden');
-    if (backBtn) backBtn.classList.add('hidden');
 
     const q = String((document.getElementById('photo-gallery-search') || {}).value || '').toLowerCase().trim();
-    const families = getPhotoFamilies().filter(function (f) {
-        if (!q) return true;
-        const hay = (f.title + ' ' + f.key + ' ' + (f.names || []).join(' ')).toLowerCase();
-        return hay.indexOf(q) !== -1;
-    });
+    const families = getPhotoFamilies();
 
-    if (sub) {
-        sub.textContent = families.length + ' families · photos save here first · wholesale cards still use media/';
-    }
-
-    if (!families.length) {
-        grid.innerHTML = '<p class="text-sm text-[#6B4423] col-span-full">No families match that search.</p>';
+    if (!_photoGalleryCategory) {
+        if (backBtn) backBtn.classList.add('hidden');
+        const cats = [];
+        const seen = {};
+        families.forEach(function (f) {
+            const cat = String(f.category || 'Other');
+            if (seen[cat]) return;
+            seen[cat] = true;
+            cats.push(cat);
+        });
+        const list = cats.filter(function (cat) {
+            return !q || cat.toLowerCase().indexOf(q) !== -1;
+        });
+        if (sub) sub.textContent = 'Choose a category';
+        grid.innerHTML = list.map(function (cat) {
+            const count = families.filter(function (f) { return f.category === cat; }).length;
+            const safe = String(cat).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            return (
+                '<button type="button" onclick="openPhotoGalleryCategory(\'' + safe + '\')" ' +
+                'class="text-left bg-[#f8f4eb] border-2 border-[#6B4423] rounded-xl p-4 hover:bg-[#f0e6d9]">' +
+                '<p class="text-sm font-semibold brand-green">' + escapeHtml(cat) + '</p>' +
+                '<p class="text-xs text-[#6B4423]">' + count + ' subcategor' + (count === 1 ? 'y' : 'ies') + '</p>' +
+                '</button>'
+            );
+        }).join('') || '<p class="text-sm text-[#6B4423] col-span-full">No categories match that search.</p>';
         return;
     }
 
-    grid.innerHTML = families.map(function (f) {
-        const rows = photosForFamily(f.key);
+    if (backBtn) {
+        backBtn.classList.remove('hidden');
+        backBtn.textContent = '← All categories';
+    }
+    const subs = families.filter(function (f) {
+        if (f.category !== _photoGalleryCategory) return false;
+        if (!q) return true;
+        const hay = (f.title + ' ' + (f.names || []).join(' ')).toLowerCase();
+        return hay.indexOf(q) !== -1;
+    });
+    if (sub) sub.textContent = _photoGalleryCategory + ' · choose a subcategory';
+    grid.innerHTML = subs.map(function (f) {
         const hero = heroForFamily(f.key);
         const thumb = hero ? photoPublicUrl(hero.storage_path) : '';
-        const packaged = isPackagedPhotoFamily(f);
+        const safeKey = String(f.key).replace(/'/g, '');
         return (
-            '<button type="button" onclick="openPhotoFamily(\'' + String(f.key).replace(/'/g, '') + '\')" ' +
+            '<button type="button" onclick="openPhotoFamily(\'' + safeKey + '\')" ' +
             'class="text-left bg-[#f8f4eb] border-2 border-[#6B4423] rounded-xl overflow-hidden hover:bg-[#f0e6d9]">' +
             (thumb
                 ? '<img src="' + escapeHtml(thumb) + '" alt="" class="w-full h-28 object-contain bg-white">'
-                : '<div class="w-full h-28 bg-white flex items-center justify-center text-xs text-[#6B4423]">No photo</div>') +
+                : '<div class="w-full h-28 bg-white flex items-center justify-center text-xs text-[#6B4423]">No photo yet</div>') +
             '<div class="p-2">' +
             '<p class="text-sm font-semibold brand-green">' + escapeHtml(f.title) + '</p>' +
-            (f.category && f.category !== f.title
-                ? '<p class="text-xs text-[#6B4423]">' + escapeHtml(f.category) + '</p>'
-                : '') +
-            '<p class="text-xs text-[#6B4423]">' + rows.length + ' photo' + (rows.length === 1 ? '' : 's') +
-            (packaged ? ' · packaged' : '') + '</p>' +
+            '<p class="text-xs text-[#6B4423]">' + (f.names || []).length + ' item' + ((f.names || []).length === 1 ? '' : 's') + '</p>' +
             '</div></button>'
         );
-    }).join('');
+    }).join('') || '<p class="text-sm text-[#6B4423] col-span-full">No subcategories in this category.</p>';
 }
 
 function openPhotoFamily(key) {
@@ -18635,9 +18669,9 @@ function renderProductPhotoFamilyView() {
     if (meta) {
         const safeKey = String(family.key).replace(/'/g, '');
         meta.innerHTML =
-            '<p class="mb-3">' + escapeHtml((family.linkedFamilyKey ? ('Linked bulk family: ' + family.linkedFamilyKey) : '')) + '</p>' +
+            '<p class="mb-3">A photo set to Entire subcategory shows on every item here unless that item has its own photo.</p>' +
             '<div class="flex items-end justify-between gap-3 mb-2">' +
-            '<p class="text-sm font-semibold text-[#6B4423]">Mark individual products</p>' +
+            '<p class="text-sm font-semibold text-[#6B4423]">Items in this subcategory</p>' +
             '<p class="text-xs font-semibold text-[#6B4423] w-28 text-center leading-tight">Mark as coming soon</p>' +
             '</div>' +
             '<div class="space-y-2">' +
@@ -18777,10 +18811,13 @@ async function addProductPhoto() {
         }
     }
 
-    const scope = (scopeEl && scopeEl.value) || (isPackagedPhotoFamily(family) ? 'packaged' : 'family');
-    const variantName = scope === 'variant' ? String((variantEl && variantEl.value) || '') : null;
-    if (scope === 'variant' && !variantName) {
-        alert('Pick a flavor.');
+    const applyAs = (scopeEl && scopeEl.value) || 'subcategory';
+    const scope = applyAs === 'product'
+        ? 'variant'
+        : (isPackagedPhotoFamily(family) ? 'packaged' : 'family');
+    const variantName = applyAs === 'product' ? String((variantEl && variantEl.value) || '') : null;
+    if (applyAs === 'product' && !variantName) {
+        alert('Pick the product this photo belongs to.');
         return;
     }
 
