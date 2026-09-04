@@ -2950,12 +2950,47 @@ function getPhotoFamilyKeyForName(name) {
     return wholesalePhotoSlug(name);
 }
 
+function isRealWholesalePhotoPath(path) {
+    const p = String(path || '');
+    if (!p) return false;
+    if (p === 'COMING_SOON' || p.indexOf('COMING_SOON/') === 0) return false;
+    return /\.(jpe?g|png|webp|gif)$/i.test(p);
+}
+
 function galleryRowsForFamily(key) {
     return (_wholesaleProductImages || []).filter(function (row) {
-        if (row.family_key !== key) return false;
-        const path = String(row.storage_path || '');
-        if (path === 'COMING_SOON' || path.indexOf('COMING_SOON/') === 0) return false;
-        return true;
+        return row.family_key === key && isRealWholesalePhotoPath(row.storage_path);
+    });
+}
+
+function galleryRowsForProductName(name) {
+    const group = (typeof getCombinedGroupForName === 'function')
+        ? getCombinedGroupForName(name)
+        : null;
+    const keys = {};
+    function addKey(k) {
+        if (k) keys[String(k)] = true;
+    }
+    addKey(getPhotoFamilyKeyForName(name));
+    addKey(wholesalePhotoSlug(name));
+    if (group) {
+        addKey(group.id);
+        addKey(wholesalePhotoSlug(group.title));
+        (group.names || []).forEach(function (n) { addKey(wholesalePhotoSlug(n)); });
+    }
+    const catalog = (typeof WHOLESALE_PRICES !== 'undefined' && Array.isArray(WHOLESALE_PRICES))
+        ? WHOLESALE_PRICES.find(function (p) { return p && p.name === name; })
+        : null;
+    if (catalog) {
+        addKey(wholesalePhotoSlug((catalog.category || '') + '-' + (catalog.subCategory || catalog.category || '')));
+        addKey(wholesalePhotoSlug(catalog.subCategory || ''));
+    }
+    const needle = photoNameKey(name);
+    return (_wholesaleProductImages || []).filter(function (row) {
+        if (!isRealWholesalePhotoPath(row.storage_path)) return false;
+        if (keys[String(row.family_key || '')]) return true;
+        if (needle && photoNameKey(row.variant_name) === needle) return true;
+        return false;
     });
 }
 
@@ -2986,8 +3021,7 @@ function applyWholesaleComingSoon(photoEl, imgEl, name) {
 
 
 function getGalleryCardHeroPath(name) {
-    const key = getPhotoFamilyKeyForName(name);
-    const rows = galleryRowsForFamily(key);
+    const rows = galleryRowsForProductName(name);
     const hero = rows.find(function (row) { return row.is_card_hero; }) ||
         rows.find(function (row) { return row.scope === 'packaged'; }) ||
         rows.find(function (row) { return row.scope === 'family'; });
@@ -3085,7 +3119,7 @@ function getProductImagePaths(productOrTitle) {
         ? productOrTitle
         : ((productOrTitle && productOrTitle.name) || '');
     const familyKey = getPhotoFamilyKeyForName(title);
-    const rows = galleryRowsForFamily(familyKey).slice();
+    const rows = galleryRowsForProductName(title).slice();
     const linkedKey = (rows[0] && rows[0].linked_family_key) || PHOTO_FAMILY_LINKS[familyKey] || '';
     const linkedRows = linkedKey ? galleryRowsForFamily(linkedKey) : [];
     const urls = [];
