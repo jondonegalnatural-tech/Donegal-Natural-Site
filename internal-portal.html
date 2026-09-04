@@ -1378,7 +1378,7 @@ body { background: #f8f1e9; }
 
             <!-- ========== END OTHER REPORT CATEGORIES ========== -->
 
-            <div id="open-quotes-card" class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mt-6 mb-6">
+                        <div id="open-quotes-card" class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mt-6 mb-6">
                 <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
                     <div>
                         <h3 class="text-xl font-bold brand-green">Open Quotes</h3>
@@ -1391,6 +1391,14 @@ body { background: #f8f1e9; }
                             <i class="fas fa-sync-alt mr-2"></i> Refresh
                         </button>
                     </div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold text-[#6B4423] mb-2">View</label>
+                    <select id="open-quotes-customer-select"
+                            onchange="onOpenQuotesCustomerChange()"
+                            class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-full max-w-md">
+                        <option value="all">All open quotes (master)</option>
+                    </select>
                 </div>
                 <div class="overflow-x-auto max-h-[520px] overflow-y-auto border-2 border-[#6B4423] rounded-xl">
                     <table class="w-full text-sm">

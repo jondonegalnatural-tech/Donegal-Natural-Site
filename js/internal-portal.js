@@ -14527,6 +14527,85 @@ function toggleOpenQuoteRow(customerId) {
     detail.classList.toggle('hidden');
 }
 
+function openQuoteStoreLabel(row) {
+    return String((row && (row.customer_company || row.customer_name || row.customer_email)) || 'Store').trim();
+}
+
+function populateOpenQuotesCustomerSelect(rows) {
+    const sel = document.getElementById('open-quotes-customer-select');
+    if (!sel) return;
+    const previous = sel.value || 'all';
+    const seen = {};
+    const options = ['<option value="all">All open quotes (master)</option>'];
+    (rows || []).slice().sort(function (a, b) {
+        return openQuoteStoreLabel(a).toLowerCase().localeCompare(openQuoteStoreLabel(b).toLowerCase());
+    }).forEach(function (row) {
+        const id = String(row.customer_id || '');
+        if (!id || seen[id]) return;
+        seen[id] = true;
+        const label = openQuoteStoreLabel(row) +
+            (row.customer_name && row.customer_company ? (' — ' + row.customer_name) : '');
+        options.push('<option value="' + escapeHtml(id) + '">' + escapeHtml(label) + '</option>');
+    });
+    sel.innerHTML = options.join('');
+    if (previous === 'all' || seen[previous]) sel.value = previous;
+    else sel.value = 'all';
+}
+
+function onOpenQuotesCustomerChange() {
+    renderOpenQuotesRows(window._openQuotesRows || []);
+}
+
+function renderOpenQuotesRows(allRows) {
+    const tbody = document.getElementById('open-quotes-table');
+    const countEl = document.getElementById('open-quotes-count');
+    const sel = document.getElementById('open-quotes-customer-select');
+    if (!tbody) return;
+    const filterId = sel && sel.value ? sel.value : 'all';
+    const rows = filterId === 'all'
+        ? (allRows || [])
+        : (allRows || []).filter(function (row) {
+            return String(row.customer_id) === String(filterId);
+        });
+    if (countEl) {
+        countEl.textContent = filterId === 'all'
+            ? (rows.length + ' open')
+            : (rows.length ? '1 store' : '0 open');
+    }
+    if (!rows.length) {
+        tbody.innerHTML = filterId === 'all'
+            ? '<tr><td class="p-3 text-[#6B4423]" colspan="6">No open quotes. A store appears here after they add items to a quote.</td></tr>'
+            : '<tr><td class="p-3 text-[#6B4423]" colspan="6">This store has no items in a quote right now.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = rows.map(function (row) {
+        const id = String(row.customer_id || '');
+        const store = escapeHtml(row.customer_company || row.customer_name || '—');
+        const contact = escapeHtml(row.customer_name || '—');
+        const salesman = escapeHtml(salesmanLabelForOpenQuote(row.salesman_email));
+        const itemCount = Number(row.item_count) || (Array.isArray(row.items) ? row.items.length : 0);
+        const estimate = '$' + (Number(row.estimated_subtotal) || 0).toFixed(2);
+        const age = escapeHtml(formatOpenQuoteAge(row.updated_at));
+        const whenFull = row.updated_at ? escapeHtml(new Date(row.updated_at).toLocaleString()) : '';
+        const startOpen = filterId !== 'all';
+        return (
+            '<tr class="border-t border-[#d4b78f] cursor-pointer hover:bg-[#f8f4eb]" onclick="toggleOpenQuoteRow(\'' + id.replace(/'/g, '') + '\')">' +
+            '<td class="p-3 font-semibold text-[#1E4D2B]">' + store + '</td>' +
+            '<td class="p-3">' + contact + '</td>' +
+            '<td class="p-3">' + salesman + '</td>' +
+            '<td class="p-3 text-center">' + escapeHtml(String(itemCount)) + '</td>' +
+            '<td class="p-3 text-right whitespace-nowrap">' + escapeHtml(estimate) + '</td>' +
+            '<td class="p-3" title="' + whenFull + '">' + age + '</td>' +
+            '</tr>' +
+            '<tr id="open-quote-detail-' + id + '" class="' + (startOpen ? '' : 'hidden ') + 'border-t border-[#d4b78f] bg-[#f8f4eb]">' +
+            '<td class="p-3" colspan="6">' +
+            '<p class="text-xs font-semibold text-[#6B4423] mb-2">' + escapeHtml(row.customer_email || '') + '</p>' +
+            openQuoteLineItemsHtml(row.items) +
+            '</td></tr>'
+        );
+    }).join('');
+}
+
 async function loadOpenQuotes() {
     const tbody = document.getElementById('open-quotes-table');
     const countEl = document.getElementById('open-quotes-count');
@@ -14541,42 +14620,17 @@ async function loadOpenQuotes() {
         const rows = (data || []).filter(function (row) {
             return !isSkippedOpenQuoteStore(row);
         });
-        if (countEl) countEl.textContent = rows.length + (rows.length === 1 ? ' open' : ' open');
-        if (!rows.length) {
-            tbody.innerHTML = '<tr><td class="p-3 text-[#6B4423]" colspan="6">No open quotes. A store appears here after they add items to a quote.</td></tr>';
-            return;
-        }
-        tbody.innerHTML = rows.map(function (row) {
-            const id = String(row.customer_id || '');
-            const store = escapeHtml(row.customer_company || row.customer_name || '—');
-            const contact = escapeHtml(row.customer_name || '—');
-            const salesman = escapeHtml(salesmanLabelForOpenQuote(row.salesman_email));
-            const itemCount = Number(row.item_count) || (Array.isArray(row.items) ? row.items.length : 0);
-            const estimate = '$' + (Number(row.estimated_subtotal) || 0).toFixed(2);
-            const age = escapeHtml(formatOpenQuoteAge(row.updated_at));
-            const whenFull = row.updated_at ? escapeHtml(new Date(row.updated_at).toLocaleString()) : '';
-            return (
-                '<tr class="border-t border-[#d4b78f] cursor-pointer hover:bg-[#f8f4eb]" onclick="toggleOpenQuoteRow(\'' + id.replace(/'/g, '') + '\')">' +
-                '<td class="p-3 font-semibold text-[#1E4D2B]">' + store + '</td>' +
-                '<td class="p-3">' + contact + '</td>' +
-                '<td class="p-3">' + salesman + '</td>' +
-                '<td class="p-3 text-center">' + escapeHtml(String(itemCount)) + '</td>' +
-                '<td class="p-3 text-right whitespace-nowrap">' + escapeHtml(estimate) + '</td>' +
-                '<td class="p-3" title="' + whenFull + '">' + age + '</td>' +
-                '</tr>' +
-                '<tr id="open-quote-detail-' + id + '" class="hidden border-t border-[#d4b78f] bg-[#f8f4eb]">' +
-                '<td class="p-3" colspan="6">' +
-                '<p class="text-xs font-semibold text-[#6B4423] mb-2">' + escapeHtml(row.customer_email || '') + '</p>' +
-                openQuoteLineItemsHtml(row.items) +
-                '</td></tr>'
-            );
-        }).join('');
+        window._openQuotesRows = rows;
+        populateOpenQuotesCustomerSelect(rows);
+        renderOpenQuotesRows(rows);
     } catch (err) {
+        window._openQuotesRows = [];
         if (countEl) countEl.textContent = '0 open';
         tbody.innerHTML = '<tr><td class="p-3 text-red-700" colspan="6">Could not load open quotes.<br>' +
             escapeHtml(err.message || '') + '</td></tr>';
     }
 }
+
 
 
 async function loadEmailLog() {
