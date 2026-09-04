@@ -2974,7 +2974,7 @@ function applyWholesaleComingSoon(photoEl, imgEl, name) {
     const coming = isWholesaleComingSoon(name);
     photoEl.classList.toggle('is-coming-soon', coming);
     photoEl.style.cursor = coming ? 'default' : 'pointer';
-    photoEl.title = coming ? 'Photograph coming soon' : 'Click to enlarge';
+    photoEl.title = coming ? '' : 'Click to enlarge';
     if (imgEl) imgEl.style.cursor = coming ? 'default' : 'pointer';
 }
 

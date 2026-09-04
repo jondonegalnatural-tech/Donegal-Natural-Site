@@ -98,13 +98,16 @@
         }        .wholesale-product-card .card-photo {
             position: relative;
         }
+        .wholesale-product-card .card-photo.is-coming-soon {
+            background: #8a8680;
+        }
         .wholesale-product-card .card-photo.is-coming-soon img {
-            filter: grayscale(1);
-            opacity: 0.45;
+            opacity: 0;
+            visibility: hidden;
             cursor: default;
         }
         .wholesale-product-card .card-photo.is-coming-soon::after {
-            content: "Photograph coming soon";
+            content: "Photograph Coming Soon";
             position: absolute;
             inset: 0;
             display: flex;
@@ -112,10 +115,11 @@
             justify-content: center;
             padding: 0.75rem;
             text-align: center;
-            font-size: 0.8rem;
+            font-size: 0.95rem;
             font-weight: 700;
+            letter-spacing: 0.02em;
             color: #fff;
-            background: rgba(30, 77, 43, 0.55);
+            background: #8a8680;
             pointer-events: none;
         }
         .wholesale-product-card .card-photo {
