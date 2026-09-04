@@ -18316,75 +18316,73 @@ function photoFamilySlug(name) {
         .slice(0, 48);
 }
 
-function getPhotoFamilies() {
-    const catalog = (typeof PRODUCT_CATALOG !== 'undefined' && Array.isArray(PRODUCT_CATALOG))
-        ? PRODUCT_CATALOG
-        : [];
-    const buckets = {};
-    catalog.forEach(function (p) {
-        if (!p || p.active === false) return;
-        const name = String(p.name || '').trim();
-        if (!name) return;
-        let category = String(p.category || p.category_name || 'Other').trim() || 'Other';
-        let sub = String(p.subCategory || p.sub_category || '').trim();
-        const packedName = /\b(5-pack|6-pack|10-pack|8oz|10oz|16oz|bag|bags|display)\b/i.test(name) &&
-            !/\(bulk\)/i.test(name);
-        if (packedName || /packaged/i.test(category)) {
-            if (!sub) sub = category;
-            category = 'Packaged Items';
-        }
-        const bucketKey = category + '\0' + (sub || category);
-        if (!buckets[bucketKey]) {
-            buckets[bucketKey] = {
-                category: category,
-                subCategory: sub,
-                names: []
-            };
-        }
-        if (buckets[bucketKey].names.indexOf(name) === -1) {
-            buckets[bucketKey].names.push(name);
-        }
-    });
+const PHOTO_PACKAGED_ITEMS = {
+    'Duck and Goose': [
+        '5-Pack of Crunchy Duck Heads',
+        '10-Pack of Crunchy Duck Necks',
+        '10-Pack of Crunchy Goose Necks',
+        '10-Pack Euro Duck Feet',
+        '10-Pack of Duck Heads'
+    ],
+    'Ears': [
+        '6-Pack Natural Cow Ears',
+        '6-Pack Vanilla Cow Ears',
+        '6-Pack Honey Smoked Cow Ears',
+        '10-Pack Fuzzy Rabbit Ears',
+        '5-Pack Hairy Beef Ears'
+    ],
+    'Feet': [
+        '10-Pack Fuzzy Rabbit Feet',
+        '10-Pack Euro Chicken Feet',
+        '10-Pack White Euro Chicken Feet',
+        '10-Pack Vanilla Euro Chicken Feet'
+    ],
+    'Chunky Cheeks': [
+        '8oz. Bags of White Chunky Cheeks',
+        '8oz. Bags of Vanilla Chunky Cheeks',
+        '16oz. Bags of White Chunky Cheeks',
+        '16oz. Bags of Vanilla Chunky Cheeks'
+    ],
+    'Beef Lung': [
+        '8oz. Bag of Beef Lung',
+        '16oz. Bag of Beef Lung'
+    ],
+    'Bully Pieces': [
+        '8oz. Bag of Bully Pieces',
+        '10oz. Bag of Bully Pieces',
+        '16oz. Bag of Bully Pieces'
+    ],
+    'Jerky': [
+        '6oz. Bags of USA Elky Training Treats',
+        '10oz. Bags of USA Elky Training Treats'
+    ],
+    'Trachea Pieces': [
+        '8oz. Bags of Beef Trachea Pieces',
+        '16oz. Bags of Beef Trachea Pieces'
+    ],
+    "Binky's": [
+        "8oz. Bags of White Supreme Chips (Binkey's)",
+        "8oz. Bags of Peanut Butter Supreme Chips (Binkey's)",
+        "8oz. Bags of Vanilla Supreme Chips (Binkey's)",
+        "16oz. Bags of White Supreme Chips (Binkey's)",
+        "16oz. Bags of Peanut Butter Supreme Chips (Binkey's)",
+        "16oz. Bags of Vanilla Supreme Chips (Binkey's)"
+    ]
+};
 
-    const oldFamilies = (typeof PHOTO_FAMILIES !== 'undefined' && Array.isArray(PHOTO_FAMILIES))
-        ? PHOTO_FAMILIES
-        : [];
-
-    return Object.keys(buckets).map(function (bucketKey) {
-        const bucket = buckets[bucketKey];
-        const title = bucket.subCategory || bucket.category;
-        const nameSet = {};
-        bucket.names.forEach(function (n) {
-            nameSet[String(n).toLowerCase()] = true;
-        });
-        const matches = oldFamilies.filter(function (old) {
-            return (old.names || []).some(function (n) {
-                return nameSet[String(n).toLowerCase()];
-            });
-        });
-        const aliasKeys = matches.map(function (old) { return old.key; });
-        bucket.names.forEach(function (n) {
-            const leftover = photoFamilySlug(n);
-            if (leftover && aliasKeys.indexOf(leftover) === -1) aliasKeys.push(leftover);
-        });
-        const key = (matches[0] && matches[0].key)
-            ? matches[0].key
-            : (photoFamilySlug(bucket.category + '-' + (bucket.subCategory || bucket.category)) || ('fam-' + title));
-        if (aliasKeys.indexOf(key) === -1) aliasKeys.unshift(key);
-        return {
-            key: key,
-            title: title,
-            category: bucket.category,
-            names: bucket.names.slice(),
-            aliasKeys: aliasKeys,
-            kind: /packaged/i.test(bucket.category) ? 'packaged' : undefined
-        };
-    }).sort(function (a, b) {
-        const cat = String(a.category || '').localeCompare(String(b.category || ''));
-        if (cat !== 0) return cat;
-        return String(a.title || '').localeCompare(String(b.title || ''));
-    });
+function packagedSubForName(name) {
+    const needle = photoNameKey(name);
+    if (!needle) return '';
+    const keys = Object.keys(PHOTO_PACKAGED_ITEMS);
+    for (let i = 0; i < keys.length; i++) {
+        const names = PHOTO_PACKAGED_ITEMS[keys[i]];
+        for (let n = 0; n < names.length; n++) {
+            if (photoNameKey(names[n]) === needle) return keys[i];
+        }
+    }
+    return '';
 }
+
 
 function getPhotoFamilyByKey(key) {
     return getPhotoFamilies().find(function (f) {
