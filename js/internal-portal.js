@@ -18858,6 +18858,15 @@ function renderProductPhotoGallery() {
     }
     const subs = families.filter(function (f) {
         if (f.category !== _photoGalleryCategory) return false;
+        if (f.category !== 'Packaged Items') {
+            const title = String(f.title || '').toLowerCase();
+            if (title === 'packaged ears' ||
+                title === 'packaged feet' ||
+                title === 'packaged duck and goose' ||
+                title.indexOf('packaged') === 0) {
+                return false;
+            }
+        }
         if (!q) return true;
         const hay = (f.title + ' ' + (f.names || []).join(' ')).toLowerCase();
         return hay.indexOf(q) !== -1;
