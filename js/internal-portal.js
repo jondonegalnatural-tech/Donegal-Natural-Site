@@ -18632,8 +18632,16 @@ function onPhotoGalleryFilePicked() {
     const fileEl = document.getElementById('photo-gallery-file');
     const label = document.getElementById('photo-gallery-file-label');
     if (!label) return;
-    const file = fileEl && fileEl.files && fileEl.files[0];
-    label.textContent = file ? file.name : 'Drop a JPG, PNG, or WebP here, or choose a file';
+    const files = fileEl && fileEl.files ? Array.from(fileEl.files) : [];
+    if (!files.length) {
+        label.textContent = 'Drop photos here, or choose files';
+        return;
+    }
+    if (files.length === 1) {
+        label.textContent = files[0].name;
+        return;
+    }
+    label.textContent = files.length + ' photos selected';
 }
 
 function onPhotoGalleryDrop(event) {
@@ -18641,19 +18649,21 @@ function onPhotoGalleryDrop(event) {
     const drop = document.getElementById('photo-gallery-drop');
     if (drop) drop.classList.remove('ring-2', 'ring-[#1E4D2B]');
     const fileEl = document.getElementById('photo-gallery-file');
-    if (!fileEl || !event.dataTransfer || !event.dataTransfer.files || !event.dataTransfer.files[0]) return;
-    const file = event.dataTransfer.files[0];
-    const type = String(file.type || '').toLowerCase();
-    if (['image/jpeg', 'image/png', 'image/webp'].indexOf(type) === -1) {
-        alert('Use a JPG, PNG, or WebP file.');
+    if (!fileEl || !event.dataTransfer || !event.dataTransfer.files || !event.dataTransfer.files.length) return;
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    const incoming = Array.from(event.dataTransfer.files).filter(function (file) {
+        return allowed.indexOf(String(file.type || '').toLowerCase()) !== -1;
+    });
+    if (!incoming.length) {
+        alert('Use JPG, PNG, or WebP files.');
         return;
     }
     try {
         const dt = new DataTransfer();
-        dt.items.add(file);
+        incoming.forEach(function (file) { dt.items.add(file); });
         fileEl.files = dt.files;
     } catch (err) {
-        alert('Could not attach that file. Use Choose File instead.');
+        alert('Could not attach those files. Use Choose File instead.');
         return;
     }
     onPhotoGalleryFilePicked();
@@ -18666,20 +18676,23 @@ async function addProductPhoto() {
     const scopeEl = document.getElementById('photo-gallery-scope');
     const variantEl = document.getElementById('photo-gallery-variant');
     const btn = document.getElementById('photo-gallery-add-btn');
-    if (!family || !fileEl || !fileEl.files || !fileEl.files[0]) {
+    const files = fileEl && fileEl.files ? Array.from(fileEl.files) : [];
+    if (!family || !files.length) {
         alert('Choose a photo first.');
         return;
     }
 
-    const file = fileEl.files[0];
-    const type = String(file.type || '').toLowerCase();
-    if (['image/jpeg', 'image/png', 'image/webp'].indexOf(type) === -1) {
-        alert('Use a JPG, PNG, or WebP file.');
-        return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-        alert('File is over 5 MB.');
-        return;
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    for (let i = 0; i < files.length; i++) {
+        const type = String(files[i].type || '').toLowerCase();
+        if (allowed.indexOf(type) === -1) {
+            alert(files[i].name + ' is not a JPG, PNG, or WebP.');
+            return;
+        }
+        if (files[i].size > 5 * 1024 * 1024) {
+            alert(files[i].name + ' is over 5 MB.');
+            return;
+        }
     }
 
     const scope = (scopeEl && scopeEl.value) || (isPackagedPhotoFamily(family) ? 'packaged' : 'family');
@@ -18689,38 +18702,44 @@ async function addProductPhoto() {
         return;
     }
 
-    const ext = type === 'image/png' ? '.png' : (type === 'image/webp' ? '.webp' : '.jpg');
-    const path = family.key + '/' + (window.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now())) + ext;
-    const existing = photosForFamily(family.key);
-    const makeHero = scope !== 'variant' && !existing.some(function (r) {
-        return r.is_card_hero;
-    });
-
     if (btn) {
         btn.disabled = true;
         btn.textContent = 'Uploading…';
     }
 
     try {
-        const { error: upErr } = await supabaseClient.storage
-            .from(PHOTO_BUCKET)
-            .upload(path, file, { upsert: false, contentType: file.type, cacheControl: '3600' });
-        if (upErr) throw upErr;
-
         const { data: sessionData } = await supabaseClient.auth.getSession();
         const uid = sessionData && sessionData.session && sessionData.session.user && sessionData.session.user.id;
-
-        const { error: insErr } = await supabaseClient.from('product_images').insert({
-            family_key: family.key,
-            linked_family_key: family.linkedFamilyKey || null,
-            scope: scope,
-            variant_name: variantName,
-            is_card_hero: makeHero,
-            sort_order: existing.length,
-            storage_path: path,
-            created_by: uid || null
+        let existing = photosForFamily(family.key);
+        let hasHero = existing.some(function (r) {
+            return r.is_card_hero && r.storage_path !== 'COMING_SOON';
         });
-        if (insErr) throw insErr;
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const type = String(file.type || '').toLowerCase();
+            const ext = type === 'image/png' ? '.png' : (type === 'image/webp' ? '.webp' : '.jpg');
+            const path = family.key + '/' + (window.crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + i) + ext;
+            const makeHero = scope !== 'variant' && !hasHero;
+
+            const { error: upErr } = await supabaseClient.storage
+                .from(PHOTO_BUCKET)
+                .upload(path, file, { upsert: false, contentType: file.type, cacheControl: '3600' });
+            if (upErr) throw upErr;
+
+            const { error: insErr } = await supabaseClient.from('product_images').insert({
+                family_key: family.key,
+                linked_family_key: family.linkedFamilyKey || null,
+                scope: scope,
+                variant_name: variantName,
+                is_card_hero: makeHero,
+                sort_order: existing.length + i,
+                storage_path: path,
+                created_by: uid || null
+            });
+            if (insErr) throw insErr;
+            if (makeHero) hasHero = true;
+        }
 
         fileEl.value = '';
         if (typeof onPhotoGalleryFilePicked === 'function') onPhotoGalleryFilePicked();
@@ -18729,6 +18748,10 @@ async function addProductPhoto() {
     } catch (err) {
         console.error(err);
         alert('Could not add photo.\n' + (err.message || err));
+        try {
+            await loadProductImages();
+            renderProductPhotoGallery();
+        } catch (e) {}
     } finally {
         if (btn) {
             btn.disabled = false;
