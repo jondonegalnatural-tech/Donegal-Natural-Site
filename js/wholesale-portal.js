@@ -2930,7 +2930,10 @@ function wholesalePhotoSlug(name) {
 }
 
 function wholesalePhotoUrl(path) {
-    if (!path) return '';
+    const p = String(path || '');
+    if (!p) return '';
+    if (p === 'COMING_SOON' || p.indexOf('COMING_SOON/') === 0) return '';
+    if (!/\.(jpe?g|png|webp|gif)$/i.test(p)) return '';
     try {
         const pub = supabaseClient.storage.from('product-photos').getPublicUrl(path);
         return (pub && pub.data && pub.data.publicUrl) || '';
@@ -2949,7 +2952,10 @@ function getPhotoFamilyKeyForName(name) {
 
 function galleryRowsForFamily(key) {
     return (_wholesaleProductImages || []).filter(function (row) {
-        return row.family_key === key;
+        if (row.family_key !== key) return false;
+        const path = String(row.storage_path || '');
+        if (path === 'COMING_SOON' || path.indexOf('COMING_SOON/') === 0) return false;
+        return true;
     });
 }
 

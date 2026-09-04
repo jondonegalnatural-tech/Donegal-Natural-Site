@@ -18385,8 +18385,15 @@ function getPhotoFamilyByKey(key) {
     }) || null;
 }
 
+function isRealPhotoPath(path) {
+    const p = String(path || '');
+    if (!p) return false;
+    if (p === 'COMING_SOON' || p.indexOf('COMING_SOON/') === 0) return false;
+    return /\.(jpe?g|png|webp|gif)$/i.test(p);
+}
+
 function photoPublicUrl(path) {
-    if (!path) return '';
+    if (!isRealPhotoPath(path)) return '';
     try {
         const pub = supabaseClient.storage.from(PHOTO_BUCKET).getPublicUrl(path);
         return (pub && pub.data && pub.data.publicUrl) || '';
@@ -18490,10 +18497,12 @@ async function toggleProductComingSoon(familyKey, productName, enabled) {
 }
 
 function heroForFamily(familyKey) {
-    const rows = photosForFamily(familyKey);
+    const rows = visiblePhotosForFamily(familyKey);
     return rows.find(function (r) {
-        return r.is_card_hero;
-    }) || rows[0] || null;
+        return r.is_card_hero && isRealPhotoPath(r.storage_path);
+    }) || rows.find(function (r) {
+        return isRealPhotoPath(r.storage_path);
+    }) || null;
 }
 
 async function openProductPhotoGallery() {
@@ -18835,19 +18844,26 @@ async function addProductPhoto() {
 
 async function setPhotoAsCardHero(id) {
     if (!_photoGalleryFamilyKey) return;
+    const row = (_photoGalleryImages || []).find(function (r) { return String(r.id) === String(id); });
+    if (row && typeof isComingSoonPath === 'function' && isComingSoonPath(row.storage_path)) {
+        alert('That is a coming-soon flag, not a photo.');
+        return;
+    }
     try {
-        const { error: clearErr } = await supabaseClient
-            .from('product_images')
-            .update({ is_card_hero: false })
-            .eq('family_key', _photoGalleryFamilyKey);
-        if (clearErr) throw clearErr;
-
+        const family = getPhotoFamilyByKey(_photoGalleryFamilyKey);
+        const keys = [_photoGalleryFamilyKey].concat((family && family.aliasKeys) || []);
+        for (let i = 0; i < keys.length; i++) {
+            const { error: clearErr } = await supabaseClient
+                .from('product_images')
+                .update({ is_card_hero: false })
+                .eq('family_key', keys[i]);
+            if (clearErr) throw clearErr;
+        }
         const { error } = await supabaseClient
             .from('product_images')
             .update({ is_card_hero: true })
             .eq('id', id);
         if (error) throw error;
-
         await loadProductImages();
         renderProductPhotoGallery();
     } catch (err) {
