@@ -14470,10 +14470,6 @@ async function logPortalEmail(entry) {
 }
 
 function isSkippedOpenQuoteStore(row) {
-    const email = String((row && row.customer_email) || '').toLowerCase().trim();
-    const company = String((row && (row.customer_company || row.customer_name)) || '').toLowerCase();
-    if (email === 'jackerman@donegalnatural.com') return true;
-    if (company.indexOf('admin test store') !== -1) return true;
     return false;
 }
 
