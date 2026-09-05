@@ -7084,11 +7084,18 @@ function isWholesaleOos(name) {
     return !!(row && row.is_out_of_stock);
 }
 
+function formatOosDisplayDate(value) {
+    var raw = String(value || '').slice(0, 10);
+    var parts = raw.split('-');
+    if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) return raw;
+    return parts[1] + '/' + parts[2] + '/' + String(parts[0]).slice(-2);
+}
+
 function wholesaleOosLabel(name) {
     var row = getWholesaleOos(name);
     if (!row || !row.is_out_of_stock) return '';
     var eta = row.estimated_back_at ? String(row.estimated_back_at).slice(0, 10) : '';
-    return eta ? ('Out of stock · back ' + eta) : 'Out of stock';
+    return eta ? ('Out of Stock: Expected in stock date ' + formatOosDisplayDate(eta)) : 'Out of Stock';
 }
 
 async function loadWholesaleOutOfStock() {
