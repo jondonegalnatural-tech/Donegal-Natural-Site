@@ -4892,32 +4892,40 @@ function updateQuoteSidebar() {
 
         if (numericPrice <= 0 && isMarketPrice) {
             priceInfo = `<span class="text-[#c56134] font-semibold">Market Price</span>`;
-            lineTotalHTML = `<div class="text-right text-sm mt-1">Qty: ${item.quantity}</div>` + marketDisclaimerHtml();
+            lineTotalHTML = marketDisclaimerHtml();
         } else {
             const numericPrice = parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0;
             const lineTotalValue = numericPrice * item.quantity;
             pricedTotal += lineTotalValue;
 
             if (isPerLb) {
-                // Special display for per lb items
-                priceInfo = `${item.quantity} lbs × ${item.price}`;
+                priceInfo = item.price;
                 lineTotalHTML = `<div class="text-right font-semibold mt-1">$${lineTotalValue.toFixed(2)}</div>`;
             } else {
-                priceInfo = `${item.price} × ${item.quantity}`;
+                priceInfo = item.price;
                 lineTotalHTML = `<div class="text-right font-semibold mt-1">$${lineTotalValue.toFixed(2)}</div>`;
             }
         }
 
+        const qtyLabel = isPerLb ? 'lbs' : 'units';
+        const qtyVal = parseInt(item.quantity, 10) || 1;
         div.innerHTML = `
             <div class="flex justify-between items-start">
                 <div class="flex-1 pr-2">
                     <p class="font-semibold leading-tight">${escapeHtml(item.name)}</p>
                     <p class="text-xs text-[#6B4423] mt-0.5">${escapeHtml(item.cs)}</p>
                     <p class="text-xs mt-1">${priceInfo}</p>
+                    <div class="card-qty-input-wrap mt-1">
+                        <input type="number" min="1" step="1" value="${qtyVal}"
+                               onchange="updateQuoteQty(${index}, this.value)"
+                               class="card-qty-input"
+                               aria-label="Quantity">
+                        <span class="card-qty-units-inside">${qtyLabel}</span>
+                    </div>
                 </div>
 
                 <div class="flex flex-col items-end">
-                    <button onclick="removeFromQuote(${index})" 
+                    <button type="button" onclick="removeFromQuote(${index})"
                             class="text-red-500 hover:text-red-700 text-xl leading-none mb-1">
                         ×
                     </button>
@@ -5037,6 +5045,15 @@ function expandQuoteModal() {
     content += `</div>`;
     modal.innerHTML = content;
     document.body.appendChild(modal);
+}
+
+function updateQuoteQty(index, value) {
+    if (!quoteItems[index]) return;
+    const qty = parseInt(value, 10);
+    quoteItems[index].quantity = (isNaN(qty) || qty < 1) ? 1 : qty;
+    localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
+    updateQuoteSidebar();
+    if (typeof schedulePersistOpenQuote === 'function') schedulePersistOpenQuote();
 }
 
 function removeFromQuote(index) {
