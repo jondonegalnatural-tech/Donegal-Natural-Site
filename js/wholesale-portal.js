@@ -5056,6 +5056,15 @@ function updateQuoteQty(index, value) {
     if (typeof schedulePersistOpenQuote === 'function') schedulePersistOpenQuote();
 }
 
+function updateQuoteQty(index, value) {
+    if (!quoteItems[index]) return;
+    const qty = parseInt(value, 10);
+    quoteItems[index].quantity = (isNaN(qty) || qty < 1) ? 1 : qty;
+    localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
+    updateQuoteSidebar();
+    if (typeof schedulePersistOpenQuote === 'function') schedulePersistOpenQuote();
+}
+
 function removeFromQuote(index) {
     quoteItems.splice(index, 1);
     localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
