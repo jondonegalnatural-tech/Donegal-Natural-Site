@@ -4811,6 +4811,30 @@ async function persistOpenQuoteNow() {
 }
 
 
+function showQuoteAddedBadge(name, qty) {
+    var existing = document.getElementById('quote-added-badge');
+    if (existing) existing.remove();
+    var el = document.createElement('div');
+    el.id = 'quote-added-badge';
+    el.setAttribute('role', 'status');
+    el.className = 'fixed bottom-6 left-1/2 z-[120] px-4 py-3 bg-[#1E4D2B] text-[#d4b78f] border-2 border-[#6B4423] rounded-2xl text-sm font-semibold shadow-lg text-center pointer-events-none';
+    el.style.transform = 'translateX(-50%)';
+    var title = document.createElement('p');
+    title.className = 'text-xs uppercase tracking-wide';
+    title.textContent = 'Added to quote';
+    var detail = document.createElement('p');
+    detail.textContent = (name || 'Item') + ' × ' + (parseInt(qty, 10) || 1);
+    el.appendChild(title);
+    el.appendChild(detail);
+    document.body.appendChild(el);
+    if (window._quoteAddedBadgeTimer) clearTimeout(window._quoteAddedBadgeTimer);
+    window._quoteAddedBadgeTimer = setTimeout(function () {
+        var node = document.getElementById('quote-added-badge');
+        if (node) node.remove();
+        window._quoteAddedBadgeTimer = null;
+    }, 2200);
+}
+
 function addToQuoteFromModal() {
     const pending = window._pendingQuoteItem;
     if (!pending) {
@@ -4831,6 +4855,7 @@ function addToQuoteFromModal() {
     localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
     updateQuoteSidebar();
     if (typeof schedulePersistOpenQuote === 'function') schedulePersistOpenQuote();
+    showQuoteAddedBadge(pending.name, qty);
     closeAddToQuoteModal();
     window._pendingQuoteItem = null;
 }
@@ -4853,6 +4878,7 @@ function addToQuote(name, price, cs, quantity) {
     localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
     updateQuoteSidebar();
     if (typeof schedulePersistOpenQuote === 'function') schedulePersistOpenQuote();
+    showQuoteAddedBadge(name, qty);
     closeAddToQuoteModal();
 }
 
