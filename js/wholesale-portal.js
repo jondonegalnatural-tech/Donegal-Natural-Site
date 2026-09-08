@@ -4817,12 +4817,29 @@ function showQuoteAddedBadge(name, qty) {
     var el = document.createElement('div');
     el.id = 'quote-added-badge';
     el.setAttribute('role', 'status');
-    el.className = 'fixed bottom-6 left-1/2 z-[120] px-4 py-3 bg-[#1E4D2B] text-[#d4b78f] border-2 border-[#6B4423] rounded-2xl text-sm font-semibold shadow-lg text-center pointer-events-none';
-    el.style.transform = 'translateX(-50%)';
+    el.style.cssText = [
+        'position:fixed',
+        'left:50%',
+        'bottom:24px',
+        'transform:translateX(-50%)',
+        'z-index:2147483647',
+        'background:#1E4D2B',
+        'color:#d4b78f',
+        'border:2px solid #6B4423',
+        'border-radius:16px',
+        'padding:12px 20px',
+        'font-size:14px',
+        'font-weight:700',
+        'text-align:center',
+        'box-shadow:0 8px 24px rgba(0,0,0,0.25)',
+        'pointer-events:none',
+        'max-width:90vw'
+    ].join(';');
     var title = document.createElement('p');
-    title.className = 'text-xs uppercase tracking-wide';
+    title.style.cssText = 'margin:0;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;';
     title.textContent = 'Added to quote';
     var detail = document.createElement('p');
+    detail.style.cssText = 'margin:4px 0 0;';
     detail.textContent = (name || 'Item') + ' × ' + (parseInt(qty, 10) || 1);
     el.appendChild(title);
     el.appendChild(detail);
@@ -4832,7 +4849,7 @@ function showQuoteAddedBadge(name, qty) {
         var node = document.getElementById('quote-added-badge');
         if (node) node.remove();
         window._quoteAddedBadgeTimer = null;
-    }, 2200);
+    }, 2500);
 }
 
 function addToQuoteFromModal() {
