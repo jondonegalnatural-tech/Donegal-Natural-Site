@@ -4114,17 +4114,85 @@ async function renderPriceSheet() {
             salesman_email: email
         };
 
-        const rows = Object.keys(sheet.prices).sort().map(name => {
-            const price = sheet.prices[name];
-            return `
-                <div class="flex justify-between py-2 border-b border-[#eee] text-sm">
-                    <span class="pr-3">${name}</span>
-                    <span class="font-semibold brand-green">$${Number(price).toFixed(2)}</span>
-                </div>
-            `;
-        }).join("");
+        const catalogByName = {};
+        if (typeof PRODUCT_CATALOG !== "undefined") {
+            PRODUCT_CATALOG.forEach(function (p) {
+                catalogByName[p.name] = p;
+            });
+        }
+        const grouped = {};
+        const categoryOrder = [];
+        const unmatched = [];
+        Object.keys(sheet.prices).forEach(function (name) {
+            const p = catalogByName[name];
+            const n = Number(sheet.prices[name]);
+            const priceText = isFinite(n) ? ('$' + n.toFixed(2) + '/ea.') : 'Market';
+            if (p) {
+                const cat = p.category || 'Other';
+                if (!grouped[cat]) {
+                    grouped[cat] = [];
+                    categoryOrder.push(cat);
+                }
+                grouped[cat].push({
+                    name: name,
+                    caseSize: p.caseSize || p.case_size || '',
+                    priceText: priceText
+                });
+            } else {
+                unmatched.push({ name: name, caseSize: '', priceText: priceText });
+            }
+        });
+        categoryOrder.forEach(function (cat) {
+            grouped[cat].sort(function (a, b) { return a.name.localeCompare(b.name); });
+        });
+        unmatched.sort(function (a, b) { return a.name.localeCompare(b.name); });
 
-        list.innerHTML = rows;
+        let tableHtml = `
+            <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                        <th class="p-3 text-left">Product</th>
+                        <th class="p-3 text-left w-32">Case Size</th>
+                        <th class="p-3 text-right w-28">Unit Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        categoryOrder.forEach(function (cat) {
+            tableHtml += `
+                <tr class="bg-[#f8f4eb]">
+                    <td colspan="3" class="p-3 font-bold brand-green border-b-2 border-[#6B4423]">${escapeHtml(cat)}</td>
+                </tr>
+            `;
+            grouped[cat].forEach(function (row) {
+                tableHtml += `
+                    <tr class="border-b border-[#e5d5c0]">
+                        <td class="p-3">${escapeHtml(row.name)}</td>
+                        <td class="p-3 text-[#6B4423]">${escapeHtml(row.caseSize || '—')}</td>
+                        <td class="p-3 text-right font-semibold brand-green whitespace-nowrap">${row.priceText}</td>
+                    </tr>
+                `;
+            });
+        });
+        if (unmatched.length) {
+            tableHtml += `
+                <tr class="bg-[#f8f4eb]">
+                    <td colspan="3" class="p-3 font-bold brand-green border-b-2 border-[#6B4423]">Other</td>
+                </tr>
+            `;
+            unmatched.forEach(function (row) {
+                tableHtml += `
+                    <tr class="border-b border-[#e5d5c0]">
+                        <td class="p-3">${escapeHtml(row.name)}</td>
+                        <td class="p-3 text-[#6B4423]">—</td>
+                        <td class="p-3 text-right font-semibold brand-green whitespace-nowrap">${row.priceText}</td>
+                    </tr>
+                `;
+            });
+        }
+        tableHtml += `</tbody></table></div>`;
+        list.innerHTML = tableHtml;
 
     } catch (err) {
         console.error(err);
@@ -4231,7 +4299,7 @@ async function exportPriceSheetPdf() {
                 <tr>
                     <td>${escapeHtml(row.name)}</td>
                     <td class="case">${escapeHtml(row.caseSize || "—")}</td>
-                    <td class="price">$${row.price.toFixed(2)}</td>
+                    <td class="price">$${row.price.toFixed(2)}/ea.</td>
                 </tr>
             `;
         });
@@ -4248,7 +4316,7 @@ async function exportPriceSheetPdf() {
                 <tr>
                     <td>${escapeHtml(row.name)}</td>
                     <td class="case">—</td>
-                    <td class="price">$${row.price.toFixed(2)}</td>
+                    <td class="price">$${row.price.toFixed(2)}/ea.</td>
                 </tr>
             `;
         });
