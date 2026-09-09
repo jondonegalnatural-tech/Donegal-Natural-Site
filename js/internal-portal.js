@@ -1676,14 +1676,12 @@ function openOrderInvoiceModal(orderId) {
     const shipEl = document.getElementById('inv-ship-to');
     if (shipEl) {
         const lines = [];
-        const boPhone = (customer && customer.phone) || '';
-        if (boPhone) {
-            lines.push(typeof formatPhoneDisplay === 'function' ? formatPhoneDisplay(boPhone) : boPhone);
-        } else if (customerEmail) {
-            lines.push(customerEmail);
-        }
-        const billing = (customer && (customer.billingAddress || customer.billing_address))
-            || (customer && (customer.shippingAddress || customer.shipping_address))
+        const shipName = String(order.customer || order.customer_name || '').trim();
+        const shipCo = String(order.customerCompany || order.customer_company || (customer && customer.company) || '').trim();
+        if (shipName) lines.push(shipName);
+        if (shipCo && shipCo.toLowerCase() !== shipName.toLowerCase()) lines.push(shipCo);
+        const shipping = (customer && (customer.shippingAddress || customer.shipping_address))
+            || (customer && (customer.billingAddress || customer.billing_address))
             || '';
         if (shipping) lines.push(shipping);
         shipEl.innerHTML = lines.length
