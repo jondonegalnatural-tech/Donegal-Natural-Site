@@ -787,6 +787,61 @@
 </div>
 
 <!-- Onboarding: Billing + Payment Modal -->
+ <div id="payment-method-modal"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] p-4">
+    <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg p-8 max-h-[90vh] overflow-y-auto">
+        <h2 class="text-2xl font-bold brand-green mb-2">Payment method on file</h2>
+        <p class="text-sm text-[#6B4423] mb-4">
+            Add a credit card or ACH account before submitting an order.
+            We only store the last 4 digits. Donegal Natural is not charging this method yet.
+        </p>
+        <div class="grid grid-cols-2 gap-2 mb-4">
+            <button type="button" id="pay-type-card" onclick="setPaymentMethodType('card')"
+                    class="px-4 py-2 border-2 border-[#6B4423] rounded-xl font-semibold">Credit Card</button>
+            <button type="button" id="pay-type-ach" onclick="setPaymentMethodType('ach')"
+                    class="px-4 py-2 border-2 border-[#6B4423] rounded-xl font-semibold">ACH / Bank</button>
+        </div>
+        <div id="pay-card-fields" class="hidden space-y-3 mb-4">
+            <input id="pay-card-name" type="text" placeholder="Name on card"
+                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+            <select id="pay-card-brand" class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                <option value="">Card brand</option>
+                <option value="Visa">Visa</option>
+                <option value="Mastercard">Mastercard</option>
+                <option value="Amex">American Express</option>
+                <option value="Discover">Discover</option>
+                <option value="Other">Other</option>
+            </select>
+            <input id="pay-card-last4" type="text" inputmode="numeric" maxlength="4" placeholder="Last 4 digits"
+                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+            <div class="grid grid-cols-2 gap-2">
+                <input id="pay-card-exp-month" type="text" inputmode="numeric" maxlength="2" placeholder="MM"
+                       class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                <input id="pay-card-exp-year" type="text" inputmode="numeric" maxlength="2" placeholder="YY"
+                       class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+            </div>
+        </div>
+        <div id="pay-ach-fields" class="hidden space-y-3 mb-4">
+            <input id="pay-ach-name" type="text" placeholder="Name on account"
+                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+            <input id="pay-ach-bank" type="text" placeholder="Bank name"
+                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+            <select id="pay-ach-type" class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                <option value="checking">Checking</option>
+                <option value="savings">Savings</option>
+            </select>
+            <input id="pay-ach-routing-last4" type="text" inputmode="numeric" maxlength="4" placeholder="Routing last 4"
+                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+            <input id="pay-ach-account-last4" type="text" inputmode="numeric" maxlength="4" placeholder="Account last 4"
+                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+        </div>
+        <p id="pay-method-error" class="hidden text-sm text-red-600 mb-3"></p>
+        <button type="button" onclick="savePaymentMethodOnFile()"
+                class="w-full bg-[#1E4D2B] text-[#d4b78f] font-bold py-3 rounded-xl">
+            Save payment method
+        </button>
+    </div>
+</div>
 <div id="onboarding-modal"
      class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
     <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg p-8 max-h-[90vh] overflow-y-auto">

@@ -5179,6 +5179,134 @@ function hideQuoteConfirmModal() {
     }
 }
 
+function digitsOnly(value, max) {
+    return String(value || '').replace(/\D/g, '').slice(0, max || 4);
+}
+
+function hasPaymentMethodOnFile(customer) {
+    if (!customer) return false;
+    const method = String(customer.payment_method || '').toLowerCase();
+    const status = String(customer.payment_method_status || '').toLowerCase();
+    if (method !== 'card' && method !== 'ach') return false;
+    return status === 'on_file' || status === 'approved';
+}
+
+function paymentMethodLabel(customer) {
+    if (!hasPaymentMethodOnFile(customer)) return 'None on file';
+    let details = {};
+    try { details = JSON.parse(customer.payment_method_details || '{}') || {}; } catch (e) { details = {}; }
+    if (String(customer.payment_method).toLowerCase() === 'card') {
+        return (details.brand || 'Card') + ' •••• ' + (details.last4 || 'on file');
+    }
+    return (details.bank_name || 'ACH') + ' •••• ' + (details.account_last4 || 'on file');
+}
+
+function setPaymentMethodType(type) {
+    window._paymentMethodType = type === 'ach' ? 'ach' : 'card';
+    const cardBtn = document.getElementById('pay-type-card');
+    const achBtn = document.getElementById('pay-type-ach');
+    const cardFields = document.getElementById('pay-card-fields');
+    const achFields = document.getElementById('pay-ach-fields');
+    if (cardBtn) cardBtn.className = 'px-4 py-2 border-2 rounded-xl font-semibold ' +
+        (window._paymentMethodType === 'card' ? 'border-[#1E4D2B] bg-[#1E4D2B] text-[#d4b78f]' : 'border-[#6B4423]');
+    if (achBtn) achBtn.className = 'px-4 py-2 border-2 rounded-xl font-semibold ' +
+        (window._paymentMethodType === 'ach' ? 'border-[#1E4D2B] bg-[#1E4D2B] text-[#d4b78f]' : 'border-[#6B4423]');
+    if (cardFields) cardFields.classList.toggle('hidden', window._paymentMethodType !== 'card');
+    if (achFields) achFields.classList.toggle('hidden', window._paymentMethodType !== 'ach');
+}
+
+function openPaymentMethodModal() {
+    const err = document.getElementById('pay-method-error');
+    if (err) { err.textContent = ''; err.classList.add('hidden'); }
+    setPaymentMethodType(window._paymentMethodType || 'card');
+    document.getElementById('payment-method-modal')?.classList.remove('hidden');
+}
+
+function hidePaymentMethodModal() {
+    document.getElementById('payment-method-modal')?.classList.add('hidden');
+}
+
+async function savePaymentMethodOnFile() {
+    const customer = window._currentCustomer;
+    const err = document.getElementById('pay-method-error');
+    const showErr = function (msg) {
+        if (!err) { alert(msg); return; }
+        err.textContent = msg;
+        err.classList.remove('hidden');
+    };
+    if (!customer || !customer.id) {
+        showErr('No store is selected.');
+        return;
+    }
+    const type = window._paymentMethodType === 'ach' ? 'ach' : 'card';
+    let details = { type: type, saved_at: new Date().toISOString() };
+    if (type === 'card') {
+        const name = (document.getElementById('pay-card-name')?.value || '').trim();
+        const brand = (document.getElementById('pay-card-brand')?.value || '').trim();
+        const last4 = digitsOnly(document.getElementById('pay-card-last4')?.value, 4);
+        const mm = digitsOnly(document.getElementById('pay-card-exp-month')?.value, 2);
+        const yy = digitsOnly(document.getElementById('pay-card-exp-year')?.value, 2);
+        const monthNum = parseInt(mm, 10);
+        if (!name || !brand || last4.length !== 4 || !monthNum || monthNum < 1 || monthNum > 12 || yy.length !== 2) {
+            showErr('Enter name, brand, last 4, and a valid expiration.');
+            return;
+        }
+        details.name = name;
+        details.brand = brand;
+        details.last4 = last4;
+        details.exp_month = mm.padStart(2, '0');
+        details.exp_year = yy;
+    } else {
+        const name = (document.getElementById('pay-ach-name')?.value || '').trim();
+        const bank = (document.getElementById('pay-ach-bank')?.value || '').trim();
+        const acctType = (document.getElementById('pay-ach-type')?.value || 'checking').trim();
+        const routingLast4 = digitsOnly(document.getElementById('pay-ach-routing-last4')?.value, 4);
+        const accountLast4 = digitsOnly(document.getElementById('pay-ach-account-last4')?.value, 4);
+        if (!name || !bank || routingLast4.length !== 4 || accountLast4.length !== 4) {
+            showErr('Enter name, bank, routing last 4, and account last 4.');
+            return;
+        }
+        details.name = name;
+        details.bank_name = bank;
+        details.account_type = acctType === 'savings' ? 'savings' : 'checking';
+        details.routing_last4 = routingLast4;
+        details.account_last4 = accountLast4;
+    }
+    try {
+        const { data, error } = await supabaseClient
+            .from('customers')
+            .update({
+                payment_method: type,
+                payment_method_status: 'on_file',
+                payment_method_details: JSON.stringify(details)
+            })
+            .eq('id', customer.id)
+            .select()
+            .maybeSingle();
+        if (error) throw error;
+        if (data) {
+            window._currentCustomer = Object.assign({}, customer, data);
+            const list = window._customerAccounts || [];
+            window._customerAccounts = list.map(function (row) {
+                return String(row.id) === String(customer.id) ? Object.assign({}, row, data) : row;
+            });
+        } else {
+            customer.payment_method = type;
+            customer.payment_method_status = 'on_file';
+            customer.payment_method_details = JSON.stringify(details);
+        }
+        hidePaymentMethodModal();
+        if (typeof renderAccountPage === 'function') renderAccountPage();
+        if (window._resumeQuoteAfterPayment) {
+            window._resumeQuoteAfterPayment = false;
+            openQuoteConfirmModal();
+        }
+    } catch (e) {
+        console.error(e);
+        showErr(e.message || 'Could not save payment method.');
+    }
+}
+
 function openQuoteConfirmModal() {
     if (window._customerIsInactive) {
         alert('This account is currently inactive and cannot submit new quotes.');
@@ -5186,6 +5314,12 @@ function openQuoteConfirmModal() {
     }
     if (!quoteItems || quoteItems.length === 0) {
         alert('Your quote is empty!');
+        return;
+    }
+    const payCustomer = window._currentCustomer || null;
+    if (!hasPaymentMethodOnFile(payCustomer)) {
+        window._resumeQuoteAfterPayment = true;
+        openPaymentMethodModal();
         return;
     }
 
@@ -6525,6 +6659,10 @@ function showAccountInfo() {
                 <div>
                     <p class="text-[#6B4423] font-semibold">Onboarding</p>
                     <p>${active.onboarding_complete ? 'Complete' : 'Incomplete'}</p>
+                </div>
+                <div>
+                    <p class="text-[#6B4423] font-semibold">Payment on file</p>
+                    <p>${escapeHtml(paymentMethodLabel(active))}</p>
                 </div>
             </div>
         </div>

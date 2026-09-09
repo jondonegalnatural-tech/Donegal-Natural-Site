@@ -6116,7 +6116,7 @@ async function loadCustomers() {
     try {
         const { data, error } = await supabaseClient
             .from('customers')
-            .select('id, name, company, email, phone, shipping_address, billing_address, notes, status, source, submitted_by, submitted_by_email, salesman_email, territory, monthly_amount, created_at, payment_method, payment_method_status, password_changed, onboarding_complete, pricing_approved_at, pricing_approved_by, assigned_at, last_login_at, salesman_commission_percent')
+            .select('id, name, company, email, phone, shipping_address, billing_address, notes, status, source, submitted_by, submitted_by_email, salesman_email, territory, monthly_amount, created_at, payment_method, payment_method_status, payment_method_details, password_changed, onboarding_complete, pricing_approved_at, pricing_approved_by, assigned_at, last_login_at, salesman_commission_percent')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -6143,6 +6143,7 @@ async function loadCustomers() {
                 created_at: c.created_at,
                 payment_method: c.payment_method || null,
                 payment_method_status: c.payment_method_status || null,
+                payment_method_details: c.payment_method_details || null,
                 password_changed: !!c.password_changed,
                 onboarding_complete: !!c.onboarding_complete,
                 pricingApprovedAt: c.pricing_approved_at || null,
@@ -6992,8 +6993,19 @@ if (!onboardingSection) {
 const pwBadge = customer.password_changed
     ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-green-100 text-green-800">✓ Password set</span>`
     : `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">Needs Password</span>`;
-const payBadge = (customer.onboarding_complete || customer.payment_method)
-    ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-100 text-blue-800">✓ Payment method</span>`
+const method = String(customer.payment_method || '').toLowerCase();
+const payStatus = String(customer.payment_method_status || '').toLowerCase();
+const hasPay = (method === 'card' || method === 'ach') && (payStatus === 'on_file' || payStatus === 'approved');
+let payLabel = 'Payment Pending';
+if (hasPay) {
+    let details = {};
+    try { details = JSON.parse(customer.payment_method_details || '{}') || {}; } catch (e) { details = {}; }
+    payLabel = method === 'card'
+        ? ((details.brand || 'Card') + ' •••• ' + (details.last4 || ''))
+        : ((details.bank_name || 'ACH') + ' •••• ' + (details.account_last4 || ''));
+}
+const payBadge = hasPay
+    ? `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-100 text-blue-800">✓ ${escapeHtml(payLabel)}</span>`
     : `<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-orange-100 text-orange-800">Payment Pending</span>`;
 onboardingSection.innerHTML = `
     <p class="text-xs text-[#6B4423] mb-1.5">Onboarding Status</p>
