@@ -5368,7 +5368,10 @@ async function submitQuote() {
             credit: 0,
             submittedAt: payload.submitted_at,
             source: payload.source,
-            commissionRate: payload.salesman_commission_percent || null
+            commissionRate: payload.salesman_commission_percent || null,
+            customerPhone: (window._currentCustomer && window._currentCustomer.phone) || '',
+            billingAddress: (window._currentCustomer && (window._currentCustomer.billing_address || window._currentCustomer.billingAddress)) || '',
+            shippingAddress: (window._currentCustomer && (window._currentCustomer.shipping_address || window._currentCustomer.shippingAddress)) || ''
         });
 
         quoteItems = [];
@@ -7711,12 +7714,21 @@ function showBrandedInvoice(order) {
                     </div>` : ''}
                 </div>
 
-                <!-- Bill To -->
-                <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-4">
-                    <p class="text-xs font-semibold text-[#6B4423] mb-1">BILL TO</p>
-                    <p class="font-semibold text-[#1E4D2B]">${escapeHtml(order.customer_name || '—')}</p>
-                    <p class="text-sm text-[#6B4423]">${escapeHtml(order.customer_company || '')}</p>
-                    <p class="text-sm text-[#6B4423]">${escapeHtml(order.customer_email || '')}</p>
+                <!-- Bill To / Ship To -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-4">
+                        <p class="text-xs font-semibold text-[#6B4423] mb-1">BILL TO</p>
+                        <p class="font-semibold text-[#1E4D2B]">${escapeHtml(order.customer_name || '—')}</p>
+                        <p class="text-sm text-[#6B4423]">${escapeHtml(order.customer_company && String(order.customer_company).toLowerCase() !== String(order.customer_name || '').toLowerCase() ? order.customer_company : '')}</p>
+                        <p class="text-sm text-[#6B4423]">${escapeHtml((typeof formatPhoneDisplay === 'function' && (window._currentCustomer && window._currentCustomer.phone)) ? formatPhoneDisplay(window._currentCustomer.phone) : ((window._currentCustomer && window._currentCustomer.phone) || ''))}</p>
+                        <p class="text-sm text-[#6B4423]">${escapeHtml((window._currentCustomer && (window._currentCustomer.billing_address || window._currentCustomer.billingAddress)) || '')}</p>
+                    </div>
+                    <div class="bg-[#f8f4eb] border border-[#d4b78f] rounded-xl p-4">
+                        <p class="text-xs font-semibold text-[#6B4423] mb-1">SHIP TO</p>
+                        <p class="font-semibold text-[#1E4D2B]">${escapeHtml(order.customer_name || '—')}</p>
+                        <p class="text-sm text-[#6B4423]">${escapeHtml(order.customer_company && String(order.customer_company).toLowerCase() !== String(order.customer_name || '').toLowerCase() ? order.customer_company : '')}</p>
+                        <p class="text-sm text-[#6B4423]">${escapeHtml((window._currentCustomer && (window._currentCustomer.shipping_address || window._currentCustomer.shippingAddress)) || '')}</p>
+                    </div>
                 </div>
 
                 <!-- Line items -->

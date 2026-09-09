@@ -169,6 +169,30 @@ function markInvoiceUpdatedState(order) {
 
 async function notifyMarshallProforma(order) {
     try {
+        const emailKey = String(order.customerEmail || order.customer_email || '').trim().toLowerCase();
+        const idKey = String(order.customerId || order.customer_id || '').trim();
+        if ((!order.billingAddress && !order.billing_address)
+            || (!order.shippingAddress && !order.shipping_address)
+            || (!order.customerPhone && !order.customer_phone)) {
+            const pool = (typeof allCustomers !== 'undefined' && allCustomers) ? allCustomers : [];
+            const hit = pool.find(function (c) {
+                if (idKey && String(c.id) === idKey) return true;
+                const e = String(c.email || '').trim().toLowerCase();
+                return !!(emailKey && e && e === emailKey);
+            });
+            if (hit) {
+                if (!order.customerPhone && !order.customer_phone) order.customerPhone = hit.phone || '';
+                if (!order.billingAddress && !order.billing_address) {
+                    order.billingAddress = hit.billingAddress || hit.billing_address || '';
+                }
+                if (!order.shippingAddress && !order.shipping_address) {
+                    order.shippingAddress = hit.shippingAddress || hit.shipping_address || '';
+                }
+            }
+        }
+        if (order.customerPhone && typeof formatPhoneDisplay === 'function') {
+            order.customerPhone = formatPhoneDisplay(order.customerPhone);
+        }
         const res = await fetch(SUPABASE_URL + '/functions/v1/send-pro-forma-email', {
             method: 'POST',
             headers: await getEdgeFunctionHeaders(),
@@ -190,6 +214,9 @@ async function notifyMarshallProforma(order) {
                 editedAt: order.editedAt || '',
                 previousSubtotal: order.previousSubtotal,
                 updatedSubtotal: order.updatedSubtotal,
+                customerPhone: order.customerPhone || order.customer_phone || '',
+                billingAddress: order.billingAddress || order.billing_address || '',
+                shippingAddress: order.shippingAddress || order.shipping_address || '',
                 subjectPrefix: (order.isRevision || orderHasUpdateNote(order)) ? 'UPDATED ' : ''
             })
         });
@@ -1556,6 +1583,15 @@ function hideOrderInvoiceModal() {
     modal.classList.add('hidden');
 }
 
+function printOrderInvoice() {
+    const modal = document.getElementById('order-invoice-modal');
+    if (!modal || modal.classList.contains('hidden')) {
+        alert('Open an invoice first.');
+        return;
+    }
+    window.print();
+}
+
 function openOrderInvoiceModal(orderId) {
     const order = (allOrders || []).find(o => String(o.id) === String(orderId));
     if (!order) {
@@ -1566,13 +1602,15 @@ function openOrderInvoiceModal(orderId) {
         // Prefer live customer record for addresses (email first, then name)
     const customerName = (order.customer || order.customer_name || '').trim().toLowerCase();
     const customerEmail = (order.customerEmail || order.customer_email || '').trim().toLowerCase();
-    const customer = (allCustomers || []).find(c => {
-        const cEmail = (c.email || '').trim().toLowerCase();
-        const cName = (c.name || '').trim().toLowerCase();
-        if (customerEmail && cEmail && customerEmail === cEmail) return true;
-        if (customerName && cName && cName === customerName) return true;
-        return false;
-    }) || null;
+    const customerId = order.customerId || order.customer_id || '';
+    const customer = (allCustomers || []).find(c => customerId && String(c.id) === String(customerId))
+        || (allCustomers || []).find(c => {
+            const cEmail = (c.email || '').trim().toLowerCase();
+            const cName = (c.name || '').trim().toLowerCase();
+            if (customerEmail && cEmail && customerEmail === cEmail) return true;
+            if (customerName && cName && cName === customerName) return true;
+            return false;
+        }) || null;
 
     // Invoice number + date
     const invNum = document.getElementById('inv-number');
@@ -1615,11 +1653,19 @@ function openOrderInvoiceModal(orderId) {
     const billEl = document.getElementById('inv-bill-to');
     if (billEl) {
         const lines = [];
-        if (order.customer) lines.push(order.customer);
-        if (order.customerCompany) lines.push(order.customerCompany);
-        if (customer?.phone) lines.push(customer.phone);
-        else if (order.customerEmail) lines.push(order.customerEmail);
-        const billing = customer?.billingAddress || customer?.shippingAddress || '';
+        const billName = String(order.customer || order.customer_name || '').trim();
+        const billCo = String(order.customerCompany || order.customer_company || (customer && customer.company) || '').trim();
+        if (billName) lines.push(billName);
+        if (billCo && billCo.toLowerCase() !== billName.toLowerCase()) lines.push(billCo);
+        const billPhone = (customer && customer.phone) || order.customerPhone || order.customer_phone || '';
+        if (billPhone) {
+            lines.push(typeof formatPhoneDisplay === 'function' ? formatPhoneDisplay(billPhone) : billPhone);
+        } else if (order.customerEmail || order.customer_email) {
+            lines.push(order.customerEmail || order.customer_email);
+        }
+        const billing = (customer && (customer.billingAddress || customer.billing_address))
+            || (customer && (customer.shippingAddress || customer.shipping_address))
+            || '';
         if (billing) lines.push(billing);
         billEl.innerHTML = lines.length
             ? lines.map(l => `<p>${escapeHtml(l)}</p>`).join('')
@@ -1630,9 +1676,15 @@ function openOrderInvoiceModal(orderId) {
     const shipEl = document.getElementById('inv-ship-to');
     if (shipEl) {
         const lines = [];
-        if (order.customer) lines.push(order.customer);
-        if (order.customerCompany) lines.push(order.customerCompany);
-        const shipping = customer?.shippingAddress || customer?.billingAddress || '';
+        const boPhone = (customer && customer.phone) || '';
+        if (boPhone) {
+            lines.push(typeof formatPhoneDisplay === 'function' ? formatPhoneDisplay(boPhone) : boPhone);
+        } else if (customerEmail) {
+            lines.push(customerEmail);
+        }
+        const billing = (customer && (customer.billingAddress || customer.billing_address))
+            || (customer && (customer.shippingAddress || customer.shipping_address))
+            || '';
         if (shipping) lines.push(shipping);
         shipEl.innerHTML = lines.length
             ? lines.map(l => `<p>${escapeHtml(l)}</p>`).join('')

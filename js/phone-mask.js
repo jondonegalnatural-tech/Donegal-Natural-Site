@@ -6,6 +6,19 @@ function formatPhoneUS(value) {
     return '(' + d.slice(0, 3) + ')' + d.slice(3, 6) + '-' + d.slice(6);
 }
 
+
+function formatPhoneDisplay(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const d = raw.replace(/\D/g, '');
+    let ten = d;
+    if (d.length === 11 && d.charAt(0) === '1') ten = d.slice(1);
+    if (ten.length === 10) {
+        return '(' + ten.slice(0, 3) + ') ' + ten.slice(3, 6) + '-' + ten.slice(6);
+    }
+    return raw;
+}
+
 function isValidPhoneUS(value) {
     return /^\([0-9]{3}\)[0-9]{3}-[0-9]{4}$/.test(String(value || '').trim());
 }

@@ -2233,6 +2233,9 @@ async function notifyMarshallProforma(order) {
                 submittedAt: order.submittedAt || order.submitted_at || new Date().toISOString(),
                 source: order.source || 'wholesale',
                 commissionRate: order.commissionRate || order.salesman_commission_percent || null,
+                customerPhone: order.customerPhone || order.customer_phone || '',
+                billingAddress: order.billingAddress || order.billing_address || '',
+                shippingAddress: order.shippingAddress || order.shipping_address || '',
                 isRevision: !!(order.isRevision || orderHasUpdateNote(order)),
                 changeLog: order.changeLog || '',
                 editedAt: order.editedAt || '',
@@ -2484,6 +2487,9 @@ async function submitPlaceOrder() {
             companyName: payload.customer_company,
             customerEmail: payload.customer_email,
             salesmanName: payload.salesman_name,
+            customerPhone: (currentPlaceOrderCustomer && currentPlaceOrderCustomer.phone) || '',
+            billingAddress: (currentPlaceOrderCustomer && (currentPlaceOrderCustomer.billing_address || currentPlaceOrderCustomer.billingAddress)) || '',
+            shippingAddress: (currentPlaceOrderCustomer && (currentPlaceOrderCustomer.shipping_address || currentPlaceOrderCustomer.shippingAddress)) || '',
             items: payload.items,
             notes: payload.notes,
             shippingCost: payload.shipping_cost || 0,
@@ -3488,6 +3494,15 @@ function hideOrderInvoiceModal() {
     if (modal) modal.classList.add('hidden');
 }
 
+function printOrderInvoice() {
+    const modal = document.getElementById('order-invoice-modal');
+    if (!modal || modal.classList.contains('hidden')) {
+        alert('Open an invoice first.');
+        return;
+    }
+    window.print();
+}
+
 async function openSalesmanOrderInvoice(orderId) {
     const id = String(orderId || '');
     const orders = window._salesmanOrders || [];
@@ -3565,8 +3580,12 @@ async function openSalesmanOrderInvoice(orderId) {
     const billingAddr = customer?.billing_address || customer?.billingAddress || customer?.shipping_address || customer?.shippingAddress || '';
     const shippingAddr = customer?.shipping_address || customer?.shippingAddress || billingAddr || '';
 
-    const billLines = [name, company, phone, email, billingAddr].filter(Boolean);
-    const shipLines = [name, company, phone, email, shippingAddr].filter(Boolean);
+    const phoneDisp = phone
+        ? (typeof formatPhoneDisplay === 'function' ? formatPhoneDisplay(phone) : phone)
+        : '';
+    const companyLine = (company && company.toLowerCase() !== String(name || '').toLowerCase()) ? company : '';
+    const billLines = [name, companyLine, phoneDisp, billingAddr].filter(Boolean);
+    const shipLines = [name, companyLine, shippingAddr].filter(Boolean);
     if (billEl) billEl.innerHTML = billLines.map(l => `<p>${escapeHtml(l)}</p>`).join('') || '—';
     if (shipEl) shipEl.innerHTML = shipLines.map(l => `<p>${escapeHtml(l)}</p>`).join('') || '—';
 

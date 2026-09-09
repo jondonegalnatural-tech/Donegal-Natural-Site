@@ -38,6 +38,27 @@ body { background: #f8f1e9; }
     height: auto !important;
 }
 .brand-brown { color: #6B4423; }
+@media print {
+    body * { visibility: hidden !important; }
+    #order-invoice-modal,
+    #order-invoice-modal * { visibility: visible !important; }
+    #order-invoice-modal {
+        position: static !important;
+        inset: auto !important;
+        background: #fff !important;
+        display: block !important;
+        padding: 0 !important;
+    }
+    #order-invoice-sheet {
+        border: none !important;
+        max-height: none !important;
+        overflow: visible !important;
+        box-shadow: none !important;
+        width: 100% !important;
+        max-width: none !important;
+    }
+    .invoice-no-print { display: none !important; }
+}
 .btn-brand { background-color: #1E4D2B; color: #d4b78f; border: 2px solid #6B4423; }
 .sidebar { width: 4rem; transition: width 0.3s ease; overflow: hidden; }
 .sidebar:hover { width: 16rem; }
@@ -3558,6 +3579,7 @@ body { background: #f8f1e9; }
      class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4"
      onclick="hideOrderInvoiceModal()">
     <div onclick="event.stopImmediatePropagation()"
+         id="order-invoice-sheet"
          class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto p-6 md:p-8">
 
         <!-- Header: INVOICE + Logo -->
@@ -3577,7 +3599,7 @@ body { background: #f8f1e9; }
             <div class="flex flex-col items-end gap-2">
                             <img src="media/logo.png" alt="Donegal Natural" class="h-20 sm:h-28 md:h-36 w-auto">
                 <button type="button" onclick="hideOrderInvoiceModal()"
-                        class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+                        class="invoice-no-print text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
             </div>
         </div>
 
@@ -3660,7 +3682,12 @@ body { background: #f8f1e9; }
             Please allow 7 to 10 business days for your order to be shipped. It has been a pleasure doing business with you. Thank you.
         </p>
 
-        <div class="flex justify-end gap-3">
+        <div class="flex justify-end gap-3 invoice-no-print">
+            <button type="button" id="inv-print-btn"
+                    onclick="printOrderInvoice()"
+                    class="px-6 py-2 bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
+                Print
+            </button>
             <button type="button" id="inv-edit-order-btn"
                     onclick="editOrderFromInvoice()"
                     class="hidden px-6 py-2 bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
