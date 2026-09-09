@@ -2565,7 +2565,7 @@ function renderProposalItems() {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                 <div>
                     <label class="block text-xs font-semibold text-[#6B4423] mb-1">Current Price</label>
-                    <input type="text" value="${item.displayCurrentPrice}" readonly
+                    <input type="text" value="${escapeHtml(item.displayCurrentPrice)}" readonly
                            class="form-input w-full px-3 py-2 bg-gray-50">
                 </div>
                 <div>
@@ -2581,7 +2581,7 @@ function renderProposalItems() {
                 <label class="block text-xs font-semibold text-[#6B4423] mb-1">Reason for change *</label>
                 <textarea rows="2" class="form-input w-full px-3 py-2"
                           placeholder="Why is this price change needed?"
-                          onchange="updateProposalField(${index}, 'reason', this.value)">${item.reason || ""}</textarea>
+                          onchange="updateProposalField(${index}, 'reason', this.value)">${escapeHtml(item.reason || "")}</textarea>
             </div>
         </div>
     `).join("");
@@ -2723,10 +2723,10 @@ async function renderProposalHistory() {
                 <div class="text-sm py-1 border-b border-[#eee]">
                     <span class="font-medium">${escapeHtml(item.product)}</span>
                     <div class="text-xs text-[#6B4423]">
-                        ${item.displayCurrentPrice || (item.catalogPrice != null ? "$" + Number(item.catalogPrice).toFixed(2) : "—")}
+                        ${escapeHtml(item.displayCurrentPrice || (item.catalogPrice != null ? "$" + Number(item.catalogPrice).toFixed(2) : "—"))}
                         → <strong>$${Number(item.proposedPrice).toFixed(2)}</strong>
                     </div>
-                    ${item.reason ? `<div class="text-xs text-[#555]">Reason: ${item.reason}</div>` : ""}
+                    ${item.reason ? `<div class="text-xs text-[#555]">Reason: ${escapeHtml(item.reason)}</div>` : ""}
                 </div>
             `).join("");
 
@@ -2805,8 +2805,8 @@ async function loadCustomerSubmissions() {
                                 ${status.charAt(0).toUpperCase() + status.slice(1)}
                             </span>
                         </div>
-                        ${c.email ? `<p class="text-sm mt-1">${c.email}</p>` : ""}
-                        ${c.phone ? `<p class="text-sm">${c.phone}</p>` : ""}
+                        ${c.email ? `<p class="text-sm mt-1">${escapeHtml(c.email)}</p>` : ""}
+                        ${c.phone ? `<p class="text-sm">${escapeHtml(c.phone)}</p>` : ""}
                     </div>
                 `;
             }).join("")}
@@ -3567,8 +3567,8 @@ async function openSalesmanOrderInvoice(orderId) {
 
     const billLines = [name, company, phone, email, billingAddr].filter(Boolean);
     const shipLines = [name, company, phone, email, shippingAddr].filter(Boolean);
-    if (billEl) billEl.innerHTML = billLines.map(l => `<p>${l}</p>`).join('') || '—';
-    if (shipEl) shipEl.innerHTML = shipLines.map(l => `<p>${l}</p>`).join('') || '—';
+    if (billEl) billEl.innerHTML = billLines.map(l => `<p>${escapeHtml(l)}</p>`).join('') || '—';
+    if (shipEl) shipEl.innerHTML = shipLines.map(l => `<p>${escapeHtml(l)}</p>`).join('') || '—';
 
     // Line items
     const tbody = document.getElementById('inv-items-body');

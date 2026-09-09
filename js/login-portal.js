@@ -112,11 +112,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (existingErr) {
                         console.warn('customer login lookup failed:', existingErr.message || existingErr);
                     }
-                    const firstLogin = !existingRows || existingRows.some(function (row) {
-                        return !row.last_login_at;
-                    });
                     const patch = { last_login_at: now };
-                    if (firstLogin) patch.status = 'Active';
                     const { error: lastLoginError } = await supabaseClient
                         .from('customers')
                         .update(patch)
@@ -282,8 +278,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const pw = (newPassword?.value || '').trim();
             const pw2 = (confirmPassword?.value || '').trim();
 
-            if (!pw || pw.length < 6) {
-                showSetPasswordMessage('Password must be at least 6 characters.', true);
+            if (!pw || pw.length < 8) {
+                showSetPasswordMessage('Password must be at least 8 characters.', true);
                 return;
             }
             if (pw !== pw2) {

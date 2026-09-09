@@ -213,6 +213,15 @@ const VARIANT_MAP = {
 };
 
 // ─── SHOPIFY STOREFRONT API ───────────────────────────────────────────────────
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const ShopifyAPI = (() => {
   const STORE    = 'donegal-natural-dog-treats.myshopify.com';
   const TOKEN    = '9fff32ed554f6d0fd5f0566800a4cb23';
@@ -359,11 +368,11 @@ function renderProductCard(product, category) {
   // Embed all image URLs as data attributes for hover cycling
   const imgUrls = images.map(i => i.url);
   const imgData = imgUrls.length > 1
-    ? `data-images='${JSON.stringify(imgUrls)}'`
+    ? `data-images='${escapeHtml(JSON.stringify(imgUrls))}'`
     : '';
 
   const imgHtml = img
-    ? `<img src="${img.url}" alt="${img.altText || product.title}" loading="lazy" class="card-img-main">`
+    ? `<img src="${escapeHtml(img.url)}" alt="${escapeHtml(img.altText || product.title)}" loading="lazy" class="card-img-main">`
     : `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:3rem;">🐾</div>`;
 
   // Progress pip indicators (shown on hover when multiple images exist)
@@ -374,10 +383,11 @@ function renderProductCard(product, category) {
     : '';
 
   const tag = category || product.productType || '';
+  const encodedHandle = encodeURIComponent(String(product.handle || ''));
 
   return `
-    <div class="product-card" data-handle="${product.handle}" ${imgData}
-         onclick="openProductModal('${product.handle}')"
+    <div class="product-card" data-handle="${escapeHtml(product.handle)}" ${imgData}
+         onclick="openProductModal(decodeURIComponent('${encodedHandle}'))"
          onmouseenter="startCardCycle(this)"
          onmouseleave="stopCardCycle(this)">
       <div class="product-card-img">
@@ -385,9 +395,9 @@ function renderProductCard(product, category) {
         ${pips}
       </div>
       <div class="product-card-body">
-        ${tag ? `<span class="product-tag">${tag}</span>` : ''}
-        <h3>${product.title}</h3>
-        <p>${product.description || ''}</p>
+        ${tag ? `<span class="product-tag">${escapeHtml(tag)}</span>` : ''}
+        <h3>${escapeHtml(product.title)}</h3>
+        <p>${escapeHtml(product.description || '')}</p>
         <div class="product-card-footer">
           <span class="product-price">${price}</span>
           <span class="product-link">Shop →</span>

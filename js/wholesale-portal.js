@@ -6441,7 +6441,7 @@ function showAccountInfo() {
             </div>
             <div>
                 <p class="text-sm text-[#6B4423] font-semibold">Full Name</p>
-                <p class="text-lg font-semibold">${user.fullName || 'N/A'}</p>
+                <p class="text-lg font-semibold">${escapeHtml(user.fullName || 'N/A')}</p>
             </div>
         </div>
     `;
@@ -6783,8 +6783,8 @@ async function loadManageAddressesList() {
                 <div class="border border-[#d4b78f] rounded-xl p-3 bg-[#f8f4eb]">
                     <div class="flex justify-between items-start gap-2">
                         <div>
-                            <p class="font-semibold text-[#1E4D2B]">${addr.label || 'Address'}${badge}</p>
-                            <p class="text-sm text-[#6B4423] mt-0.5">${line}</p>
+                            <p class="font-semibold text-[#1E4D2B]">${escapeHtml(addr.label || 'Address')}${badge}</p>
+                            <p class="text-sm text-[#6B4423] mt-0.5">${escapeHtml(line)}</p>
                         </div>
                         <div class="flex flex-col gap-1">
                             ${!addr.is_default ? `<button onclick="setDefaultAddress('${addr.id}')" class="text-xs px-2 py-1 border border-[#6B4423] rounded-lg hover:bg-white">Set Default</button>` : ''}

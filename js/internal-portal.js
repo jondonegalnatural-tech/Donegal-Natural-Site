@@ -490,8 +490,8 @@ async function refreshCustomerInsights() {
         return `
             <tr class="border-t border-[#d4b78f] hover:bg-[#f8f4eb]">
                 <td class="p-3">
-                    <p class="font-semibold brand-green">${r.name || '—'}</p>
-                    <p class="text-xs text-[#6B4423]">${r.company || ''}</p>
+                    <p class="font-semibold brand-green">${escapeHtml(r.name || '—')}</p>
+                    <p class="text-xs text-[#6B4423]">${escapeHtml(r.company || '')}</p>
                 </td>
                 <td class="p-3 text-center">${lastOrderText}</td>
                 <td class="p-3 text-center">${daysText}</td>
@@ -1597,13 +1597,14 @@ function openOrderInvoiceModal(orderId) {
     }
     if (trackBadge) {
         if (trackNum) {
-            const safe = trackNum.replace(/"/g, '');
+            const safeText = escapeHtml(trackNum);
+            const safeCarrier = escapeHtml(order.carrier || 'UPS');
             trackBadge.innerHTML = `
-                <span class="text-[#6B4423]">${order.carrier || 'UPS'} Tracking:</span>
-                <a href="https://www.ups.com/track?tracknum=${encodeURIComponent(safe)}"
+                <span class="text-[#6B4423]">${safeCarrier} Tracking:</span>
+                <a href="https://www.ups.com/track?tracknum=${encodeURIComponent(trackNum)}"
                    target="_blank" rel="noopener"
                    class="ml-1 font-mono font-semibold text-[#1E4D2B] underline hover:text-[#254a2f]">
-                    ${safe}
+                    ${safeText}
                 </a>`;
         } else {
             trackBadge.innerHTML = '';
@@ -1662,10 +1663,10 @@ function openOrderInvoiceModal(orderId) {
                 const lineTotal = qty * unit;
                 if (hasPrice) subtotal += lineTotal;
 
-                const desc = [
+                const desc = escapeHtml([
                     item.product || item.name || '—',
                     item.caseSize ? `· ${item.caseSize}` : ''
-                ].filter(Boolean).join(' ');
+                ].filter(Boolean).join(' '));
 
                 const unitText = hasPrice
                     ? ('$' + unit.toFixed(2))
@@ -1710,12 +1711,12 @@ function openOrderInvoiceModal(orderId) {
                 if (hasPrice) subtotal += lineTotal;
 
                 const desc = [
-                    b.product_name || '—',
-                    b.case_size ? `· ${b.case_size}` : '',
+                    escapeHtml(b.product_name || '—'),
+                    b.case_size ? `· ${escapeHtml(b.case_size)}` : '',
                     '<span class="ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-green-100 text-green-800">BO Fulfilled</span>'
                 ].filter(Boolean).join(' ');
 
-                const unitText = hasPrice ? ('$' + unit.toFixed(2)) : (b.display_price || '—');
+                const unitText = hasPrice ? ('$' + unit.toFixed(2)) : escapeHtml(b.display_price || '—');
                 const totalText = hasPrice ? ('$' + lineTotal.toFixed(2)) : '—';
 
                 return `
@@ -3560,8 +3561,8 @@ function renderOrdersTable() {
                 <td class="p-3 text-center" onclick="event.stopPropagation()">
                     <input type="checkbox" class="order-checkbox" value="${safeId}" onchange="updatePrintSelectedButton()">
                 </td>
-                <td class="p-3">${order.salesman || (order.source === 'wholesale' ? 'Wholesale' : '—')}</td>
-                <td class="p-3">${order.customer || '—'}</td>
+                <td class="p-3">${escapeHtml(order.salesman || (order.source === 'wholesale' ? 'Wholesale' : '—'))}</td>
+                <td class="p-3">${escapeHtml(order.customer || '—')}</td>
                 <td class="p-3">${totalHTML}</td>
                 <td class="p-3 text-sm">${order.submittedAt ? new Date(order.submittedAt).toLocaleDateString() : '—'}</td>
             </tr>
@@ -5993,8 +5994,8 @@ function printSelectedOrders() {
 
             return `
                 <tr>
-                    <td>${item.product || ''}</td>
-                    <td>${item.caseSize || '—'}</td>
+                    <td>${escapeHtml(item.product || '')}</td>
+                    <td>${escapeHtml(item.caseSize || '—')}</td>
                     <td>${qty}</td>
                     <td>$${price.toFixed(2)}</td>
                     <td>$${lineTotal.toFixed(2)}</td>
@@ -6017,9 +6018,9 @@ function printSelectedOrders() {
                 <hr>
                 <div class="ship-to">
                     <strong>Ship To:</strong><br>
-                    ${order.customer || ''}<br>
-                    ${order.customerCompany || ''}<br>
-                    ${order.customerEmail || ''}
+                    ${escapeHtml(order.customer || '')}<br>
+                    ${escapeHtml(order.customerCompany || '')}<br>
+                    ${escapeHtml(order.customerEmail || '')}
                 </div>
                 <table>
                     <thead>
@@ -6036,7 +6037,7 @@ function printSelectedOrders() {
                     </tbody>
                 </table>
                 <div class="totals">Subtotal: $${subtotal.toFixed(2)}</div>
-                ${order.notes ? `<div class="notes"><strong>Notes:</strong> ${order.notes}</div>` : ''}
+                ${order.notes ? `<div class="notes"><strong>Notes:</strong> ${escapeHtml(order.notes)}</div>` : ''}
                 <div class="footer">Thank you for your business – Donegal Natural</div>
             </div>
         `;
@@ -6045,6 +6046,11 @@ function printSelectedOrders() {
     printContent += `</body></html>`;
 
     const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        alert('Please allow pop-ups to print orders.');
+        return;
+    }
+    printWindow.opener = null;
     printWindow.document.write(printContent);
     printWindow.document.close();
     printWindow.focus();
@@ -6992,13 +6998,13 @@ onboardingSection.innerHTML = `
                 const rows = Object.keys(sheet.prices).sort().map(name => {
                     const price = Number(sheet.prices[name]);
                     return `<div class="flex justify-between text-sm py-1 border-b border-[#eee]">
-                        <span class="pr-2">${name}</span>
+                        <span class="pr-2">${escapeHtml(name)}</span>
                         <span class="font-semibold brand-green">$${price.toFixed(2)}</span>
                     </div>`;
                 }).join('');
                 sheetHtml = `
                     <p class="text-xs text-[#6B4423] mb-2">
-                        Salesman sheet${sheet.salesman_name ? ' (' + sheet.salesman_name + ')' : ''}
+                        Salesman sheet${sheet.salesman_name ? ' (' + escapeHtml(sheet.salesman_name) + ')' : ''}
                         ${sheet.updated_at ? ' · updated ' + new Date(sheet.updated_at).toLocaleDateString() : ''}
                     </p>
                     <div class="max-h-48 overflow-y-auto border border-[#d4b78f] rounded-lg p-2 bg-[#f8f4eb]">
@@ -7017,7 +7023,7 @@ onboardingSection.innerHTML = `
         <p class="text-sm mb-3 ${isPricingApproved ? 'text-green-700' : 'text-orange-700'}">
             ${isPricingApproved
                 ? `<i class="fas fa-check-circle mr-1"></i> Approved ${new Date(customer.pricingApprovedAt).toLocaleDateString()}
-                   ${customer.pricingApprovedBy ? ' by ' + customer.pricingApprovedBy : ''}`
+                   ${customer.pricingApprovedBy ? ' by ' + escapeHtml(customer.pricingApprovedBy) : ''}`
                 : `<i class="fas fa-exclamation-circle mr-1"></i> Not approved — customer cannot see prices`}
         </p>
         ${sheetHtml}
@@ -7687,13 +7693,13 @@ async function showCustomerChangeRequestsPanel() {
                     <span class="text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-800">Pending</span>
                 </div>
                 <div class="text-sm space-y-1 mb-3">
-                    <p><strong>Company:</strong> ${p.company || '—'}</p>
-                    <p><strong>Email:</strong> ${p.email || '—'}</p>
-                    <p><strong>Phone:</strong> ${p.phone || '—'}</p>
-                    <p><strong>Territory:</strong> ${p.territory || '—'}</p>
-                    <p><strong>Shipping:</strong> ${p.shipping_address || '—'}</p>
-                    <p><strong>Billing:</strong> ${p.billing_address || '—'}</p>
-                    <p><strong>Notes:</strong> ${p.notes || '—'}</p>
+                    <p><strong>Company:</strong> ${escapeHtml(p.company || '—')}</p>
+                    <p><strong>Email:</strong> ${escapeHtml(p.email || '—')}</p>
+                    <p><strong>Phone:</strong> ${escapeHtml(p.phone || '—')}</p>
+                    <p><strong>Territory:</strong> ${escapeHtml(p.territory || '—')}</p>
+                    <p><strong>Shipping:</strong> ${escapeHtml(p.shipping_address || '—')}</p>
+                    <p><strong>Billing:</strong> ${escapeHtml(p.billing_address || '—')}</p>
+                    <p><strong>Notes:</strong> ${escapeHtml(p.notes || '—')}</p>
                 </div>
                 <div class="flex gap-2">
                     <button type="button"
@@ -9928,7 +9934,7 @@ async function showPriceProposalsPanel() {
                  onclick="showProposalDetail('${p.id}')">
                 <div class="flex justify-between items-center">
                     <div>
-                        <p class="font-bold brand-green">${p.salesmanName || "Salesman"}</p>
+                        <p class="font-bold brand-green">${escapeHtml(p.salesmanName || "Salesman")}</p>
                         <p class="text-sm text-[#6B4423]">${typeLabel} · ${date} · ${itemCount} product(s)</p>
                     </div>
                     <span class="px-3 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">
@@ -10061,7 +10067,7 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
 
         return `
             <div class="rounded-xl p-3 mb-2 ${rowClass}">
-                <p class="font-semibold brand-green">${item.product || "—"}</p>
+                <p class="font-semibold brand-green">${escapeHtml(item.product || "—")}</p>
                 <p class="text-sm text-[#6B4423] mt-1">
                     ${refLabel}: <strong>${hasRef ? "$" + refPrice.toFixed(2) : "—"}</strong>
                     → Proposed: <strong class="${over5 ? "text-red-700" : (below ? "text-orange-700" : "text-[#c56134]")}">$${isNaN(proposed) ? "—" : proposed.toFixed(2)}</strong>
@@ -10108,7 +10114,7 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
             <div class="sticky top-0 z-10 bg-white pb-3 mb-3 border-b border-[#d4b78f]">
                 <div class="flex justify-between items-start mb-3">
                     <div>
-                        <p class="font-bold text-lg brand-green">${p.salesmanName || "Salesman"}</p>
+                        <p class="font-bold text-lg brand-green">${escapeHtml(p.salesmanName || "Salesman")}</p>
                         <p class="text-sm text-[#6B4423]">${typeLabel} · ${date} · ${items.length} product(s)</p>
                     </div>
                     <span class="px-3 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">
@@ -10136,7 +10142,7 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
                 </div>
             </div>
 
-            ${p.overallNotes ? `<p class="text-sm text-[#6B4423] mb-3"><strong>Notes:</strong> ${p.overallNotes}</p>` : ""}
+            ${p.overallNotes ? `<p class="text-sm text-[#6B4423] mb-3"><strong>Notes:</strong> ${escapeHtml(p.overallNotes)}</p>` : ""}
 
             <div class="flex flex-wrap gap-2 mb-3">
                 <button type="button"
@@ -10239,10 +10245,10 @@ async function showCustomerApprovalsPanel() {
             <div class="border-2 border-[#6B4423] rounded-2xl p-4 mb-3">
                 <div class="flex justify-between items-start mb-2">
                     <div>
-                        <p class="font-bold text-lg brand-green">${c.name}</p>
-                        <p class="text-sm text-[#6B4423]">${c.company || ""}</p>
+                        <p class="font-bold text-lg brand-green">${escapeHtml(c.name)}</p>
+                        <p class="text-sm text-[#6B4423]">${escapeHtml(c.company || "")}</p>
                         <p class="text-xs text-[#6B4423] mt-1">
-                            Submitted by ${c.submitted_by || "Salesman"} · ${date}
+                            Submitted by ${escapeHtml(c.submitted_by || "Salesman")} · ${date}
                         </p>
                     </div>
                     <span class="px-3 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">
@@ -10251,11 +10257,11 @@ async function showCustomerApprovalsPanel() {
                 </div>
 
                 <div class="text-sm text-[#6B4423] space-y-1 mb-4">
-                    ${c.email ? `<p><strong>Email:</strong> ${c.email}</p>` : ""}
-                    ${c.phone ? `<p><strong>Phone:</strong> ${c.phone}</p>` : ""}
-                    ${c.shipping_address ? `<p><strong>Shipping:</strong> ${c.shipping_address}</p>` : ""}
-                    ${c.billing_address ? `<p><strong>Billing:</strong> ${c.billing_address}</p>` : ""}
-                    ${c.notes ? `<p><strong>Notes:</strong> ${c.notes}</p>` : ""}
+                    ${c.email ? `<p><strong>Email:</strong> ${escapeHtml(c.email)}</p>` : ""}
+                    ${c.phone ? `<p><strong>Phone:</strong> ${escapeHtml(c.phone)}</p>` : ""}
+                    ${c.shipping_address ? `<p><strong>Shipping:</strong> ${escapeHtml(c.shipping_address)}</p>` : ""}
+                    ${c.billing_address ? `<p><strong>Billing:</strong> ${escapeHtml(c.billing_address)}</p>` : ""}
+                    ${c.notes ? `<p><strong>Notes:</strong> ${escapeHtml(c.notes)}</p>` : ""}
                 </div>
 
                 <div class="flex gap-3">
@@ -10708,8 +10714,8 @@ function updateInquiryStats() {
                 const company = (i.company_name || '').trim();
                 return `
                     <div class="bg-[#f8f4eb] rounded-lg px-3 py-1.5 text-left">
-                        <p class="text-sm font-semibold brand-green truncate">${name}</p>
-                        ${company ? `<p class="text-xs text-[#6B4423] truncate">${company}</p>` : ''}
+                        <p class="text-sm font-semibold brand-green truncate">${escapeHtml(name)}</p>
+                        ${company ? `<p class="text-xs text-[#6B4423] truncate">${escapeHtml(company)}</p>` : ''}
                     </div>
                 `;
             }).join('');
@@ -13690,19 +13696,19 @@ function openBackOrderFulfillInvoice(groupKey, fulfilledItems) {
             const lineTotal = qty * unit;
             if (hasPrice) subtotal += lineTotal;
 
-            const desc = [
+            const desc = escapeHtml([
                 item.product_name || '—',
                 item.case_size ? '· ' + item.case_size : ''
-            ].filter(Boolean).join(' ');
+            ].filter(Boolean).join(' '));
 
-            const unitText = hasPrice ? ('$' + unit.toFixed(2)) : (item.display_price || '—');
+            const unitText = hasPrice ? ('$' + unit.toFixed(2)) : escapeHtml(item.display_price || '—');
             const totalText = hasPrice ? ('$' + lineTotal.toFixed(2)) : '—';
 
             return `
                 <tr class="border-t border-[#d4b78f]">
                     <td class="p-3 text-left font-semibold">${qty}</td>
                     <td class="p-3 text-left">${desc}</td>
-                              <td class="p-3 text-left">${escapeHtml(desc)}</td>          <td class="p-3 text-right">${unitText}</td>
+                    <td class="p-3 text-right">${unitText}</td>
                     <td class="p-3 text-right font-semibold">${totalText}</td>
                 </tr>`;
         }).join('');

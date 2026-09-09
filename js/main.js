@@ -87,10 +87,10 @@ function renderModal(product) {
           ${localVariants.map((v, i) =>
             `<button type="button"
                class="variant-btn${i === 0 ? ' selected' : ''}"
-               data-price="${v.price}"
-               data-label="${v.label}"
+               data-price="${escapeHtml(v.price)}"
+               data-label="${escapeHtml(v.label)}"
                onclick="selectVariantBtn(this)">
-               ${v.label}
+               ${escapeHtml(v.label)}
              </button>`
           ).join('')}
         </div>
@@ -103,8 +103,8 @@ function renderModal(product) {
         <label>Select Option</label>
         <select id="modal-variant-select">
           ${shopifyVariants.map(v =>
-            `<option value="${v.id}" data-price="${v.price.amount}" data-currency="${v.price.currencyCode}" ${!v.availableForSale ? 'disabled' : ''}>
-              ${v.title}${!v.availableForSale ? ' (Out of stock)' : ''}
+            `<option value="${escapeHtml(v.id)}" data-price="${escapeHtml(v.price.amount)}" data-currency="${escapeHtml(v.price.currencyCode)}" ${!v.availableForSale ? 'disabled' : ''}>
+              ${escapeHtml(v.title)}${!v.availableForSale ? ' (Out of stock)' : ''}
             </option>`
           ).join('')}
         </select>
@@ -123,7 +123,7 @@ function renderModal(product) {
   const galleryHtml = images.length > 0 ? `
     <div class="modal-gallery">
       <div class="modal-gallery-main" id="modal-gallery-main">
-        <img src="${images[0].url}" alt="${images[0].altText || product.title}" id="modal-main-img">
+        <img src="${escapeHtml(images[0].url)}" alt="${escapeHtml(images[0].altText || product.title)}" id="modal-main-img">
         ${images.length > 1 ? `
           <button class="gallery-arrow gallery-prev" onclick="galleryNav(-1)" aria-label="Previous image">&#8249;</button>
           <button class="gallery-arrow gallery-next" onclick="galleryNav(1)" aria-label="Next image">&#8250;</button>
@@ -133,7 +133,7 @@ function renderModal(product) {
         <div class="modal-thumbs" id="modal-thumbs">
           ${images.map((img, i) =>
             `<button class="modal-thumb${i === 0 ? ' active' : ''}" data-index="${i}" onclick="galleryGoTo(${i})" aria-label="Image ${i+1}">
-               <img src="${img.url}" alt="${img.altText || product.title}">
+               <img src="${escapeHtml(img.url)}" alt="${escapeHtml(img.altText || product.title)}">
              </button>`
           ).join('')}
         </div>
@@ -143,10 +143,10 @@ function renderModal(product) {
   content.innerHTML = `
     ${galleryHtml}
     <div class="modal-info">
-      ${product.productType ? `<span class="product-tag">${product.productType}</span>` : ''}
-      <h2>${product.title}</h2>
-      <div class="modal-price" id="modal-price">${displayPrice}</div>
-      <p class="modal-desc">${product.description || 'All-natural, single-ingredient treat from Donegal Natural.'}</p>
+      ${product.productType ? `<span class="product-tag">${escapeHtml(product.productType)}</span>` : ''}
+      <h2>${escapeHtml(product.title)}</h2>
+      <div class="modal-price" id="modal-price">${escapeHtml(displayPrice)}</div>
+      <p class="modal-desc">${escapeHtml(product.description || 'All-natural, single-ingredient treat from Donegal Natural.')}</p>
       ${variantOptions}
       <button class="add-to-cart-btn" id="modal-add-btn" onclick="addToCartFromModal()">
         Add to Cart

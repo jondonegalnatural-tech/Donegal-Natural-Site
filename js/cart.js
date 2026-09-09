@@ -123,22 +123,23 @@ const Cart = (() => {
 
       const lineTotal = (unitPrice * line.quantity).toFixed(2);
       cartSubtotal += parseFloat(lineTotal);
+      const safeLineId = encodeURIComponent(String(line.id || ''));
 
       return `
         <div class="cart-item">
           <div class="cart-item-img">
-            ${imgUrl ? `<img src="${imgUrl}" alt="${v.product.title}">` : '🐾'}
+            ${imgUrl ? `<img src="${escapeHtml(imgUrl)}" alt="${escapeHtml(v.product.title)}">` : '🐾'}
           </div>
           <div>
-            <div class="cart-item-title">${v.product.title}</div>
-            ${variantLabel ? `<div class="cart-item-variant">${variantLabel}</div>` : ''}
+            <div class="cart-item-title">${escapeHtml(v.product.title)}</div>
+            ${variantLabel ? `<div class="cart-item-variant">${escapeHtml(variantLabel)}</div>` : ''}
             <div class="cart-item-qty">
-              <button class="qty-btn" onclick="Cart.updateItem('${line.id}', ${line.quantity - 1})" aria-label="Decrease">−</button>
+              <button class="qty-btn" onclick="Cart.updateItem(decodeURIComponent('${safeLineId}'), ${line.quantity - 1})" aria-label="Decrease">−</button>
               <input class="qty-input" type="number" min="0" value="${line.quantity}"
-                onchange="Cart.updateItem('${line.id}', Math.max(0, parseInt(this.value)||0))"
+                onchange="Cart.updateItem(decodeURIComponent('${safeLineId}'), Math.max(0, parseInt(this.value)||0))"
                 onclick="this.select()"
                 aria-label="Quantity">
-              <button class="qty-btn" onclick="Cart.updateItem('${line.id}', ${line.quantity + 1})" aria-label="Increase">+</button>
+              <button class="qty-btn" onclick="Cart.updateItem(decodeURIComponent('${safeLineId}'), ${line.quantity + 1})" aria-label="Increase">+</button>
             </div>
           </div>
           <div class="cart-item-price">$${lineTotal}</div>
