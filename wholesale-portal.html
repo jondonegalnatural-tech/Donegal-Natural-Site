@@ -786,8 +786,8 @@
     </div>
 </div>
 
-<!-- Onboarding: Billing + Payment Modal -->
- <div id="payment-method-modal"
+<!-- Payment method on file -->
+<div id="payment-method-modal"
      class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] p-4"
      onclick="hidePaymentMethodModal()">
     <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg p-8 max-h-[90vh] overflow-y-auto"
@@ -808,8 +808,6 @@
                     class="px-4 py-2 border-2 border-[#6B4423] rounded-xl font-semibold">ACH / Bank</button>
         </div>
         <div id="pay-card-fields" class="hidden space-y-3 mb-4">
-            <input id="pay-card-name" type="text" placeholder="Name on card"
-                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
             <select id="pay-card-brand" class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
                 <option value="">Card brand</option>
                 <option value="Visa">Visa</option>
@@ -818,6 +816,8 @@
                 <option value="Discover">Discover</option>
                 <option value="Other">Other</option>
             </select>
+            <input id="pay-card-name" type="text" placeholder="Name on card"
+                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
             <input id="pay-card-last4" type="text" inputmode="numeric" maxlength="4" placeholder="Last 4 digits"
                    class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
             <div class="grid grid-cols-2 gap-2">
@@ -828,14 +828,14 @@
             </div>
         </div>
         <div id="pay-ach-fields" class="hidden space-y-3 mb-4">
-            <input id="pay-ach-name" type="text" placeholder="Name on account"
-                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
-            <input id="pay-ach-bank" type="text" placeholder="Bank name"
-                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
             <select id="pay-ach-type" class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
                 <option value="checking">Checking</option>
                 <option value="savings">Savings</option>
             </select>
+            <input id="pay-ach-name" type="text" placeholder="Name on account"
+                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+            <input id="pay-ach-bank" type="text" placeholder="Bank name"
+                   class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
             <input id="pay-ach-routing-last4" type="text" inputmode="numeric" maxlength="4" placeholder="Routing last 4"
                    class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
             <input id="pay-ach-account-last4" type="text" inputmode="numeric" maxlength="4" placeholder="Account last 4"
