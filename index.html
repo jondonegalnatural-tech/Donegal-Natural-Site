@@ -753,6 +753,19 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 
       formWrap.style.display = 'none';
       thanks.style.display = 'block';
+      if (document.activeElement && document.activeElement.blur) {
+        document.activeElement.blur();
+      }
+      const modalBox = modal.querySelector('.modal');
+      function pinThanks() {
+        if (modalBox) modalBox.scrollTop = 0;
+        if (modal) modal.scrollTop = 0;
+        if (thanks && thanks.scrollIntoView) {
+          thanks.scrollIntoView({ block: 'start', behavior: 'auto' });
+        }
+      }
+      pinThanks();
+      requestAnimationFrame(pinThanks);
     } catch (err) {
       console.error('Inquiry submit error:', err);
       alert('Sorry — something went wrong submitting your inquiry. Please try again or email us directly.');
