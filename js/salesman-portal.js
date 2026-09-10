@@ -2082,6 +2082,20 @@ function getOperatingSalesmanEmail() {
     }
 }
 
+function getOperatingSalesmanName() {
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || 'null') || {};
+        const viewAs = String(user.viewAsSalesmanEmail || localStorage.getItem('viewAsSalesmanEmail') || '').toLowerCase().trim();
+        const viewAsName = String(user.viewAsSalesmanName || localStorage.getItem('viewAsSalesmanName') || '').trim();
+        if (viewAs && viewAsName) return viewAsName;
+        if (viewAs === BRIAN_SEAT_EMAIL) return 'Brian Frohne';
+        if (viewAs) return viewAsName || viewAs;
+        return user.fullName || user.name || 'Salesman';
+    } catch (e) {
+        return 'Salesman';
+    }
+}
+
 function isBrianAssignedCustomer(customer) {
     const email = String((customer && (customer.salesman_email || customer.salesmanEmail)) || '').toLowerCase().trim();
     const seat = getOperatingSalesmanEmail() || BRIAN_SEAT_EMAIL;
@@ -2532,8 +2546,8 @@ async function submitPlaceOrder() {
         customer_name: isWalkIn ? walkInName : nameFromField,
         customer_email: isWalkIn ? (walkInEmail.toLowerCase() || null) : ((customerObj?.email || "").toLowerCase().trim() || null),
         customer_company: isWalkIn ? (walkInCompany || null) : (customerObj?.company || null),
-        salesman_email: (user.email || "").toLowerCase().trim(),
-        salesman_name: user.fullName || user.name || "Salesman",
+        salesman_email: (typeof getOperatingSalesmanEmail === 'function' ? getOperatingSalesmanEmail() : (user.email || "")).toLowerCase().trim(),
+        salesman_name: (typeof getOperatingSalesmanName === 'function' ? getOperatingSalesmanName() : null) || user.fullName || user.name || "Salesman",
         status: "submitted",
         source: "salesman",
         items: placeOrderItems.map(item => ({
@@ -3228,8 +3242,8 @@ if (orderFormEl) {
             customer_name: customerName,
             customer_email: null,
             customer_company: null,
-            salesman_email: (user.email || "").toLowerCase().trim(),
-            salesman_name: user.fullName || user.name || "Salesman",
+            salesman_email: (typeof getOperatingSalesmanEmail === 'function' ? getOperatingSalesmanEmail() : (user.email || "")).toLowerCase().trim(),
+            salesman_name: (typeof getOperatingSalesmanName === 'function' ? getOperatingSalesmanName() : null) || user.fullName || user.name || "Salesman",
             status: "submitted",
             source: "salesman",
             items: currentOrderItems.map(item => ({
