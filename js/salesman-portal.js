@@ -2653,20 +2653,36 @@ function searchProposalProducts() {
         const price = p.isMarketPrice
             ? 'Market'
             : ('$' + Number(p.unitPrice).toFixed(2));
-        return '<div class="px-3 py-2 border-b border-[#d4b78f] hover:bg-[#f8f4eb] cursor-pointer flex justify-between items-center" onclick="addProductToProposal(\'' + safeName + '\')">' +
+        return '<div class="px-3 py-2 border-b border-[#d4b78f] hover:bg-[#f8f4eb] cursor-pointer flex justify-between items-center proposal-add-row" data-name="' + encodeURIComponent(p.name) + '">' +
             '<div><p class="text-sm font-semibold brand-green">' + escapeHtml(p.name) + '</p>' +
             '<p class="text-xs text-[#6B4423]">' + escapeHtml(p.caseSize || '') + ' · ' + escapeHtml(price) + '</p></div>' +
             '<span class="text-xs font-bold text-[#1E4D2B]">Add</span></div>';
     }).join('');
+    resultsEl.querySelectorAll('.proposal-add-row').forEach(function (row) {
+        row.onclick = function () {
+            addProductToProposal(decodeURIComponent(row.getAttribute('data-name') || ''));
+        };
+    });
     resultsEl.classList.remove('hidden');
 }
 
 
+var proposalItems = proposalItems || [];
+
 function addProductToProposal(productName) {
     if (typeof PRODUCT_CATALOG === "undefined") return;
+    if (!Array.isArray(proposalItems)) proposalItems = [];
 
-    const product = PRODUCT_CATALOG.find(p => p.name === productName);
-    if (!product) return;
+    const want = String(productName || '');
+    const product = PRODUCT_CATALOG.find(function (p) {
+        return p && p.name === want;
+    }) || PRODUCT_CATALOG.find(function (p) {
+        return p && String(p.name || '').toLowerCase() === want.toLowerCase();
+    });
+    if (!product) {
+        alert('Could not add that product.');
+        return;
+    }
 
     if (proposalItems.some(i => i.name === productName)) {
         alert("That product is already on this proposal.");
