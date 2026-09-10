@@ -2017,7 +2017,9 @@ let PRODUCT_CATALOG = [
 
     // ========== JERKY - Training Treats ==========
     { name: "6oz. Bags of USA Elky Training Treats", category: "Jerky", subCategory: "Training Treats", caseSize: "50/cs", unitPrice: 3.90, isMarketPrice: false, marketPriceNote: null, landedCost: null, grossProfit: null, priceAsOf: "July 2026" },
+    { name: "8oz. Bags of USA Elky Training Treats", category: "Jerky", subCategory: "Training Treats", caseSize: "50/cs", unitPrice: 6.65, isMarketPrice: false, marketPriceNote: null, landedCost: null, grossProfit: null, priceAsOf: "September 2026" },
     { name: "10oz. Bags of USA Elky Training Treats", category: "Jerky", subCategory: "Training Treats", caseSize: "35/cs", unitPrice: 7.91, isMarketPrice: false, marketPriceNote: null, landedCost: null, grossProfit: null, priceAsOf: "July 2026" },
+    { name: "12oz. Bags of USA Elky Training Treats", category: "Jerky", subCategory: "Training Treats", caseSize: "35/cs", unitPrice: 9.90, isMarketPrice: false, marketPriceNote: null, landedCost: null, grossProfit: null, priceAsOf: "September 2026" },
 
 
     // ========== JERKY - Jerky Stuffed Bones ==========
@@ -8793,6 +8795,22 @@ function collectSalesmanPriceSheetInputs() {
     return next;
 }
 
+function isJakePetSupplyCustomer(customer) {
+    const email = String((customer && customer.email) || '').toLowerCase().trim();
+    const company = String((customer && (customer.company || customer.name)) || '').toLowerCase();
+    if (email === 'jakespurchaseorders@gmail.com') return true;
+    if (company.indexOf('jake') !== -1 && company.indexOf('pet') !== -1) return true;
+    return false;
+}
+
+function applyJakeElkyTrainingPrices(prices) {
+    const next = Object.assign({}, prices || {});
+    next['8oz. Bags of USA Elky Training Treats'] = 6.15;
+    next['12oz. Bags of USA Elky Training Treats'] = 8.15;
+    return next;
+}
+
+
 function shouldSkipSalesmanPricePush(customer) {
     const email = String((customer && customer.email) || '').toLowerCase().trim();
     const company = String((customer && customer.company) || '').toLowerCase();
@@ -9235,7 +9253,7 @@ async function saveSalesmanPriceSheetAndPush() {
                 .upsert({
                     customer_id: c.id,
                     salesman_email: email,
-                    prices: prices,
+                    prices: isJakePetSupplyCustomer(c) ? applyJakeElkyTrainingPrices(prices) : prices,
                     updated_at: nowIso
                 }, { onConflict: 'customer_id' });
             if (upsertErr) throw upsertErr;
@@ -18487,7 +18505,7 @@ const PHOTO_FAMILIES = [
     { key: 'chicken-jerky', title: 'USA Chicken Jerky Treats', names: ['USA Chicken Jerky Treats (Bulk)', 'USA Chicken Jerky Treats (Display)'] },
     { key: 'elky-jerky', title: 'USA Elky Jerky Treats', names: ['USA Elky Jerky Treats (Bulk)', 'USA Elky Jerky Treats (Display)'] },
     { key: 'venison-jerky', title: 'USA Venison & Sweet Potato Jerky', names: ['USA Venison & Sweet Potato Jerky Treats (Bulk)', 'USA Venison & Sweet Potato Jerky Treats (Display)'] },
-    { key: 'elky-training', title: 'USA Elky Training Treats', names: ['6oz. Bags of USA Elky Training Treats', '10oz. Bags of USA Elky Training Treats'], kind: 'packaged' },
+    { key: 'elky-training', title: 'USA Elky Training Treats', names: ['6oz. Bags of USA Elky Training Treats', '8oz. Bags of USA Elky Training Treats', '10oz. Bags of USA Elky Training Treats', '12oz. Bags of USA Elky Training Treats'], kind: 'packaged' },
     { key: 'cow-ears', title: 'Cow Ears', names: ['Natural Cow Ears (Bulk)', 'Vanilla Cow Ears (Bulk)', 'Honey Smoked Cow Ears (Bulk)'] },
     { key: 'cow-ears-6pack', title: '6-Pack Cow Ears', names: ['6-Pack, Natural Cow Ears', '6-Pack Natural Cow Ears', '6-Pack, Vanilla Cow Ears', '6-Pack Vanilla Cow Ears', '6-Pack, Honey Smoked Cow Ears', '6-Pack Honey Smoked Cow Ears'], linkedFamilyKey: 'cow-ears', kind: 'packaged' },
     { key: 'buffalo-ears', title: 'Buffalo Ears', names: ['MAGNA Buffalo Ears (Bulk)', 'Honey Smoked MAGNA Buffalo Ears (Bulk)'] },
@@ -18546,7 +18564,7 @@ const PHOTO_GALLERY_TREE = {
     },
     'Jerky': {
         'Jerky Stick Treats': ['USA Beef Jerky Treats (Bulk)', 'USA Beef Jerky Treats (Display)', 'USA Turkey Jerky Treats (Bulk)', 'USA Turkey Jerky Treats (Display)', 'USA Chicken Jerky Treats (Bulk)', 'USA Chicken Jerky Treats (Display)', 'USA Elky Jerky Treats (Bulk)', 'USA Elky Jerky Treats (Display)', 'USA Venison & Sweet Potato Jerky Treats (Bulk)', 'USA Venison & Sweet Potato Jerky Treats (Display)'],
-        'Training Treats': ['6oz. Bags of USA Elky Training Treats', '10oz. Bags of USA Elky Training Treats'],
+        'Training Treats': ['6oz. Bags of USA Elky Training Treats', '8oz. Bags of USA Elky Training Treats', '10oz. Bags of USA Elky Training Treats', '12oz. Bags of USA Elky Training Treats'],
         'Jerky Stuffed Bones': ['Large Turkey Jerky Stuffed Buffalo Bone', 'Large Elky Jerky Stuffed Buffalo Bone', 'Large Venison and Sweet Potato Stuffed Buffalo Bone']
     },
     'Ears': {
@@ -18600,7 +18618,7 @@ const PHOTO_GALLERY_TREE = {
         'Deer (Venison)': ['USA Venison & Sweet Potato Jerky Treats (Bulk)', 'USA Venison & Sweet Potato Jerky Treats (Display)', 'Large Venison and Sweet Potato Stuffed Buffalo Bone', 'Deer Skin Chips (Bulk)']
     },
     'Elk': {
-        'Elk': ['USA Elky Jerky Treats (Bulk)', 'USA Elky Jerky Treats (Display)', '6oz. Bags of USA Elky Training Treats', '10oz. Bags of USA Elky Training Treats']
+        'Elk': ['USA Elky Jerky Treats (Bulk)', 'USA Elky Jerky Treats (Display)', '6oz. Bags of USA Elky Training Treats', '8oz. Bags of USA Elky Training Treats', '10oz. Bags of USA Elky Training Treats', '12oz. Bags of USA Elky Training Treats']
     },
     'Chicken and Turkey': {
         'Chicken': ['Crunchy Euro Chicken Feet (Bulk)', 'Euro White Chicken Feet (Bulk)', 'Vanilla Flavored White Euro Chicken Feet (Bulk)', '10-Pack Euro Chicken Feet', '10-Pack of Euro Chicken Feet', '10-Pack White Euro Chicken Feet', '10-Pack of White Euro Chicken Feet', '10-Pack Vanilla Euro Chicken Feet', '10-Pack of Vanilla Euro Chicken Feet', 'USA Chicken Jerky Treats (Bulk)', 'USA Chicken Jerky Treats (Display)'],
@@ -18654,7 +18672,7 @@ const PHOTO_GALLERY_TREE = {
         'Chunky Cheeks': ['8oz. Bags of White Chunky Cheeks', '8oz. Bags of Vanilla Chunky Cheeks', '16oz. Bags of White Chunky Cheeks', '16oz. Bags of Vanilla Chunky Cheeks'],
         'Beef Lung': ['8oz. Bag of Beef Lung', '16oz. Bag of Beef Lung'],
         'Bully Pieces': ['8oz. Bag of Bully Pieces', '10oz. Bag of Bully Pieces', '16oz. Bag of Bully Pieces'],
-        'Jerky': ['6oz. Bags of USA Elky Training Treats', '10oz. Bags of USA Elky Training Treats'],
+        'Jerky': ['6oz. Bags of USA Elky Training Treats', '8oz. Bags of USA Elky Training Treats', '10oz. Bags of USA Elky Training Treats', '12oz. Bags of USA Elky Training Treats'],
         'Trachea Pieces': ['8oz. Bags of Beef Trachea Pieces', '16oz. Bags of Beef Trachea Pieces'],
         "Binky's": ["8oz. Bags of White Supreme Chips (Binkey's)", "8oz. Bags of Peanut Butter Supreme Chips (Binkey's)", "8oz. Bags of Vanilla Supreme Chips (Binkey's)", "16oz. Bags of White Supreme Chips (Binkey's)", "16oz. Bags of Peanut Butter Supreme Chips (Binkey's)", "16oz. Bags of Vanilla Supreme Chips (Binkey's)"]
     }
@@ -18698,7 +18716,9 @@ const PHOTO_PACKAGED_ITEMS = {
     ],
     'Jerky': [
         '6oz. Bags of USA Elky Training Treats',
-        '10oz. Bags of USA Elky Training Treats'
+        '8oz. Bags of USA Elky Training Treats',
+        '10oz. Bags of USA Elky Training Treats',
+        '12oz. Bags of USA Elky Training Treats'
     ],
     'Trachea Pieces': [
         '8oz. Bags of Beef Trachea Pieces',
