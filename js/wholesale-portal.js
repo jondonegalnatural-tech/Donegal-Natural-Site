@@ -5183,6 +5183,20 @@ function digitsOnly(value, max) {
     return String(value || '').replace(/\D/g, '').slice(0, max || 4);
 }
 
+function shouldSkipPaymentPrompt(customer) {
+    if (!customer) return false;
+    const email = String(customer.email || '').toLowerCase();
+    const company = String(customer.company || customer.name || '').toLowerCase();
+    const key = (company + ' ' + String(customer.name || '').toLowerCase())
+        .replace(/[^a-z0-9]+/g, '');
+    if (email === 'jackerman@donegalnatural.com') return true;
+    if (company.indexOf('admin test store') !== -1) return true;
+    if (key.indexOf('wagginwheel') !== -1) return true;
+    if (key.indexOf('thefeedstore') !== -1) return true;
+    if (key.indexOf('woofntails') !== -1) return true;
+    return false;
+}
+
 function hasPaymentMethodOnFile(customer) {
     if (!customer) return false;
     const method = String(customer.payment_method || '').toLowerCase();
@@ -5317,7 +5331,7 @@ function openQuoteConfirmModal() {
         return;
     }
     const payCustomer = window._currentCustomer || null;
-    if (!hasPaymentMethodOnFile(payCustomer)) {
+    if (!shouldSkipPaymentPrompt(payCustomer) && !hasPaymentMethodOnFile(payCustomer)) {
         window._resumeQuoteAfterPayment = true;
         openPaymentMethodModal();
         return;
