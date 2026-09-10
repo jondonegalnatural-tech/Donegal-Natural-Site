@@ -6660,7 +6660,7 @@ function showAccountInfo() {
                 </div>
                 <div>
                     <p class="text-[#6B4423] font-semibold">Phone</p>
-                    <p>${escapeHtml(active.phone || '—')}</p>
+                    <p>${escapeHtml((typeof formatPhoneDisplay === 'function' ? formatPhoneDisplay(active.phone) : active.phone) || '—')}</p>
                 </div>
                 <div>
                     <p class="text-[#6B4423] font-semibold">Assigned Salesman</p>

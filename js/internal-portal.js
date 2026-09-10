@@ -7753,7 +7753,7 @@ async function showCustomerChangeRequestsPanel() {
                 <div class="text-sm space-y-1 mb-3">
                     <p><strong>Company:</strong> ${escapeHtml(p.company || '—')}</p>
                     <p><strong>Email:</strong> ${escapeHtml(p.email || '—')}</p>
-                    <p><strong>Phone:</strong> ${escapeHtml(p.phone || '—')}</p>
+                    <p><strong>Phone:</strong> ${escapeHtml((typeof formatPhoneDisplay === 'function' ? formatPhoneDisplay(p.phone) : p.phone) || '—')}</p>
                     <p><strong>Territory:</strong> ${escapeHtml(p.territory || '—')}</p>
                     <p><strong>Shipping:</strong> ${escapeHtml(p.shipping_address || '—')}</p>
                     <p><strong>Billing:</strong> ${escapeHtml(p.billing_address || '—')}</p>
@@ -10316,7 +10316,7 @@ async function showCustomerApprovalsPanel() {
 
                 <div class="text-sm text-[#6B4423] space-y-1 mb-4">
                     ${c.email ? `<p><strong>Email:</strong> ${escapeHtml(c.email)}</p>` : ""}
-                    ${c.phone ? `<p><strong>Phone:</strong> ${escapeHtml(c.phone)}</p>` : ""}
+                    ${c.phone ? `<p><strong>Phone:</strong> ${escapeHtml(typeof formatPhoneDisplay === 'function' ? formatPhoneDisplay(c.phone) : c.phone)}</p>` : ""}
                     ${c.shipping_address ? `<p><strong>Shipping:</strong> ${escapeHtml(c.shipping_address)}</p>` : ""}
                     ${c.billing_address ? `<p><strong>Billing:</strong> ${escapeHtml(c.billing_address)}</p>` : ""}
                     ${c.notes ? `<p><strong>Notes:</strong> ${escapeHtml(c.notes)}</p>` : ""}
@@ -10913,7 +10913,7 @@ function createInquiryCard(inquiry, showActions) {
             <div>
                 <p class="font-bold text-lg">${escapeHtml(inquiry.owner_name || '—')}</p>
                 <p class="text-sm text-[#6B4423]">${escapeHtml(inquiry.company_name || '—')} • ${escapeHtml(inquiry.email || '—')}</p>
-                <p class="text-sm text-[#6B4423]">${escapeHtml(inquiry.phone || '')}</p>
+                <p class="text-sm text-[#6B4423]">${escapeHtml(typeof formatPhoneDisplay === 'function' ? formatPhoneDisplay(inquiry.phone) : (inquiry.phone || ''))}</p>
             </div>
             <div class="text-right">
                 <span class="px-3 py-1 text-xs font-semibold rounded-full

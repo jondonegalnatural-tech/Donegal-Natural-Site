@@ -1294,7 +1294,7 @@ async function showSalesmanCustomerDetail(customer) {
     setText('sc-name', customer.name);
     setText('sc-company', customer.company);
     setText('sc-status', customer.status);
-    setText('sc-phone', customer.phone);
+    setText('sc-phone', (typeof formatPhoneDisplay === 'function' ? formatPhoneDisplay(customer.phone) : customer.phone) || '—');
     setText('sc-email', customer.email);
     setText('sc-territory', customer.territory);
     setText('sc-shipping', customer.shipping_address || customer.shippingAddress);
@@ -2899,7 +2899,7 @@ async function loadCustomerSubmissions() {
                             </span>
                         </div>
                         ${c.email ? `<p class="text-sm mt-1">${escapeHtml(c.email)}</p>` : ""}
-                        ${c.phone ? `<p class="text-sm">${escapeHtml(c.phone)}</p>` : ""}
+                        ${c.phone ? `<p class="text-sm">${escapeHtml(typeof formatPhoneDisplay === 'function' ? formatPhoneDisplay(c.phone) : c.phone)}</p>` : ""}
                     </div>
                 `;
             }).join("")}
