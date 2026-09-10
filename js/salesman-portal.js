@@ -2620,6 +2620,48 @@ async function submitPlaceOrder() {
     }
 }
 
+function searchProposalProducts() {
+    const searchEl = document.getElementById('proposal-product-search');
+    const resultsEl = document.getElementById('proposal-product-results');
+    if (!searchEl || !resultsEl) return;
+
+    const term = (searchEl.value || '').toLowerCase().trim();
+    if (term.length < 2) {
+        resultsEl.innerHTML = '';
+        resultsEl.classList.add('hidden');
+        return;
+    }
+
+    if (typeof PRODUCT_CATALOG === 'undefined') {
+        resultsEl.innerHTML = '<p class="p-3 text-sm text-red-600">PRODUCT_CATALOG not found.</p>';
+        resultsEl.classList.remove('hidden');
+        return;
+    }
+
+    const matches = PRODUCT_CATALOG.filter(function (p) {
+        return p && p.name && p.name.toLowerCase().includes(term);
+    }).slice(0, 12);
+
+    if (!matches.length) {
+        resultsEl.innerHTML = '<p class="p-3 text-sm text-[#6B4423]">No products found.</p>';
+        resultsEl.classList.remove('hidden');
+        return;
+    }
+
+    resultsEl.innerHTML = matches.map(function (p) {
+        const safeName = String(p.name).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const price = p.isMarketPrice
+            ? 'Market'
+            : ('$' + Number(p.unitPrice).toFixed(2));
+        return '<div class="px-3 py-2 border-b border-[#d4b78f] hover:bg-[#f8f4eb] cursor-pointer flex justify-between items-center" onclick="addProductToProposal(\'' + safeName + '\')">' +
+            '<div><p class="text-sm font-semibold brand-green">' + escapeHtml(p.name) + '</p>' +
+            '<p class="text-xs text-[#6B4423]">' + escapeHtml(p.caseSize || '') + ' · ' + escapeHtml(price) + '</p></div>' +
+            '<span class="text-xs font-bold text-[#1E4D2B]">Add</span></div>';
+    }).join('');
+    resultsEl.classList.remove('hidden');
+}
+
+
 function addProductToProposal(productName) {
     if (typeof PRODUCT_CATALOG === "undefined") return;
 
