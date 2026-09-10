@@ -172,7 +172,7 @@ function switchActiveCustomer(customerId) {
     if (typeof schedulePersistOpenQuote === 'function') schedulePersistOpenQuote();
 
     // If this store still needs onboarding, show the modal
-    if (!next.onboarding_complete && !shouldSkipPaymentPrompt(next)) {
+    if (!next.onboarding_complete) {
         document.getElementById('onboarding-modal')?.classList.remove('hidden');
     }
 }
@@ -5200,6 +5200,7 @@ function shouldSkipPaymentPrompt(customer) {
     };
     if (exemptIds[id] || exemptEmails[email]) return true;
     if (email === 'jackerman@donegalnatural.com') return true;
+    if (typeof isBrianAssignedCustomer === 'function' && isBrianAssignedCustomer(customer)) return true;
     if (company.indexOf('admin test store') !== -1) return true;
     if (company === 'woof n tails llc') return true;
     if (company === 'waggin wheels pet supply') return true;
@@ -7719,7 +7720,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Onboarding is per selected store
-        if (!active || (!active.onboarding_complete && !shouldSkipPaymentPrompt(active))) {
+        if (!active || !active.onboarding_complete) {
             document.getElementById('onboarding-modal')?.classList.remove('hidden');
             return;
         }
