@@ -172,7 +172,7 @@ function switchActiveCustomer(customerId) {
     if (typeof schedulePersistOpenQuote === 'function') schedulePersistOpenQuote();
 
     // If this store still needs onboarding, show the modal
-    if (!next.onboarding_complete) {
+    if (!next.onboarding_complete && !shouldSkipPaymentPrompt(next)) {
         document.getElementById('onboarding-modal')?.classList.remove('hidden');
     }
 }
@@ -5185,15 +5185,25 @@ function digitsOnly(value, max) {
 
 function shouldSkipPaymentPrompt(customer) {
     if (!customer) return false;
-    const email = String(customer.email || '').toLowerCase();
+    const id = String(customer.id || '').toLowerCase();
+    const email = String(customer.email || '').toLowerCase().trim();
     const company = String(customer.company || '').toLowerCase().trim();
-    const name = String(customer.name || '').toLowerCase().trim();
-    const blob = (company + ' ' + name).replace(/[^a-z0-9]+/g, '');
+    const exemptIds = {
+        'e87aac4d-6a28-4831-9efb-f98ab4f45f0e': true,
+        'c6a37470-05c1-4c67-b291-832e103955ae': true,
+        '5328f89e-73b3-468f-91a2-9efd0a6437ca': true
+    };
+    const exemptEmails = {
+        'frantz64@comcast.net': true,
+        'mrfeedman@gmail.com': true,
+        'wagginwheelspet@outlook.com': true
+    };
+    if (exemptIds[id] || exemptEmails[email]) return true;
     if (email === 'jackerman@donegalnatural.com') return true;
     if (company.indexOf('admin test store') !== -1) return true;
-    if (company === 'woof n tails llc' || blob.indexOf('woofntails') !== -1) return true;
-    if (company === 'waggin wheels pet supply' || blob.indexOf('wagginwheel') !== -1) return true;
-    if (company === 'the feed store, inc.' || blob.indexOf('thefeedstore') !== -1) return true;
+    if (company === 'woof n tails llc') return true;
+    if (company === 'waggin wheels pet supply') return true;
+    if (company === 'the feed store, inc.') return true;
     return false;
 }
 
@@ -7582,7 +7592,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Onboarding is per selected store
-        if (!active || !active.onboarding_complete) {
+        if (!active || (!active.onboarding_complete && !shouldSkipPaymentPrompt(active))) {
             document.getElementById('onboarding-modal')?.classList.remove('hidden');
             return;
         }
