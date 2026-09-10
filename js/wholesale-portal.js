@@ -5242,7 +5242,25 @@ function setPaymentMethodType(type) {
 function openPaymentMethodModal() {
     const err = document.getElementById('pay-method-error');
     if (err) { err.textContent = ''; err.classList.add('hidden'); }
-    setPaymentMethodType(window._paymentMethodType || 'card');
+    const customer = window._currentCustomer || {};
+    let details = {};
+    try { details = JSON.parse(customer.payment_method_details || '{}') || {}; } catch (e) { details = {}; }
+    const savedType = String(customer.payment_method || '').toLowerCase() === 'ach' ? 'ach' : 'card';
+    setPaymentMethodType(savedType);
+    const setVal = function (id, value) {
+        const el = document.getElementById(id);
+        if (el) el.value = value || '';
+    };
+    setVal('pay-card-brand', details.brand);
+    setVal('pay-card-name', details.name);
+    setVal('pay-card-last4', details.last4);
+    setVal('pay-card-exp-month', details.exp_month);
+    setVal('pay-card-exp-year', details.exp_year);
+    setVal('pay-ach-name', details.name);
+    setVal('pay-ach-bank', details.bank_name);
+    setVal('pay-ach-type', details.account_type || 'checking');
+    setVal('pay-ach-routing-last4', details.routing_last4);
+    setVal('pay-ach-account-last4', details.account_last4);
     document.getElementById('payment-method-modal')?.classList.remove('hidden');
 }
 
@@ -5320,7 +5338,7 @@ async function savePaymentMethodOnFile() {
             customer.payment_method_details = JSON.stringify(details);
         }
         hidePaymentMethodModal();
-        if (typeof renderAccountPage === 'function') renderAccountPage();
+        if (typeof showAccountInfo === 'function') showAccountInfo();
         if (window._resumeQuoteAfterPayment) {
             window._resumeQuoteAfterPayment = false;
             openQuoteConfirmModal();
@@ -6684,9 +6702,18 @@ function showAccountInfo() {
                     <p class="text-[#6B4423] font-semibold">Onboarding</p>
                     <p>${active.onboarding_complete ? 'Complete' : 'Incomplete'}</p>
                 </div>
-                <div>
-                    <p class="text-[#6B4423] font-semibold">Payment on file</p>
-                    <p>${escapeHtml(paymentMethodLabel(active))}</p>
+                <div class="md:col-span-2">
+                    <div class="flex justify-between items-start gap-3">
+                        <div>
+                            <p class="text-[#6B4423] font-semibold">Payment on file</p>
+                            <p>${escapeHtml(paymentMethodLabel(active))}</p>
+                            <p class="text-xs text-[#6B4423] mt-1">Card or ACH last 4 only. We are not charging this method from the portal.</p>
+                        </div>
+                        <button type="button" onclick="openPaymentMethodModal()"
+                                class="px-4 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold text-[#1E4D2B]">
+                            Edit
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -6830,7 +6857,103 @@ async function openShippingAddressesModal() {
     document.body.appendChild(modal);
     fillAccountEditFields();
     await loadManageAddressesList();
+    await bindWholesaleAccountPlaces();
 }
+
+function composeWholesaleAddress(place) {
+    const comps = (place && place.addressComponents) || [];
+    const get = function (type, useShort) {
+        const part = comps.find(function (c) {
+            return (c.types || []).indexOf(type) !== -1;
+        });
+        if (!part) return '';
+        return useShort ? (part.shortText || '') : (part.longText || '');
+    };
+    const street = [get('street_number'), get('route')].filter(Boolean).join(' ');
+    const apt = get('subpremise');
+    const city = get('locality') || get('sublocality') || get('administrative_area_level_3');
+    const state = get('administrative_area_level_1', true);
+    const zip = get('postal_code');
+    const parts = [];
+    if (street) parts.push(street);
+    if (apt) parts.push(apt);
+    const cityLine = [city, state].filter(Boolean).join(', ') + (zip ? (' ' + zip) : '');
+    if (cityLine.trim()) parts.push(cityLine.trim());
+    if (parts.length) return parts.join(', ');
+    return String((place && place.formattedAddress) || '')
+        .replace(/,?\s*USA\s*$/i, '')
+        .trim();
+}
+
+async function attachWholesalePlacesField(fieldId, mode) {
+    const fieldEl = document.getElementById(fieldId);
+    if (!fieldEl) return;
+    if (document.getElementById(fieldId + '-places')) return;
+    if (!window.google || !google.maps || !google.maps.importLibrary) return;
+    try {
+        const { PlaceAutocompleteElement } = await google.maps.importLibrary('places');
+        const widget = new PlaceAutocompleteElement({
+            includedRegionCodes: ['us'],
+            requestedLanguage: 'en'
+        });
+        widget.id = fieldId + '-places';
+        widget.setAttribute('placeholder', fieldEl.getAttribute('placeholder') || 'Start typing an address');
+        widget.setAttribute('no-input-icon', '');
+        widget.setAttribute('no-clear-button', '');
+        fieldEl.parentElement.insertBefore(widget, fieldEl);
+        fieldEl.classList.add('places-backed');
+        if (fieldEl.value) widget.value = fieldEl.value;
+        widget.addEventListener('gmp-select', async function (event) {
+            const prediction = event.placePrediction;
+            if (!prediction || typeof prediction.toPlace !== 'function') return;
+            const place = prediction.toPlace();
+            await place.fetchFields({
+                fields: ['addressComponents', 'formattedAddress', 'location', 'id']
+            });
+            if (mode === 'new-addr') {
+                const comps = place.addressComponents || [];
+                const get = function (type, useShort) {
+                    const part = comps.find(function (c) {
+                        return (c.types || []).indexOf(type) !== -1;
+                    });
+                    if (!part) return '';
+                    return useShort ? (part.shortText || '') : (part.longText || '');
+                };
+                const street = [get('street_number'), get('route')].filter(Boolean).join(' ');
+                fieldEl.value = street || composeWholesaleAddress(place);
+                widget.value = fieldEl.value;
+                const cityEl = document.getElementById('new-addr-city');
+                const stateEl = document.getElementById('new-addr-state');
+                const zipEl = document.getElementById('new-addr-zip');
+                const aptEl = document.getElementById('new-addr-line2');
+                if (cityEl) cityEl.value = get('locality') || get('sublocality') || get('administrative_area_level_3');
+                if (stateEl) stateEl.value = get('administrative_area_level_1', true);
+                if (zipEl) zipEl.value = get('postal_code');
+                const apt = get('subpremise');
+                if (apt && aptEl && !aptEl.value.trim()) aptEl.value = apt;
+            } else {
+                const line = composeWholesaleAddress(place);
+                fieldEl.value = line;
+                widget.value = line;
+            }
+        });
+        widget.addEventListener('input', function () {
+            fieldEl.value = widget.value || '';
+        });
+    } catch (err) {
+        console.warn('Wholesale Account Places widget:', err);
+    }
+}
+
+async function bindWholesaleAccountPlaces() {
+    await attachWholesalePlacesField('account-edit-shipping', 'full');
+    await attachWholesalePlacesField('account-edit-billing', 'full');
+    await attachWholesalePlacesField('new-addr-line1', 'new-addr');
+}
+
+window.initWholesaleAccountPlaces = async function () {
+    await bindWholesaleAccountPlaces();
+};
 
 function fillAccountEditFields() {
     const c = window._currentCustomer;
@@ -6845,6 +6968,10 @@ function fillAccountEditFields() {
     if (phoneEl) phoneEl.value = c.phone || '';
     if (shipEl) shipEl.value = c.shipping_address || '';
     if (billEl) billEl.value = c.billing_address || '';
+    const shipWidget = document.getElementById('account-edit-shipping-places');
+    const billWidget = document.getElementById('account-edit-billing-places');
+    if (shipWidget) shipWidget.value = c.shipping_address || '';
+    if (billWidget) billWidget.value = c.billing_address || '';
 }
 
 async function saveAccountDetails() {

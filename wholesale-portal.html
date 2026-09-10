@@ -518,7 +518,42 @@
             color: #d4b78f;
             border-color: #1E4D2B;
         }
-        /* ========== END WHOLESALE PRODUCT CARDS ========== */        
+        /* ========== END WHOLESALE PRODUCT CARDS ========== */  
+        .account-places-wrap { position: relative; overflow: visible; }
+        #account-edit-shipping.places-backed,
+        #account-edit-billing.places-backed,
+        #new-addr-line1.places-backed {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            pointer-events: none;
+        }
+        gmp-place-autocomplete {
+            width: 100%;
+            display: block;
+            color-scheme: light;
+            background-color: #fff;
+            border: 2px solid #6B4423;
+            border-radius: 10px;
+            color: #6B4423;
+            font-size: 0.95rem;
+        }
+        gmp-place-autocomplete:focus-within { border-color: #1E4D2B; }
+        gmp-place-autocomplete::part(focus-ring) { display: none; }
+        gmp-place-autocomplete::part(input) {
+            background: transparent;
+            color: #6B4423;
+            font-size: 0.95rem;
+        }
+        gmp-place-autocomplete::part(prediction-list) {
+            background: #fff;
+            border: 2px solid #6B4423;
+            border-radius: 10px;
+            color: #6B4423;
+            z-index: 250;
+        }
+        #manage-addresses-modal .account-places-wrap { overflow: visible; }      
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -889,6 +924,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/phone-mask.js"></script>
     <script src="js/wholesale-portal.js"></script>
+    <script src="js/wholesale-portal.js"></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA3w15On3HstCQaS_XfKNXbO0I0ipHsQCg&libraries=places&callback=initWholesaleAccountPlaces&loading=async" async defer></script>
 
 <!-- Manage Account Information Modal (sectioned) -->
 <div id="manage-addresses-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4" style="display: none;">
@@ -919,13 +956,21 @@
         </div>
         <div>
           <label class="block text-sm font-semibold text-[#6B4423] mb-1">Shipping address</label>
-          <textarea id="account-edit-shipping" rows="3"
-                    class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2"></textarea>
+          <div class="account-places-wrap">
+            <textarea id="account-edit-shipping" rows="2"
+                      class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2"
+                      placeholder="Start typing and pick the address"></textarea>
+          </div>
+          <p class="text-xs text-[#6B4423] mt-1">Start typing and pick from the list. PO Boxes can be typed in full.</p>
         </div>
         <div>
           <label class="block text-sm font-semibold text-[#6B4423] mb-1">Billing address</label>
-          <textarea id="account-edit-billing" rows="3"
-                    class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2"></textarea>
+          <div class="account-places-wrap">
+            <textarea id="account-edit-billing" rows="2"
+                      class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2"
+                      placeholder="Start typing and pick the address"></textarea>
+          </div>
+          <p class="text-xs text-[#6B4423] mt-1">Start typing and pick from the list. PO Boxes can be typed in full.</p>
         </div>
         <p class="text-xs text-[#6B4423]">Login email and assigned salesman cannot be changed here.</p>
         <button type="button" onclick="saveAccountDetails()"
@@ -946,8 +991,11 @@
         <div class="space-y-2">
           <input id="new-addr-label" type="text" placeholder="Label (e.g. Warehouse, Store 2)"
                  class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
-          <input id="new-addr-line1" type="text" placeholder="Street address *"
-                 class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
+          <div class="account-places-wrap">
+            <input id="new-addr-line1" type="text" placeholder="Street address *"
+                   autocomplete="off"
+                   class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
+          </div>
           <input id="new-addr-line2" type="text" placeholder="Apt / Suite (optional)"
                  class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">
           <div class="grid grid-cols-3 gap-2">
