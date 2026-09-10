@@ -6831,7 +6831,6 @@ async function saveNewCustomer(event) {
         await assertCustomerEmailAvailable(email);
 
         const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        const tempPassword = 'DN' + Math.random().toString(36).slice(2, 8).toUpperCase() + '!';
 
         const fnUrl = SUPABASE_URL + '/functions/v1/create-customer-user';
         const fnRes = await fetch(fnUrl, {
@@ -6839,7 +6838,6 @@ async function saveNewCustomer(event) {
             headers: await getEdgeFunctionHeaders(),
             body: JSON.stringify({
                 email: email,
-                password: tempPassword,
                 full_name: name,
                 company: company
             })
@@ -6936,14 +6934,12 @@ async function saveNewCustomer(event) {
         alert(
             'Customer added.\n' +
             'Login account created.\n\n' +
-            'Customer login (email + temp password):\n' +
-            'Email: ' + email + '\n' +
-            'Password: ' + tempPassword + '\n\n' +
+            'Customer login email: ' + email + '\n\n' +
             (emailOk
                 ? 'Credentials email was sent to the customer.'
                 : ('Credentials email was NOT sent.\n' +
                    (emailFailReason ? ('Reason: ' + emailFailReason + '\n') : '') +
-                   'Please give the customer the temp password above.'))
+                   'Use password recovery after email delivery is restored.'))
         );
 
     } catch (err) {
@@ -11348,19 +11344,15 @@ async function confirmInquiryApproval() {
             notesParts.push('No salesman assigned at approval');
         }
 
-        const tempUsername = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-        let tempPassword = '';
         let fnData = { email_sent: false, skipped: true };
 
         if (!loginExists) {
-            tempPassword = 'DN' + Math.random().toString(36).slice(2, 8).toUpperCase() + '!';
             const fnUrl = SUPABASE_URL + '/functions/v1/create-customer-user';
             const fnRes = await fetch(fnUrl, {
                 method: 'POST',
                 headers: await getEdgeFunctionHeaders(),
                 body: JSON.stringify({
                     email: email,
-                    password: tempPassword,
                     full_name: name,
                     company: company
                 })
@@ -11618,14 +11610,12 @@ async function confirmInquiryApproval() {
                 'Status set to Active.\n' +
                 'Login account created.\n' +
                 (salesmanId ? 'Assigned to: ' + salesmanName : 'No salesman assigned (you can assign later)') + '\n\n' +
-                'Customer login (email + temp password):\n' +
-                'Email: ' + email + '\n' +
-                'Password: ' + tempPassword + '\n\n' +
+                'Customer login email: ' + email + '\n\n' +
                 (emailOk
                     ? 'Credentials email was sent to the customer.'
                     : ('Credentials email was NOT sent.\n' +
                        (emailFailReason ? ('Reason: ' + emailFailReason + '\n') : '') +
-                       'Please give the customer the temp password above.'))
+                       'Use password recovery after email delivery is restored.'))
             );
         }
     } catch (err) {
