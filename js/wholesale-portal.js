@@ -7551,15 +7551,19 @@ async function applyBrianWholesaleSheetPrices() {
         });
     }
     const customer = window._currentCustomer;
-    if (!isBrianAssignedCustomer(customer) || !customer.id) return;
+    if (!customer || !customer.id) return;
+    const salesmanEmail = String((customer.salesman_email || customer.salesmanEmail) || '').toLowerCase().trim();
+    if (!salesmanEmail) return;
     let prices = null;
     try {
         const { data: custSheet } = await supabaseClient
             .from('customer_price_sheets')
-            .select('prices')
+            .select('prices, salesman_email')
             .eq('customer_id', customer.id)
             .maybeSingle();
-        if (custSheet && custSheet.prices && typeof custSheet.prices === 'object') {
+        const sheetSalesman = String((custSheet && custSheet.salesman_email) || '').toLowerCase().trim();
+        if (custSheet && custSheet.prices && typeof custSheet.prices === 'object' &&
+            Object.keys(custSheet.prices).length && sheetSalesman === salesmanEmail) {
             prices = custSheet.prices;
         }
     } catch (err) {
@@ -7570,9 +7574,10 @@ async function applyBrianWholesaleSheetPrices() {
             const { data: salesSheet } = await supabaseClient
                 .from('salesman_price_sheets')
                 .select('prices')
-                .eq('salesman_email', BRIAN_SEAT_EMAIL)
+                .eq('salesman_email', salesmanEmail)
                 .maybeSingle();
-            if (salesSheet && salesSheet.prices && typeof salesSheet.prices === 'object') {
+            if (salesSheet && salesSheet.prices && typeof salesSheet.prices === 'object' &&
+                Object.keys(salesSheet.prices).length) {
                 prices = salesSheet.prices;
             }
         } catch (err) {
@@ -7580,6 +7585,9 @@ async function applyBrianWholesaleSheetPrices() {
         }
     }
     if (!prices) return;
+    WHOLESALE_PRICES = (WHOLESALE_PRICES || []).filter(function (p) {
+        return p && p.name && Object.prototype.hasOwnProperty.call(prices, p.name);
+    });
     (WHOLESALE_PRICES || []).forEach(function (p) {
         if (!p || !p.name) return;
         const raw = prices[p.name];

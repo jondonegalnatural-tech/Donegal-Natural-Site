@@ -1993,9 +1993,13 @@ function searchPlaceOrderProducts() {
         return;
     }
 
-    const matches = PRODUCT_CATALOG.filter(p =>
-        p.name.toLowerCase().includes(term)
-    ).slice(0, 12);
+        const sheetMap = window._placeOrderBrianPrices || {};
+    const sheetNames = Object.keys(sheetMap);
+    const matches = PRODUCT_CATALOG.filter(function (p) {
+        if (!p || !p.name || !p.name.toLowerCase().includes(term)) return false;
+        if (!sheetNames.length) return true;
+        return Object.prototype.hasOwnProperty.call(sheetMap, p.name);
+    }).slice(0, 12);
 
     if (matches.length === 0) {
         resultsEl.innerHTML = `<p class="p-3 text-sm text-[#6B4423]">No products found.</p>`;
@@ -2132,7 +2136,9 @@ function resolvePlaceOrderPrice(product) {
 
 async function loadBrianPlaceOrderPrices(customer) {
     window._placeOrderBrianPrices = {};
-    if (!isBrianAssignedCustomer(customer) || !customer || !customer.id) return;
+    if (!customer || !customer.id) return;
+    const salesmanEmail = String((customer.salesman_email || customer.salesmanEmail || getOperatingSalesmanEmail()) || '').toLowerCase().trim();
+    if (!salesmanEmail) return;
     try {
         const { data: custSheet } = await supabaseClient
             .from('customer_price_sheets')
@@ -2150,7 +2156,7 @@ async function loadBrianPlaceOrderPrices(customer) {
         const { data: salesSheet } = await supabaseClient
             .from('salesman_price_sheets')
             .select('prices')
-            .eq('salesman_email', getOperatingSalesmanEmail() || BRIAN_SEAT_EMAIL)
+            .eq('salesman_email', salesmanEmail)
             .maybeSingle();
         if (salesSheet && salesSheet.prices && typeof salesSheet.prices === 'object') {
             window._placeOrderBrianPrices = salesSheet.prices;
