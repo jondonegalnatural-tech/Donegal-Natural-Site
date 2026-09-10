@@ -7444,6 +7444,11 @@ function displayWelcome() {
 
     if (user && user.fullName) {
         const isCustomerView = !!(user.isViewAs || localStorage.getItem('originalAdminUser') || user.role === 'admin');
+        const adminBtn = document.getElementById('admin-view-btn');
+        if (adminBtn) {
+            if (isCustomerView) adminBtn.classList.remove('hidden');
+            else adminBtn.classList.add('hidden');
+        }
         if (isCustomerView) {
             nameElement.textContent = 'Jonathan (Customer View)';
             return;
