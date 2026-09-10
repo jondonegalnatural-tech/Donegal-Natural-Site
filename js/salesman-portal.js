@@ -713,6 +713,61 @@ function populateDropdowns() {
 }
 
 // ================== CUSTOMERS ==================
+function hideSalesmanCustomerQuoteModal() {
+    document.getElementById('salesman-open-quote-modal')?.remove();
+}
+
+function openSalesmanCustomerQuoteModal(customerId) {
+    const customer = (window._salesmanCustomers || []).find(function (c) {
+        return String(c.id) === String(customerId);
+    });
+    const quote = (window._salesmanOpenQuotes || {})[String(customerId)] || null;
+    if (!customer || !quote) {
+        alert('No open quote found for this store.');
+        return;
+    }
+    hideSalesmanCustomerQuoteModal();
+    const items = Array.isArray(quote.items) ? quote.items : [];
+    const updated = quote.updated_at ? new Date(quote.updated_at).toLocaleString() : '—';
+    const visited = customer.last_login_at
+        ? new Date(customer.last_login_at).toLocaleString()
+        : 'Never';
+    const estimate = '$' + (Number(quote.estimated_subtotal) || 0).toFixed(2);
+    const lines = items.length
+        ? items.map(function (item) {
+            const name = escapeHtml(item.product || item.name || '—');
+            const qty = item.quantity || 1;
+            const cs = escapeHtml(item.caseSize || item.cs || '');
+            const market = !!(item.isMarketPrice || String(item.displayPrice || item.price || '').toLowerCase().includes('market'));
+            const price = market
+                ? 'Market'
+                : ('$' + (parseFloat(item.unitPrice != null ? item.unitPrice : item.price) || 0).toFixed(2));
+            return '<div class="flex justify-between gap-3 text-sm py-2 border-b border-[#e5d5c0]">' +
+                '<span>' + name + (cs ? (' <span class="text-[#6B4423]">· ' + cs + '</span>') : '') + '</span>' +
+                '<span class="whitespace-nowrap font-semibold">× ' + escapeHtml(String(qty)) + ' · ' + escapeHtml(price) + '</span>' +
+                '</div>';
+        }).join('')
+        : '<p class="text-sm text-[#6B4423]">No line items.</p>';
+    const modal = document.createElement('div');
+    modal.id = 'salesman-open-quote-modal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] p-4';
+    modal.onclick = hideSalesmanCustomerQuoteModal;
+    modal.innerHTML =
+        '<div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" onclick="event.stopImmediatePropagation()">' +
+        '<div class="flex items-start justify-between gap-3 mb-3">' +
+        '<h2 class="text-xl font-bold brand-green">Open Quote</h2>' +
+        '<button type="button" onclick="hideSalesmanCustomerQuoteModal()" class="text-3xl leading-none text-[#6B4423]">&times;</button>' +
+        '</div>' +
+        '<p class="font-semibold text-[#1E4D2B]">' + escapeHtml(customer.company || customer.name || 'Store') + '</p>' +
+        '<p class="text-sm text-[#6B4423] mb-4">' + escapeHtml(customer.name || '') + '</p>' +
+        '<p class="text-sm text-[#6B4423]">Last cart update: <span class="font-semibold text-[#1E4D2B]">' + escapeHtml(updated) + '</span></p>' +
+        '<p class="text-sm text-[#6B4423] mb-4">Last visit: <span class="font-semibold text-[#1E4D2B]">' + escapeHtml(visited) + '</span></p>' +
+        '<p class="text-sm font-semibold brand-green mb-2">Estimated subtotal ' + escapeHtml(estimate) + '</p>' +
+        lines +
+        '</div>';
+    document.body.appendChild(modal);
+}
+
 async function renderCustomers() {
     const grid = document.getElementById("customers-grid");
     if (!grid) return;
@@ -767,6 +822,27 @@ async function renderCustomers() {
             list = list.filter(function (c) { return !isJonathanTestCustomer(c); });
         }
 
+        const quoteByCustomer = {};
+        try {
+            const ids = list.map(function (c) { return c.id; }).filter(Boolean);
+            if (ids.length) {
+                const { data: quotes, error: quoteErr } = await supabaseClient
+                    .from('customer_open_quotes')
+                    .select('customer_id, items, item_count, estimated_subtotal, updated_at')
+                    .in('customer_id', ids);
+                if (!quoteErr) {
+                    (quotes || []).forEach(function (row) {
+                        quoteByCustomer[String(row.customer_id)] = row;
+                    });
+                } else {
+                    console.warn('salesman open quotes:', quoteErr.message);
+                }
+            }
+        } catch (quoteLoadErr) {
+            console.warn('salesman open quotes:', quoteLoadErr);
+        }
+        window._salesmanOpenQuotes = quoteByCustomer;
+
         grid.innerHTML = '';
         if (!list.length) {
             grid.innerHTML = `<p class="text-sm text-[#6B4423]">${
@@ -801,6 +877,16 @@ async function renderCustomers() {
                 && c.salesman_commission_percent != null
                 && c.salesman_commission_percent !== ''
                 && Number(c.salesman_commission_percent) > 0;
+            const quote = quoteByCustomer[String(c.id)] || null;
+            const quoteCount = quote
+                ? (Number(quote.item_count) || (Array.isArray(quote.items) ? quote.items.length : 0))
+                : 0;
+            const quoteBtn = quoteCount > 0
+                ? `<button type="button" onclick="event.stopPropagation(); openSalesmanCustomerQuoteModal('${String(c.id).replace(/'/g, '')}')"
+                    style="width:100%;background:#fff;color:#1E4D2B;border:2px solid #6B4423;padding:0.55rem;border-radius:8px;font-weight:700;margin-top:0.5rem;">
+                    View Quote · ${quoteCount} item${quoteCount === 1 ? '' : 's'}
+                   </button>`
+                : '';
             const commissionBadge = showCommission
                 ? `<div style="position:absolute;top:0.45rem;right:0.45rem;padding:0.1rem 0.4rem;background:#fff7ed;border:1.5px solid #c2410c;border-radius:999px;color:#c2410c;font-size:0.62rem;font-weight:800;line-height:1.2;white-space:nowrap;">${Number(c.salesman_commission_percent)}%</div>`
                 : '';
@@ -817,6 +903,7 @@ async function renderCustomers() {
                     ${escapeHtml(c.territory || c.status || '')}
                 </div>
                 ${pricingBadge}
+                ${quoteBtn}
                 <button type="button" onclick="event.stopPropagation(); placeOrderForCustomer('${safeName}')"
                     style="width:100%;background:#1E4D2B;color:#d4b78f;border:2px solid #6B4423;padding:0.55rem;border-radius:8px;font-weight:700;margin-top:0.5rem;">
                     Place Order
