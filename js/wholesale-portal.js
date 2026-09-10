@@ -5186,14 +5186,14 @@ function digitsOnly(value, max) {
 function shouldSkipPaymentPrompt(customer) {
     if (!customer) return false;
     const email = String(customer.email || '').toLowerCase();
-    const company = String(customer.company || customer.name || '').toLowerCase();
-    const key = (company + ' ' + String(customer.name || '').toLowerCase())
-        .replace(/[^a-z0-9]+/g, '');
+    const company = String(customer.company || '').toLowerCase().trim();
+    const name = String(customer.name || '').toLowerCase().trim();
+    const blob = (company + ' ' + name).replace(/[^a-z0-9]+/g, '');
     if (email === 'jackerman@donegalnatural.com') return true;
     if (company.indexOf('admin test store') !== -1) return true;
-    if (key.indexOf('wagginwheel') !== -1) return true;
-    if (key.indexOf('thefeedstore') !== -1) return true;
-    if (key.indexOf('woofntails') !== -1) return true;
+    if (company === 'woof n tails llc' || blob.indexOf('woofntails') !== -1) return true;
+    if (company === 'waggin wheels pet supply' || blob.indexOf('wagginwheel') !== -1) return true;
+    if (company === 'the feed store, inc.' || blob.indexOf('thefeedstore') !== -1) return true;
     return false;
 }
 
