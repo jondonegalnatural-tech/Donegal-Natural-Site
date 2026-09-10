@@ -6351,7 +6351,8 @@ function renderCustomers() {
                                         onclick="event.stopPropagation(); openSetCustomerPricing('${safeId}')"
                                         class="px-3 py-1 text-xs font-semibold rounded-full bg-[#1E4D2B] text-[#d4b78f] hover:bg-[#254a2f]">
                                     Set Pricing
-                                </button>` : ''}
+                                </button>` : `
+                                <span class="px-2 py-0.5 text-xs font-bold rounded-full bg-green-100 text-green-800">Pricing approved</span>`}
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-4 text-sm">
@@ -6376,6 +6377,9 @@ function renderCustomers() {
                             ? new Date(customer.lastLoginAt).toLocaleString()
                             : 'Never'
                     }</p>
+                    <p class="text-xs mt-1 ${formatCustomerPaymentLabel(customer) ? 'text-[#1E4D2B]' : 'text-orange-700'}">
+                        Payment: ${escapeHtml(formatCustomerPaymentLabel(customer) || 'None on file')}
+                    </p>
                 </div>
             </div>
         `;
@@ -6953,6 +6957,51 @@ async function saveNewCustomer(event) {
     }
 }
 
+function parseCustomerPaymentDetails(raw) {
+    if (!raw) return {};
+    if (typeof raw === 'object' && !Array.isArray(raw)) return raw;
+    try { return JSON.parse(raw) || {}; } catch (e) { return {}; }
+}
+
+function formatCustomerPaymentLabel(customer) {
+    const method = String((customer && customer.payment_method) || '').toLowerCase();
+    const status = String((customer && customer.payment_method_status) || '').toLowerCase();
+    const onFile = (method === 'card' || method === 'ach') && (status === 'on_file' || status === 'approved');
+    if (!onFile) return '';
+    const details = parseCustomerPaymentDetails(customer.payment_method_details);
+    if (method === 'card') {
+        return (details.brand || 'Card') + ' •••• ' + (details.last4 || 'on file');
+    }
+    return (details.bank_name || 'ACH') + ' •••• ' + (details.account_last4 || 'on file');
+}
+
+function customerPaymentDetailsHtml(customer) {
+    const method = String((customer && customer.payment_method) || '').toLowerCase();
+    const status = String((customer && customer.payment_method_status) || '').toLowerCase();
+    const details = parseCustomerPaymentDetails(customer && customer.payment_method_details);
+    const onFile = (method === 'card' || method === 'ach') && (status === 'on_file' || status === 'approved');
+    if (!onFile) {
+        return '<p class="text-sm text-[#6B4423]">No card or ACH on file.</p>';
+    }
+    if (method === 'card') {
+        const exp = [details.exp_month, details.exp_year].filter(Boolean).join('/');
+        return (
+            '<p class="text-sm font-semibold text-[#1E4D2B]">' + escapeHtml((details.brand || 'Card') + ' •••• ' + (details.last4 || '')) + '</p>' +
+            (details.name ? '<p class="text-sm text-[#6B4423]">Name on card: ' + escapeHtml(details.name) + '</p>' : '') +
+            (exp ? '<p class="text-sm text-[#6B4423]">Exp: ' + escapeHtml(exp) + '</p>' : '') +
+            '<p class="text-xs text-[#6B4423] mt-1">Status: ' + escapeHtml(status) + '. Last 4 only.</p>'
+        );
+    }
+    return (
+        '<p class="text-sm font-semibold text-[#1E4D2B]">' + escapeHtml((details.bank_name || 'ACH') + ' •••• ' + (details.account_last4 || '')) + '</p>' +
+        (details.name ? '<p class="text-sm text-[#6B4423]">Name on account: ' + escapeHtml(details.name) + '</p>' : '') +
+        (details.account_type ? '<p class="text-sm text-[#6B4423]">Type: ' + escapeHtml(details.account_type) + '</p>' : '') +
+        (details.routing_last4 ? '<p class="text-sm text-[#6B4423]">Routing last 4: ' + escapeHtml(details.routing_last4) + '</p>' : '') +
+        '<p class="text-xs text-[#6B4423] mt-1">Status: ' + escapeHtml(status) + '. Last 4 only.</p>'
+    );
+}
+
+
 async function showCustomerDetail(customerName) {
     const customer = allCustomers.find(c => c.name === customerName);
     if (!customer) return;
@@ -6995,7 +7044,7 @@ const hasPay = (method === 'card' || method === 'ach') && (payStatus === 'on_fil
 let payLabel = 'Payment Pending';
 if (hasPay) {
     let details = {};
-    try { details = JSON.parse(customer.payment_method_details || '{}') || {}; } catch (e) { details = {}; }
+    details = parseCustomerPaymentDetails(customer.payment_method_details);
     payLabel = method === 'card'
         ? ((details.brand || 'Card') + ' •••• ' + (details.last4 || ''))
         : ((details.bank_name || 'ACH') + ' •••• ' + (details.account_last4 || ''));
@@ -7006,6 +7055,10 @@ const payBadge = hasPay
 onboardingSection.innerHTML = `
     <p class="text-xs text-[#6B4423] mb-1.5">Onboarding Status</p>
     <div class="flex flex-wrap gap-2">${pwBadge}${payBadge}</div>
+    <div class="mt-3">
+        <p class="text-sm font-semibold brand-green mb-1">Payment on file</p>
+        ${customerPaymentDetailsHtml(customer)}
+    </div>
 `;
     // Assigned salesman (read-only)
     const salesmanEl = document.getElementById('modal-customer-salesman');
@@ -7026,6 +7079,7 @@ onboardingSection.innerHTML = `
         } else if (email) {
             display = email;
         }
+        salesmanEl.textContent = display;
         const monthlyEl = document.getElementById('modal-customer-monthly-amount');
         if (monthlyEl) monthlyEl.textContent = customer.monthlyAmount || 'Not set';
             // ===== Pricing status + assigned salesman's approved sheet (read-only) + Revoke =====
@@ -7041,39 +7095,58 @@ onboardingSection.innerHTML = `
     }
 
     const isPricingApproved = !!customer.pricingApprovedAt;
-    let sheetHtml = '<p class="text-sm text-[#6B4423]">No price sheet found for the assigned salesman.</p>';
-
+    let sheetHtml = '<p class="text-sm text-[#6B4423]">No price sheet found for this customer.</p>';
     const salesmanEmail = (customer.salesmanEmail || '').toLowerCase().trim();
-    if (salesmanEmail) {
-        try {
-            const { data: sheet } = await supabaseClient
+    try {
+        let prices = null;
+        let sourceLabel = '';
+        let updatedAt = null;
+        const { data: custSheet, error: custErr } = await supabaseClient
+            .from('customer_price_sheets')
+            .select('prices, updated_at')
+            .eq('customer_id', customer.id)
+            .maybeSingle();
+        if (custErr) throw custErr;
+        if (custSheet && custSheet.prices && typeof custSheet.prices === 'object'
+                && Object.keys(custSheet.prices).length > 0) {
+            prices = custSheet.prices;
+            sourceLabel = 'Customer sheet';
+            updatedAt = custSheet.updated_at;
+        } else if (salesmanEmail) {
+            const { data: salesSheet, error: salesErr } = await supabaseClient
                 .from('salesman_price_sheets')
                 .select('prices, updated_at, salesman_name')
                 .eq('salesman_email', salesmanEmail)
                 .maybeSingle();
-
-            if (sheet && sheet.prices && Object.keys(sheet.prices).length > 0) {
-                const rows = Object.keys(sheet.prices).sort().map(name => {
-                    const price = Number(sheet.prices[name]);
-                    return `<div class="flex justify-between text-sm py-1 border-b border-[#eee]">
-                        <span class="pr-2">${escapeHtml(name)}</span>
-                        <span class="font-semibold brand-green">$${price.toFixed(2)}</span>
-                    </div>`;
-                }).join('');
-                sheetHtml = `
-                    <p class="text-xs text-[#6B4423] mb-2">
-                        Salesman sheet${sheet.salesman_name ? ' (' + escapeHtml(sheet.salesman_name) + ')' : ''}
-                        ${sheet.updated_at ? ' · updated ' + new Date(sheet.updated_at).toLocaleDateString() : ''}
-                    </p>
-                    <div class="max-h-48 overflow-y-auto border border-[#d4b78f] rounded-lg p-2 bg-[#f8f4eb]">
-                        ${rows}
-                    </div>
-                `;
+            if (salesErr) throw salesErr;
+            if (salesSheet && salesSheet.prices && Object.keys(salesSheet.prices).length > 0) {
+                prices = salesSheet.prices;
+                sourceLabel = 'Salesman sheet'
+                    + (salesSheet.salesman_name ? ' (' + salesSheet.salesman_name + ')' : '');
+                updatedAt = salesSheet.updated_at;
             }
-        } catch (err) {
-            console.error('Could not load salesman price sheet:', err);
-            sheetHtml = '<p class="text-sm text-red-600">Could not load price sheet.</p>';
         }
+        if (prices) {
+            const rows = Object.keys(prices).sort().map(function (name) {
+                const price = Number(prices[name]);
+                return `<div class="flex justify-between text-sm py-1 border-b border-[#eee]">
+                    <span class="pr-2">${escapeHtml(name)}</span>
+                    <span class="font-semibold brand-green">$${price.toFixed(2)}</span>
+                </div>`;
+            }).join('');
+            sheetHtml = `
+                <p class="text-xs text-[#6B4423] mb-2">
+                    ${escapeHtml(sourceLabel)}
+                    ${updatedAt ? ' · updated ' + new Date(updatedAt).toLocaleDateString() : ''}
+                </p>
+                <div class="max-h-80 overflow-y-auto border border-[#d4b78f] rounded-lg p-2 bg-[#f8f4eb]">
+                    ${rows}
+                </div>
+            `;
+        }
+    } catch (err) {
+        console.error('Could not load customer price sheet:', err);
+        sheetHtml = '<p class="text-sm text-red-600">Could not load price sheet.</p>';
     }
 
     pricingSection.innerHTML = `
@@ -7105,6 +7178,8 @@ onboardingSection.innerHTML = `
 
     const addr = customer.shippingAddress || customer.address || 'N/A';
     document.getElementById('modal-customer-address').textContent = addr;
+    const billingEl = document.getElementById('modal-customer-billing');
+    if (billingEl) billingEl.textContent = customer.billingAddress || 'N/A';
     document.getElementById('modal-customer-notes').textContent = customer.notes || 'No notes.';
 
     const customerOrders = (allOrders || []).filter(o =>
