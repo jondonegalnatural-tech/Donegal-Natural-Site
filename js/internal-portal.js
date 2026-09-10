@@ -11791,8 +11791,77 @@ function addNewProductCategory() {
         opt.value = cat;
         list.appendChild(opt);
     }
-    const input = document.getElementById('new-product-category');
-    if (input) input.value = cat;
+    const rows = document.querySelectorAll('#new-product-rows [data-np-category]');
+    const last = rows[rows.length - 1];
+    if (last) last.value = cat;
+}
+
+function addNewProductRow() {
+    const wrap = document.getElementById('new-product-rows');
+    if (!wrap) return;
+    const row = document.createElement('div');
+    row.className = 'new-product-row border-2 border-[#d4b78f] rounded-xl p-3 space-y-2';
+    row.innerHTML =
+        '<div class="flex items-center justify-between">' +
+            '<p class="text-xs font-semibold text-[#6B4423]">Item</p>' +
+            '<button type="button" class="np-remove text-xs font-semibold text-red-700 hover:underline">Remove</button>' +
+        '</div>' +
+        '<input type="text" data-np-name required class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2" placeholder="Product name *">' +
+        '<div class="grid grid-cols-2 gap-3">' +
+            '<input type="text" data-np-category required list="new-product-category-list" class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2" placeholder="Category *">' +
+            '<input type="text" data-np-subcategory class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2" placeholder="Sub-category">' +
+        '</div>' +
+        '<div class="grid grid-cols-2 gap-3">' +
+            '<input type="text" data-np-casesize class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2" placeholder="Case size">' +
+            '<input type="number" data-np-price step="0.01" min="0" required class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2" placeholder="Unit price $ *">' +
+        '</div>';
+    row.querySelector('.np-remove').addEventListener('click', function () {
+        removeNewProductRow(row);
+    });
+    wrap.appendChild(row);
+    refreshNewProductRowState();
+    row.querySelector('[data-np-name]')?.focus();
+}
+
+function removeNewProductRow(row) {
+    const wrap = document.getElementById('new-product-rows');
+    if (!wrap || !row) return;
+    if (wrap.querySelectorAll('.new-product-row').length <= 1) return;
+    row.remove();
+    refreshNewProductRowState();
+}
+
+function refreshNewProductRowState() {
+    const rows = document.querySelectorAll('#new-product-rows .new-product-row');
+    rows.forEach(function (row, i) {
+        const label = row.querySelector('p');
+        if (label) label.textContent = 'Item ' + (i + 1);
+        const btn = row.querySelector('.np-remove');
+        if (btn) btn.classList.toggle('hidden', rows.length === 1);
+    });
+}
+
+function resetNewProductRows() {
+    const wrap = document.getElementById('new-product-rows');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    addNewProductRow();
+}
+
+function collectNewProductRows() {
+    const rows = Array.from(document.querySelectorAll('#new-product-rows .new-product-row'));
+    return rows.map(function (row, i) {
+        return {
+            index: i + 1,
+            name: String(row.querySelector('[data-np-name]')?.value || '').trim(),
+            category: String(row.querySelector('[data-np-category]')?.value || '').trim(),
+            subCategory: String(row.querySelector('[data-np-subcategory]')?.value || '').trim(),
+            caseSize: String(row.querySelector('[data-np-casesize]')?.value || '').trim(),
+            unitPrice: parseFloat(row.querySelector('[data-np-price]')?.value)
+        };
+    }).filter(function (item) {
+        return item.name || item.category || item.caseSize || !isNaN(item.unitPrice);
+    });
 }
 
 function addNewProductCategoryFromSheet() {
@@ -11838,14 +11907,14 @@ function openAddProductModal() {
 
     // Clear form
     const ids = [
-        'new-product-name', 'new-product-category', 'new-product-subcategory',
-        'new-product-casesize', 'new-product-unitprice', 'new-product-marketnote',
+        'new-product-marketnote',
         'new-product-priceasof'
     ];
     ids.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
     });
+    resetNewProductRows();
     const marketCb = document.getElementById('new-product-ismarket');
     if (marketCb) marketCb.checked = false;
     toggleAddProductMarketFields();
@@ -11892,154 +11961,158 @@ function toggleAddProductMarketFields() {
 async function saveNewProduct(event) {
     event.preventDefault();
 
-    const name = (document.getElementById('new-product-name')?.value || '').trim();
-    const category = (document.getElementById('new-product-category')?.value || '').trim();
-    const subCategory = (document.getElementById('new-product-subcategory')?.value || '').trim();
-    const caseSize = (document.getElementById('new-product-casesize')?.value || '').trim();
-    const unitPriceRaw = document.getElementById('new-product-unitprice')?.value;
-    const unitPrice = parseFloat(unitPriceRaw);
+    const items = collectNewProductRows();
+    if (!items.length) {
+        alert('Add at least one product.');
+        return;
+    }
+
+    const seen = {};
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (!item.name) {
+            alert('Item ' + item.index + ': product name is required.');
+            return;
+        }
+        if (!item.category) {
+            alert('Item ' + item.index + ': category is required.');
+            return;
+        }
+        if (isNaN(item.unitPrice) || item.unitPrice < 0) {
+            alert('Item ' + item.index + ': enter a valid unit price (0 or higher).');
+            return;
+        }
+        const key = item.name.toLowerCase();
+        if (seen[key]) {
+            alert('Item ' + item.index + ': "' + item.name + '" is listed twice in this batch.');
+            return;
+        }
+        seen[key] = true;
+        if (PRODUCT_CATALOG.some(function (p) { return p.name === item.name; })) {
+            alert('Item ' + item.index + ': "' + item.name + '" already exists in the catalog.');
+            return;
+        }
+    }
+
     const isMarket = document.getElementById('new-product-ismarket')?.checked === true;
     const marketNote = (document.getElementById('new-product-marketnote')?.value || '').trim();
     const priceAsOf = (document.getElementById('new-product-priceasof')?.value || '').trim();
 
-    if (!name) {
-        alert('Product name is required.');
+    const limitTo = document.getElementById('new-product-limit-salesman')?.checked === true;
+    const selectedEmails = limitTo
+        ? Array.from(document.getElementById('new-product-salesman')?.selectedOptions || [])
+            .map(function (o) { return (o.value || '').toLowerCase().trim(); })
+            .filter(Boolean)
+        : [];
+    if (limitTo && selectedEmails.length === 0) {
+        alert('Select at least one salesman, or uncheck Limit to specific salesman.');
         return;
     }
-    if (!category) {
-        alert('Category is required.');
-        return;
-    }
-    if (isNaN(unitPrice) || unitPrice < 0) {
-        alert('Enter a valid unit price (0 or higher).');
+    const limitStores = document.getElementById('new-product-limit-store')?.checked === true;
+    const selectedStoreIds = (limitStores && typeof getNewProductSelectedStoreIds === 'function')
+        ? getNewProductSelectedStoreIds()
+        : [];
+    if (limitStores && selectedStoreIds.length === 0) {
+        alert('Select at least one store, or uncheck Limit to specific stores.');
         return;
     }
 
-    // Guard against exact-name duplicates in the live catalog
-    if (PRODUCT_CATALOG.some(p => p.name === name)) {
-        alert('A product with that exact name already exists in the catalog.');
-        return;
+    let sheetEmails = selectedEmails.slice();
+    if (limitStores && !sheetEmails.length) {
+        sheetEmails = selectedStoreIds.map(function (id) {
+            const cust = (allCustomers || []).find(function (c) { return String(c.id) === String(id); });
+            return String((cust && (cust.salesmanEmail || cust.salesman_email)) || '').toLowerCase().trim();
+        }).filter(Boolean);
     }
-
-    const catalogEntry = {
-        name: name,
-        category: category,
-        subCategory: subCategory || null,
-        caseSize: caseSize || null,
-        unitPrice: unitPrice,
-        isMarketPrice: isMarket,
-        marketPriceNote: isMarket ? (marketNote || null) : null,
-        landedCost: null,
-        grossProfit: null,
-        priceAsOf: priceAsOf || null
-    };
 
     try {
-        // 0. Check products table first (catches DB duplicates the catalog doesn't know about)
-        const { data: existing, error: checkErr } = await supabaseClient
-            .from('products')
-            .select('id, name')
-            .eq('name', name)
-            .maybeSingle();
-
-        if (checkErr) throw checkErr;
-
-        let productAlreadyInDb = !!existing;
-
-        if (!productAlreadyInDb) {
-            // 1. Insert into products table
-            const { error: prodErr } = await supabaseClient
-                .from('products')
-                .insert({
-                    name: name,
-                    category: category,
-                    sub_category: subCategory || null,
-                    case_size: caseSize || null,
-                    unit_price: unitPrice,
-                    is_market_price: isMarket,
-                    active: true
-                });
-
-            if (prodErr) {
-                // 409 / unique_violation → clear message
-                const code = prodErr.code || '';
-                const msg = (prodErr.message || '').toLowerCase();
-                if (code === '23505' || msg.includes('duplicate') || msg.includes('unique') || msg.includes('conflict')) {
-                    alert('A product with that name already exists in the database.\n\nUse a different name, or check Inventory / products.');
-                    return;
-                }
-                throw prodErr;
-            }
-        } else {
-            // Already in DB — still continue so inventory + proposals can be set up on retry
-            console.warn('Product already in products table; skipping insert and continuing with inventory/proposals:', name);
-        }
-
-        // 2. Push into live catalog (if not already there)
-        if (!PRODUCT_CATALOG.some(p => p.name === name)) {
-            PRODUCT_CATALOG.push(catalogEntry);
-        }
-
-        // 3. Start inventory at 0 (or leave existing qty alone)
-        if (typeof upsertInventoryQuantity === 'function') {
-            if (inventory[name] === undefined) {
-                inventory[name] = 0;
-                await upsertInventoryQuantity(name, 0);
-            }
-        }
-
-        // 4. Ensure salesmen are loaded
         if (!Array.isArray(salesmen) || salesmen.length === 0) {
             if (typeof loadSalesmen === 'function') await loadSalesmen();
         }
 
-                // New products are added to the catalog only.
-        // Salesmen set their own prices later via Price Change proposal.
-        // Do NOT auto-create Pending proposals — that put them in the admin queue immediately.
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            const { data: existing, error: checkErr } = await supabaseClient
+                .from('products')
+                .select('id, name')
+                .eq('name', item.name)
+                .maybeSingle();
+            if (checkErr) throw checkErr;
+            if (existing) {
+                alert('"' + item.name + '" already exists in the database.\nThe items before it were saved.');
+                return;
+            }
+
+            const { error: prodErr } = await supabaseClient
+                .from('products')
+                .insert({
+                    name: item.name,
+                    category: item.category,
+                    sub_category: item.subCategory || null,
+                    case_size: item.caseSize || null,
+                    unit_price: item.unitPrice,
+                    is_market_price: isMarket,
+                    active: true
+                });
+            if (prodErr) throw prodErr;
+
+            if (!PRODUCT_CATALOG.some(function (p) { return p.name === item.name; })) {
+                PRODUCT_CATALOG.push({
+                    name: item.name,
+                    category: item.category,
+                    subCategory: item.subCategory || null,
+                    caseSize: item.caseSize || null,
+                    unitPrice: item.unitPrice,
+                    isMarketPrice: isMarket,
+                    marketPriceNote: isMarket ? (marketNote || null) : null,
+                    landedCost: null,
+                    grossProfit: null,
+                    priceAsOf: priceAsOf || null
+                });
+            }
+
+            if (typeof upsertInventoryQuantity === 'function' && inventory[item.name] === undefined) {
+                inventory[item.name] = 0;
+                await upsertInventoryQuantity(item.name, 0);
+            }
+
+            if (typeof applyRecommendedPriceToSalesmen === 'function') {
+                await applyRecommendedPriceToSalesmen(item.name, item.unitPrice, sheetEmails);
+            }
+            if (sheetEmails.length && typeof assignProductToSalesmen === 'function') {
+                await assignProductToSalesmen(item.name, sheetEmails);
+            }
+            if (selectedStoreIds.length && typeof assignProductToStores === 'function') {
+                await assignProductToStores(item.name, selectedStoreIds, item.unitPrice);
+            }
+        }
 
         hideAddProductModal();
-
-        if (typeof loadProductCatalog === 'function') {
-            await loadProductCatalog();
-        }
-        const limitTo = document.getElementById('new-product-limit-salesman')?.checked === true;
-        const selectedEmails = limitTo
-            ? Array.from(document.getElementById('new-product-salesman')?.selectedOptions || [])
-                .map(o => (o.value || '').toLowerCase().trim())
-                .filter(Boolean)
-            : [];
-        if (limitTo && selectedEmails.length === 0) {
-            alert('Select at least one salesman, or uncheck Limit to specific salesman.');
-            return;
-        }
-        if (typeof applyRecommendedPriceToSalesmen === 'function') {
-            await applyRecommendedPriceToSalesmen(name, unitPrice, selectedEmails);
-        }
-        if (selectedEmails.length && typeof assignProductToSalesmen === 'function') {
-            await assignProductToSalesmen(name, selectedEmails);
-        }
-        if (typeof renderBasePriceSheet === 'function') {
-            renderBasePriceSheet();
-        }
+        if (typeof loadProductCatalog === 'function') await loadProductCatalog();
+        if (typeof renderBasePriceSheet === 'function') renderBasePriceSheet();
         if (typeof showCurrentInventory === 'function') showCurrentInventory();
         if (typeof updatePriceProposalsBadge === 'function') updatePriceProposalsBadge();
 
         alert(
-            'Product added: ' + name + '\n' +
-            'It is on the company price sheet and in the products table.\n' +
-            'Recommended price was written to salesman sheets.'
+            'Added ' + items.length + ' product' + (items.length === 1 ? '' : 's') + '.\n' +
+            'They are on the company price sheet and in the products table.\n' +
+            (selectedStoreIds.length
+                ? ('Visible only to ' + selectedStoreIds.length + ' selected store(s).\n')
+                : '') +
+            'Recommended prices were written to the matching salesman / store sheets.'
         );
     } catch (err) {
         console.error('saveNewProduct error:', err);
         const code = err?.code || '';
-        const msg = (err?.message || '').toLowerCase();
+        const msg = (err.message || '').toLowerCase();
         if (code === '23505' || msg.includes('duplicate') || msg.includes('unique') || msg.includes('conflict')) {
-            alert('A product with that name already exists in the database.\n\nUse a different product name.');
+            alert('A product with that name already exists in the database.\nUse a different product name.');
         } else {
             alert('Could not save product.\n' + (err.message || ''));
         }
     }
 }
+
 
 // Preferred main category order
 const INVENTORY_CATEGORY_ORDER = [
