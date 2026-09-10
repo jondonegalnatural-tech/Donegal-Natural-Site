@@ -11119,6 +11119,15 @@ function parseAddressBlock(block) {
     return result;
 }
 
+function syncInquiryPaymentRequiredDefault() {
+    const select = document.getElementById('ia-salesman');
+    const box = document.getElementById('ia-require-payment');
+    if (!select || !box) return;
+    const opt = select.options[select.selectedIndex];
+    const email = String((opt && opt.dataset && opt.dataset.email) || '').toLowerCase().trim();
+    box.checked = email !== 'donegaldogtreats@gmail.com';
+}
+
 async function openInquiryApprovalModal(inquiryId) {
     const modal = document.getElementById('inquiry-approval-modal');
     if (!modal) {
@@ -11242,6 +11251,9 @@ async function openInquiryApprovalModal(inquiryId) {
                 : 'No automatic match — please select a salesman.';
         }
 
+        if (typeof syncInquiryPaymentRequiredDefault === 'function') {
+            syncInquiryPaymentRequiredDefault();
+        }
         modal.classList.remove('hidden');
     } catch (err) {
         console.error('Open approval modal error:', err);
@@ -11532,7 +11544,8 @@ async function confirmInquiryApproval() {
             password_changed: false,
             lat: isFinite(shipLat) ? shipLat : null,
             lng: isFinite(shipLng) ? shipLng : null,
-            place_id: shipPlace || null
+            place_id: shipPlace || null,
+            require_payment_method: !!(document.getElementById('ia-require-payment') && document.getElementById('ia-require-payment').checked)
         };
 
         if (loginExists) {
@@ -11567,6 +11580,7 @@ async function confirmInquiryApproval() {
                 lng: customerPayload.lng,
                 place_id: customerPayload.place_id,
                 salesman_commission_percent: commissionPercent,
+                require_payment_method: customerPayload.require_payment_method,
                 updated_at: new Date().toISOString()
             };
             if (!loginExists) {

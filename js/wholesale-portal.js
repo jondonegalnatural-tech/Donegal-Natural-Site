@@ -5360,7 +5360,8 @@ function openQuoteConfirmModal() {
         return;
     }
     const payCustomer = window._currentCustomer || null;
-    if (!shouldSkipPaymentPrompt(payCustomer) && !hasPaymentMethodOnFile(payCustomer)) {
+    const requirePayment = !!(payCustomer && payCustomer.require_payment_method);
+    if (requirePayment && !shouldSkipPaymentPrompt(payCustomer) && !hasPaymentMethodOnFile(payCustomer)) {
         window._resumeQuoteAfterPayment = true;
         openPaymentMethodModal();
         return;

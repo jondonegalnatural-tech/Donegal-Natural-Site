@@ -3363,10 +3363,19 @@ body { background: #f8f1e9; }
                 <label class="block text-sm font-semibold text-[#6B4423] mb-1">Assign Salesman (optional)</label>
                 <p id="ia-suggested" class="text-xs text-[#6B4423] mb-1"></p>
                 <select id="ia-salesman"
-                        class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                        class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2"
+                        onchange="syncInquiryPaymentRequiredDefault()">
                     <option value="">No salesman — assign later</option>
                 </select>
             </div>
+
+            <label class="flex items-start gap-2 text-sm text-[#6B4423] cursor-pointer">
+                <input type="checkbox" id="ia-require-payment" class="mt-1">
+                <span>
+                    <span class="font-semibold">Require payment information</span>
+                    <span class="block text-xs">Customer must enter card or ACH before Submit Quote. Brian defaults off.</span>
+                </span>
+            </label>
 
             <div>
                 <label class="block text-sm font-semibold text-[#6B4423] mb-1">Admin Notes</label>
