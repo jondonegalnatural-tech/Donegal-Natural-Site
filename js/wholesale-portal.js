@@ -586,6 +586,14 @@ const WHOLESALE_BROWSE_TREE = {
             "8oz. Bag of Bully Pieces",
             "10oz. Bag of Bully Pieces",
             "16oz. Bag of Bully Pieces"
+        ],
+        "Packaged": [
+            "10 Pack, 12\" Braided Bully Sticks",
+            "10 Pack, 6\" Braided Bully Sticks",
+            "20 Pack, 12\" Regular Bully Sticks",
+            "20 Pack, 12\" Thick Euro Bullies",
+            "25 Pack, 6\" Regular Bully Sticks",
+            "25 Pack, 6\" Thick Euro Bullies"
         ]
     },
     "Jerky": {
@@ -599,7 +607,10 @@ const WHOLESALE_BROWSE_TREE = {
             "USA Elky Jerky Treats (Bulk)",
             "USA Elky Jerky Treats (Display)",
             "USA Venison & Sweet Potato Jerky Treats (Bulk)",
-            "USA Venison & Sweet Potato Jerky Treats (Display)"
+            "USA Venison & Sweet Potato Jerky Treats (Display)",
+            "50 Pack, Chicken Jerky Treats",
+            "50 Pack, Elky Jerky Treats",
+            "50 Pack, Turkey Jerky Treats"
         ],
         "Training Treats": [
             "6oz. Bags of USA Elky Training Treats",
@@ -635,7 +646,7 @@ const WHOLESALE_BROWSE_TREE = {
             "10-Pack Fuzzy Rabbit Ears"
         ]
     },
-    "Cow Cheeks": {
+        "Cow Cheeks": {
         "All Natural Rollio": ["5-6” Natural Rollio (Bulk)", "10-12” Natural Rollio (Bulk)"],
         "Natural/Flavored Rollios": [
             "5-6” Regular Rollio (Bulk)",
@@ -671,6 +682,10 @@ const WHOLESALE_BROWSE_TREE = {
             "8oz. Bags of Vanilla Chunky Cheeks",
             "16oz. Bags of White Chunky Cheeks",
             "16oz. Bags of Vanilla Chunky Cheeks"
+        ],
+        "Packaged": [
+            "25 Pack, 12\" Cheek Slabs",
+            "25 Pack, 12\" Vanilla Cheek Slabs"
         ]
     },
     "Ox Tails": {
@@ -698,7 +713,7 @@ const WHOLESALE_BROWSE_TREE = {
             "5-Pack of Crunchy Duck Heads",
             "10-Pack of Duck Heads"
         ],
-        "Duck Feet": ["Euro Duck Feet (Bulk)", "Euro Duck Feet (Display)", "10-Pack Euro Duck Feet"],
+        "Duck Feet": ["Euro Duck Feet (Bulk)", "Euro Duck Feet (Display)", "10-Pack Euro Duck Feet", "50 Pack, Euro Duck Feets"],
         "Goose Neck": ["Goose Neck (Bulk)", "10-Pack of Crunchy Goose Necks"],
         "Packaged Duck and Goose": [
             "5-Pack of Crunchy Duck Heads",
@@ -730,7 +745,12 @@ const WHOLESALE_BROWSE_TREE = {
             "16oz. Bags of Beef Trachea Pieces",
             "8oz. Bag of Beef Lung",
             "16oz. Bag of Beef Lung",
-            "5-Pack Hairy Beef Ears"
+            "5-Pack Hairy Beef Ears",
+            "12\" Beef Trachea, bagged (15/bag)",
+            "12\" Beef Trachea, bagged (30/bag)",
+            "6\" Beef Trachea, bagged (25/bag)",
+            "20 Pack, Collagen Sticks",
+            "25 Pack, Collagen Sticks"
         ]
     },
     "Buffalo": {
@@ -760,7 +780,8 @@ const WHOLESALE_BROWSE_TREE = {
             "USA Venison & Sweet Potato Jerky Treats (Bulk)",
             "USA Venison & Sweet Potato Jerky Treats (Display)",
             "Large Venison and Sweet Potato Stuffed Buffalo Bone",
-            "Deer Skin Chips (Bulk)"
+            "Deer Skin Chips (Bulk)",
+            "Deer Skin Chips"
         ]
     },
     "Elk": {
@@ -797,7 +818,8 @@ const WHOLESALE_BROWSE_TREE = {
             "Vanilla Flavored White Euro Chicken Feet (Bulk)",
             "10-Pack Euro Chicken Feet",
             "10-Pack White Euro Chicken Feet",
-            "10-Pack Vanilla Euro Chicken Feet"
+            "10-Pack Vanilla Euro Chicken Feet",
+            "50 Pack, Sexy Chicken Feets"
         ],
         "Duck Feet": ["Euro Duck Feet (Bulk)", "Euro Duck Feet (Display)", "10-Pack Euro Duck Feet"],
         "Fuzzy Rabbit Feet": ["Fuzzy Rabbit Feet (Bulk)", "10-Pack Fuzzy Rabbit Feet"],
@@ -858,6 +880,12 @@ const WHOLESALE_BROWSE_TREE = {
             "8.5” Pressed Bone (Bulk)",
             "10.5” Pressed Bone (Bulk)",
             "12.5” Pressed Bone (Bulk)"
+        ],
+        "Packaged": [
+            "10 Pack, 6\" Pressed Rings",
+            "10 Pack, 8\" Pressed Bone",
+            "20 Pack, 6\" Pressed Bones",
+            "5 Pack, 10\" Pressed Bones"
         ]
     },
     "Twisty Q’s and Natural Munchy Sticks": {
@@ -870,7 +898,10 @@ const WHOLESALE_BROWSE_TREE = {
         "Twisty’s": [
             "5” x 4/6mm White Twisty-100/inner (Bulk)",
             "5” x 9/10mm White Twisty-50/inner (Bulk)",
-            "10” x 9/10mm White Twisty (Bulk)"
+            "10” x 9/10mm White Twisty (Bulk)",
+            "10\" x 9/10mm White Twisty",
+            "5\" x 4/6mm White Twisty (100/inner)",
+            "5\" x 9/10mm White Twisty (50/inner)"
         ]
     },
     "Supreme Hide Chips": {
