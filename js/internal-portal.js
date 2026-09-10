@@ -6452,6 +6452,17 @@ async function massAssignSelectedCustomers() {
 
         if (assignErr) throw assignErr;
 
+        for (let i = 0; i < ids.length; i++) {
+            const row = (allCustomers || []).find(function (c) {
+                return String(c.id) === String(ids[i]);
+            });
+            if (!row) continue;
+            const moved = await applyNewSalesmanPriceSheetToCustomer(row, salesmanEmail);
+            if (!moved.ok) {
+                console.warn('Price sheet copy failed', row.company || row.name, moved.reason);
+            }
+        }
+
         if (hasSheet) {
             const needUnlock = (allCustomers || []).filter(c =>
                 ids.includes(String(c.id)) && !c.pricingApprovedAt
@@ -7518,6 +7529,19 @@ async function saveEditedCustomer(e) {
         const existingBefore = (allCustomers || []).find(function (c) {
             return String(c.id) === String(customerId);
         });
+        const oldSalesman = String((existingBefore && (existingBefore.salesmanEmail || existingBefore.salesman_email)) || '').toLowerCase().trim();
+        const newSalesman = String(salesmanEmail || '').toLowerCase().trim();
+        if (oldSalesman !== newSalesman) {
+            const moved = await applyNewSalesmanPriceSheetToCustomer({
+                id: customerId,
+                email: email || (existingBefore && existingBefore.email),
+                company: company || (existingBefore && existingBefore.company),
+                name: name
+            }, salesmanEmail);
+            if (!moved.ok) {
+                alert('Salesman changed, but the price sheet did not copy:\n' + moved.reason);
+            }
+        }
         const justUnlocked = existingBefore && !existingBefore.pricingApprovedAt &&
             salesmanEmail && typeof salesmanHasApprovedSheet === 'function' &&
             salesmanHasApprovedSheet(salesmanEmail);
@@ -8808,6 +8832,45 @@ function applyJakeElkyTrainingPrices(prices) {
     next['8oz. Bags of USA Elky Training Treats'] = 6.15;
     next['12oz. Bags of USA Elky Training Treats'] = 8.15;
     return next;
+}
+
+async function applyNewSalesmanPriceSheetToCustomer(customer, newSalesmanEmail) {
+    const dest = String(newSalesmanEmail || '').toLowerCase().trim();
+    if (!customer || !customer.id) return { ok: false, reason: 'Missing customer' };
+    if (typeof shouldSkipSalesmanPricePush === 'function' && shouldSkipSalesmanPricePush(customer)) {
+        return { ok: true, skipped: true };
+    }
+    if (!dest) {
+        const { error: delErr } = await supabaseClient
+            .from('customer_price_sheets')
+            .delete()
+            .eq('customer_id', customer.id);
+        if (delErr) return { ok: false, reason: delErr.message };
+        return { ok: true, cleared: true };
+    }
+    const { data: sheet, error } = await supabaseClient
+        .from('salesman_price_sheets')
+        .select('prices')
+        .eq('salesman_email', dest)
+        .maybeSingle();
+    if (error) return { ok: false, reason: error.message };
+    if (!sheet || !sheet.prices || !Object.keys(sheet.prices).length) {
+        return { ok: false, reason: 'No price sheet for ' + dest };
+    }
+    let prices = Object.assign({}, sheet.prices);
+    if (dest === 'donegaldogtreats@gmail.com' && typeof isJakePetSupplyCustomer === 'function' && isJakePetSupplyCustomer(customer) && typeof applyJakeElkyTrainingPrices === 'function') {
+        prices = applyJakeElkyTrainingPrices(prices);
+    }
+    const { error: upErr } = await supabaseClient
+        .from('customer_price_sheets')
+        .upsert({
+            customer_id: customer.id,
+            salesman_email: dest,
+            prices: prices,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'customer_id' });
+    if (upErr) return { ok: false, reason: upErr.message };
+    return { ok: true };
 }
 
 
@@ -11615,7 +11678,15 @@ async function confirmInquiryApproval() {
                 .from('customers')
                 .update(updateFields)
                 .eq('id', customerId);
-            if (updError) throw updError;
+            if (updError) throw updError;            
+            if (customerPayload.salesman_email) {
+                await applyNewSalesmanPriceSheetToCustomer({
+                    id: customerId,
+                    email: customerPayload.email,
+                    company: customerPayload.company,
+                    name: customerPayload.name
+                }, customerPayload.salesman_email);
+            }
         }
 
         if (customerId) {
