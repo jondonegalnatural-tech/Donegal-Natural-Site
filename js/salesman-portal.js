@@ -2799,7 +2799,12 @@ async function submitPriceProposal() {
 
     const notesEl = document.getElementById("proposal-overall-notes");
     const overallNotes = notesEl ? notesEl.value.trim() : "";
-    const email = (user.email || "").toLowerCase().trim();
+    const email = (typeof getOperatingSalesmanEmail === 'function'
+        ? getOperatingSalesmanEmail()
+        : (user.email || '')).toLowerCase().trim();
+    const salesmanName = (typeof getOperatingSalesmanName === 'function'
+        ? getOperatingSalesmanName()
+        : (user.fullName || user.name || 'Salesman'));
 
     const items = proposalItems.map(item => ({
         product: item.name,
@@ -2817,7 +2822,7 @@ async function submitPriceProposal() {
             .insert({
                 type: 'priceChange',
                 salesman_email: email,
-                salesman_name: user.fullName || user.name || "Salesman",
+                salesman_name: salesmanName,
                 status: 'Pending',
                 items: items,
                 overall_notes: overallNotes || null,
@@ -2865,8 +2870,11 @@ async function renderProposalHistory() {
             .order('submitted_at', { ascending: false });
 
         // Salesmen only see their own; admins see all
-        if (user.role === "salesman") {
-            query = query.eq('salesman_email', (user.email || "").toLowerCase().trim());
+        const seat = (typeof getOperatingSalesmanEmail === 'function'
+            ? getOperatingSalesmanEmail()
+            : (user.email || '')).toLowerCase().trim();
+        if (user.role === 'salesman' || seat === 'donegaldogtreats@gmail.com') {
+            query = query.eq('salesman_email', seat);
         }
 
         const { data, error } = await query;

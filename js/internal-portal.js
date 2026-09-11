@@ -10064,7 +10064,6 @@ async function getPendingPriceProposals() {
         const { data, error } = await supabaseClient
             .from('price_proposals')
             .select('*')
-            .eq('status', 'Pending')
             .order('submitted_at', { ascending: false });
 
         if (error) {
@@ -10093,11 +10092,14 @@ async function updatePriceProposalsBadge() {
     const badge = document.getElementById("price-proposals-badge");
     const homeBadge = document.getElementById("dash-home-badge");
     const pending = await getPendingPriceProposals();
+    const pendingOnly = pending.filter(function (p) {
+        return String(p.status || '').toLowerCase() === 'pending';
+    });
     const initialCount = pending.filter(p => p.type === 'initialPriceSheet').length;
 
     if (badge) {
-        if (pending.length > 0) {
-            badge.textContent = pending.length;
+        if (pendingOnly > 0) {
+            badge.textContent = pendingOnly
             badge.classList.remove("hidden");
         } else {
             badge.classList.add("hidden");
@@ -10125,39 +10127,41 @@ async function showPriceProposalsPanel() {
     list.innerHTML = `<p class="text-[#6B4423] text-center py-8">Loading...</p>`;
     modal.classList.remove("hidden");
 
-    const pending = await getPendingPriceProposals();
-
-    if (pending.length === 0) {
-        list.innerHTML = `
-            <p class="text-[#6B4423] text-center py-8">No pending price proposals.</p>
-        `;
+    const rows = await getPendingPriceProposals();
+    if (!rows.length) {
+        list.innerHTML = '<p class="text-[#6B4423] text-center py-8">No price proposals yet.</p>';
         return;
     }
 
-    // Compact list – each row is clickable
-    list.innerHTML = pending.map(p => {
-        const date = new Date(p.submittedAt).toLocaleDateString();
-        const itemCount = (p.items || []).length;
-        const typeLabel = p.type === 'initialPriceSheet'
-            ? 'Initial Pricing Sheet'
-            : (p.type === 'customerPricing' ? 'Customer Pricing'
-                : (p.type === 'newProduct' ? 'New Product' : 'Price Change'));
+    const order = ['Pending', 'Approved', 'Denied'];
+    function badgeClass(status) {
+        const s = String(status || '').toLowerCase();
+        if (s === 'approved') return 'bg-green-100 text-green-800';
+        if (s === 'denied') return 'bg-red-100 text-red-800';
+        return 'bg-orange-100 text-orange-700';
+    }
 
-        return `
-            <div class="border-2 border-[#6B4423] rounded-2xl p-4 mb-3 cursor-pointer hover:bg-[#f8f4eb] transition"
-                 onclick="showProposalDetail('${p.id}')">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <p class="font-bold brand-green">${escapeHtml(p.salesmanName || "Salesman")}</p>
-                        <p class="text-sm text-[#6B4423]">${typeLabel} · ${date} · ${itemCount} product(s)</p>
-                    </div>
-                    <span class="px-3 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">
-                        Pending
-                    </span>
-                </div>
-            </div>
-        `;
-    }).join("");
+    list.innerHTML = order.map(function (status) {
+        const group = rows.filter(function (p) {
+            return String(p.status || '') === status;
+        });
+        if (!group.length) return '';
+        return '<p class="text-xs font-bold uppercase tracking-wide text-[#6B4423] mt-4 mb-2">' + status + '</p>' +
+            group.map(function (p) {
+                const date = new Date(p.submittedAt).toLocaleDateString();
+                const itemCount = (p.items || []).length;
+                const typeLabel = p.type === 'initialPriceSheet'
+                    ? 'Initial Pricing Sheet'
+                    : (p.type === 'customerPricing' ? 'Customer Pricing'
+                        : (p.type === 'newProduct' ? 'New Product' : 'Price Change'));
+                return '<div class="border-2 border-[#6B4423] rounded-2xl p-4 mb-3 cursor-pointer hover:bg-[#f8f4eb] transition" onclick="showProposalDetail(\'' + p.id + '\')">' +
+                    '<div class="flex justify-between items-center"><div>' +
+                    '<p class="font-bold brand-green">' + escapeHtml(p.salesmanName || 'Salesman') + '</p>' +
+                    '<p class="text-sm text-[#6B4423]">' + typeLabel + ' · ' + date + ' · ' + itemCount + ' product(s)</p>' +
+                    '</div><span class="px-3 py-1 text-xs font-semibold rounded-full ' + badgeClass(p.status) + '">' +
+                    escapeHtml(p.status || '') + '</span></div></div>';
+            }).join('');
+    }).join('');
 }
 
 async function showProposalDetail(id) {
