@@ -10080,7 +10080,8 @@ async function getPendingPriceProposals() {
             status: p.status,
             items: p.items || [],
             overallNotes: p.overall_notes,
-            submittedAt: p.submitted_at
+            submittedAt: p.submitted_at,
+            decidedAt: p.decided_at || data.decided_at || null
         }));
     } catch (err) {
         console.error(err);
@@ -10149,6 +10150,9 @@ async function showPriceProposalsPanel() {
         return '<p class="text-xs font-bold uppercase tracking-wide text-[#6B4423] mt-4 mb-2">' + status + '</p>' +
             group.map(function (p) {
                 const date = new Date(p.submittedAt).toLocaleDateString();
+                const decided = p.decidedAt
+                    ? new Date(p.decidedAt).toLocaleString()
+                    : '';
                 const itemCount = (p.items || []).length;
                 const typeLabel = p.type === 'initialPriceSheet'
                     ? 'Initial Pricing Sheet'
@@ -10157,7 +10161,8 @@ async function showPriceProposalsPanel() {
                 return '<div class="border-2 border-[#6B4423] rounded-2xl p-4 mb-3 cursor-pointer hover:bg-[#f8f4eb] transition" onclick="showProposalDetail(\'' + p.id + '\')">' +
                     '<div class="flex justify-between items-center"><div>' +
                     '<p class="font-bold brand-green">' + escapeHtml(p.salesmanName || 'Salesman') + '</p>' +
-                    '<p class="text-sm text-[#6B4423]">' + typeLabel + ' · ' + date + ' · ' + itemCount + ' product(s)</p>' +
+                    '<p class="text-sm text-[#6B4423]">' + typeLabel + ' · submitted ' + date + ' · ' + itemCount + ' product(s)' +
+                    (decided ? (' · ' + String(p.status || '').toLowerCase() + ' ' + decided) : '') + '</p>' +
                     '</div><span class="px-3 py-1 text-xs font-semibold rounded-full ' + badgeClass(p.status) + '">' +
                     escapeHtml(p.status || '') + '</span></div></div>';
             }).join('');
@@ -10190,13 +10195,15 @@ async function showProposalDetail(id) {
             status: data.status,
             items: data.items || [],
             overallNotes: data.overall_notes,
-            submittedAt: data.submitted_at
+            submittedAt: data.submitted_at,
+            decidedAt: data.decided_at || null
         };
 
         // Cache for toggle filter
         window._currentProposalDetail = p;
 
-        const date = new Date(p.submittedAt).toLocaleDateString();
+        const date = new Date(p.submittedAt).toLocaleDateString() +
+            (p.decidedAt ? (' · ' + String(p.status || '') + ' ' + new Date(p.decidedAt).toLocaleString()) : '');
         const typeLabel = p.type === 'initialPriceSheet'
             ? 'Initial Pricing Sheet'
             : (p.type === 'customerPricing' ? 'Customer Pricing'
