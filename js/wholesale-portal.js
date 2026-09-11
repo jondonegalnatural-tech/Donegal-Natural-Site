@@ -4389,7 +4389,7 @@ function buildCombinedCard(group) {
                 const label = extractVariantDim(d, v);
                 if (label && labels.indexOf(label) === -1) labels.push(label);
             });
-            if (labels.length < 2) return;
+            if (!labels.length) return;
             const row = document.createElement('div');
             row.className = 'card-options';
             labels.forEach(label => {
