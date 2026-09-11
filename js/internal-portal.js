@@ -10233,7 +10233,8 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
         // Other types → compare to catalogPrice
         const refPrice = isCustomerPricing
             ? (item.basePrice != null ? Number(item.basePrice) : null)
-            : (item.catalogPrice != null ? Number(item.catalogPrice) : null);
+            : (item.currentPrice != null ? Number(item.currentPrice)
+                : (item.catalogPrice != null ? Number(item.catalogPrice) : null));
         const hasRef = refPrice != null && !isNaN(refPrice);
         const isChanged = hasRef && !isNaN(proposed) && Math.abs(proposed - refPrice) > 0.0001;
         const below = isCustomerPricing
@@ -10281,7 +10282,7 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
                     ? "border-2 border-[#1E4D2B] bg-[#f0f7f0]"
                     : "border border-[#d4b78f] bg-[#f8f4eb]"));
 
-        const refLabel = isCustomerPricing ? "Base" : "Catalog";
+        const refLabel = isCustomerPricing ? "Base" : "Sheet";
         const changeLabel = isChanged
             ? (over5
                 ? ` <span class="text-red-700 text-xs font-bold">(±5% from ${refLabel.toLowerCase()})</span>`
@@ -10303,7 +10304,7 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
         `;
     }).join("");
 
-    const refWord = isCustomerPricing ? "base sheet" : "catalog";
+    const refWord = isCustomerPricing ? "base sheet" : "the salesman's price sheet";
 
     const noticeClass = changedCount === 0
         ? "border-green-700 bg-green-50"

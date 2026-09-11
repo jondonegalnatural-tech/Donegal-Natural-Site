@@ -2620,7 +2620,39 @@ async function submitPlaceOrder() {
     }
 }
 
-function searchProposalProducts() {
+async function loadProposalSalesmanSheet() {
+    window._proposalSheetPrices = window._proposalSheetPrices || {};
+    const email = (typeof getOperatingSalesmanEmail === 'function'
+        ? getOperatingSalesmanEmail()
+        : '').toLowerCase().trim();
+    if (!email || typeof supabaseClient === 'undefined') return window._proposalSheetPrices;
+    try {
+        const { data } = await supabaseClient
+            .from('salesman_price_sheets')
+            .select('prices')
+            .eq('salesman_email', email)
+            .maybeSingle();
+        if (data && data.prices && typeof data.prices === 'object') {
+            window._proposalSheetPrices = data.prices;
+        }
+    } catch (err) {
+        console.warn('loadProposalSalesmanSheet:', err);
+    }
+    return window._proposalSheetPrices;
+}
+
+function proposalSheetPrice(name) {
+    const map = window._proposalSheetPrices || {};
+    if (map[name] != null && map[name] !== '') return Number(map[name]);
+    const want = String(name || '').toLowerCase();
+    const hit = Object.keys(map).find(function (k) { return String(k).toLowerCase() === want; });
+    return hit != null ? Number(map[hit]) : null;
+}
+
+async function searchProposalProducts() {
+    if (!window._proposalSheetPrices || !Object.keys(window._proposalSheetPrices).length) {
+        await loadProposalSalesmanSheet();
+    }
     const searchEl = document.getElementById('proposal-product-search');
     const resultsEl = document.getElementById('proposal-product-results');
     if (!searchEl || !resultsEl) return;
@@ -2692,11 +2724,22 @@ function addProductToProposal(productName) {
     proposalItems.push({
         name: product.name,
         caseSize: product.caseSize || "",
-        currentPrice: product.isMarketPrice ? null : Number(product.unitPrice),
-        displayCurrentPrice: product.isMarketPrice
-            ? "Market Price"
-            : "$" + Number(product.unitPrice).toFixed(2),
-        proposedPrice: product.isMarketPrice ? "" : Number(product.unitPrice).toFixed(2),
+        currentPrice: (function () {
+            const sheetPrice = proposalSheetPrice(product.name);
+            if (sheetPrice != null && !isNaN(sheetPrice)) return sheetPrice;
+            return product.isMarketPrice ? null : Number(product.unitPrice);
+        })(),
+        displayCurrentPrice: (function () {
+            const sheetPrice = proposalSheetPrice(product.name);
+            if (sheetPrice != null && !isNaN(sheetPrice)) return '$' + sheetPrice.toFixed(2);
+            return product.isMarketPrice ? 'Market Price' : ('$' + Number(product.unitPrice).toFixed(2));
+        })(),
+        proposedPrice: (function () {
+            const sheetPrice = proposalSheetPrice(product.name);
+            if (sheetPrice != null && !isNaN(sheetPrice)) return sheetPrice.toFixed(2);
+            return product.isMarketPrice ? '' : Number(product.unitPrice).toFixed(2);
+        })(),
+        catalogPrice: proposalSheetPrice(product.name),
         reason: "",
         isMarketPrice: !!product.isMarketPrice
     });
@@ -2810,6 +2853,7 @@ async function submitPriceProposal() {
         product: item.name,
         caseSize: item.caseSize || "",
         currentPrice: item.currentPrice,
+        catalogPrice: item.currentPrice,
         displayCurrentPrice: item.displayCurrentPrice,
         proposedPrice: parseFloat(item.proposedPrice),
         reason: (item.reason || "").trim(),
