@@ -8816,6 +8816,48 @@ function unhideSalesmanSheetItem(catalogName) {
     renderCategorizedPriceSheetTable(window._spsSheet.prices || {}, listEl);
 }
 
+function toggleSalesmanHiddenMenu() {
+    const menu = document.getElementById('sps-hidden-menu');
+    if (!menu) return;
+    const open = menu.classList.contains('hidden');
+    window._spsHiddenMenuOpen = open;
+    menu.classList.toggle('hidden', !open);
+}
+
+function renderSalesmanHiddenMenu() {
+    const btn = document.getElementById('sps-hidden-btn');
+    const menu = document.getElementById('sps-hidden-menu');
+    if (!btn || !menu) return;
+    const names = Object.keys(window._spsHiddenPrices || {}).sort();
+    const count = names.length;
+    btn.textContent = 'Hidden (' + count + ')';
+    if (count) {
+        btn.className = 'px-5 py-2 rounded-xl font-semibold bg-[#1E4D2B] text-[#d4b78f]';
+    } else {
+        btn.className = 'px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold';
+    }
+    if (!count) {
+        menu.innerHTML = '<p class="text-sm text-[#6B4423] p-2">No hidden items.</p>';
+    } else {
+        const editing = !!window._spsEditing;
+        menu.innerHTML = names.map(function (name) {
+            const raw = window._spsHiddenPrices[name];
+            const n = Number(raw);
+            const priceText = isNaN(n) ? '' : (' · $' + n.toFixed(2));
+            const unhide = editing
+                ? ('<button type="button" class="px-2 py-1 text-xs font-semibold rounded-lg bg-[#1E4D2B] text-[#d4b78f]" data-name="' +
+                    encodeURIComponent(name) +
+                    '" onclick="unhideSalesmanSheetItem(decodeURIComponent(this.getAttribute(\'data-name\')))">Unhide</button>')
+                : '';
+            return '<div class="flex items-start justify-between gap-2 py-1.5 border-b border-[#e8d9b8]">' +
+                '<span class="text-sm min-w-0">' + escapeHtml(salesmanSheetDisplayName(name)) +
+                '<span class="block text-xs text-[#6B4423]">Catalog: ' + escapeHtml(name) + priceText + '</span></span>' +
+                unhide + '</div>';
+        }).join('');
+    }
+    menu.classList.toggle('hidden', !window._spsHiddenMenuOpen);
+}
+
 function renderCategorizedPriceSheetTable(prices, listEl) {
     if (!listEl) return 0;
     const source = (prices && typeof prices === 'object') ? prices : {};
@@ -8943,29 +8985,8 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
         `;
     });
 
-    if (editing) {
-        const hiddenNames = Object.keys(window._spsHiddenPrices || {}).sort();
-        if (hiddenNames.length) {
-            html += '<div class="mt-4 border-2 border-[#6B4423] rounded-xl p-3 bg-[#f8f4eb]">';
-            html += '<h3 class="text-base font-bold brand-green mb-2">Hidden from this assortment</h3>';
-            html += '<p class="text-xs text-[#6B4423] mb-2">These items will not show on this salesman’s assigned store cards after Save &amp; Push.</p>';
-            hiddenNames.forEach(function (name) {
-                const raw = window._spsHiddenPrices[name];
-                const n = Number(raw);
-                const priceText = isNaN(n) ? '' : (' · $' + n.toFixed(2));
-                html += '<div class="flex items-center justify-between gap-2 py-1.5 border-b border-[#e8d9b8]">';
-                html += '<span class="text-sm">' + escapeHtml(salesmanSheetDisplayName(name)) +
-                    '<span class="text-xs text-[#6B4423]"> · Catalog: ' + escapeHtml(name) + priceText + '</span></span>';
-                html += '<button type="button" class="px-2 py-1 text-xs font-semibold rounded-lg border-2 border-[#6B4423]" data-name="' +
-                    encodeURIComponent(name) +
-                    '" onclick="unhideSalesmanSheetItem(decodeURIComponent(this.getAttribute(\'data-name\')))">Unhide</button>';
-                html += '</div>';
-            });
-            html += '</div>';
-        }
-    }
-
     listEl.innerHTML = html;
+    if (typeof renderSalesmanHiddenMenu === 'function') renderSalesmanHiddenMenu();
     return total;
 }
 

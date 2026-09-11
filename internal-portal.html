@@ -3734,6 +3734,13 @@ body { background: #f8f1e9; }
                     class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
                 Export PDF
             </button>
+            <div id="sps-hidden-wrap" class="relative">
+                <button type="button" id="sps-hidden-btn" onclick="toggleSalesmanHiddenMenu()"
+                        class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
+                    Hidden (0)
+                </button>
+                <div id="sps-hidden-menu" class="hidden absolute right-0 mt-2 w-80 max-h-72 overflow-y-auto bg-white border-2 border-[#6B4423] rounded-xl p-2 shadow-lg" style="z-index:100;"></div>
+            </div>
             <button type="button" id="sps-edit-btn" onclick="toggleSalesmanPriceSheetEdit()"
                     class="hidden px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
                 Edit
