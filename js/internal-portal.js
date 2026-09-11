@@ -9170,7 +9170,7 @@ async function applyNewSalesmanPriceSheetToCustomer(customer, newSalesmanEmail) 
     }
     const { data: sheet, error } = await supabaseClient
         .from('salesman_price_sheets')
-        .select('prices, hidden_prices')
+        .select('prices, hidden_prices, display_names')
         .eq('salesman_email', dest)
         .maybeSingle();
     if (error) return { ok: false, reason: error.message };
@@ -9190,6 +9190,7 @@ async function applyNewSalesmanPriceSheetToCustomer(customer, newSalesmanEmail) 
             customer_id: customer.id,
             salesman_email: dest,
             prices: prices,
+            display_names: (sheet.display_names && typeof sheet.display_names === 'object') ? sheet.display_names : {},
             updated_at: new Date().toISOString()
         }, { onConflict: 'customer_id' });
     if (upErr) return { ok: false, reason: upErr.message };
@@ -9647,6 +9648,7 @@ async function saveSalesmanPriceSheetAndPush(opts) {
                     customer_id: c.id,
                     salesman_email: email,
                     prices: isJakePetSupplyCustomer(c) ? applyJakeElkyTrainingPrices(prices) : prices,
+                    display_names: collectSalesmanDisplayNames(),
                     updated_at: nowIso
                 }, { onConflict: 'customer_id' });
             if (upsertErr) throw upsertErr;

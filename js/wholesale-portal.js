@@ -7711,13 +7711,17 @@ async function applyBrianWholesaleSheetPrices() {
     try {
         const { data: custSheet } = await supabaseClient
             .from('customer_price_sheets')
-            .select('prices, salesman_email')
+            .select('prices, salesman_email, display_names')
             .eq('customer_id', customer.id)
             .maybeSingle();
         const sheetSalesman = String((custSheet && custSheet.salesman_email) || '').toLowerCase().trim();
         if (custSheet && custSheet.prices && typeof custSheet.prices === 'object' &&
             Object.keys(custSheet.prices).length && sheetSalesman === salesmanEmail) {
             prices = custSheet.prices;
+            if (custSheet.display_names && typeof custSheet.display_names === 'object' &&
+                Object.keys(custSheet.display_names).length) {
+                window._wholesaleDisplayNames = custSheet.display_names;
+            }
         }
     } catch (err) {
         console.warn('applyBrianWholesaleSheetPrices customer:', err);
