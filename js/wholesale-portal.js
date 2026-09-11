@@ -4313,7 +4313,7 @@ function buildCombinedCard(group) {
             const opt = document.createElement('button');
             opt.type = 'button';
             opt.className = 'card-option-btn';
-            opt.textContent = extractVariantDim(labelDim, v) || v.name;
+            opt.textContent = extractVariantDim(labelDim, v) || wholesaleDisplayName(v.name);
             opt.setAttribute('data-name', v.name);
             opt.onclick = () => {
                 selected[v.name] = !selected[v.name];
@@ -4461,7 +4461,7 @@ function buildProductCard(product) {
 
     const name = document.createElement('h3');
     name.className = 'card-name';
-    name.textContent = product.name || '';
+    name.textContent = wholesaleDisplayName(product.name);
 
     const meta = document.createElement('p');
     meta.className = 'card-meta';
@@ -4762,7 +4762,7 @@ function showPackagedItemModal(name, price, cs, category, image = null, healthBe
 
             ${imageHTML}
 
-            <p class="font-semibold text-lg mb-1">${escapeHtml(name)}</p>
+            <p class="font-semibold text-lg mb-1">${escapeHtml(wholesaleDisplayName(name))}</p>
             <p class="text-sm text-[#6B4423] mb-4">${escapeHtml(cs)} • ${escapeHtml(price)}</p>
 
             ${(function () {
@@ -4820,6 +4820,7 @@ function buildOpenQuoteItems() {
         const numericPrice = parseFloat(String(item.price || '').replace(/[^0-9.]/g, '')) || 0;
         return {
             product: item.name,
+            displayName: item.displayName || wholesaleDisplayName(item.name),
             quantity: item.quantity || 1,
             caseSize: item.cs || "",
             unitPrice: numericPrice || null,
@@ -5030,7 +5031,7 @@ function updateQuoteSidebar() {
         div.innerHTML = `
             <div class="flex justify-between items-start">
                 <div class="flex-1 pr-2">
-                    <p class="font-semibold leading-tight">${escapeHtml(item.name)}</p>
+                    <p class="font-semibold leading-tight">${escapeHtml(wholesaleDisplayName(item.name))}</p>
                     <p class="text-xs text-[#6B4423] mt-0.5">${escapeHtml(item.cs)}</p>
                     <p class="text-xs mt-1">${priceInfo}</p>
                     <div class="card-qty-input-wrap mt-1">
@@ -5135,7 +5136,7 @@ function expandQuoteModal() {
                 <div class="border border-[#d4b78f] rounded-xl p-4">
                     <div class="flex justify-between">
                         <div>
-                            <p class="font-semibold">${escapeHtml(item.name)}</p>
+                            <p class="font-semibold">${escapeHtml(wholesaleDisplayName(item.name))}</p>
                             <p class="text-sm text-[#6B4423]">${escapeHtml(item.cs)} × ${item.quantity}</p>
                         </div>
                         <div class="text-right">
@@ -5476,7 +5477,7 @@ function openQuoteConfirmModal() {
         rows += `
             <div style="display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #f0e6d6;padding-bottom:8px;margin-bottom:8px;">
                 <div style="min-width:0;">
-                    <p style="font-weight:600;color:#1E4D2B;margin:0;">${escapeHtml(item.name || 'Item')}</p>
+                    <p style="font-weight:600;color:#1E4D2B;margin:0;">${escapeHtml(wholesaleDisplayName(item.name || 'Item'))}</p>
                     <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.cs ? ' · ' + escapeHtml(item.cs) : ''}</p>
                     ${isMarket ? '<p style="font-size:11px;color:#c2410c;margin:4px 0 0;">' + MARKET_PRICE_DISCLAIMER + '</p>' : ''}
                 </div>
@@ -5568,6 +5569,7 @@ async function submitQuote() {
 
         return {
             product: item.name,
+            displayName: wholesaleDisplayName(item.name),
             quantity: item.quantity || 1,
             caseSize: item.cs || "",
             unitPrice: numericPrice || null,
@@ -5797,7 +5799,7 @@ async function loadMyQuotes() {
                     <ul class="text-sm space-y-1 mb-4">
                         ${items.map(item => `
                             <li class="flex justify-between">
-                                <span>• ${escapeHtml(item.product)} × ${item.quantity}</span>
+                                <span>• ${escapeHtml(orderLineDisplayName(item))} × ${item.quantity}</span>
                                 <span class="text-[#6B4423]">${item.displayPrice || ''}</span>
                             </li>
                         `).join('')}
@@ -6039,7 +6041,7 @@ async function loadOrderHistory() {
                     <ul class="text-sm space-y-1 mb-4">
                         ${items.map(item => `
                             <li class="flex justify-between">
-                                <span>• ${escapeHtml(item.product)} × ${item.quantity}</span>
+                                <span>• ${escapeHtml(orderLineDisplayName(item))} × ${item.quantity}</span>
                                 <span class="text-[#6B4423]">${item.displayPrice || ('$' + (parseFloat(item.unitPrice) || 0).toFixed(2))}</span>
                             </li>
                         `).join('')}
@@ -6276,7 +6278,7 @@ function renderOrderHistoryCards(orders, listEl) {
                 <ul class="text-sm space-y-1 mb-4">
                     ${items.map(item => `
                         <li class="flex justify-between">
-                            <span>• ${item.product} × ${item.quantity}</span>
+                            <span>• ${escapeHtml(orderLineDisplayName(item))} × ${item.quantity}</span>
                             <span class="text-[#6B4423]">${item.displayPrice || ('$' + (parseFloat(item.unitPrice) || 0).toFixed(2))}</span>
                         </li>
                     `).join('')}
@@ -6518,7 +6520,7 @@ function renderEditQuoteItems() {
         return `
             <div class="flex flex-wrap items-center gap-2 border border-[#d4b78f] rounded-xl px-3 py-2 bg-[#f8f4eb]">
                 <div class="flex-1 min-w-[140px]">
-                    <p class="font-semibold text-sm brand-green">${escapeHtml(item.product)}</p>
+                    <p class="font-semibold text-sm brand-green">${escapeHtml(orderLineDisplayName(item))}</p>
                     <p class="text-xs text-[#6B4423]">${priceLabel}${item.caseSize ? ' · ' + item.caseSize : ''}</p>
                 </div>
                 <input type="number" min="1" step="1" value="${item.quantity}"
@@ -7595,6 +7597,19 @@ function isBrianAssignedCustomer(customer) {
     return email === BRIAN_SEAT_EMAIL;
 }
 
+function wholesaleDisplayName(catalogName) {
+    const map = window._wholesaleDisplayNames || {};
+    const nick = String((map && map[catalogName]) || '').replace(/\s+/g, ' ').trim();
+    return nick || catalogName || '';
+}
+
+function orderLineDisplayName(item) {
+    const nick = String((item && item.displayName) || '').replace(/\s+/g, ' ').trim();
+    if (nick) return nick;
+    const catalog = (item && (item.product || item.name)) || '';
+    return wholesaleDisplayName(catalog) || catalog || 'Item';
+}
+
 async function applyBrianWholesaleSheetPrices() {
     if (Array.isArray(window._wholesaleCatalogBase) && window._wholesaleCatalogBase.length) {
         WHOLESALE_PRICES = window._wholesaleCatalogBase.map(function (p) {
@@ -7605,6 +7620,19 @@ async function applyBrianWholesaleSheetPrices() {
     if (!customer || !customer.id) return;
     const salesmanEmail = String((customer.salesman_email || customer.salesmanEmail) || '').toLowerCase().trim();
     if (!salesmanEmail) return;
+    window._wholesaleDisplayNames = {};
+    try {
+        const { data: nickRow } = await supabaseClient
+            .from('salesman_price_sheets')
+            .select('display_names')
+            .eq('salesman_email', salesmanEmail)
+            .maybeSingle();
+        if (nickRow && nickRow.display_names && typeof nickRow.display_names === 'object') {
+            window._wholesaleDisplayNames = nickRow.display_names;
+        }
+    } catch (err) {
+        console.warn('wholesale display_names:', err);
+    }
     let prices = null;
     try {
         const { data: custSheet } = await supabaseClient
@@ -8239,7 +8267,7 @@ function showBrandedInvoice(order) {
                                 const lineTotal = price * qty;
                                 return `
                                     <tr class="border-b border-[#e8d9c2]">
-                                        <td class="py-3 text-[#1E4D2B]">${escapeHtml(item.product || item.name || 'Item')}${item.isMarketPrice ? '<p class="text-[11px] text-[#c56134] mt-1">' + MARKET_PRICE_DISCLAIMER + '</p>' : ''}</td>
+                                        <td class="py-3 text-[#1E4D2B]">${escapeHtml(orderLineDisplayName(item))}${item.isMarketPrice ? '<p class="text-[11px] text-[#c56134] mt-1">' + MARKET_PRICE_DISCLAIMER + '</p>' : ''}</td>
                                         <td class="py-3 text-center text-[#6B4423]">${qty}</td>
                                         <td class="py-3 text-right font-medium">$${lineTotal.toFixed(2)}</td>
                                     </tr>

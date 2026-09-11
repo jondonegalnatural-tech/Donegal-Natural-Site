@@ -2020,7 +2020,7 @@ function searchPlaceOrderProducts() {
             <div class="px-3 py-2 border-b border-[#d4b78f] flex justify-between items-center ${oos ? '' : 'hover:bg-[#f8f4eb] cursor-pointer'}"
                  ${oos ? '' : `onclick="addProductToPlaceOrder('${safeName}')"`}>
                 <div>
-                    <p class="text-sm font-semibold brand-green">${escapeHtml(p.name)}</p>
+                    <p class="text-sm font-semibold brand-green">${escapeHtml(salesmanDisplayName(p.name))}</p>
                     <p class="text-xs text-[#6B4423]">${escapeHtml(p.caseSize || "")} · ${escapeHtml(priceLabel)}</p>
                     ${oos ? `<p class="text-xs font-semibold text-red-700">${escapeHtml(oosText)}</p>` : ''}
                 </div>
@@ -2108,6 +2108,19 @@ function isBrianAssignedCustomer(customer) {
     return !!email && email === seat;
 }
 
+function salesmanDisplayName(catalogName) {
+    const map = window._placeOrderDisplayNames || {};
+    const nick = String((map && map[catalogName]) || '').replace(/\s+/g, ' ').trim();
+    return nick || catalogName || '';
+}
+
+function orderLineDisplayName(item) {
+    const nick = String((item && item.displayName) || '').replace(/\s+/g, ' ').trim();
+    if (nick) return nick;
+    const catalog = (item && (item.product || item.name)) || '';
+    return salesmanDisplayName(catalog) || catalog || 'Item';
+}
+
 function resolvePlaceOrderPrice(product) {
     const name = product && product.name;
     const map = window._placeOrderBrianPrices;
@@ -2136,8 +2149,23 @@ function resolvePlaceOrderPrice(product) {
 
 async function loadBrianPlaceOrderPrices(customer) {
     window._placeOrderBrianPrices = {};
+    window._placeOrderDisplayNames = {};
     if (!customer || !customer.id) return;
     const salesmanEmail = String((customer.salesman_email || customer.salesmanEmail || getOperatingSalesmanEmail()) || '').toLowerCase().trim();
+    if (salesmanEmail) {
+        try {
+            const { data: nickRow } = await supabaseClient
+                .from('salesman_price_sheets')
+                .select('display_names')
+                .eq('salesman_email', salesmanEmail)
+                .maybeSingle();
+            if (nickRow && nickRow.display_names && typeof nickRow.display_names === 'object') {
+                window._placeOrderDisplayNames = nickRow.display_names;
+            }
+        } catch (err) {
+            console.warn('place order display_names:', err);
+        }
+    }
     if (!salesmanEmail) return;
     try {
         const { data: custSheet } = await supabaseClient
@@ -2183,6 +2211,7 @@ function addProductToPlaceOrder(productName) {
         const priced = resolvePlaceOrderPrice(product);
         placeOrderItems.push({
             name: product.name,
+            displayName: salesmanDisplayName(product.name),
             quantity: 1,
             caseSize: product.caseSize || "",
             unitPrice: priced.unitPrice,
@@ -2233,7 +2262,7 @@ function renderPlaceOrderItems(skipFocus) {
         return `
         <div class="flex justify-between items-center py-2 border-b border-[#d4b78f] flex-wrap gap-2">
             <div class="flex-1 pr-3 min-w-[140px]">
-                <p class="text-sm font-semibold brand-green">${escapeHtml(item.name)}</p>
+                <p class="text-sm font-semibold brand-green">${escapeHtml(item.displayName || salesmanDisplayName(item.name))}</p>
                 <p class="text-xs text-[#6B4423]">${sub}</p>
             </div>
             <div class="flex items-center gap-2">
@@ -2429,7 +2458,7 @@ function openPlaceOrderConfirmModal() {
         rows += `
             <div style="display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #f0e6d6;padding-bottom:8px;margin-bottom:8px;">
                 <div>
-                    <p style="font-weight:600;color:#1E4D2B;margin:0;">${escapeHtml(item.name || 'Item')}</p>
+                    <p style="font-weight:600;color:#1E4D2B;margin:0;">${escapeHtml(orderLineDisplayName(item))}</p>
                     <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.caseSize ? ' · ' + item.caseSize : ''}</p>
                 </div>                    <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.caseSize ? ' · ' + escapeHtml(item.caseSize) : ''}</p>
                 <p style="font-weight:600;color:#1E4D2B;margin:0;">${lineLabel}</p>
@@ -2560,6 +2589,7 @@ async function submitPlaceOrder() {
         source: "salesman",
         items: placeOrderItems.map(item => ({
             product: item.name,
+            displayName: item.displayName || salesmanDisplayName(item.name),
             quantity: item.quantity || 1,
             caseSize: item.caseSize || "",
             unitPrice: item.unitPrice != null ? item.unitPrice : null,
@@ -3885,7 +3915,7 @@ async function openSalesmanOrderInvoice(orderId) {
                 return `
                     <tr class="border-b border-[#eee]">
                         <td class="p-3 align-top">${qty}</td>
-                        <td class="p-3 align-top">${escapeHtml(item.product || item.name || 'Item')}</td>
+                        <td class="p-3 align-top">${escapeHtml(orderLineDisplayName(item))}</td>
                         <td class="p-3 text-right align-top">${unitLabel}</td>
                         <td class="p-3 text-right align-top font-semibold">${totalLabel}</td>
                     </tr>
@@ -4385,6 +4415,9 @@ async function renderPriceSheet() {
         }
 
         // Cache for Print / Export
+        window._placeOrderDisplayNames = (sheet.display_names && typeof sheet.display_names === 'object')
+            ? sheet.display_names
+            : {};
         window._currentSalesmanPriceSheet = {
             prices: sheet.prices || {},
             updated_at: sheet.updated_at || null,
@@ -4445,7 +4478,7 @@ async function renderPriceSheet() {
             grouped[cat].forEach(function (row) {
                 tableHtml += `
                     <tr class="border-b border-[#e5d5c0]">
-                        <td class="p-3">${escapeHtml(row.name)}</td>
+                        <td class="p-3">${escapeHtml(salesmanDisplayName(row.name))}</td>
                         <td class="p-3 text-[#6B4423]">${escapeHtml(row.caseSize || '—')}</td>
                         <td class="p-3 text-right font-semibold brand-green whitespace-nowrap">${row.priceText}</td>
                     </tr>
@@ -4461,7 +4494,7 @@ async function renderPriceSheet() {
             unmatched.forEach(function (row) {
                 tableHtml += `
                     <tr class="border-b border-[#e5d5c0]">
-                        <td class="p-3">${escapeHtml(row.name)}</td>
+                        <td class="p-3">${escapeHtml(salesmanDisplayName(row.name))}</td>
                         <td class="p-3 text-[#6B4423]">—</td>
                         <td class="p-3 text-right font-semibold brand-green whitespace-nowrap">${row.priceText}</td>
                     </tr>
@@ -4574,7 +4607,7 @@ async function exportPriceSheetPdf() {
         grouped[cat].forEach(row => {
             tableHtml += `
                 <tr>
-                    <td>${escapeHtml(row.name)}</td>
+                    <td>${escapeHtml(salesmanDisplayName(row.name))}</td>
                     <td class="case">${escapeHtml(row.caseSize || "—")}</td>
                     <td class="price">$${row.price.toFixed(2)}/ea.</td>
                 </tr>
@@ -4591,7 +4624,7 @@ async function exportPriceSheetPdf() {
         unmatched.forEach(row => {
             tableHtml += `
                 <tr>
-                    <td>${escapeHtml(row.name)}</td>
+                    <td>${escapeHtml(salesmanDisplayName(row.name))}</td>
                     <td class="case">—</td>
                     <td class="price">$${row.price.toFixed(2)}/ea.</td>
                 </tr>

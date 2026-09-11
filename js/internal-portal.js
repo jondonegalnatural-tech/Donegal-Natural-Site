@@ -1714,7 +1714,7 @@ function openOrderInvoiceModal(orderId) {
                 if (hasPrice) subtotal += lineTotal;
 
                 const desc = escapeHtml([
-                    item.product || item.name || '—',
+                    orderLineDisplayName(item),
                     item.caseSize ? `· ${item.caseSize}` : ''
                 ].filter(Boolean).join(' '));
 
@@ -3848,7 +3848,7 @@ function renderApproveOrderItems() {
         return `
             <div class="flex flex-wrap items-center gap-2 border border-[#d4b78f] rounded-xl px-3 py-2 bg-[#f8f4eb]">
                 <div class="flex-1 min-w-[160px]">
-                    <p class="font-semibold text-sm brand-green">${escapeHtml(item.product)}</p>
+                    <p class="font-semibold text-sm brand-green">${escapeHtml(orderLineDisplayName(item))}</p>
                     <p class="text-xs text-[#6B4423]">${priceLabel}${item.caseSize ? ' · ' + item.caseSize : ''}</p>
                 </div>
                 <input type="number" min="1" step="1" value="${item.quantity}"
@@ -4593,7 +4593,7 @@ function renderShipInvoiceItems() {
         return `
             <div class="flex flex-wrap items-center gap-2 border border-[#d4b78f] rounded-xl px-3 py-2 bg-[#f8f4eb]">
                 <div class="flex-1 min-w-[160px]">
-                    <p class="font-semibold text-sm brand-green">${escapeHtml(item.product)}</p>
+                    <p class="font-semibold text-sm brand-green">${escapeHtml(orderLineDisplayName(item))}</p>
                     <p class="text-xs text-[#6B4423]">${priceLabel}${item.caseSize ? ' · ' + item.caseSize : ''}</p>
                 </div>
                 <input type="number" min="1" step="1" value="${item.quantity}"
@@ -7395,6 +7395,17 @@ async function openCustomerProtectedSheet(customerId) {
             const { data: ss } = await supabaseClient.from('salesman_price_sheets').select('prices').eq('salesman_email', String(customer.salesmanEmail).toLowerCase()).maybeSingle();
             if (ss && ss.prices) prices = ss.prices;
         }
+        window._spsDisplayNames = {};
+        if (customer.salesmanEmail) {
+            const { data: nickRow } = await supabaseClient
+                .from('salesman_price_sheets')
+                .select('display_names')
+                .eq('salesman_email', String(customer.salesmanEmail).toLowerCase())
+                .maybeSingle();
+            if (nickRow && nickRow.display_names && typeof nickRow.display_names === 'object') {
+                window._spsDisplayNames = nickRow.display_names;
+            }
+        }
     } catch (err) {
         list.innerHTML = '<p class="text-sm text-red-600 p-3">Could not load sheet.</p>';
         return;
@@ -7433,7 +7444,7 @@ async function openCustomerProtectedSheet(customerId) {
             return '<label class="flex items-center justify-between gap-3 py-1.5 border-b border-[#eee] text-sm">' +
                 '<span class="flex items-center gap-2 min-w-0">' +
                 '<input type="checkbox" class="cps-lock accent-[#1E4D2B]" data-name="' + encodeURIComponent(row.name) + '" ' + checked + '>' +
-                '<span class="truncate">' + escapeHtml(row.name) +
+                '<span class="truncate">' + escapeHtml(salesmanSheetDisplayName(row.name)) +
                 (row.caseSize ? (' <span class="text-xs text-[#6B4423]">' + escapeHtml(row.caseSize) + '</span>') : '') +
                 '</span></span>' +
                 '<span class="font-semibold brand-green">$' + Number(row.price).toFixed(2) + '</span></label>';
@@ -8734,6 +8745,30 @@ function openCustomerPriceVsBaseFromModal() {
  * @returns {number} number of products rendered
  */
 
+function salesmanSheetDisplayName(catalogName) {
+    const map = window._spsDisplayNames || {};
+    const nick = String((map && map[catalogName]) || '').replace(/\s+/g, ' ').trim();
+    return nick || catalogName || '';
+}
+
+function collectSalesmanDisplayNames() {
+    const next = {};
+    document.querySelectorAll('#price-sheet-modal-list input.sps-name').forEach(function (inp) {
+        const catalog = inp.getAttribute('data-name');
+        if (!catalog) return;
+        const nick = String(inp.value || '').replace(/\s+/g, ' ').trim();
+        if (!nick || nick === catalog) return;
+        next[catalog] = nick;
+    });
+    return next;
+}
+
+function orderLineDisplayName(item) {
+    const nick = String((item && item.displayName) || '').replace(/\s+/g, ' ').trim();
+    if (nick) return nick;
+    return (item && (item.product || item.name)) || '—';
+}
+
 function renderCategorizedPriceSheetTable(prices, listEl) {
     if (!listEl) return 0;
     const source = (prices && typeof prices === 'object') ? prices : {};
@@ -8832,9 +8867,17 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
                 ? ('<input type="number" step="0.01" min="0" class="sps-price w-24 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-right" data-name="' +
                     nameAttr + '" value="' + (hasPrice ? Number(row.price).toFixed(2) : '') + '">')
                 : ('<span class="font-semibold">' + (hasPrice ? ('$' + Number(row.price).toFixed(2)) : '—') + '</span>');
+            const nick = salesmanSheetDisplayName(row.name);
+            const nameCell = editing
+                ? ('<input type="text" class="sps-name w-full border-2 border-[#6B4423] rounded-lg px-2 py-1" data-name="' +
+                    nameAttr + '" value="' + escapeHtml(nick) + '">' +
+                    '<p class="text-[10px] text-[#6B4423] mt-0.5">Catalog: ' + escapeHtml(row.name) + '</p>')
+                : (escapeHtml(nick) + (nick !== row.name
+                    ? ('<p class="text-[10px] text-[#6B4423] mt-0.5">Catalog: ' + escapeHtml(row.name) + '</p>')
+                    : ''));
             html += `
                 <tr class="border-t border-[#e8d9b8] ${bg}">
-                    <td class="p-2.5">${escapeHtml(row.name)}</td>
+                    <td class="p-2.5">${nameCell}</td>
                     <td class="p-2.5 text-[#6B4423]">${escapeHtml(row.caseSize || '—')}</td>
                     <td class="p-2.5 text-right">${priceCell}</td>
                     <td class="p-2.5 text-center text-xs text-[#6B4423]">${escapeHtml(row.priceAsOf || '—')}</td>
@@ -8888,7 +8931,7 @@ async function openSalesmanPriceSheetModal() {
     try {
         const { data, error } = await supabaseClient
             .from('salesman_price_sheets')
-            .select('id, prices, updated_at, salesman_name')
+            .select('id, prices, display_names, updated_at, salesman_name')
             .eq('salesman_email', email)
             .maybeSingle();
 
@@ -8899,6 +8942,9 @@ async function openSalesmanPriceSheetModal() {
             return;
         }
 
+        window._spsDisplayNames = (data.display_names && typeof data.display_names === 'object')
+            ? data.display_names
+            : {};
         window._spsSheet = {
             id: data.id,
             email: email,
@@ -8935,6 +8981,7 @@ function hideSalesmanPriceSheetModal() {
     window._spsCanEdit = false;
     window._spsSheet = null;
     window._spsExport = null;
+    window._spsDisplayNames = {};
     if (typeof setSalesmanPriceSheetEditMode === 'function') setSalesmanPriceSheetEditMode(false);
 }
 
@@ -9131,7 +9178,7 @@ function buildSalesmanSheetExportRows(prices) {
             rows.push({
                 Category: cat || 'Other',
                 'Sub Category': catalog.subCategory || '',
-                Product: name,
+                Product: salesmanSheetDisplayName(name),
                 'Case Size': catalog.caseSize || '',
                 'Unit Price': isNaN(n) ? '' : n,
                 'Market Price': catalog.isMarketPrice ? 'Yes' : 'No'
@@ -9457,6 +9504,7 @@ async function saveSalesmanPriceSheetAndPush() {
             .from('salesman_price_sheets')
             .update({
                 prices: prices,
+                display_names: collectSalesmanDisplayNames(),
                 salesman_name: salesmanName,
                 updated_at: nowIso
             })
@@ -9479,6 +9527,7 @@ async function saveSalesmanPriceSheetAndPush() {
         }
 
         window._spsSheet.prices = prices;
+        window._spsDisplayNames = collectSalesmanDisplayNames();
         window._spsEditing = false;
         setSalesmanPriceSheetEditMode(false);
         const listEl = document.getElementById('price-sheet-modal-list');
@@ -9621,7 +9670,7 @@ function renderComparedPriceSheetTable(sheetPrices, listEl) {
                 : 'text-[#6B4423]';
             const deltaText = (row.delta >= 0 ? '+' : '') + row.delta.toFixed(1) + '%';
             html += '<tr class="border-t border-[#e8d9b8] ' + bg + '">' +
-                '<td class="p-2.5">' + escapeHtml(row.name) + '</td>' +
+                '<td class="p-2.5">' + escapeHtml(salesmanSheetDisplayName(row.name)) + '</td>' +
                 '<td class="p-2.5 text-[#6B4423]">' + escapeHtml(row.caseSize || '—') + '</td>' +
                 '<td class="p-2.5 text-right">' + (row.base != null ? ('$' + row.base.toFixed(2)) : '—') + '</td>' +
                 '<td class="p-2.5 text-right font-semibold">$' + row.sheet.toFixed(2) + '</td>' +
@@ -9647,6 +9696,7 @@ async function openReportsCustomerPriceSheet(customerId) {
     }
 
     const salesmanEmail = (customer.salesmanEmail || '').toLowerCase().trim();
+    window._spsDisplayNames = {};
     const titleEl = document.getElementById('price-sheet-modal-title');
     const subEl = document.getElementById('price-sheet-modal-subtitle');
     const listEl = document.getElementById('price-sheet-modal-list');
@@ -9702,6 +9752,16 @@ async function openReportsCustomerPriceSheet(customerId) {
             return;
         }
 
+        if (salesmanEmail) {
+            const { data: nickRow } = await supabaseClient
+                .from('salesman_price_sheets')
+                .select('display_names')
+                .eq('salesman_email', salesmanEmail)
+                .maybeSingle();
+            if (nickRow && nickRow.display_names && typeof nickRow.display_names === 'object') {
+                window._spsDisplayNames = nickRow.display_names;
+            }
+        }
         const count = renderComparedPriceSheetTable(prices, listEl);
 
         if (subEl) {
