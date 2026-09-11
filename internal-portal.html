@@ -3734,13 +3734,10 @@ body { background: #f8f1e9; }
                     class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
                 Export PDF
             </button>
-            <div id="sps-hidden-wrap" class="relative">
-                <button type="button" id="sps-hidden-btn" onclick="toggleSalesmanHiddenMenu()"
-                        class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
-                    Hidden (0)
-                </button>
-                <div id="sps-hidden-menu" class="hidden absolute right-0 mt-2 w-80 max-h-72 overflow-y-auto bg-white border-2 border-[#6B4423] rounded-xl p-2 shadow-lg" style="z-index:100;"></div>
-            </div>
+            <button type="button" id="sps-hidden-btn" onclick="openSalesmanHiddenModal()"
+                    class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
+                Hidden (0)
+            </button>
             <button type="button" id="sps-edit-btn" onclick="toggleSalesmanPriceSheetEdit()"
                     class="hidden px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
                 Edit
@@ -4127,6 +4124,24 @@ body { background: #f8f1e9; }
         <div class="p-4 border-t border-[#d4b78f] flex gap-3">
             <button type="button" onclick="hideCustomerProtectedSheet()" class="flex-1 px-4 py-2.5 border-2 border-[#6B4423] rounded-xl font-semibold">Cancel</button>
             <button type="button" onclick="saveCustomerProtectedSheet()" class="flex-1 px-4 py-2.5 bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-semibold">Save locked products</button>
+        </div>
+    </div>
+</div>
+<div id="sps-hidden-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[100] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col border-2 border-[#6B4423]" onclick="event.stopImmediatePropagation()">
+        <div class="flex justify-between items-start p-4 border-b border-[#d4b78f]">
+            <div>
+                <h3 class="text-lg font-bold brand-green">Hidden from this assortment</h3>
+                <p id="sps-hidden-modal-sub" class="text-xs text-[#6B4423] mt-1">Unhide puts the item back on this salesman’s sheet. Save &amp; Push to update assigned stores.</p>
+            </div>
+            <button type="button" onclick="hideSalesmanHiddenModal()" class="text-2xl text-[#6B4423]">×</button>
+        </div>
+        <div id="sps-hidden-modal-list" class="p-4 overflow-y-auto flex-1"></div>
+        <div class="p-4 border-t border-[#d4b78f]">
+            <button type="button" onclick="hideSalesmanHiddenModal()"
+                    class="w-full px-4 py-2.5 border-2 border-[#6B4423] rounded-xl font-semibold">
+                Close
+            </button>
         </div>
     </div>
 </div>
