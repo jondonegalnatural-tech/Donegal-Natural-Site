@@ -7695,7 +7695,7 @@ async function applyBrianWholesaleSheetPrices() {
     try {
         const { data: nickRow } = await supabaseClient
             .from('salesman_price_sheets')
-            .select('display_names, hidden_prices')
+            .select('prices, display_names, hidden_prices')
             .eq('salesman_email', salesmanEmail)
             .maybeSingle();
         if (nickRow && nickRow.display_names && typeof nickRow.display_names === 'object') {
@@ -7704,44 +7704,32 @@ async function applyBrianWholesaleSheetPrices() {
         window._wholesaleHiddenPrices = (nickRow && nickRow.hidden_prices && typeof nickRow.hidden_prices === 'object')
             ? nickRow.hidden_prices
             : {};
+        if (nickRow && nickRow.prices && typeof nickRow.prices === 'object') {
+            window._wholesaleSalesmanPrices = nickRow.prices;
+        }
     } catch (err) {
         console.warn('wholesale display_names:', err);
     }
-    let prices = null;
+    let prices = Object.assign({}, window._wholesaleSalesmanPrices || {});
     try {
         const { data: custSheet } = await supabaseClient
             .from('customer_price_sheets')
-            .select('prices, salesman_email, display_names')
+            .select('prices, salesman_email')
             .eq('customer_id', customer.id)
             .maybeSingle();
         const sheetSalesman = String((custSheet && custSheet.salesman_email) || '').toLowerCase().trim();
         if (custSheet && custSheet.prices && typeof custSheet.prices === 'object' &&
-            Object.keys(custSheet.prices).length && sheetSalesman === salesmanEmail) {
-            prices = custSheet.prices;
-            if (custSheet.display_names && typeof custSheet.display_names === 'object' &&
-                Object.keys(custSheet.display_names).length) {
-                window._wholesaleDisplayNames = custSheet.display_names;
-            }
+            sheetSalesman === salesmanEmail) {
+            Object.keys(prices).forEach(function (name) {
+                if (custSheet.prices[name] != null && custSheet.prices[name] !== '') {
+                    prices[name] = custSheet.prices[name];
+                }
+            });
         }
     } catch (err) {
         console.warn('applyBrianWholesaleSheetPrices customer:', err);
     }
-    if (!prices) {
-        try {
-            const { data: salesSheet } = await supabaseClient
-                .from('salesman_price_sheets')
-                .select('prices')
-                .eq('salesman_email', salesmanEmail)
-                .maybeSingle();
-            if (salesSheet && salesSheet.prices && typeof salesSheet.prices === 'object' &&
-                Object.keys(salesSheet.prices).length) {
-                prices = salesSheet.prices;
-            }
-        } catch (err) {
-            console.warn('applyBrianWholesaleSheetPrices salesman:', err);
-        }
-    }
-    if (!prices) return;
+    if (!Object.keys(prices).length) return;
     Object.keys(window._wholesaleHiddenPrices || {}).forEach(function (name) {
         delete prices[name];
     });
