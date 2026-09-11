@@ -8930,7 +8930,7 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
                     <td class="p-2.5 text-[#6B4423]">${escapeHtml(row.caseSize || '—')}</td>
                     <td class="p-2.5 text-right">${priceCell}</td>
                     <td class="p-2.5 text-center text-xs text-[#6B4423]">${escapeHtml(row.priceAsOf || '—')}</td>
-                    ${editing ? ('<td class="p-2.5 text-center"><button type="button" class="px-2 py-1 text-xs font-semibold rounded-lg bg-[#6B4423] text-[#d4b78f]" data-name="' + encodeURIComponent(row.name) + '" onclick="hideSalesmanSheetItem(decodeURIComponent(this.getAttribute(\'data-name\')))">Hide</button></td>') : ''}
+                    ${editing ? ('<td class="p-2.5 text-center"><button type="button" class="px-2 py-1 text-xs font-semibold rounded-lg bg-[#1E4D2B] text-[#d4b78f]" data-name="' + encodeURIComponent(row.name) + '" onclick="hideSalesmanSheetItem(decodeURIComponent(this.getAttribute(\'data-name\')))">Hide</button></td>') : ''}
                 </tr>
             `;
         });
