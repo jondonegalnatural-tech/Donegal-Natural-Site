@@ -7624,12 +7624,15 @@ async function applyBrianWholesaleSheetPrices() {
     try {
         const { data: nickRow } = await supabaseClient
             .from('salesman_price_sheets')
-            .select('display_names')
+            .select('display_names, hidden_prices')
             .eq('salesman_email', salesmanEmail)
             .maybeSingle();
         if (nickRow && nickRow.display_names && typeof nickRow.display_names === 'object') {
             window._wholesaleDisplayNames = nickRow.display_names;
         }
+        window._wholesaleHiddenPrices = (nickRow && nickRow.hidden_prices && typeof nickRow.hidden_prices === 'object')
+            ? nickRow.hidden_prices
+            : {};
     } catch (err) {
         console.warn('wholesale display_names:', err);
     }
@@ -7664,6 +7667,9 @@ async function applyBrianWholesaleSheetPrices() {
         }
     }
     if (!prices) return;
+    Object.keys(window._wholesaleHiddenPrices || {}).forEach(function (name) {
+        delete prices[name];
+    });
     WHOLESALE_PRICES = (WHOLESALE_PRICES || []).filter(function (p) {
         return p && p.name && Object.prototype.hasOwnProperty.call(prices, p.name);
     });

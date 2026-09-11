@@ -8752,12 +8752,15 @@ function salesmanSheetDisplayName(catalogName) {
 }
 
 function collectSalesmanDisplayNames() {
-    const next = {};
+    const next = Object.assign({}, window._spsDisplayNames || {});
     document.querySelectorAll('#price-sheet-modal-list input.sps-name').forEach(function (inp) {
         const catalog = inp.getAttribute('data-name');
         if (!catalog) return;
         const nick = String(inp.value || '').replace(/\s+/g, ' ').trim();
-        if (!nick || nick === catalog) return;
+        if (!nick || nick === catalog) {
+            delete next[catalog];
+            return;
+        }
         next[catalog] = nick;
     });
     return next;
@@ -8767,6 +8770,50 @@ function orderLineDisplayName(item) {
     const nick = String((item && item.displayName) || '').replace(/\s+/g, ' ').trim();
     if (nick) return nick;
     return (item && (item.product || item.name)) || '—';
+}
+
+function isSalesmanSheetHidden(name) {
+    const hidden = window._spsHiddenPrices || {};
+    return !!(name && Object.prototype.hasOwnProperty.call(hidden, name));
+}
+
+function hideSalesmanSheetItem(catalogName) {
+    if (!catalogName || !window._spsSheet) return;
+    if (!window._spsHiddenPrices || typeof window._spsHiddenPrices !== 'object') {
+        window._spsHiddenPrices = {};
+    }
+    if (window._spsEditing && typeof collectSalesmanPriceSheetInputs === 'function') {
+        window._spsSheet.prices = collectSalesmanPriceSheetInputs();
+    }
+    const raw = window._spsSheet.prices ? window._spsSheet.prices[catalogName] : null;
+    const n = Number(raw);
+    window._spsHiddenPrices[catalogName] = isNaN(n) ? raw : n;
+    if (window._spsSheet.prices) delete window._spsSheet.prices[catalogName];
+    if (window._spsExport && window._spsExport.prices) delete window._spsExport.prices[catalogName];
+    const listEl = document.getElementById('price-sheet-modal-list');
+    renderCategorizedPriceSheetTable(window._spsSheet.prices || {}, listEl);
+}
+
+function unhideSalesmanSheetItem(catalogName) {
+    if (!catalogName || !window._spsSheet) return;
+    const hidden = window._spsHiddenPrices || {};
+    const raw = hidden[catalogName];
+    const n = Number(raw);
+    if (!window._spsSheet.prices || typeof window._spsSheet.prices !== 'object') {
+        window._spsSheet.prices = {};
+    }
+    if (!isNaN(n)) {
+        window._spsSheet.prices[catalogName] = n;
+    } else if (typeof PRODUCT_CATALOG !== 'undefined') {
+        const catalog = PRODUCT_CATALOG.find(function (p) { return p && p.name === catalogName; });
+        if (catalog && catalog.unitPrice != null && !isNaN(Number(catalog.unitPrice))) {
+            window._spsSheet.prices[catalogName] = Number(catalog.unitPrice);
+        }
+    }
+    delete hidden[catalogName];
+    window._spsHiddenPrices = hidden;
+    const listEl = document.getElementById('price-sheet-modal-list');
+    renderCategorizedPriceSheetTable(window._spsSheet.prices || {}, listEl);
 }
 
 function renderCategorizedPriceSheetTable(prices, listEl) {
@@ -8794,6 +8841,7 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
     const unmatched = [];
 
     Object.keys(nameSet).forEach(function (name) {
+        if (isSalesmanSheetHidden(name)) return;
         const catalog = catalogByName[name];
         const raw = source[name];
         const fromSheet = raw != null && raw !== '' && !isNaN(Number(raw));
@@ -8854,6 +8902,7 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
                                 <th class="p-2.5 text-left w-28">Case Size</th>
                                 <th class="p-2.5 text-right w-28">Unit Price</th>
                                 <th class="p-2.5 text-center w-28">As Of</th>
+                                ${editing ? '<th class="p-2.5 text-center w-24">Hide</th>' : ''}
                             </tr>
                         </thead>
                         <tbody>
@@ -8881,6 +8930,7 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
                     <td class="p-2.5 text-[#6B4423]">${escapeHtml(row.caseSize || '—')}</td>
                     <td class="p-2.5 text-right">${priceCell}</td>
                     <td class="p-2.5 text-center text-xs text-[#6B4423]">${escapeHtml(row.priceAsOf || '—')}</td>
+                    ${editing ? ('<td class="p-2.5 text-center"><button type="button" class="px-2 py-1 text-xs font-semibold rounded-lg bg-[#6B4423] text-[#d4b78f]" data-name="' + encodeURIComponent(row.name) + '" onclick="hideSalesmanSheetItem(decodeURIComponent(this.getAttribute(\'data-name\')))">Hide</button></td>') : ''}
                 </tr>
             `;
         });
@@ -8892,6 +8942,28 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
             </div>
         `;
     });
+
+    if (editing) {
+        const hiddenNames = Object.keys(window._spsHiddenPrices || {}).sort();
+        if (hiddenNames.length) {
+            html += '<div class="mt-4 border-2 border-[#6B4423] rounded-xl p-3 bg-[#f8f4eb]">';
+            html += '<h3 class="text-base font-bold brand-green mb-2">Hidden from this assortment</h3>';
+            html += '<p class="text-xs text-[#6B4423] mb-2">These items will not show on this salesman’s assigned store cards after Save &amp; Push.</p>';
+            hiddenNames.forEach(function (name) {
+                const raw = window._spsHiddenPrices[name];
+                const n = Number(raw);
+                const priceText = isNaN(n) ? '' : (' · $' + n.toFixed(2));
+                html += '<div class="flex items-center justify-between gap-2 py-1.5 border-b border-[#e8d9b8]">';
+                html += '<span class="text-sm">' + escapeHtml(salesmanSheetDisplayName(name)) +
+                    '<span class="text-xs text-[#6B4423]"> · Catalog: ' + escapeHtml(name) + priceText + '</span></span>';
+                html += '<button type="button" class="px-2 py-1 text-xs font-semibold rounded-lg border-2 border-[#6B4423]" data-name="' +
+                    encodeURIComponent(name) +
+                    '" onclick="unhideSalesmanSheetItem(decodeURIComponent(this.getAttribute(\'data-name\')))">Unhide</button>';
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+    }
 
     listEl.innerHTML = html;
     return total;
@@ -8931,7 +9003,7 @@ async function openSalesmanPriceSheetModal() {
     try {
         const { data, error } = await supabaseClient
             .from('salesman_price_sheets')
-            .select('id, prices, display_names, updated_at, salesman_name')
+            .select('id, prices, display_names, hidden_prices, updated_at, salesman_name')
             .eq('salesman_email', email)
             .maybeSingle();
 
@@ -8944,6 +9016,9 @@ async function openSalesmanPriceSheetModal() {
 
         window._spsDisplayNames = (data.display_names && typeof data.display_names === 'object')
             ? data.display_names
+            : {};
+        window._spsHiddenPrices = (data.hidden_prices && typeof data.hidden_prices === 'object')
+            ? data.hidden_prices
             : {};
         window._spsSheet = {
             id: data.id,
@@ -8982,6 +9057,7 @@ function hideSalesmanPriceSheetModal() {
     window._spsSheet = null;
     window._spsExport = null;
     window._spsDisplayNames = {};
+    window._spsHiddenPrices = {};
     if (typeof setSalesmanPriceSheetEditMode === 'function') setSalesmanPriceSheetEditMode(false);
 }
 
@@ -9017,6 +9093,9 @@ function collectSalesmanPriceSheetInputs() {
         if (isNaN(n) || n < 0) return;
         next[name] = Math.round(n * 100) / 100;
     });
+    Object.keys(window._spsHiddenPrices || {}).forEach(function (name) {
+        delete next[name];
+    });
     return next;
 }
 
@@ -9051,7 +9130,7 @@ async function applyNewSalesmanPriceSheetToCustomer(customer, newSalesmanEmail) 
     }
     const { data: sheet, error } = await supabaseClient
         .from('salesman_price_sheets')
-        .select('prices')
+        .select('prices, hidden_prices')
         .eq('salesman_email', dest)
         .maybeSingle();
     if (error) return { ok: false, reason: error.message };
@@ -9059,6 +9138,9 @@ async function applyNewSalesmanPriceSheetToCustomer(customer, newSalesmanEmail) 
         return { ok: false, reason: 'No price sheet for ' + dest };
     }
     let prices = Object.assign({}, sheet.prices);
+    Object.keys(sheet.hidden_prices || {}).forEach(function (name) {
+        delete prices[name];
+    });
     if (dest === 'donegaldogtreats@gmail.com' && typeof isJakePetSupplyCustomer === 'function' && isJakePetSupplyCustomer(customer) && typeof applyJakeElkyTrainingPrices === 'function') {
         prices = applyJakeElkyTrainingPrices(prices);
     }
@@ -9169,6 +9251,7 @@ function buildSalesmanSheetExportRows(prices) {
     }
     const rows = [];
     Object.keys(source).forEach(function (name) {
+        if (isSalesmanSheetHidden(name)) return;
         const catalog = catalogByName[name] || {};
         const raw = source[name];
         const n = Number(raw);
@@ -9505,6 +9588,7 @@ async function saveSalesmanPriceSheetAndPush() {
             .update({
                 prices: prices,
                 display_names: collectSalesmanDisplayNames(),
+                hidden_prices: window._spsHiddenPrices || {},
                 salesman_name: salesmanName,
                 updated_at: nowIso
             })
