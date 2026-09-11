@@ -8779,6 +8779,10 @@ function isSalesmanSheetHidden(name) {
 
 function hideSalesmanSheetItem(catalogName) {
     if (!catalogName || !window._spsSheet) return;
+    const hideLabel = (typeof salesmanSheetDisplayName === 'function')
+        ? salesmanSheetDisplayName(catalogName)
+        : catalogName;
+    if (!confirm('Hide "' + hideLabel + '" from this assortment and update assigned stores?')) return;
     if (!window._spsHiddenPrices || typeof window._spsHiddenPrices !== 'object') {
         window._spsHiddenPrices = {};
     }
@@ -8792,10 +8796,17 @@ function hideSalesmanSheetItem(catalogName) {
     if (window._spsExport && window._spsExport.prices) delete window._spsExport.prices[catalogName];
     const listEl = document.getElementById('price-sheet-modal-list');
     renderCategorizedPriceSheetTable(window._spsSheet.prices || {}, listEl);
+    if (typeof saveSalesmanPriceSheetAndPush === 'function') {
+        saveSalesmanPriceSheetAndPush({ silent: true });
+    }
 }
 
 function unhideSalesmanSheetItem(catalogName) {
     if (!catalogName || !window._spsSheet) return;
+    const showLabel = (typeof salesmanSheetDisplayName === 'function')
+        ? salesmanSheetDisplayName(catalogName)
+        : catalogName;
+    if (!confirm('Unhide "' + showLabel + '" and put it back on assigned store cards?')) return;
     const hidden = window._spsHiddenPrices || {};
     const raw = hidden[catalogName];
     const n = Number(raw);
@@ -8814,6 +8825,9 @@ function unhideSalesmanSheetItem(catalogName) {
     window._spsHiddenPrices = hidden;
     const listEl = document.getElementById('price-sheet-modal-list');
     renderCategorizedPriceSheetTable(window._spsSheet.prices || {}, listEl);
+    if (typeof saveSalesmanPriceSheetAndPush === 'function') {
+        saveSalesmanPriceSheetAndPush({ silent: true });
+    }
 }
 
 function openSalesmanHiddenModal() {
@@ -9559,7 +9573,8 @@ async function exportOpenSalesmanPriceSheetPdf() {
     doc.save(salesmanSheetFileSlug(title) + '_Price_Sheet_' + fileStamp + '.pdf');
 }
 
-async function saveSalesmanPriceSheetAndPush() {
+async function saveSalesmanPriceSheetAndPush(opts) {
+    const silent = !!(opts && opts.silent);
     if (!window._spsSheet || !window._spsSheet.id || !window._spsSheet.email) {
         alert('No salesman sheet is loaded.');
         return;
@@ -9590,14 +9605,16 @@ async function saveSalesmanPriceSheetAndPush() {
     const skipped = assigned.filter(shouldSkipSalesmanPricePush);
     const targets = assigned.filter(function (c) { return !shouldSkipSalesmanPricePush(c); });
 
-    const ok = confirm(
-        'Save the price sheet for ' + salesmanName + ' and push these prices to ' +
-        targets.length + ' assigned store(s)?\n\n' +
-        'This overwrites each store\'s customer price sheet with this full map.\n' +
-        (skipped.length ? ('Skipped: ' + skipped.length + ' protected store(s).\n') : '') +
-        '\nThis cannot be undone from this screen.'
-    );
-    if (!ok) return;
+    if (!silent) {
+        const ok = confirm(
+            'Save the price sheet for ' + salesmanName + ' and push these prices to ' +
+            targets.length + ' assigned store(s)?\n\n' +
+            'This overwrites each store\'s customer price sheet with this full map.\n' +
+            (skipped.length ? ('Skipped: ' + skipped.length + ' protected store(s).\n') : '') +
+            '\nThis cannot be undone from this screen.'
+        );
+        if (!ok) return;
+    }
 
     const saveBtn = document.getElementById('sps-save-btn');
     if (saveBtn) {
@@ -9636,8 +9653,10 @@ async function saveSalesmanPriceSheetAndPush() {
 
         window._spsSheet.prices = prices;
         window._spsDisplayNames = collectSalesmanDisplayNames();
-        window._spsEditing = false;
-        setSalesmanPriceSheetEditMode(false);
+        if (!silent) {
+            window._spsEditing = false;
+            setSalesmanPriceSheetEditMode(false);
+        }
         const listEl = document.getElementById('price-sheet-modal-list');
         const count = renderCategorizedPriceSheetTable(prices, listEl);
         const subEl = document.getElementById('price-sheet-modal-subtitle');
@@ -9646,11 +9665,13 @@ async function saveSalesmanPriceSheetAndPush() {
                 new Date(nowIso).toLocaleString();
         }
 
-        alert(
-            'Saved ' + salesmanName + '\'s sheet.\n' +
-            'Pushed prices to ' + pushed + ' store(s).' +
-            (skipped.length ? ('\nSkipped ' + skipped.length + ' protected store(s).') : '')
-        );
+        if (!silent) {
+            alert(
+                'Saved ' + salesmanName + '\'s sheet.\n' +
+                'Pushed prices to ' + pushed + ' store(s).' +
+                (skipped.length ? ('\nSkipped ' + skipped.length + ' protected store(s).') : '')
+            );
+        }
     } catch (err) {
         console.error('saveSalesmanPriceSheetAndPush:', err);
         alert('Could not save / push prices.\n' + (err.message || ''));
