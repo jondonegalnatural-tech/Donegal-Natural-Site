@@ -10342,9 +10342,11 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
                         <p class="font-bold text-lg brand-green">${escapeHtml(p.salesmanName || "Salesman")}</p>
                         <p class="text-sm text-[#6B4423]">${typeLabel} · ${date} · ${items.length} product(s)</p>
                     </div>
-                    <span class="px-3 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">
-                        Pending
-                    </span>
+                    <span class="px-3 py-1 text-xs font-semibold rounded-full ${
+                String(p.status || '').toLowerCase() === 'approved' ? 'bg-green-100 text-green-800' :
+                String(p.status || '').toLowerCase() === 'denied' ? 'bg-red-100 text-red-800' :
+                'bg-orange-100 text-orange-700'
+            }">${escapeHtml(p.status || 'Pending')}</span>
                 </div>
 
                 <div class="rounded-xl border-2 ${noticeClass} px-4 py-3 mb-3">
@@ -10353,6 +10355,7 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
                     ${changedCount > 0 ? `<ul class="mt-2 text-sm space-y-0.5 max-h-28 overflow-y-auto">${noticeList}</ul>${noticeMore}` : ""}
                 </div>
 
+                ${String(p.status || '').toLowerCase() === 'pending' ? `
                 <div class="flex gap-3">
                     <button type="button"
                             onclick="approvePriceProposal('${p.id}')"
@@ -10365,6 +10368,7 @@ function renderProposalDetailHtml(p, date, typeLabel, changesOnly) {
                         Deny
                     </button>
                 </div>
+                ` : ''}
             </div>
 
             ${p.overallNotes ? `<p class="text-sm text-[#6B4423] mb-3"><strong>Notes:</strong> ${escapeHtml(p.overallNotes)}</p>` : ""}
