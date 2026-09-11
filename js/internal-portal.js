@@ -7192,7 +7192,16 @@ onboardingSection.innerHTML = `
                    onchange="toggleCustomerSpecialPricing(this.checked)">
             Special pricing — do not overwrite this sheet on salesman push
         </label>
-        ${sheetHtml}
+        <button type="button"
+                onclick="openCustomerProtectedSheet('${customer.id}')"
+                class="mb-3 w-full px-4 py-2.5 bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-semibold text-sm">
+            View price sheet by category
+        </button>
+        <p class="text-xs text-[#6B4423] mb-3">${
+            (customer.specialPriceItems && customer.specialPriceItems.length)
+                ? (customer.specialPriceItems.length + ' product(s) locked from push')
+                : 'No individual products locked'
+        }</p>
         ${!isPricingApproved ? `
             <button type="button"
                     onclick="approveCustomerPricingAccess()"
@@ -7354,6 +7363,35 @@ async function toggleCustomerSpecialPricing(on) {
         alert('Could not save special pricing.\n' + (err.message || ''));
         const box = document.getElementById('modal-customer-special-pricing');
         if (box) box.checked = !on;
+    }
+}
+
+
+function normSpecialName(s) {
+    return String(s || '').toLowerCase().replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/\s+/g, ' ').trim();
+}
+
+function hideCustomerProtectedSheet() {
+    const modal = document.getElementById('customer-protected-sheet-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+async function saveCustomerProtectedSheet() {
+    const id = window._protectedSheetCustomerId;
+    if (!id) return;
+    const names = Array.from(document.querySelectorAll('#customer-protected-sheet-list .cps-lock:checked')).map(function (el) {
+        return decodeURIComponent(el.getAttribute('data-name') || '');
+    }).filter(Boolean);
+    try {
+        const { error } = await supabaseClient.from('customers').update({ special_price_items: names }).eq('id', id);
+        if (error) throw error;
+        const row = (allCustomers || []).find(function (c) { return String(c.id) === String(id); });
+        if (row) row.specialPriceItems = names;
+        hideCustomerProtectedSheet();
+        if (row && row.name && typeof showCustomerDetail === 'function') showCustomerDetail(row.name);
+        alert(names.length + ' product(s) locked from salesman push.');
+    } catch (err) {
+        alert('Could not save locked products.\n' + (err.message || ''));
     }
 }
 
