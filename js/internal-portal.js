@@ -6118,7 +6118,7 @@ async function loadCustomers() {
     try {
         const { data, error } = await supabaseClient
             .from('customers')
-            .select('id, name, company, email, phone, shipping_address, billing_address, notes, status, source, submitted_by, submitted_by_email, salesman_email, territory, monthly_amount, created_at, payment_method, payment_method_status, payment_method_details, password_changed, onboarding_complete, pricing_approved_at, pricing_approved_by, assigned_at, last_login_at, salesman_commission_percent')
+            .select('id, name, company, email, phone, shipping_address, billing_address, notes, status, source, submitted_by, submitted_by_email, salesman_email, territory, monthly_amount, created_at, payment_method, payment_method_status, payment_method_details, password_changed, onboarding_complete, pricing_approved_at, pricing_approved_by, assigned_at, last_login_at, salesman_commission_percent, special_pricing')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -6155,9 +6155,10 @@ async function loadCustomers() {
                 salesmanCommissionPercent: c.salesman_commission_percent != null && c.salesman_commission_percent !== ''
                     ? Number(c.salesman_commission_percent)
                     : null,
+                specialPricing: !!c.special_pricing,
                 lat: c.lat != null ? Number(c.lat) : null,
                 lng: c.lng != null ? Number(c.lng) : null,
-                placeId: c.place_id || null,    
+                placeId: c.place_id || null,
             }));
         }
     } catch (err) {
@@ -7184,6 +7185,12 @@ onboardingSection.innerHTML = `
                    ${customer.pricingApprovedBy ? ' by ' + escapeHtml(customer.pricingApprovedBy) : ''}`
                 : `<i class="fas fa-exclamation-circle mr-1"></i> Not approved — customer cannot see prices`}
         </p>
+        <label class="flex items-center gap-2 text-sm text-[#6B4423] mb-3">
+            <input type="checkbox" id="modal-customer-special-pricing"
+                   ${customer.specialPricing ? 'checked' : ''}
+                   onchange="toggleCustomerSpecialPricing(this.checked)">
+            Special pricing — do not overwrite this sheet on salesman push
+        </label>
         ${sheetHtml}
         ${!isPricingApproved ? `
             <button type="button"
@@ -7324,6 +7331,28 @@ async function notifyCustomerPricingReady(customer) {
         }
     } catch (err) {
         console.warn('pricing ready email:', err && err.message ? err.message : err);
+    }
+}
+
+async function toggleCustomerSpecialPricing(on) {
+    const modal = document.getElementById('customer-modal');
+    const id = modal && modal.dataset ? modal.dataset.customerId : '';
+    if (!id) return;
+    try {
+        const { error } = await supabaseClient
+            .from('customers')
+            .update({ special_pricing: !!on })
+            .eq('id', id);
+        if (error) throw error;
+        const row = (allCustomers || []).find(function (c) { return String(c.id) === String(id); });
+        if (row) {
+            row.specialPricing = !!on;
+            row.special_pricing = !!on;
+        }
+    } catch (err) {
+        alert('Could not save special pricing.\n' + (err.message || ''));
+        const box = document.getElementById('modal-customer-special-pricing');
+        if (box) box.checked = !on;
     }
 }
 
@@ -8895,6 +8924,7 @@ function shouldSkipSalesmanPricePush(customer) {
     if (email === 'jackerman@donegalnatural.com') return true;
     if (company.indexOf('admin test store') !== -1) return true;
     if (name.indexOf('admin test store') !== -1) return true;
+    if (customer && (customer.special_pricing === true || customer.specialPricing === true)) return true;
     return false;
 }
 
@@ -9282,7 +9312,7 @@ async function saveSalesmanPriceSheetAndPush() {
     try {
         const { data, error } = await supabaseClient
             .from('customers')
-            .select('id, name, company, email, salesman_email')
+            .select('id, name, company, email, salesman_email, special_pricing')
             .ilike('salesman_email', email);
         if (error) throw error;
         assigned = data || [];
@@ -10110,11 +10140,13 @@ async function updatePriceProposalsBadge() {
     const pendingOnly = pending.filter(function (p) {
         return String(p.status || '').toLowerCase() === 'pending';
     });
-    const initialCount = pending.filter(p => p.type === 'initialPriceSheet').length;
+    const initialCount = pendingOnly.filter(function (p) {
+        return p.type === 'initialPriceSheet';
+    }).length;
 
     if (badge) {
-        if (pendingOnly > 0) {
-            badge.textContent = pendingOnly
+        if (pendingOnly.length > 0) {
+            badge.textContent = pendingOnly.length;
             badge.classList.remove("hidden");
         } else {
             badge.classList.add("hidden");
