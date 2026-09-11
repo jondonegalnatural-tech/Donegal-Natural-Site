@@ -11511,6 +11511,9 @@ async function confirmInquiryApproval() {
 
     let existingCustomer = findExactStoreMatch(matchInfo.matches, name, company);
     const loginExists = !!matchInfo.loginExists;
+    if (!existingCustomer && (matchInfo.matches || []).length === 1) {
+        existingCustomer = matchInfo.matches[0];
+    }
     const existingStoreNames = (matchInfo.matches || []).map(function (c) {
         return c.name || c.company || c.id;
     }).filter(Boolean).join(', ');
