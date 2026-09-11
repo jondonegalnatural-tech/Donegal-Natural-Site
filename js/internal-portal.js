@@ -8754,7 +8754,8 @@ function salesmanSheetDisplayName(catalogName) {
 function collectSalesmanDisplayNames() {
     const next = Object.assign({}, window._spsDisplayNames || {});
     document.querySelectorAll('#price-sheet-modal-list input.sps-name').forEach(function (inp) {
-        const catalog = inp.getAttribute('data-name');
+        let catalog = inp.getAttribute('data-name') || '';
+        try { catalog = decodeURIComponent(catalog); } catch (err) {}
         if (!catalog) return;
         const nick = String(inp.value || '').replace(/\s+/g, ' ').trim();
         if (!nick || nick === catalog) {
@@ -8970,6 +8971,7 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
         rows.forEach(function (row, i) {
             const bg = i % 2 ? 'bg-[#f8f4eb]' : 'bg-white';
             const nameAttr = String(row.name || '').replace(/"/g, '&quot;');
+            const nameKey = encodeURIComponent(row.name || '');
             const hasPrice = !isNaN(Number(row.price));
             const priceCell = editing
                 ? ('<input type="number" step="0.01" min="0" class="sps-price w-24 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-right" data-name="' +
@@ -8978,7 +8980,7 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
             const nick = salesmanSheetDisplayName(row.name);
             const nameCell = editing
                 ? ('<input type="text" class="sps-name w-full border-2 border-[#6B4423] rounded-lg px-2 py-1" data-name="' +
-                    nameAttr + '" value="' + escapeHtml(nick) + '">' +
+                    nameKey + '" value="' + escapeHtml(nick) + '">' +
                     '<p class="text-[10px] text-[#6B4423] mt-0.5">Catalog: ' + escapeHtml(row.name) + '</p>')
                 : (escapeHtml(nick) + (nick !== row.name
                     ? ('<p class="text-[10px] text-[#6B4423] mt-0.5">Catalog: ' + escapeHtml(row.name) + '</p>')

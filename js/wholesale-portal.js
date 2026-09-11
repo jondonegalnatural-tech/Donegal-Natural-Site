@@ -3838,6 +3838,14 @@ function appendProductCards(grid, products) {
     });
 }
 
+function quotedStyleWord(name) {
+    const matches = String(name || '').match(/[“"']\s*([A-Za-z][A-Za-z0-9 -]{0,30})\s*[”"']/g) || [];
+    if (!matches.length) return '';
+    const last = matches[matches.length - 1];
+    const inner = last.replace(/[“"'\s]/g, '').trim();
+    return inner;
+}
+
 function variantChipLabel(dim, product) {
     const catalogName = (product && product.name) || '';
     const catalogLabel = extractVariantDim(dim, product);
@@ -3846,9 +3854,11 @@ function variantChipLabel(dim, product) {
         : catalogName;
     if (!nick || nick === catalogName) return catalogLabel;
     const nickLabel = extractVariantDim(dim, { name: nick });
-    if (dim === 'size' || dim === 'bag' || dim === 'pack' || dim === 'format') {
+    if (dim === 'size' || dim === 'bag' || dim === 'pack' || dim === 'format' || dim === 'hornSize') {
         return nickLabel || catalogLabel;
     }
+    const quoted = quotedStyleWord(nick);
+    if (quoted) return quoted.charAt(0).toUpperCase() + quoted.slice(1);
     const nickTrim = String(nick).replace(/\s+/g, ' ').trim();
     if (nickTrim.split(' ').length <= 3 && !/\d/.test(nickTrim)) return nickTrim;
     const catNorm = (typeof normalizeProductName === 'function')
@@ -3873,6 +3883,21 @@ function variantChipLabel(dim, product) {
         }).join(' ');
     }
     return nickLabel || catalogLabel;
+}
+
+function styleGroupLabel(dim, product, variants) {
+    const catalogLabel = extractVariantDim(dim, product);
+    if (dim === 'size' || dim === 'bag' || dim === 'pack' || dim === 'format' || dim === 'hornSize') {
+        return variantChipLabel(dim, product);
+    }
+    const group = (variants || []).filter(function (v) {
+        return extractVariantDim(dim, v) === catalogLabel;
+    });
+    for (let i = 0; i < group.length; i++) {
+        const chip = variantChipLabel(dim, group[i]);
+        if (chip && chip !== catalogLabel) return chip;
+    }
+    return catalogLabel;
 }
 
 function extractVariantDim(dim, product) {
@@ -4389,13 +4414,13 @@ function buildCombinedCard(group) {
         let selected = variants[0] || fallback;
         const state = {};
         dims.forEach(d => {
-            state[d] = variantChipLabel(d, selected);
+            state[d] = styleGroupLabel(d, selected, variants);
         });
         const rows = {};
 
         function findSelected() {
-            return variants.find(v => dims.every(d => variantChipLabel(d, v) === state[d]))
-                || variants.find(v => dims.filter(d => state[d]).every(d => variantChipLabel(d, v) === state[d]))
+            return variants.find(v => dims.every(d => styleGroupLabel(d, v, variants) === state[d]))
+                || variants.find(v => dims.filter(d => state[d]).every(d => styleGroupLabel(d, v, variants) === state[d]))
                 || variants[0]
                 || fallback;
         }
@@ -4423,7 +4448,7 @@ function buildCombinedCard(group) {
         dims.forEach(d => {
             const labels = [];
             variants.forEach(v => {
-                const label = variantChipLabel(d, v);
+                const label = styleGroupLabel(d, v, variants);
                 if (label && labels.indexOf(label) === -1) labels.push(label);
             });
             if (!labels.length) return;
