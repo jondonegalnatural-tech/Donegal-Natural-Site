@@ -4109,6 +4109,22 @@ body { background: #f8f1e9; }
         </form>
     </div>
 </div>
+<div id="customer-protected-sheet-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[90] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col border-2 border-[#6B4423]">
+        <div class="flex justify-between items-start p-4 border-b border-[#d4b78f]">
+            <div>
+                <h3 class="text-lg font-bold brand-green">Customer price sheet</h3>
+                <p id="customer-protected-sheet-sub" class="text-xs text-[#6B4423] mt-1"></p>
+            </div>
+            <button type="button" onclick="hideCustomerProtectedSheet()" class="text-2xl text-[#6B4423]">×</button>
+        </div>
+        <div id="customer-protected-sheet-list" class="p-4 overflow-y-auto flex-1"></div>
+        <div class="p-4 border-t border-[#d4b78f] flex gap-3">
+            <button type="button" onclick="hideCustomerProtectedSheet()" class="flex-1 px-4 py-2.5 border-2 border-[#6B4423] rounded-xl font-semibold">Cancel</button>
+            <button type="button" onclick="saveCustomerProtectedSheet()" class="flex-1 px-4 py-2.5 bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-semibold">Save locked products</button>
+        </div>
+    </div>
+</div>
 <!-- ==================== END MODALS ==================== -->
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -4185,22 +4201,6 @@ body { background: #f8f1e9; }
         });
     }
 })();
-<div id="customer-protected-sheet-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-[90] flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col border-2 border-[#6B4423]">
-        <div class="flex justify-between items-start p-4 border-b border-[#d4b78f]">
-            <div>
-                <h3 class="text-lg font-bold brand-green">Customer price sheet</h3>
-                <p id="customer-protected-sheet-sub" class="text-xs text-[#6B4423] mt-1"></p>
-            </div>
-            <button type="button" onclick="hideCustomerProtectedSheet()" class="text-2xl text-[#6B4423]">×</button>
-        </div>
-        <div id="customer-protected-sheet-list" class="p-4 overflow-y-auto flex-1"></div>
-        <div class="p-4 border-t border-[#d4b78f] flex gap-3">
-            <button type="button" onclick="hideCustomerProtectedSheet()" class="flex-1 px-4 py-2.5 border-2 border-[#6B4423] rounded-xl font-semibold">Cancel</button>
-            <button type="button" onclick="saveCustomerProtectedSheet()" class="flex-1 px-4 py-2.5 bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-semibold">Save locked products</button>
-        </div>
-    </div>
-</div>
 </script>
 </body>
 </html>
