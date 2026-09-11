@@ -3838,6 +3838,37 @@ function appendProductCards(grid, products) {
     });
 }
 
+function variantChipLabel(dim, product) {
+    const catalogName = (product && product.name) || '';
+    const catalogLabel = extractVariantDim(dim, product);
+    const nick = (typeof wholesaleDisplayName === 'function')
+        ? wholesaleDisplayName(catalogName)
+        : catalogName;
+    if (!nick || nick === catalogName) return catalogLabel;
+    const nickLabel = extractVariantDim(dim, { name: nick });
+    if (dim === 'size' || dim === 'bag' || dim === 'pack' || dim === 'format') {
+        return nickLabel || catalogLabel;
+    }
+    const nickTrim = String(nick).replace(/\s+/g, ' ').trim();
+    if (nickTrim.split(' ').length <= 3 && !/\d/.test(nickTrim)) return nickTrim;
+    const catNorm = (typeof normalizeProductName === 'function')
+        ? normalizeProductName(catalogName)
+        : String(catalogName).toLowerCase();
+    const nickNorm = (typeof normalizeProductName === 'function')
+        ? normalizeProductName(nick)
+        : nickTrim.toLowerCase();
+    const extra = nickNorm.split(' ').filter(function (t) {
+        return t && catNorm.split(' ').indexOf(t) === -1 &&
+            t !== 'bulk' && t !== 'display' && t !== 'sticks';
+    });
+    if (extra.length) {
+        return extra.map(function (t) {
+            return t.charAt(0).toUpperCase() + t.slice(1);
+        }).join(' ');
+    }
+    return nickLabel || catalogLabel;
+}
+
 function extractVariantDim(dim, product) {
     const n = String((product && product.name) || '');
     switch (dim) {
@@ -4352,13 +4383,13 @@ function buildCombinedCard(group) {
         let selected = variants[0] || fallback;
         const state = {};
         dims.forEach(d => {
-            state[d] = extractVariantDim(d, selected);
+            state[d] = variantChipLabel(d, selected);
         });
         const rows = {};
 
         function findSelected() {
-            return variants.find(v => dims.every(d => extractVariantDim(d, v) === state[d]))
-                || variants.find(v => dims.filter(d => state[d]).every(d => extractVariantDim(d, v) === state[d]))
+            return variants.find(v => dims.every(d => variantChipLabel(d, v) === state[d]))
+                || variants.find(v => dims.filter(d => state[d]).every(d => variantChipLabel(d, v) === state[d]))
                 || variants[0]
                 || fallback;
         }
@@ -4386,7 +4417,7 @@ function buildCombinedCard(group) {
         dims.forEach(d => {
             const labels = [];
             variants.forEach(v => {
-                const label = extractVariantDim(d, v);
+                const label = variantChipLabel(d, v);
                 if (label && labels.indexOf(label) === -1) labels.push(label);
             });
             if (!labels.length) return;
