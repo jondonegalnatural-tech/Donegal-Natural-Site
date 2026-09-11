@@ -3250,6 +3250,55 @@ if (customerInfoForm) {
             alert("Please fill in all required fields (Notes are optional).");
             return;
         }
+            
+        const seat = (typeof getOperatingSalesmanEmail === 'function'
+            ? getOperatingSalesmanEmail()
+            : (user.email || '')).toLowerCase().trim();
+        if (seat === 'donegaldogtreats@gmail.com') {
+        const emailKey = email.toLowerCase().trim();
+        const { data: existingRows, error: existErr } = await supabaseClient
+                .from('customers')
+                .select('id, name, company, email, salesman_email, status')
+                .ilike('email', emailKey);
+        if (existErr) {
+                alert('Could not check for an existing customer.\n' + existErr.message);
+                return;
+            }
+        const rows = (existingRows || []).filter(function (c) {
+        const em = String(c.email || '').toLowerCase();
+        const blob = String((c.company || '') + ' ' + (c.name || '')).toLowerCase();
+        if (em === 'jackerman@donegalnatural.com') return false;
+        if (blob.indexOf('admin test store') !== -1) return false;
+        if (blob.indexOf('adriana hoang') !== -1 || blob.indexOf('gerald bair') !== -1) return false;
+                return true;
+            });
+        const brianRows = rows.filter(function (c) {
+                return String(c.salesman_email || '').toLowerCase() === seat;
+            });
+        const otherRows = rows.filter(function (c) {
+                return String(c.salesman_email || '').toLowerCase() !== seat;
+            });
+        if (otherRows.length && !brianRows.length) {
+                alert(
+                    'This email already belongs to another salesman:\n' +
+                    otherRows.map(function (c) {
+                        return (c.company || c.name || c.email) + ' (' + (c.salesman_email || 'unassigned') + ')';
+                    }).join('\n') +
+                    '\n\nBrian cannot overwrite another salesman\'s account.'
+                );
+                return;
+            }
+        if (brianRows.length) {
+                const label = brianRows.map(function (c) {
+                    return (c.company || c.name || c.email) + ' · ' + (c.status || '');
+                }).join('\n');
+        if (!confirm(
+                    'This email already has a Brian store:\n' + label +
+                    '\n\nSubmit will UPDATE that account after approval.\n' +
+                    'A second store will not be added.\n\nContinue?'
+                )) return;
+            }
+        }
 
         const notesParts = [];
         notesParts.push("Shipping: " + shippingAddress);

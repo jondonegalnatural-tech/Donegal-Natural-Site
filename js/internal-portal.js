@@ -11495,7 +11495,7 @@ async function confirmInquiryApproval() {
         return;
     }
 
-    const existingCustomer = findExactStoreMatch(matchInfo.matches, name, company);
+    let existingCustomer = findExactStoreMatch(matchInfo.matches, name, company);
     const loginExists = !!matchInfo.loginExists;
     const existingStoreNames = (matchInfo.matches || []).map(function (c) {
         return c.name || c.company || c.id;
@@ -11528,6 +11528,32 @@ async function confirmInquiryApproval() {
             'OK to attach this store?'
         )) {
             return;
+        }
+    }
+
+    const selectedPreview = salesmanSelect && salesmanSelect.options[salesmanSelect.selectedIndex];
+    const previewEmail = salesmanId ? String((selectedPreview && selectedPreview.dataset.email) || '').toLowerCase().trim() : '';
+    if (!existingCustomer && previewEmail === 'donegaldogtreats@gmail.com') {
+    const brianHits = (matchInfo.matches || []).filter(function (c) {
+            return String(c.salesman_email || '').toLowerCase().trim() === 'donegaldogtreats@gmail.com';
+        });
+    const otherHits = (matchInfo.matches || []).filter(function (c) {
+            return String(c.salesman_email || '').toLowerCase().trim() !== 'donegaldogtreats@gmail.com';
+        });
+    if (otherHits.length && !brianHits.length) {
+            alert(
+                'This email already belongs to another salesman.\n' +
+                'Brian cannot attach a second store or overwrite that account.'
+            );
+            return;
+        }
+    if (brianHits.length) {
+            existingCustomer = brianHits[0];
+            if (!confirm(
+                'This email already has a Brian store (' +
+                ([existingCustomer.name, existingCustomer.company].filter(Boolean).join(' / ') || email) +
+                ').\n\nApprove will OVERWRITE that store. A second store will not be added.\n\nOK to overwrite?'
+            )) return;
         }
     }
 
