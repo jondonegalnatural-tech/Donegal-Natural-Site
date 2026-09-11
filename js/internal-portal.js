@@ -6691,11 +6691,25 @@ function normalizeStoreKey(value) {
 function findExactStoreMatch(matches, name, company) {
     const want = [normalizeStoreKey(name), normalizeStoreKey(company)].filter(Boolean);
     if (!want.length || !Array.isArray(matches) || !matches.length) return null;
+    function isSameStore(a, b) {
+        if (!a || !b) return false;
+        if (a === b) return true;
+        if (a.length >= 5 && b.length >= 5 && (a.indexOf(b) !== -1 || b.indexOf(a) !== -1)) return true;
+        return false;
+    }
     const hits = matches.filter(function (c) {
+        const keys = [normalizeStoreKey(c.name), normalizeStoreKey(c.company)].filter(Boolean);
+        return keys.some(function (k) {
+            return want.some(function (w) { return isSameStore(k, w); });
+        });
+    });
+    if (!hits.length) return null;
+    if (hits.length === 1) return hits[0];
+    const exact = hits.filter(function (c) {
         const keys = [normalizeStoreKey(c.name), normalizeStoreKey(c.company)].filter(Boolean);
         return keys.some(function (k) { return want.indexOf(k) !== -1; });
     });
-    return hits.length === 1 ? hits[0] : null;
+    return exact.length === 1 ? exact[0] : hits[0];
 }
 
 async function matchCustomerForInquiryApproval(email) {
@@ -11528,32 +11542,6 @@ async function confirmInquiryApproval() {
             'OK to attach this store?'
         )) {
             return;
-        }
-    }
-
-    const selectedPreview = salesmanSelect && salesmanSelect.options[salesmanSelect.selectedIndex];
-    const previewEmail = salesmanId ? String((selectedPreview && selectedPreview.dataset.email) || '').toLowerCase().trim() : '';
-    if (!existingCustomer && previewEmail === 'donegaldogtreats@gmail.com') {
-    const brianHits = (matchInfo.matches || []).filter(function (c) {
-            return String(c.salesman_email || '').toLowerCase().trim() === 'donegaldogtreats@gmail.com';
-        });
-    const otherHits = (matchInfo.matches || []).filter(function (c) {
-            return String(c.salesman_email || '').toLowerCase().trim() !== 'donegaldogtreats@gmail.com';
-        });
-    if (otherHits.length && !brianHits.length) {
-            alert(
-                'This email already belongs to another salesman.\n' +
-                'Brian cannot attach a second store or overwrite that account.'
-            );
-            return;
-        }
-    if (brianHits.length) {
-            existingCustomer = brianHits[0];
-            if (!confirm(
-                'This email already has a Brian store (' +
-                ([existingCustomer.name, existingCustomer.company].filter(Boolean).join(' / ') || email) +
-                ').\n\nApprove will OVERWRITE that store. A second store will not be added.\n\nOK to overwrite?'
-            )) return;
         }
     }
 
