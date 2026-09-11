@@ -2660,6 +2660,7 @@ function selectWholesaleCategory(category) {
     currentCategoryFilter = category;
     currentSubCategoryFilter = '';
     clearWholesaleSearch();
+    markWholesaleNewSeenForFolder(category, '');
     renderCategoryFilters();
     renderPortalProducts();
 }
@@ -2668,6 +2669,7 @@ function selectWholesaleSubcategory(category, subcategory) {
     currentCategoryFilter = category;
     currentSubCategoryFilter = subcategory || '';
     clearWholesaleSearch();
+    markWholesaleNewSeenForFolder(category, currentSubCategoryFilter);
     renderCategoryFilters();
     renderPortalProducts();
 }
@@ -2697,6 +2699,9 @@ function renderCategoryFilters() {
             catBtn.className = 'mobile-cat-chip';
             if (!currentSubCategoryFilter) catBtn.classList.add('active');
             catBtn.textContent = currentCategoryFilter;
+            if (categoryHasNewItems(currentCategoryFilter)) {
+                catBtn.appendChild(makeWholesaleNewItemsBadge());
+            }
             catBtn.onclick = () => selectWholesaleCategory(currentCategoryFilter);
             container.appendChild(catBtn);
 
@@ -2706,6 +2711,9 @@ function renderCategoryFilters() {
                 btn.className = 'mobile-cat-chip';
                 if (currentSubCategoryFilter === sub) btn.classList.add('active');
                 btn.textContent = sub;
+                if (subcategoryHasNewItems(currentCategoryFilter, sub)) {
+                    btn.appendChild(makeWholesaleNewItemsBadge());
+                }
                 btn.onclick = () => selectWholesaleSubcategory(currentCategoryFilter, sub);
                 container.appendChild(btn);
             });
@@ -2717,6 +2725,9 @@ function renderCategoryFilters() {
             btn.type = 'button';
             btn.textContent = item.label;
             btn.className = useChip ? 'mobile-cat-chip' : 'sidebar-cat-btn';
+            if (item.value !== 'All' && categoryHasNewItems(item.value)) {
+                btn.appendChild(makeWholesaleNewItemsBadge());
+            }
             if (currentCategoryFilter === item.value) {
                 btn.classList.add('open');
                 if (!currentSubCategoryFilter) btn.classList.add('active');
@@ -2734,6 +2745,9 @@ function renderCategoryFilters() {
                         subBtn.type = 'button';
                         subBtn.className = 'sidebar-sub-btn';
                         subBtn.textContent = sub;
+                        if (subcategoryHasNewItems(item.value, sub)) {
+                            subBtn.appendChild(makeWholesaleNewItemsBadge());
+                        }
                         if (currentSubCategoryFilter === sub) subBtn.classList.add('active');
                         subBtn.onclick = () => selectWholesaleSubcategory(item.value, sub);
                         subList.appendChild(subBtn);
@@ -4178,6 +4192,9 @@ function buildCombinedCard(group) {
     };
     photo.appendChild(img);
     applyWholesaleComingSoon(photo, img, fallback.name || group.title);
+    if ((group.names || []).some(isWholesaleNewProduct) || isWholesaleNewProduct(fallback.name) || isWholesaleNewProduct(group.title)) {
+        appendCardNewBadge(photo);
+    }
     photo.onclick = () => {
         if (photo.classList.contains('is-coming-soon')) return;
         const currentName = (img.alt && img.alt !== group.title) ? img.alt : (fallback.name || group.title);
@@ -4431,6 +4448,9 @@ function buildProductCard(product) {
     img.alt = product.name || 'Donegal Natural treat';
     photo.appendChild(img);
     applyWholesaleComingSoon(photo, img, product.name);
+    if (isWholesaleNewProduct(product.name)) {
+        appendCardNewBadge(photo);
+    }
     photo.onclick = () => {
         if (photo.classList.contains('is-coming-soon')) return;
         openProductImageLightbox(getProductImagePaths(product), 0);
@@ -7677,6 +7697,118 @@ function newProductAlertStorageKey() {
     const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
     const email = (user.email || '').toLowerCase().trim();
     return email ? ('newProductAlertSeenAt_' + email) : null;
+}
+
+function newProductSeenNamesKey() {
+    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    const email = (user.email || '').toLowerCase().trim();
+    return email ? ('newProductSeenNames_' + email) : null;
+}
+
+function getSeenNewProductNames() {
+    const key = newProductSeenNamesKey();
+    if (!key) return [];
+    try {
+        const raw = JSON.parse(localStorage.getItem(key) || '[]');
+        return Array.isArray(raw) ? raw.map(normalizeProductName) : [];
+    } catch (err) {
+        return [];
+    }
+}
+
+function isWholesaleNewProduct(name) {
+    const map = window._wholesaleNewNames || {};
+    return !!map[normalizeProductName(name)];
+}
+
+function makeWholesaleNewItemsBadge() {
+    const el = document.createElement('span');
+    el.className = 'wholesale-new-items-badge';
+    el.textContent = 'New items';
+    return el;
+}
+
+function appendCardNewBadge(photo) {
+    if (!photo) return;
+    const pill = document.createElement('span');
+    pill.className = 'card-new-badge';
+    pill.textContent = 'New';
+    photo.appendChild(pill);
+}
+
+function namesInWholesaleFolder(category, subcategory) {
+    const names = [];
+    const tree = (WHOLESALE_BROWSE_TREE || {})[category];
+    if (tree) {
+        const keys = subcategory ? [subcategory] : Object.keys(tree);
+        keys.forEach(function (sub) {
+            (tree[sub] || []).forEach(function (n) { names.push(n); });
+        });
+    }
+    (WHOLESALE_PRICES || []).forEach(function (p) {
+        if (p.category !== category) return;
+        if (subcategory && String(p.subCategory || '') !== subcategory) return;
+        names.push(p.name);
+    });
+    return names;
+}
+
+function categoryHasNewItems(category) {
+    if (!category || category === 'All') return false;
+    return namesInWholesaleFolder(category).some(isWholesaleNewProduct);
+}
+
+function subcategoryHasNewItems(category, sub) {
+    if (!category || !sub) return false;
+    return namesInWholesaleFolder(category, sub).some(isWholesaleNewProduct);
+}
+
+function markWholesaleNewSeenForFolder(category, subcategory) {
+    if (!category || category === 'All') return;
+    const key = newProductSeenNamesKey();
+    if (!key) return;
+    const seen = getSeenNewProductNames();
+    const seenMap = {};
+    seen.forEach(function (n) { seenMap[n] = true; });
+    namesInWholesaleFolder(category, subcategory).forEach(function (name) {
+        if (!isWholesaleNewProduct(name)) return;
+        seenMap[normalizeProductName(name)] = true;
+    });
+    localStorage.setItem(key, JSON.stringify(Object.keys(seenMap)));
+}
+
+async function checkNewProductAlert() {
+    const key = newProductAlertStorageKey();
+    window._wholesaleNewNames = {};
+    if (!key || typeof supabaseClient === 'undefined') return;
+
+    if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, new Date().toISOString());
+        return;
+    }
+
+    const lastSeen = localStorage.getItem(key);
+    const seenMap = {};
+    getSeenNewProductNames().forEach(function (n) { seenMap[n] = true; });
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('products')
+            .select('name, category, created_at')
+            .eq('active', true)
+            .gt('created_at', lastSeen)
+            .order('created_at', { ascending: false });
+        if (error) throw error;
+        (data || []).forEach(function (p) {
+            const norm = normalizeProductName(p.name);
+            if (!norm || seenMap[norm]) return;
+            window._wholesaleNewNames[norm] = true;
+        });
+        if (typeof renderCategoryFilters === 'function') renderCategoryFilters();
+        if (typeof renderPortalProducts === 'function') renderPortalProducts();
+    } catch (err) {
+        console.error('checkNewProductAlert error:', err);
+    }
 }
 
 async function checkNewProductAlert() {

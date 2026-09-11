@@ -452,7 +452,10 @@
             font-weight: 700;
         }        
         .sidebar-cat-btn {
-            display: block;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
             width: 100%;
             text-align: left;
             padding: 0.45rem 0.75rem;
@@ -460,6 +463,36 @@
             font-size: 0.82rem;
             font-weight: 600;
             color: #6B4423;
+        }
+        .wholesale-new-items-badge {
+            display: inline-block;
+            flex: 0 0 auto;
+            padding: 1px 6px;
+            border-radius: 999px;
+            background: #1E4D2B;
+            color: #d4b78f;
+            font-size: 10px;
+            font-weight: 700;
+            line-height: 1.3;
+            white-space: nowrap;
+        }
+        .sidebar-cat-btn.active .wholesale-new-items-badge,
+        .sidebar-cat-btn.open .wholesale-new-items-badge {
+            background: #d4b78f;
+            color: #1E4D2B;
+        }
+        .card-new-badge {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            z-index: 3;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #1E4D2B;
+            color: #d4b78f;
+            font-size: 11px;
+            font-weight: 700;
+            pointer-events: none;
         }
         .sidebar-cat-btn:hover { background: #f8f4eb; }
         .sidebar-cat-btn.active,
@@ -473,7 +506,10 @@
             border-bottom: 1px solid #d4b78f;
         }
         .sidebar-sub-btn {
-            display: block;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
             width: 100%;
             text-align: left;
             padding: 0.26rem 0.6rem 0.26rem 1.05rem;
@@ -1084,18 +1120,6 @@
       </button>
     </div>
   </div>
-</div>
-<div id="new-product-alert-modal"
-     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[90] p-4">
-    <div class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-lg p-6">
-        <h2 class="text-xl font-bold brand-green mb-2">New products available</h2>
-        <p class="text-sm text-[#6B4423] mb-4">These items were added since your last visit.</p>
-        <ul id="new-product-alert-list" class="space-y-2 mb-6 max-h-64 overflow-y-auto text-sm text-[#1E4D2B]"></ul>
-        <button type="button" onclick="dismissNewProductAlert()"
-                class="w-full bg-[#1E4D2B] text-[#d4b78f] font-bold py-3 rounded-xl">
-            Got it
-        </button>
-    </div>
 </div>
 <!-- Quote Confirm Modal -->
 <div id="quote-confirm-modal"
