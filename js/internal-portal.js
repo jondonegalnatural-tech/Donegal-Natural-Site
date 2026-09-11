@@ -7367,8 +7367,80 @@ async function toggleCustomerSpecialPricing(on) {
 }
 
 
+
 function normSpecialName(s) {
     return String(s || '').toLowerCase().replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/\s+/g, ' ').trim();
+}
+
+async function openCustomerProtectedSheet(customerId) {
+    const customer = (allCustomers || []).find(function (c) { return String(c.id) === String(customerId); });
+    if (!customer) return;
+    window._protectedSheetCustomerId = customer.id;
+    const modal = document.getElementById('customer-protected-sheet-modal');
+    const list = document.getElementById('customer-protected-sheet-list');
+    const sub = document.getElementById('customer-protected-sheet-sub');
+    if (!modal || !list) {
+        alert('Price sheet modal is missing from internal-portal.html');
+        return;
+    }
+    list.innerHTML = '<p class="text-sm text-[#6B4423] p-3">Loading…</p>';
+    modal.classList.remove('hidden');
+    if (sub) sub.textContent = (customer.company || customer.name || '') + ' · check products that must keep their current $';
+
+    let prices = {};
+    try {
+        const { data: cs } = await supabaseClient.from('customer_price_sheets').select('prices').eq('customer_id', customer.id).maybeSingle();
+        if (cs && cs.prices) prices = cs.prices;
+        if (!Object.keys(prices).length && customer.salesmanEmail) {
+            const { data: ss } = await supabaseClient.from('salesman_price_sheets').select('prices').eq('salesman_email', String(customer.salesmanEmail).toLowerCase()).maybeSingle();
+            if (ss && ss.prices) prices = ss.prices;
+        }
+    } catch (err) {
+        list.innerHTML = '<p class="text-sm text-red-600 p-3">Could not load sheet.</p>';
+        return;
+    }
+
+    const locked = {};
+    (customer.specialPriceItems || []).forEach(function (n) { locked[normSpecialName(n)] = true; });
+    const catalogByName = {};
+    (typeof PRODUCT_CATALOG !== 'undefined' ? PRODUCT_CATALOG : []).forEach(function (p) {
+        if (p && p.name) catalogByName[p.name] = p;
+    });
+    const grouped = {};
+    const unmatched = [];
+    Object.keys(prices).sort().forEach(function (name) {
+        const n = Number(prices[name]);
+        if (isNaN(n)) return;
+        const catalog = catalogByName[name];
+        const row = { name: name, price: n, caseSize: catalog ? (catalog.caseSize || '') : '' };
+        const cats = (typeof priceSheetDisplayCategories === 'function')
+            ? priceSheetDisplayCategories(name, catalog)
+            : [];
+        if (cats && cats.length) {
+            cats.forEach(function (cat) {
+                if (!grouped[cat]) grouped[cat] = [];
+                grouped[cat].push(row);
+            });
+        } else {
+            unmatched.push(row);
+        }
+    });
+    if (unmatched.length) grouped['Other'] = unmatched;
+
+    list.innerHTML = Object.keys(grouped).sort().map(function (cat) {
+        const rows = grouped[cat].map(function (row) {
+            const checked = locked[normSpecialName(row.name)] ? 'checked' : '';
+            return '<label class="flex items-center justify-between gap-3 py-1.5 border-b border-[#eee] text-sm">' +
+                '<span class="flex items-center gap-2 min-w-0">' +
+                '<input type="checkbox" class="cps-lock accent-[#1E4D2B]" data-name="' + encodeURIComponent(row.name) + '" ' + checked + '>' +
+                '<span class="truncate">' + escapeHtml(row.name) +
+                (row.caseSize ? (' <span class="text-xs text-[#6B4423]">' + escapeHtml(row.caseSize) + '</span>') : '') +
+                '</span></span>' +
+                '<span class="font-semibold brand-green">$' + Number(row.price).toFixed(2) + '</span></label>';
+        }).join('');
+        return '<div class="mb-4"><p class="text-xs font-bold uppercase tracking-wide text-[#6B4423] mb-1">' +
+            escapeHtml(cat) + '</p>' + rows + '</div>';
+    }).join('') || '<p class="text-sm text-[#6B4423] p-3">No prices on this sheet.</p>';
 }
 
 function hideCustomerProtectedSheet() {
