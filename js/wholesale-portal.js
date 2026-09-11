@@ -3857,9 +3857,15 @@ function variantChipLabel(dim, product) {
     const nickNorm = (typeof normalizeProductName === 'function')
         ? normalizeProductName(nick)
         : nickTrim.toLowerCase();
-    const extra = nickNorm.split(' ').filter(function (t) {
-        return t && catNorm.split(' ').indexOf(t) === -1 &&
-            t !== 'bulk' && t !== 'display' && t !== 'sticks';
+    const extra = nickNorm.split(' ').map(function (t) {
+        return String(t || '').replace(/["“”']+/g, '');
+    }).filter(function (t) {
+        const catTokens = catNorm.split(' ').map(function (c) {
+            return String(c || '').replace(/["“”']+/g, '');
+        });
+        return t && catTokens.indexOf(t) === -1 &&
+            t !== 'bulk' && t !== 'display' && t !== 'sticks' &&
+            !/^\d/.test(t);
     });
     if (extra.length) {
         return extra.map(function (t) {
@@ -7630,7 +7636,16 @@ function isBrianAssignedCustomer(customer) {
 
 function wholesaleDisplayName(catalogName) {
     const map = window._wholesaleDisplayNames || {};
-    const nick = String((map && map[catalogName]) || '').replace(/\s+/g, ' ').trim();
+    if (!catalogName) return '';
+    let nick = String((map && map[catalogName]) || '').replace(/\s+/g, ' ').trim();
+    if (!nick && map && typeof normalizeProductName === 'function') {
+        const want = normalizeProductName(catalogName);
+        Object.keys(map).some(function (key) {
+            if (normalizeProductName(key) !== want) return false;
+            nick = String(map[key] || '').replace(/\s+/g, ' ').trim();
+            return !!nick;
+        });
+    }
     return nick || catalogName || '';
 }
 

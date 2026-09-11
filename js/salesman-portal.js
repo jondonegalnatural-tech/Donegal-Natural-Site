@@ -2110,7 +2110,16 @@ function isBrianAssignedCustomer(customer) {
 
 function salesmanDisplayName(catalogName) {
     const map = window._placeOrderDisplayNames || {};
-    const nick = String((map && map[catalogName]) || '').replace(/\s+/g, ' ').trim();
+    if (!catalogName) return '';
+    let nick = String((map && map[catalogName]) || '').replace(/\s+/g, ' ').trim();
+    if (!nick && map && typeof normalizeProductName === 'function') {
+        const want = normalizeProductName(catalogName);
+        Object.keys(map).some(function (key) {
+            if (normalizeProductName(key) !== want) return false;
+            nick = String(map[key] || '').replace(/\s+/g, ' ').trim();
+            return !!nick;
+        });
+    }
     return nick || catalogName || '';
 }
 
