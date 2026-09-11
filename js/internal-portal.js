@@ -6118,7 +6118,7 @@ async function loadCustomers() {
     try {
         const { data, error } = await supabaseClient
             .from('customers')
-            .select('id, name, company, email, phone, shipping_address, billing_address, notes, status, source, submitted_by, submitted_by_email, salesman_email, territory, monthly_amount, created_at, payment_method, payment_method_status, payment_method_details, password_changed, onboarding_complete, pricing_approved_at, pricing_approved_by, assigned_at, last_login_at, salesman_commission_percent, special_pricing')
+            .select('id, name, company, email, phone, shipping_address, billing_address, notes, status, source, submitted_by, submitted_by_email, salesman_email, territory, monthly_amount, created_at, payment_method, payment_method_status, payment_method_details, password_changed, onboarding_complete, pricing_approved_at, pricing_approved_by, assigned_at, last_login_at, salesman_commission_percent, special_pricing, special_price_items')
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -6156,6 +6156,7 @@ async function loadCustomers() {
                     ? Number(c.salesman_commission_percent)
                     : null,
                 specialPricing: !!c.special_pricing,
+                specialPriceItems: Array.isArray(c.special_price_items) ? c.special_price_items : [],
                 lat: c.lat != null ? Number(c.lat) : null,
                 lng: c.lng != null ? Number(c.lng) : null,
                 placeId: c.place_id || null,
@@ -9312,7 +9313,7 @@ async function saveSalesmanPriceSheetAndPush() {
     try {
         const { data, error } = await supabaseClient
             .from('customers')
-            .select('id, name, company, email, salesman_email, special_pricing')
+            .select('id, name, company, email, salesman_email, special_pricing, special_price_items')
             .ilike('salesman_email', email);
         if (error) throw error;
         assigned = data || [];
