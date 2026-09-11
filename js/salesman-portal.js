@@ -2643,9 +2643,18 @@ async function loadProposalSalesmanSheet() {
 
 function proposalSheetPrice(name) {
     const map = window._proposalSheetPrices || {};
+    function norm(s) {
+        return String(s || '')
+            .toLowerCase()
+            .replace(/[“”]/g, '"')
+            .replace(/[‘’]/g, "'")
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+    const want = norm(name);
+    if (!want) return null;
     if (map[name] != null && map[name] !== '') return Number(map[name]);
-    const want = String(name || '').toLowerCase();
-    const hit = Object.keys(map).find(function (k) { return String(k).toLowerCase() === want; });
+    const hit = Object.keys(map).find(function (k) { return norm(k) === want; });
     return hit != null ? Number(map[hit]) : null;
 }
 

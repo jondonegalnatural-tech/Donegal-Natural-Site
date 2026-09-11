@@ -10202,6 +10202,34 @@ async function showProposalDetail(id) {
         // Cache for toggle filter
         window._currentProposalDetail = p;
 
+        if (p.salesmanEmail && Array.isArray(p.items) && typeof supabaseClient !== 'undefined') {
+            try {
+                const { data: liveSheet } = await supabaseClient
+                    .from('salesman_price_sheets')
+                    .select('prices')
+                    .eq('salesman_email', String(p.salesmanEmail).toLowerCase().trim())
+                    .maybeSingle();
+                const live = (liveSheet && liveSheet.prices) || {};
+                function norm(s) {
+                    return String(s || '').toLowerCase().replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/\s+/g, ' ').trim();
+                }
+                p.items = p.items.map(function (item) {
+                    const want = norm(item.product);
+                    const hit = Object.keys(live).find(function (k) { return norm(k) === want; });
+                    if (hit == null) return item;
+                    const sheetPrice = Number(live[hit]);
+                    if (isNaN(sheetPrice)) return item;
+                    return Object.assign({}, item, {
+                        currentPrice: sheetPrice,
+                        catalogPrice: sheetPrice
+                    });
+                });
+                window._currentProposalDetail = p;
+            } catch (err) {
+                console.warn('live salesman sheet compare:', err);
+            }
+        }
+
         const date = new Date(p.submittedAt).toLocaleDateString() +
             (p.decidedAt ? (' · ' + String(p.status || '') + ' ' + new Date(p.decidedAt).toLocaleString()) : '');
         const typeLabel = p.type === 'initialPriceSheet'
