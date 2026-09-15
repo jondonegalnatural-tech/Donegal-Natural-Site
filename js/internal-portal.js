@@ -6197,7 +6197,18 @@ function salesmanHasApprovedSheet(email) {
     return !!(s && String(s.priceSheetStatus || '').toLowerCase() === 'approved');
 }
 
-let customerMassFilter = 'all'; // 'all' | 'active' | 'inactive'
+let customerMassFilter = 'all'; // 'all' | 'active' | 'inactive' | 'test'
+
+function isHiddenTestCustomer(customer) {
+    const email = String((customer && customer.email) || '').toLowerCase().trim();
+    const company = String((customer && customer.company) || '').toLowerCase();
+    const name = String((customer && customer.name) || '').toLowerCase();
+    if (email === 'jackerman@donegalnatural.com') return true;
+    if (company.indexOf('admin test store') !== -1 || name.indexOf('admin test store') !== -1) return true;
+    if (company.indexOf('brian test store') !== -1 || name.indexOf('brian test store') !== -1) return true;
+    if (company.indexOf('test store') !== -1 || name.indexOf('test store') !== -1) return true;
+    return false;
+}
 
 function setCustomerMassFilter(filter) {
     customerMassFilter = filter || 'all';
@@ -6231,10 +6242,15 @@ function renderCustomers() {
         );
     }
 
-    if (customerMassFilter === 'active') {
-        filteredCustomers = filteredCustomers.filter(c => isCustomerEnabled(c.status));
-    } else if (customerMassFilter === 'inactive') {
-        filteredCustomers = filteredCustomers.filter(c => !isCustomerEnabled(c.status));
+    if (customerMassFilter === 'test') {
+        filteredCustomers = filteredCustomers.filter(c => isHiddenTestCustomer(c));
+    } else {
+        filteredCustomers = filteredCustomers.filter(c => !isHiddenTestCustomer(c));
+        if (customerMassFilter === 'active') {
+            filteredCustomers = filteredCustomers.filter(c => isCustomerEnabled(c.status));
+        } else if (customerMassFilter === 'inactive') {
+            filteredCustomers = filteredCustomers.filter(c => !isCustomerEnabled(c.status));
+        }
     }
 
     if (customerSalesmanFilter) {
@@ -6263,6 +6279,10 @@ function renderCustomers() {
                             class="px-3 py-1 text-xs font-semibold rounded-full border-2 ${customerMassFilter === 'inactive' ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]' : 'border-[#6B4423] text-[#6B4423] hover:bg-white'}">
                         Inactive
                     </button>
+                    <button type="button" onclick="setCustomerMassFilter('test')"
+                            class="px-3 py-1 text-xs font-semibold rounded-full border-2 ${customerMassFilter === 'test' ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]' : 'border-[#6B4423] text-[#6B4423] hover:bg-white'}">
+                        Test Stores
+                    </button>
                 </div>
             </div>
             <div class="col-span-full text-center py-12">
@@ -6270,6 +6290,7 @@ function renderCustomers() {
                 <p class="text-[#6B4423]">${
                     customerMassFilter === 'active' ? 'No active customers.' :
                     customerMassFilter === 'inactive' ? 'No inactive customers.' :
+                    customerMassFilter === 'test' ? 'No test stores.' :
                     'No customers found.'
                 }</p>
                 <button type="button" onclick="clearCustomerListFilters()"
@@ -6309,6 +6330,10 @@ function renderCustomers() {
                     <button type="button" onclick="setCustomerMassFilter('inactive')"
                             class="px-3 py-1 text-xs font-semibold rounded-full border-2 ${customerMassFilter === 'inactive' ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]' : 'border-[#6B4423] text-[#6B4423] hover:bg-white'}">
                         Inactive
+                    </button>
+                    <button type="button" onclick="setCustomerMassFilter('test')"
+                            class="px-3 py-1 text-xs font-semibold rounded-full border-2 ${customerMassFilter === 'test' ? 'bg-[#1E4D2B] text-[#d4b78f] border-[#1E4D2B]' : 'border-[#6B4423] text-[#6B4423] hover:bg-white'}">
+                        Test Stores
                     </button>
                 </div>
             </div>
