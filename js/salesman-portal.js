@@ -1556,6 +1556,27 @@ async function renderCustomerPricingEditor() {
         }
         grouped[cat].push(p);
     });
+    const listed = {};
+    PRODUCT_CATALOG.forEach(function (p) { if (p && p.name) listed[p.name] = true; });
+    Object.keys(existingCustomer || {}).forEach(function (name) {
+        if (!name || listed[name]) return;
+        if (existingCustomer[name] == null || existingCustomer[name] === '') return;
+        if (window._customerPricingDraft[name] == null) {
+            window._customerPricingDraft[name] = Number(existingCustomer[name]);
+        }
+        if (!grouped['Store-only']) {
+            grouped['Store-only'] = [];
+            categoryOrder.push('Store-only');
+        }
+        grouped['Store-only'].push({
+            name: name,
+            category: 'Store-only',
+            caseSize: '',
+            unitPrice: Number(existingCustomer[name]),
+            isMarketPrice: false
+        });
+        listed[name] = true;
+    });
 
     if (!window._customerPriceExpanded) window._customerPriceExpanded = {};
     categoryOrder.forEach(cat => {
