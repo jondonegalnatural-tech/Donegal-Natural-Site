@@ -1040,6 +1040,7 @@ function showSection(section) {
             }
             if (typeof loadMailingListExtras === 'function') await loadMailingListExtras();
             if (typeof loadOpenQuotes === 'function') loadOpenQuotes();
+            if (typeof loadAdminActivityLog === 'function') loadAdminActivityLog();
             if (typeof renderProductPhotoGallery === 'function' && typeof _photoGalleryFamilyKey !== 'undefined' && _photoGalleryFamilyKey) {
                 renderProductPhotoGallery();
             }
@@ -15346,6 +15347,98 @@ async function logPortalEmail(entry) {
         if (error) console.warn('email_log insert:', error.message);
     } catch (e) {
         console.warn('email_log insert:', e);
+    }
+}
+
+
+function getAdminActivityActor() {
+    try {
+        const original = JSON.parse(localStorage.getItem('originalAdminUser') || 'null');
+        const user = JSON.parse(localStorage.getItem('currentUser') || 'null') || {};
+        const actor = original || user;
+        const viewAs = original
+            ? String(user.viewAsSalesmanEmail || user.email || '').toLowerCase().trim()
+            : '';
+        return {
+            email: String(actor.email || actor.username || '').toLowerCase().trim() || 'unknown',
+            name: actor.fullName || actor.name || actor.email || '',
+            viewAs: viewAs
+        };
+    } catch (e) {
+        return { email: 'unknown', name: '', viewAs: '' };
+    }
+}
+
+async function logAdminActivity(entry) {
+    try {
+        const actor = getAdminActivityActor();
+        const details = (entry && entry.details && typeof entry.details === 'object')
+            ? Object.assign({}, entry.details)
+            : {};
+        if (actor.viewAs) details.view_as = actor.viewAs;
+        const { error } = await supabaseClient.from('admin_activity_log').insert({
+            actor_email: actor.email,
+            actor_name: actor.name || null,
+            action: String((entry && entry.action) || 'edit'),
+            entity_type: (entry && entry.entityType) || null,
+            entity_label: (entry && entry.entityLabel) || null,
+            summary: (entry && entry.summary) || null,
+            details: details,
+            result: (entry && entry.result) || 'ok',
+            error: (entry && entry.error) || null
+        });
+        if (error) console.warn('admin_activity_log insert:', error.message);
+    } catch (e) {
+        console.warn('admin_activity_log insert:', e);
+    }
+}
+
+async function loadAdminActivityLog() {
+    const tbody = document.getElementById('admin-activity-table');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td class="p-3 text-[#6B4423]" colspan="5">Loading…</td></tr>';
+    try {
+        const action = String((document.getElementById('admin-activity-action-filter') || {}).value || '').trim();
+        let query = supabaseClient
+            .from('admin_activity_log')
+            .select('created_at, actor_email, actor_name, action, entity_type, entity_label, summary, result, error')
+            .order('created_at', { ascending: false })
+            .limit(200);
+        if (action) query = query.eq('action', action);
+        const { data, error } = await query;
+        if (error) throw error;
+        const rows = data || [];
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td class="p-3 text-[#6B4423]" colspan="5">No admin activity yet.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map(function (r) {
+            const whenText = r.created_at ? new Date(r.created_at).toLocaleString() : '';
+            const who = escapeHtml(r.actor_name || r.actor_email || '');
+            const what = escapeHtml(r.entity_label || r.summary || r.entity_type || '');
+            const resultColor = r.result === 'ok' || r.result === 'verified'
+                ? 'text-green-700'
+                : (r.result === 'failed' ? 'text-red-700' : 'text-[#6B4423]');
+            return (
+                '<tr class="border-t border-[#d4b78f] align-top">' +
+                '<td class="p-3 whitespace-nowrap">' + escapeHtml(whenText) + '</td>' +
+                '<td class="p-3">' + who +
+                    '<div class="text-xs text-[#6B4423]">' + escapeHtml(r.actor_email || '') + '</div></td>' +
+                '<td class="p-3">' + escapeHtml(r.action || '') + '</td>' +
+                '<td class="p-3">' + what +
+                    (r.summary && r.entity_label
+                        ? ('<div class="text-xs text-[#6B4423]">' + escapeHtml(r.summary) + '</div>')
+                        : '') +
+                '</td>' +
+                '<td class="p-3 ' + resultColor + '">' + escapeHtml(r.result || '') +
+                    (r.error ? ('<div class="text-xs text-red-700">' + escapeHtml(r.error) + '</div>') : '') +
+                '</td>' +
+                '</tr>'
+            );
+        }).join('');
+    } catch (err) {
+        tbody.innerHTML = '<tr><td class="p-3 text-red-700" colspan="5">Could not load admin log. Run the Admin Activity Log SQL in Supabase if this table is new.<br>' +
+            escapeHtml(err.message || '') + '</td></tr>';
     }
 }
 

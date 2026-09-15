@@ -1443,6 +1443,50 @@ body { background: #f8f1e9; }
             <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mt-6 mb-6">
                 <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
                     <div>
+                        <h3 class="text-xl font-bold brand-green">Admin Activity Log</h3>
+                        <p class="text-sm text-[#6B4423]">Hide, edit, add, push, assign, OOS, orders. Jonathan and Marshall can view.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <select id="admin-activity-action-filter" onchange="loadAdminActivityLog()"
+                                class="border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm">
+                            <option value="">All actions</option>
+                            <option value="hide">Hide</option>
+                            <option value="unhide">Unhide</option>
+                            <option value="edit">Edit</option>
+                            <option value="add">Add</option>
+                            <option value="push">Push</option>
+                            <option value="assign">Assign</option>
+                            <option value="oos">Out of stock</option>
+                            <option value="approve">Approve</option>
+                            <option value="ship">Ship</option>
+                        </select>
+                        <button type="button" onclick="loadAdminActivityLog()"
+                                class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                            <i class="fas fa-sync-alt mr-2"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto max-h-[520px] overflow-y-auto border-2 border-[#6B4423] rounded-xl">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                                <th class="p-3 text-left">When</th>
+                                <th class="p-3 text-left">Who</th>
+                                <th class="p-3 text-left">Action</th>
+                                <th class="p-3 text-left">What</th>
+                                <th class="p-3 text-left">Result</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-activity-table">
+                            <tr><td class="p-3 text-[#6B4423]" colspan="5">Open Reports to load.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6 mt-6 mb-6">
+                <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+                    <div>
                         <h3 class="text-xl font-bold brand-green">Customer Email</h3>
                         <p class="text-sm text-[#6B4423]">Mass email + send log. From noreply@donegalnatural.com · Reply-To support@</p>
                     </div>
