@@ -4987,6 +4987,7 @@ function updateDashboardOrders() {
     tenDaysAgo.setDate(now.getDate() - 10);
 
     allOrders.forEach(order => {
+        if (typeof isTestStoreOrder === 'function' && isTestStoreOrder(order)) return;
         const status = (order.status || '').toString().trim().toLowerCase();
         const orderDate = new Date(
             order.submittedAt || order.submitted_at || order.date || now
@@ -5037,6 +5038,7 @@ function updateDashboardPendingCount() {
     if (!allOrders) return;
 
     const pendingCount = allOrders.filter(order => {
+        if (typeof isTestStoreOrder === 'function' && isTestStoreOrder(order)) return false;
         const status = (order.status || '').toString().trim().toLowerCase();
         return status === 'pending' || status === 'submitted' || status === '';
     }).length;
@@ -5055,6 +5057,7 @@ function updateDashboardPendingValue() {
 
     if (typeof allOrders !== 'undefined' && Array.isArray(allOrders)) {
         allOrders.forEach(order => {
+            if (typeof isTestStoreOrder === 'function' && isTestStoreOrder(order)) return;
             const status = (order.status || '').toLowerCase();
             // Count only pending / submitted orders
             if (status !== 'pending' && status !== 'submitted' && status !== '') return;
@@ -6207,6 +6210,22 @@ function isHiddenTestCustomer(customer) {
     if (company.indexOf('admin test store') !== -1 || name.indexOf('admin test store') !== -1) return true;
     if (company.indexOf('brian test store') !== -1 || name.indexOf('brian test store') !== -1) return true;
     if (company.indexOf('test store') !== -1 || name.indexOf('test store') !== -1) return true;
+    return false;
+}
+
+function isTestStoreOrder(order) {
+    if (!order) return false;
+    const mapped = {
+        email: order.customerEmail || order.customer_email || '',
+        company: order.customerCompany || order.customer_company || '',
+        name: order.customerName || order.customer_name || ''
+    };
+    if (isHiddenTestCustomer(mapped)) return true;
+    const id = order.customerId || order.customer_id;
+    if (id && typeof allCustomers !== 'undefined' && Array.isArray(allCustomers)) {
+        const row = allCustomers.find(function (c) { return String(c.id) === String(id); });
+        if (row && isHiddenTestCustomer(row)) return true;
+    }
     return false;
 }
 
