@@ -4203,6 +4203,14 @@ async function saveEditedOrderItems() {
         await sendUpdatedOrderProforma(approveOrderOrder, itemsPayload, notesToSave, commissionPercent);
         hideApproveOrderModal();
         await loadOrders();
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'edit',
+                entityType: 'order',
+                entityLabel: (approveOrderOrder && (approveOrderOrder.invoiceNumber || approveOrderOrder.invoice_number)) || '',
+                summary: 'Order items saved'
+            });
+        }
         alert('Order updated.\nUpdated pro forma emailed.');
     } catch (err) {
         console.error(err);
@@ -4904,6 +4912,14 @@ async function confirmShipInvoice() {
 
         // Order status emails removed — QuickBooks handles customer notifications
 
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'ship',
+                entityType: 'order',
+                entityLabel: (shipInvoiceOrder && (shipInvoiceOrder.invoiceNumber || shipInvoiceOrder.invoice_number)) || '',
+                summary: 'Order shipped'
+            });
+        }
         alert('Order shipped. Invoice saved.');
     } catch (err) {
         console.error(err);
@@ -7723,6 +7739,15 @@ async function saveEditedCustomer(e) {
                 company: company || existingBefore.company
             });
         }
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'edit',
+                entityType: 'customer',
+                entityLabel: company || name,
+                summary: 'Customer record saved',
+                details: { salesmanEmail: salesmanEmail || '' }
+            });
+        }
         alert('Customer updated.');
 
     } catch (err) {
@@ -8796,6 +8821,14 @@ function hideSalesmanSheetItem(catalogName) {
     window._spsHiddenPrices[catalogName] = isNaN(n) ? raw : n;
     if (window._spsSheet.prices) delete window._spsSheet.prices[catalogName];
     if (window._spsExport && window._spsExport.prices) delete window._spsExport.prices[catalogName];
+    if (typeof logAdminActivity === 'function') {
+        logAdminActivity({
+            action: 'hide',
+            entityType: 'product',
+            entityLabel: catalogName,
+            summary: 'Hidden from ' + ((window._spsSheet && window._spsSheet.name) || 'salesman sheet')
+        });
+    }
     const listEl = document.getElementById('price-sheet-modal-list');
     renderCategorizedPriceSheetTable(window._spsSheet.prices || {}, listEl);
     if (typeof saveSalesmanPriceSheetAndPush === 'function') {
@@ -8825,6 +8858,14 @@ function unhideSalesmanSheetItem(catalogName) {
     }
     delete hidden[catalogName];
     window._spsHiddenPrices = hidden;
+    if (typeof logAdminActivity === 'function') {
+        logAdminActivity({
+            action: 'unhide',
+            entityType: 'product',
+            entityLabel: catalogName,
+            summary: 'Shown again on ' + ((window._spsSheet && window._spsSheet.name) || 'salesman sheet')
+        });
+    }
     const listEl = document.getElementById('price-sheet-modal-list');
     renderCategorizedPriceSheetTable(window._spsSheet.prices || {}, listEl);
     if (typeof saveSalesmanPriceSheetAndPush === 'function') {
@@ -9200,7 +9241,27 @@ async function applyNewSalesmanPriceSheetToCustomer(customer, newSalesmanEmail) 
             display_names: (sheet.display_names && typeof sheet.display_names === 'object') ? sheet.display_names : {},
             updated_at: new Date().toISOString()
         }, { onConflict: 'customer_id' });
-    if (upErr) return { ok: false, reason: upErr.message };
+    if (upErr) {
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'assign',
+                entityType: 'customer',
+                entityLabel: (customer && (customer.company || customer.name)) || '',
+                summary: 'Reassign to ' + dest,
+                result: 'failed',
+                error: upErr.message
+            });
+        }
+        return { ok: false, reason: upErr.message };
+    }
+    if (typeof logAdminActivity === 'function') {
+        logAdminActivity({
+            action: 'assign',
+            entityType: 'customer',
+            entityLabel: (customer && (customer.company || customer.name)) || '',
+            summary: 'Reassigned to ' + dest
+        });
+    }
     return { ok: true };
 }
 
@@ -9683,6 +9744,15 @@ async function saveSalesmanPriceSheetAndPush(opts) {
                 new Date(nowIso).toLocaleString();
         }
 
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'push',
+                entityType: 'salesman_sheet',
+                entityLabel: salesmanName,
+                summary: 'Pushed to ' + pushed + ' store(s)',
+                details: { silent: !!silent, skipped: skipped.length, productCount: Object.keys(prices).length }
+            });
+        }
         if (!silent) {
             alert(
                 'Saved ' + salesmanName + '\'s sheet.\n' +
@@ -9692,6 +9762,15 @@ async function saveSalesmanPriceSheetAndPush(opts) {
         }
     } catch (err) {
         console.error('saveSalesmanPriceSheetAndPush:', err);
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'push',
+                entityType: 'salesman_sheet',
+                entityLabel: (window._spsSheet && window._spsSheet.name) || '',
+                result: 'failed',
+                error: err.message || String(err)
+            });
+        }
         alert('Could not save / push prices.\n' + (err.message || ''));
     } finally {
         if (saveBtn) {
@@ -12181,6 +12260,15 @@ async function confirmInquiryApproval() {
             });
         }
 
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'approve',
+                entityType: 'inquiry',
+                entityLabel: company || name || email,
+                summary: loginExists ? 'Existing login' : 'New customer created',
+                details: { salesman: salesmanName || '', loginExists: !!loginExists }
+            });
+        }
         if (loginExists) {
             alert(
                 'Inquiry approved.\n' +
@@ -12750,6 +12838,17 @@ async function saveNewProduct(event) {
             }
         }
 
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'add',
+                entityType: 'product',
+                entityLabel: items.map(function (it) { return it.name; }).join(', '),
+                summary: selectedStoreIds.length
+                    ? ('Store-only · ' + selectedStoreIds.length + ' store(s)')
+                    : 'Company assortment',
+                details: { storeCount: selectedStoreIds.length, salesmanEmails: sheetEmails }
+            });
+        }
         hideAddProductModal();
         if (typeof loadProductCatalog === 'function') await loadProductCatalog();
         if (typeof renderBasePriceSheet === 'function') renderBasePriceSheet();
@@ -12765,6 +12864,14 @@ async function saveNewProduct(event) {
         );
     } catch (err) {
         console.error('saveNewProduct error:', err);
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'add',
+                entityType: 'product',
+                result: 'failed',
+                error: err.message || String(err)
+            });
+        }
         const code = err?.code || '';
         const msg = (err.message || '').toLowerCase();
         if (code === '23505' || msg.includes('duplicate') || msg.includes('unique') || msg.includes('conflict')) {
@@ -18524,6 +18631,14 @@ async function saveBasePriceSheetEdits() {
         }
         renderBasePriceSheet();
 
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'edit',
+                entityType: 'base_sheet',
+                entityLabel: 'Company Base Price Sheet',
+                summary: 'Saved ' + updates.length + ' product(s)'
+            });
+        }
         const nameCount = updates.filter(u => u.nameChanged).length;
         const priceCount = updates.filter(u => u.priceChanged).length;
         alert(
@@ -18533,6 +18648,15 @@ async function saveBasePriceSheetEdits() {
         );
     } catch (err) {
         console.error('saveBasePriceSheetEdits error:', err);
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'edit',
+                entityType: 'base_sheet',
+                entityLabel: 'Company Base Price Sheet',
+                result: 'failed',
+                error: err.message || String(err)
+            });
+        }
         alert('Could not save.\n' + (err.message || ''));
         if (saveBtn) {
             saveBtn.disabled = false;
@@ -19182,6 +19306,14 @@ async function markSelectedOutOfStock() {
         }
         await loadOutOfStockStatus();
         renderOutOfStockList();
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'oos',
+                entityType: 'product',
+                entityLabel: names.join(', '),
+                summary: 'Marked out of stock'
+            });
+        }
         alert(names.length + ' product(s) marked Out of Stock.');
     } catch (err) {
         console.error(err);
@@ -19222,6 +19354,14 @@ async function markSelectedInStock() {
         }
         await loadOutOfStockStatus();
         renderOutOfStockList();
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'oos',
+                entityType: 'product',
+                entityLabel: names.join(', '),
+                summary: 'Cleared out of stock'
+            });
+        }
         alert(names.length + ' product(s) marked In Stock.');
     } catch (err) {
         console.error(err);
