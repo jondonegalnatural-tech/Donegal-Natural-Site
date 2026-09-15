@@ -149,7 +149,7 @@ function switchActiveCustomer(customerId) {
     const next = accounts.find(c => String(c.id) === String(customerId));
     if (!next) return;
 
-    localStorage.setItem('activeCustomerId', next.id);
+    localStorage.setItem('activeCustomerId', String(next.id));
     window._currentCustomer = next;
     if (typeof applyBrianWholesaleSheetPrices === 'function') {
         applyBrianWholesaleSheetPrices().then(function () {
@@ -157,21 +157,20 @@ function switchActiveCustomer(customerId) {
         });
     }
 
-    // Soft restriction follows the active store
     if (isCustomerInactive(next)) {
         applyInactiveSoftRestriction();
     } else {
         clearInactiveSoftRestriction();
     }
 
-    // Refresh anything that depends on the active store
     if (typeof updateShippingPolicyCard === 'function') updateShippingPolicyCard();
     if (typeof renderPortalProducts === 'function') renderPortalProducts();
     if (typeof displayWelcome === 'function') displayWelcome();
+    if (typeof updateOrderingAsIndicator === 'function') updateOrderingAsIndicator();
     if (typeof updateQuoteSidebar === 'function') updateQuoteSidebar();
     if (typeof schedulePersistOpenQuote === 'function') schedulePersistOpenQuote();
+    if (typeof showAccountInfo === 'function') showAccountInfo();
 
-    // If this store still needs onboarding, show the modal
     if (!next.onboarding_complete) {
         document.getElementById('onboarding-modal')?.classList.remove('hidden');
     }
@@ -7566,6 +7565,7 @@ function displayWelcome() {
         }
         if (isCustomerView) {
             nameElement.textContent = 'Jonathan (Customer View)';
+            if (typeof updateOrderingAsIndicator === 'function') updateOrderingAsIndicator();
             return;
         }
         const company = user.company ? ` (${escapeHtml(user.company)})` : '';
