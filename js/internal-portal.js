@@ -839,6 +839,7 @@ async function updateDashboardAchCounts() {
     startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday
 
     (allOrders || []).forEach(order => {
+        if (typeof isTestStoreOrder === 'function' && isTestStoreOrder(order)) return;
         if (!order.items || !Array.isArray(order.items)) return;
         const orderDate = new Date(
             order.submittedAt || order.submitted_at || order.date || now
@@ -1136,6 +1137,7 @@ function getSalesmanOrderTotals(salesman) {
     let monthly = 0;
 
     (allOrders || []).forEach(order => {
+        if (typeof isTestStoreOrder === 'function' && isTestStoreOrder(order)) return;
         const orderName = (
             order.salesman ||
             order.salesman_name ||
@@ -2444,6 +2446,7 @@ function getUnitsSoldInWeek(productName, weekStartDate) {
     let total = 0;
 
     allOrders.forEach(order => {
+        if (typeof isTestStoreOrder === 'function' && isTestStoreOrder(order)) return;
         if (!order.items) return;
         order.items.forEach(item => {
             if (item.product && item.product.toLowerCase().includes(productName.toLowerCase())) {
@@ -2869,6 +2872,7 @@ function getMonthlyTrendData(selectedYears, categories, metric) {
     }
 
     allOrders.forEach(order => {
+        if (typeof isTestStoreOrder === 'function' && isTestStoreOrder(order)) return;
         const orderDate = new Date(order.submittedAt || order.submitted_at || order.date || 0);
         if (isNaN(orderDate.getTime())) return;
 
@@ -6217,8 +6221,8 @@ function isTestStoreOrder(order) {
     if (!order) return false;
     const mapped = {
         email: order.customerEmail || order.customer_email || '',
-        company: order.customerCompany || order.customer_company || '',
-        name: order.customerName || order.customer_name || ''
+        company: order.customerCompany || order.customer_company || order.customer || '',
+        name: order.customerName || order.customer_name || order.customer || ''
     };
     if (isHiddenTestCustomer(mapped)) return true;
     const id = order.customerId || order.customer_id;
@@ -8592,7 +8596,9 @@ function updateReportsSalesSummary() {
     let ytdSales = 0;
     let mtdSales = 0;
     let wtdSales = 0;
-    let totalOrders = allOrders.length;
+    let totalOrders = allOrders.filter(function (o) {
+        return typeof isTestStoreOrder !== 'function' || !isTestStoreOrder(o);
+    }).length;
 
     const now = new Date();
     const startOfYear = new Date(now.getFullYear(), 0, 1);
@@ -8601,6 +8607,7 @@ function updateReportsSalesSummary() {
     startOfWeek.setDate(now.getDate() - now.getDay());
 
     allOrders.forEach(order => {
+        if (typeof isTestStoreOrder === 'function' && isTestStoreOrder(order)) return;
         if (!order.items || !Array.isArray(order.items)) return;
         const orderDate = new Date(order.submittedAt || order.submitted_at || order.date || now);
         if (isNaN(orderDate.getTime())) return;
@@ -13858,6 +13865,7 @@ function getThisWeekTopProducts(limit = 5) {
 
     if (typeof allOrders !== 'undefined' && Array.isArray(allOrders)) {
         allOrders.forEach(order => {
+            if (typeof isTestStoreOrder === 'function' && isTestStoreOrder(order)) return;
             const orderDate = new Date(order.submittedAt || order.date || 0);
             if (orderDate < weekStart) return;
 
@@ -14962,6 +14970,7 @@ async function updateDashboardSalesmen() {
     const ytdByKey = {};
 
     (allOrders || []).forEach(order => {
+        if (typeof isTestStoreOrder === 'function' && isTestStoreOrder(order)) return;
         const orderDate = new Date(
             order.submittedAt || order.submitted_at || order.created_at || order.date || 0
         );
@@ -15990,6 +15999,7 @@ function updatePortalCommissionCard() {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     (allOrders || []).forEach(order => {
+        if (typeof isTestStoreOrder === 'function' && isTestStoreOrder(order)) return;
         const status = String(order.status || '').toLowerCase();
         if (status === 'denied' || status === 'cancelled' || status === 'canceled') return;
         if (!order.items || !Array.isArray(order.items)) return;
