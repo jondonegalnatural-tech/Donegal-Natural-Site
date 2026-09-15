@@ -9184,6 +9184,12 @@ async function applyNewSalesmanPriceSheetToCustomer(customer, newSalesmanEmail) 
     if (dest === 'donegaldogtreats@gmail.com' && typeof isJakePetSupplyCustomer === 'function' && isJakePetSupplyCustomer(customer) && typeof applyJakeElkyTrainingPrices === 'function') {
         prices = applyJakeElkyTrainingPrices(prices);
     }
+    const { data: prevSheet } = await supabaseClient
+        .from('customer_price_sheets')
+        .select('prices')
+        .eq('customer_id', customer.id)
+        .maybeSingle();
+    prices = mergeStoreOnlyPriceExtras(prices, prevSheet && prevSheet.prices, dest);
     const { error: upErr } = await supabaseClient
         .from('customer_price_sheets')
         .upsert({
@@ -9642,12 +9648,19 @@ async function saveSalesmanPriceSheetAndPush(opts) {
         let pushed = 0;
         for (let i = 0; i < targets.length; i++) {
             const c = targets[i];
+            const { data: prevSheet } = await supabaseClient
+                .from('customer_price_sheets')
+                .select('prices')
+                .eq('customer_id', c.id)
+                .maybeSingle();
+            let nextPrices = isJakePetSupplyCustomer(c) ? applyJakeElkyTrainingPrices(prices) : Object.assign({}, prices);
+            nextPrices = mergeStoreOnlyPriceExtras(nextPrices, prevSheet && prevSheet.prices, email);
             const { error: upsertErr } = await supabaseClient
                 .from('customer_price_sheets')
                 .upsert({
                     customer_id: c.id,
                     salesman_email: email,
-                    prices: isJakePetSupplyCustomer(c) ? applyJakeElkyTrainingPrices(prices) : prices,
+                    prices: nextPrices,
                     display_names: collectSalesmanDisplayNames(),
                     updated_at: nowIso
                 }, { onConflict: 'customer_id' });
@@ -12387,6 +12400,157 @@ function populateNewProductSalesmanSelect() {
     }).join('');
 }
 
+
+
+function isSkippedAddProductStore(customer) {
+    const email = String((customer && customer.email) || '').toLowerCase().trim();
+    return email === 'jackerman@donegalnatural.com';
+}
+
+function getSalesmanAssignedProducts(email) {
+    const want = String(email || '').toLowerCase().trim();
+    const salesman = (salesmen || []).find(function (s) {
+        return String(s.email || '').toLowerCase().trim() === want;
+    });
+    if (!salesman) return [];
+    if (Array.isArray(salesman.assigned_products)) return salesman.assigned_products.slice();
+    if (typeof salesman.assigned_products === 'string') {
+        try {
+            const parsed = JSON.parse(salesman.assigned_products);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            return [];
+        }
+    }
+    return [];
+}
+
+function mergeStoreOnlyPriceExtras(incomingPrices, existingPrices, salesmanEmail) {
+    const next = Object.assign({}, incomingPrices || {});
+    const assigned = getSalesmanAssignedProducts(salesmanEmail);
+    if (!assigned.length || !existingPrices || typeof existingPrices !== 'object') return next;
+    assigned.forEach(function (name) {
+        if (!name || Object.prototype.hasOwnProperty.call(next, name)) return;
+        if (existingPrices[name] == null || existingPrices[name] === '') return;
+        next[name] = existingPrices[name];
+    });
+    return next;
+}
+
+function toggleNewProductStoreLimit() {
+    const on = document.getElementById('new-product-limit-store')?.checked === true;
+    const sel = document.getElementById('new-product-store');
+    const hint = document.getElementById('new-product-store-hint');
+    if (sel) sel.classList.toggle('hidden', !on);
+    if (hint) hint.classList.toggle('hidden', !on);
+    if (on) {
+        const salesCb = document.getElementById('new-product-limit-salesman');
+        if (salesCb && !salesCb.checked) {
+            salesCb.checked = true;
+            toggleNewProductSalesmanLimit();
+        }
+        populateNewProductStoreSelect();
+    }
+}
+
+function getNewProductSelectedStoreIds() {
+    return Array.from(document.getElementById('new-product-store')?.selectedOptions || [])
+        .map(function (o) { return String(o.value || '').trim(); })
+        .filter(Boolean);
+}
+
+function populateNewProductStoreSelect() {
+    const sel = document.getElementById('new-product-store');
+    if (!sel) return;
+    const emails = Array.from(document.getElementById('new-product-salesman')?.selectedOptions || [])
+        .map(function (o) { return String(o.value || '').toLowerCase().trim(); })
+        .filter(Boolean);
+    const previous = {};
+    Array.from(sel.selectedOptions || []).forEach(function (o) {
+        previous[String(o.value)] = true;
+    });
+    const rows = (allCustomers || []).filter(function (c) {
+        if (!c || !c.id) return false;
+        if (isSkippedAddProductStore(c)) return false;
+        const salesman = String(c.salesmanEmail || c.salesman_email || '').toLowerCase().trim();
+        return emails.length > 0 && emails.indexOf(salesman) !== -1;
+    }).sort(function (a, b) {
+        const la = String(a.company || a.name || '').toLowerCase();
+        const lb = String(b.company || b.name || '').toLowerCase();
+        return la.localeCompare(lb);
+    });
+    if (!emails.length) {
+        sel.innerHTML = '<option value="" disabled>Select a salesman first</option>';
+        return;
+    }
+    if (!rows.length) {
+        sel.innerHTML = '<option value="" disabled>No stores assigned to that salesman</option>';
+        return;
+    }
+    sel.innerHTML = rows.map(function (c) {
+        const label = (c.company || c.name || 'Store') + (c.name && c.company ? (' — ' + c.name) : '');
+        return '<option value="' + escapeHtml(String(c.id)) + '"' +
+            (previous[String(c.id)] ? ' selected' : '') + '>' +
+            escapeHtml(label) + '</option>';
+    }).join('');
+}
+
+async function assignProductToStores(productName, storeIds, unitPrice) {
+    const price = Number(unitPrice);
+    if (!productName || !Array.isArray(storeIds) || !storeIds.length || isNaN(price) || price < 0) return;
+    if (!Array.isArray(allCustomers) || !allCustomers.length) {
+        if (typeof loadCustomers === 'function') await loadCustomers();
+    }
+    for (let i = 0; i < storeIds.length; i++) {
+        const id = String(storeIds[i]);
+        const customer = (allCustomers || []).find(function (c) { return String(c.id) === id; });
+        if (!customer) continue;
+        const salesmanEmail = String(customer.salesmanEmail || customer.salesman_email || '').toLowerCase().trim();
+        const { data: existing, error } = await supabaseClient
+            .from('customer_price_sheets')
+            .select('prices, display_names, salesman_email')
+            .eq('customer_id', id)
+            .maybeSingle();
+        if (error) throw error;
+        let prices = {};
+        let displayNames = (existing && existing.display_names && typeof existing.display_names === 'object')
+            ? existing.display_names
+            : {};
+        if (existing && existing.prices && typeof existing.prices === 'object' && Object.keys(existing.prices).length) {
+            prices = Object.assign({}, existing.prices);
+        } else if (salesmanEmail) {
+            const { data: salesSheet, error: salesErr } = await supabaseClient
+                .from('salesman_price_sheets')
+                .select('prices, display_names, hidden_prices')
+                .eq('salesman_email', salesmanEmail)
+                .maybeSingle();
+            if (salesErr) throw salesErr;
+            if (salesSheet && salesSheet.prices && typeof salesSheet.prices === 'object') {
+                prices = Object.assign({}, salesSheet.prices);
+                Object.keys(salesSheet.hidden_prices || {}).forEach(function (name) {
+                    delete prices[name];
+                });
+            }
+            if (!Object.keys(displayNames).length && salesSheet && salesSheet.display_names && typeof salesSheet.display_names === 'object') {
+                displayNames = salesSheet.display_names;
+            }
+        }
+        prices[productName] = price;
+        const payload = {
+            customer_id: id,
+            salesman_email: salesmanEmail || (existing && existing.salesman_email) || null,
+            prices: prices,
+            updated_at: new Date().toISOString()
+        };
+        if (displayNames && typeof displayNames === 'object') {
+            payload.display_names = displayNames;
+        }
+        const { error: upErr } = await supabaseClient
+            .from('customer_price_sheets')
+            .upsert(payload, { onConflict: 'customer_id' });
+        if (upErr) throw upErr;
+    }
+}
 function openAddProductModal() {
     const modal = document.getElementById('add-product-modal');
     if (!modal) return;
@@ -12421,8 +12585,14 @@ function openAddProductModal() {
 
     const limitCb = document.getElementById('new-product-limit-salesman');
     if (limitCb) limitCb.checked = false;
+    const storeCb = document.getElementById('new-product-limit-store');
+    if (storeCb) storeCb.checked = false;
     populateNewProductSalesmanSelect();
     toggleNewProductSalesmanLimit();
+    if (!Array.isArray(allCustomers) || !allCustomers.length) {
+        if (typeof loadCustomers === 'function') loadCustomers();
+    }
+    toggleNewProductStoreLimit();
 
     modal.classList.remove('hidden');
     document.getElementById('new-product-name')?.focus();
@@ -12453,6 +12623,26 @@ async function saveNewProduct(event) {
         return;
     }
 
+    const limitTo = document.getElementById('new-product-limit-salesman')?.checked === true;
+    const limitStores = document.getElementById('new-product-limit-store')?.checked === true;
+    const selectedEmails = (limitTo || limitStores)
+        ? Array.from(document.getElementById('new-product-salesman')?.selectedOptions || [])
+            .map(function (o) { return (o.value || '').toLowerCase().trim(); })
+            .filter(Boolean)
+        : [];
+    const selectedStoreIds = (limitStores && typeof getNewProductSelectedStoreIds === 'function')
+        ? getNewProductSelectedStoreIds()
+        : [];
+
+    if ((limitTo || limitStores) && selectedEmails.length === 0) {
+        alert('Select at least one salesman, or uncheck Assign to specific store(s).');
+        return;
+    }
+    if (limitStores && selectedStoreIds.length === 0) {
+        alert('Select at least one store, or uncheck Assign to specific store(s).');
+        return;
+    }
+
     const seen = {};
     for (let i = 0; i < items.length; i++) {
         const item = items[i];
@@ -12474,7 +12664,8 @@ async function saveNewProduct(event) {
             return;
         }
         seen[key] = true;
-        if (PRODUCT_CATALOG.some(function (p) { return p.name === item.name; })) {
+        const alreadyInCatalog = PRODUCT_CATALOG.some(function (p) { return p.name === item.name; });
+        if (alreadyInCatalog && !limitStores) {
             alert('Item ' + item.index + ': "' + item.name + '" already exists in the catalog.');
             return;
         }
@@ -12483,25 +12674,6 @@ async function saveNewProduct(event) {
     const isMarket = document.getElementById('new-product-ismarket')?.checked === true;
     const marketNote = (document.getElementById('new-product-marketnote')?.value || '').trim();
     const priceAsOf = (document.getElementById('new-product-priceasof')?.value || '').trim();
-
-    const limitTo = document.getElementById('new-product-limit-salesman')?.checked === true;
-    const selectedEmails = limitTo
-        ? Array.from(document.getElementById('new-product-salesman')?.selectedOptions || [])
-            .map(function (o) { return (o.value || '').toLowerCase().trim(); })
-            .filter(Boolean)
-        : [];
-    if (limitTo && selectedEmails.length === 0) {
-        alert('Select at least one salesman, or uncheck Limit to specific salesman.');
-        return;
-    }
-    const limitStores = document.getElementById('new-product-limit-store')?.checked === true;
-    const selectedStoreIds = (limitStores && typeof getNewProductSelectedStoreIds === 'function')
-        ? getNewProductSelectedStoreIds()
-        : [];
-    if (limitStores && selectedStoreIds.length === 0) {
-        alert('Select at least one store, or uncheck Limit to specific stores.');
-        return;
-    }
 
     let sheetEmails = selectedEmails.slice();
     if (limitStores && !sheetEmails.length) {
@@ -12524,45 +12696,49 @@ async function saveNewProduct(event) {
                 .eq('name', item.name)
                 .maybeSingle();
             if (checkErr) throw checkErr;
-            if (existing) {
+
+            const alreadySaved = !!existing;
+            if (alreadySaved && !limitStores) {
                 alert('"' + item.name + '" already exists in the database.\nThe items before it were saved.');
                 return;
             }
 
-            const { error: prodErr } = await supabaseClient
-                .from('products')
-                .insert({
-                    name: item.name,
-                    category: item.category,
-                    sub_category: item.subCategory || null,
-                    case_size: item.caseSize || null,
-                    unit_price: item.unitPrice,
-                    is_market_price: isMarket,
-                    active: true
-                });
-            if (prodErr) throw prodErr;
+            if (!alreadySaved) {
+                const { error: prodErr } = await supabaseClient
+                    .from('products')
+                    .insert({
+                        name: item.name,
+                        category: item.category,
+                        sub_category: item.subCategory || null,
+                        case_size: item.caseSize || null,
+                        unit_price: item.unitPrice,
+                        is_market_price: isMarket,
+                        active: true
+                    });
+                if (prodErr) throw prodErr;
 
-            if (!PRODUCT_CATALOG.some(function (p) { return p.name === item.name; })) {
-                PRODUCT_CATALOG.push({
-                    name: item.name,
-                    category: item.category,
-                    subCategory: item.subCategory || null,
-                    caseSize: item.caseSize || null,
-                    unitPrice: item.unitPrice,
-                    isMarketPrice: isMarket,
-                    marketPriceNote: isMarket ? (marketNote || null) : null,
-                    landedCost: null,
-                    grossProfit: null,
-                    priceAsOf: priceAsOf || null
-                });
+                if (!PRODUCT_CATALOG.some(function (p) { return p.name === item.name; })) {
+                    PRODUCT_CATALOG.push({
+                        name: item.name,
+                        category: item.category,
+                        subCategory: item.subCategory || null,
+                        caseSize: item.caseSize || null,
+                        unitPrice: item.unitPrice,
+                        isMarketPrice: isMarket,
+                        marketPriceNote: isMarket ? (marketNote || null) : null,
+                        landedCost: null,
+                        grossProfit: null,
+                        priceAsOf: priceAsOf || null
+                    });
+                }
+
+                if (typeof upsertInventoryQuantity === 'function' && inventory[item.name] === undefined) {
+                    inventory[item.name] = 0;
+                    await upsertInventoryQuantity(item.name, 0);
+                }
             }
 
-            if (typeof upsertInventoryQuantity === 'function' && inventory[item.name] === undefined) {
-                inventory[item.name] = 0;
-                await upsertInventoryQuantity(item.name, 0);
-            }
-
-            if (typeof applyRecommendedPriceToSalesmen === 'function') {
+            if (!limitStores && typeof applyRecommendedPriceToSalesmen === 'function') {
                 await applyRecommendedPriceToSalesmen(item.name, item.unitPrice, sheetEmails);
             }
             if (sheetEmails.length && typeof assignProductToSalesmen === 'function') {
@@ -12580,12 +12756,11 @@ async function saveNewProduct(event) {
         if (typeof updatePriceProposalsBadge === 'function') updatePriceProposalsBadge();
 
         alert(
-            'Added ' + items.length + ' product' + (items.length === 1 ? '' : 's') + '.\n' +
-            'They are on the company price sheet and in the products table.\n' +
+            'Saved ' + items.length + ' product' + (items.length === 1 ? '' : 's') + '.\n' +
+            'They are in the products table so they can later join the company assortment.\n' +
             (selectedStoreIds.length
-                ? ('Visible only to ' + selectedStoreIds.length + ' selected store(s).\n')
-                : '') +
-            'Recommended prices were written to the matching salesman / store sheets.'
+                ? ('Visible only to ' + selectedStoreIds.length + ' selected store(s).\nYou can assign the same name to more stores later from Add Product.')
+                : 'Recommended prices were written to the matching salesman sheets.')
         );
     } catch (err) {
         console.error('saveNewProduct error:', err);

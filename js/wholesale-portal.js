@@ -7639,9 +7639,13 @@ async function filterWholesaleCatalogForSalesman() {
             byEmail[email] = list;
             list.forEach(name => restricted.add(name));
         });
-        if (!restricted.size) return;
+        if (!restricted.size) {
+            window._wholesaleAssignedProducts = new Set();
+            return;
+        }
         const mine = (window._currentCustomer?.salesman_email || '').toLowerCase().trim();
         const allowed = new Set(byEmail[mine] || []);
+        window._wholesaleAssignedProducts = allowed;
         WHOLESALE_PRICES = WHOLESALE_PRICES.filter(p =>
             !restricted.has(p.name) || allowed.has(p.name)
         );
@@ -7724,6 +7728,13 @@ async function applyBrianWholesaleSheetPrices() {
                 if (custSheet.prices[name] != null && custSheet.prices[name] !== '') {
                     prices[name] = custSheet.prices[name];
                 }
+            });
+            const assigned = window._wholesaleAssignedProducts || new Set();
+            Object.keys(custSheet.prices).forEach(function (name) {
+                if (Object.prototype.hasOwnProperty.call(prices, name)) return;
+                if (!assigned.has(name)) return;
+                if (custSheet.prices[name] == null || custSheet.prices[name] === '') return;
+                prices[name] = custSheet.prices[name];
             });
         }
     } catch (err) {

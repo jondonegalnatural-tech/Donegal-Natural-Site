@@ -1999,7 +1999,21 @@ function searchPlaceOrderProducts() {
         if (!p || !p.name || !p.name.toLowerCase().includes(term)) return false;
         if (!sheetNames.length) return true;
         return Object.prototype.hasOwnProperty.call(sheetMap, p.name);
-    }).slice(0, 12);
+    });
+    const have = {};
+    matches.forEach(function (p) { if (p && p.name) have[p.name] = true; });
+    sheetNames.forEach(function (name) {
+        if (!name || have[name]) return;
+        if (!name.toLowerCase().includes(term)) return;
+        matches.push({
+            name: name,
+            caseSize: '',
+            unitPrice: Number(sheetMap[name]),
+            isMarketPrice: false
+        });
+        have[name] = true;
+    });
+    matches.splice(12);
 
     if (matches.length === 0) {
         resultsEl.innerHTML = `<p class="p-3 text-sm text-[#6B4423]">No products found.</p>`;
@@ -2213,10 +2227,17 @@ async function loadBrianPlaceOrderPrices(customer) {
 }
 
 function addProductToPlaceOrder(productName) {
-    if (typeof PRODUCT_CATALOG === "undefined") return;
-
-    const product = PRODUCT_CATALOG.find(p => p.name === productName);
-    if (!product) return;
+    const sheetMap = window._placeOrderBrianPrices || {};
+    const catalogProduct = (typeof PRODUCT_CATALOG !== 'undefined')
+        ? PRODUCT_CATALOG.find(function (p) { return p.name === productName; })
+        : null;
+    if (!catalogProduct && (sheetMap[productName] == null || sheetMap[productName] === '')) return;
+    const product = catalogProduct || {
+        name: productName,
+        caseSize: '',
+        unitPrice: Number(sheetMap[productName]),
+        isMarketPrice: false
+    };
     if (isSalesmanOos(productName)) {
         alert(salesmanOosLabel(productName) || 'This item is out of stock.');
         return;

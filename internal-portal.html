@@ -4094,14 +4094,28 @@ body { background: #f8f1e9; }
                     Limit this item to specific salesman
                 </label>
                 <select id="new-product-salesman" multiple
-                        class="hidden mt-2 w-full border-2 border-[#6B4423] rounded-xl px-3 py-2 min-h-[96px]">
+                        class="hidden mt-2 w-full border-2 border-[#6B4423] rounded-xl px-3 py-2 min-h-[96px]"
+                        onchange="populateNewProductStoreSelect()">
                 </select>
                 <p id="new-product-salesman-hint" class="hidden text-xs text-[#6B4423] mt-1">
                     Hold Ctrl/Cmd to select more than one. Unchecked = every salesman.
                 </p>
             </div>
+            <div>
+                <label class="flex items-center gap-2 text-sm font-semibold text-[#6B4423] cursor-pointer">
+                    <input type="checkbox" id="new-product-limit-store"
+                           class="accent-[#1E4D2B]" onchange="toggleNewProductStoreLimit()">
+                    Assign to specific store(s)
+                </label>
+                <select id="new-product-store" multiple
+                        class="hidden mt-2 w-full border-2 border-[#6B4423] rounded-xl px-3 py-2 min-h-[96px]">
+                </select>
+                <p id="new-product-store-hint" class="hidden text-xs text-[#6B4423] mt-1">
+                    Pick a salesman first. Hold Ctrl/Cmd for more than one store. The same product can be assigned to more stores later.
+                </p>
+            </div>
             <p class="text-xs text-[#6B4423]">
-                Saves to the products table and company base sheet. If you limit it, only those salesman sheets get the price.
+                Saves to the products table so it can later join the company assortment. Store assignment shows the item only on those stores. Leave store assignment unchecked to add it company-wide.
             </p>
             <div class="flex justify-end gap-3 pt-2">
                 <button type="button" onclick="hideAddProductModal()"
