@@ -144,13 +144,25 @@ function resolveActiveCustomer() {
     return active;
 }
 
-function switchActiveCustomer(customerId) {
+async function switchActiveCustomer(customerId) {
     const accounts = window._customerAccounts || [];
     const next = accounts.find(c => String(c.id) === String(customerId));
     if (!next) return;
+    if (window._currentCustomer && String(window._currentCustomer.id) === String(next.id)) return;
+
+    if (typeof _openQuoteSaveTimer !== 'undefined' && _openQuoteSaveTimer) {
+        clearTimeout(_openQuoteSaveTimer);
+        _openQuoteSaveTimer = null;
+    }
+    if (typeof persistOpenQuoteNow === 'function') {
+        await persistOpenQuoteNow();
+    }
 
     localStorage.setItem('activeCustomerId', String(next.id));
     window._currentCustomer = next;
+    if (typeof loadOpenQuoteForActiveStore === 'function') {
+        await loadOpenQuoteForActiveStore();
+    }
     if (typeof applyBrianWholesaleSheetPrices === 'function') {
         applyBrianWholesaleSheetPrices().then(function () {
             if (typeof renderPortalProducts === 'function') renderPortalProducts();
@@ -168,7 +180,6 @@ function switchActiveCustomer(customerId) {
     if (typeof displayWelcome === 'function') displayWelcome();
     if (typeof updateOrderingAsIndicator === 'function') updateOrderingAsIndicator();
     if (typeof updateQuoteSidebar === 'function') updateQuoteSidebar();
-    if (typeof schedulePersistOpenQuote === 'function') schedulePersistOpenQuote();
     if (typeof showAccountInfo === 'function') showAccountInfo();
 
     if (!next.onboarding_complete) {
@@ -4947,6 +4958,56 @@ async function persistOpenQuoteNow() {
     }
 }
 
+function quoteItemsFromOpenQuoteRows(rows) {
+    return (rows || []).map(function (item) {
+        const name = item.product || item.name || '';
+        const price = item.displayPrice || (item.unitPrice != null ? ('$' + Number(item.unitPrice).toFixed(2)) : (item.price || ''));
+        return {
+            name: name,
+            displayName: item.displayName || name,
+            price: price,
+            cs: item.caseSize || item.cs || '',
+            quantity: parseInt(item.quantity, 10) || 1,
+            isMarketPrice: !!(item.isMarketPrice)
+        };
+    }).filter(function (item) { return !!item.name; });
+}
+
+async function loadOpenQuoteForActiveStore() {
+    const customer = window._currentCustomer;
+    if (!customer || !customer.id) {
+        quoteItems = [];
+        localStorage.setItem('wholesaleQuote', '[]');
+        return;
+    }
+    const localKey = 'wholesaleQuote_' + customer.id;
+    try {
+        if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+            const { data, error } = await supabaseClient
+                .from('customer_open_quotes')
+                .select('items')
+                .eq('customer_id', customer.id)
+                .maybeSingle();
+            if (error) throw error;
+            if (data && Array.isArray(data.items) && data.items.length) {
+                quoteItems = quoteItemsFromOpenQuoteRows(data.items);
+                localStorage.setItem(localKey, JSON.stringify(quoteItems));
+                localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
+                return;
+            }
+        }
+    } catch (err) {
+        console.warn('loadOpenQuoteForActiveStore:', err && err.message ? err.message : err);
+    }
+    try {
+        const saved = localStorage.getItem(localKey);
+        quoteItems = saved ? (JSON.parse(saved) || []) : [];
+    } catch (e) {
+        quoteItems = [];
+    }
+    localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
+}
+
 
 function showQuoteAddedBadge(name, qty) {
     var existing = document.getElementById('quote-added-badge');
@@ -8059,8 +8120,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderCategoryFilters();
     renderPortalProducts();
     if (typeof updateShippingPolicyCard === 'function') updateShippingPolicyCard();
+    if (typeof loadOpenQuoteForActiveStore === 'function') await loadOpenQuoteForActiveStore();
     updateQuoteSidebar();
-    if (typeof schedulePersistOpenQuote === 'function') schedulePersistOpenQuote();
     setupSearch();
     displayWelcome();
         // Shipping address confirmation (shows until customer confirms)
