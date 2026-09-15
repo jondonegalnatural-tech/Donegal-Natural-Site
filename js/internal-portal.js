@@ -1884,6 +1884,7 @@ async function loadSalesmen() {
             active: s.active !== false,
             notes: s.notes || '',
             mailingAddress: s.mailing_address || '',
+            assigned_products: Array.isArray(s.assigned_products) ? s.assigned_products : [],
             lastLoginAt: s.last_login_at || null,
         }));
     } catch (err) {
@@ -14883,6 +14884,7 @@ async function updateDashboardSalesmen() {
                 active: s.active !== false,
                 notes: s.notes || '',
                 mailingAddress: s.mailing_address || '',
+                assigned_products: Array.isArray(s.assigned_products) ? s.assigned_products : [],
             }));
         }
     } catch (err) {
