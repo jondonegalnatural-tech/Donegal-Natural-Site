@@ -1473,9 +1473,14 @@ function hideCustomerPricingModal() {
     window._customerPricingBase = {};
 }
 
-async function loadSalesmanBasePrices() {
-    const user = getCurrentUser() || currentUser;
-    const email = (user?.email || '').toLowerCase().trim();
+async function loadSalesmanBasePrices(customer) {
+    const assigned = String(
+        (customer && (customer.salesman_email || customer.salesmanEmail)) || ''
+    ).toLowerCase().trim();
+    const fallback = (typeof getOperatingSalesmanEmail === 'function')
+        ? getOperatingSalesmanEmail()
+        : String(((getCurrentUser() || currentUser || {}).email) || '').toLowerCase().trim();
+    const email = assigned || fallback;
     if (!email) return {};
 
     try {
@@ -1526,41 +1531,47 @@ async function renderCustomerPricingEditor() {
         return;
     }
 
-    const basePrices = await loadSalesmanBasePrices();
+    const basePrices = await loadSalesmanBasePrices(customer);
     const existingCustomer = await loadCustomerPrices(customer.id);
 
     window._customerPricingBase = basePrices || {};
     if (!window._customerPricingDraft) window._customerPricingDraft = {};
 
-    // Seed draft: existing customer sheet → else base sheet → else catalog
-    PRODUCT_CATALOG.forEach(p => {
-        const name = p.name;
-        if (window._customerPricingDraft[name] != null) return;
-        if (existingCustomer && existingCustomer[name] != null) {
+    function onSalesmanSheet(name) {
+        return !!(name && basePrices && basePrices[name] != null && basePrices[name] !== '');
+    }
+    function onStoreSheet(name) {
+        return !!(name && existingCustomer && existingCustomer[name] != null && existingCustomer[name] !== '');
+    }
+
+    PRODUCT_CATALOG.forEach(function (p) {
+        const name = p && p.name;
+        if (!name || window._customerPricingDraft[name] != null) return;
+        if (!onSalesmanSheet(name) && !onStoreSheet(name)) return;
+        if (onStoreSheet(name)) {
             window._customerPricingDraft[name] = Number(existingCustomer[name]);
-        } else if (basePrices[name] != null) {
+        } else {
             window._customerPricingDraft[name] = Number(basePrices[name]);
-        } else if (!p.isMarketPrice) {
-            window._customerPricingDraft[name] = Number(p.unitPrice);
         }
     });
 
-    // Group by category
     const grouped = {};
     const categoryOrder = [];
-    PRODUCT_CATALOG.forEach(p => {
+    const listed = {};
+    PRODUCT_CATALOG.forEach(function (p) {
+        if (!p || !p.name) return;
+        if (!onSalesmanSheet(p.name)) return;
         const cat = p.category || 'Other';
         if (!grouped[cat]) {
             grouped[cat] = [];
             categoryOrder.push(cat);
         }
         grouped[cat].push(p);
+        listed[p.name] = true;
     });
-    const listed = {};
-    PRODUCT_CATALOG.forEach(function (p) { if (p && p.name) listed[p.name] = true; });
     Object.keys(existingCustomer || {}).forEach(function (name) {
         if (!name || listed[name]) return;
-        if (existingCustomer[name] == null || existingCustomer[name] === '') return;
+        if (!onStoreSheet(name)) return;
         if (window._customerPricingDraft[name] == null) {
             window._customerPricingDraft[name] = Number(existingCustomer[name]);
         }
@@ -1573,6 +1584,24 @@ async function renderCustomerPricingEditor() {
             category: 'Store-only',
             caseSize: '',
             unitPrice: Number(existingCustomer[name]),
+            isMarketPrice: false
+        });
+        listed[name] = true;
+    });
+    Object.keys(basePrices || {}).forEach(function (name) {
+        if (!name || listed[name] || !onSalesmanSheet(name)) return;
+        if (window._customerPricingDraft[name] == null) {
+            window._customerPricingDraft[name] = Number(basePrices[name]);
+        }
+        if (!grouped['Other']) {
+            grouped['Other'] = [];
+            categoryOrder.push('Other');
+        }
+        grouped['Other'].push({
+            name: name,
+            category: 'Other',
+            caseSize: '',
+            unitPrice: Number(basePrices[name]),
             isMarketPrice: false
         });
         listed[name] = true;
