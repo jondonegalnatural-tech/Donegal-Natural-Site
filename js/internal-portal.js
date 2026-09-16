@@ -8966,8 +8966,7 @@ function unhideSalesmanSheetItem(catalogName) {
             window._spsSheet.prices[catalogName] = Number(catalog.unitPrice);
         }
     }
-    delete hidden[catalogName];
-    window._spsHiddenPrices = hidden;
+    restoreSalesmanHiddenItem(catalogName);
     if (typeof logAdminActivity === 'function') {
         logAdminActivity({
             action: 'unhide',
@@ -8978,6 +8977,7 @@ function unhideSalesmanSheetItem(catalogName) {
     }
     const listEl = document.getElementById('price-sheet-modal-list');
     renderCategorizedPriceSheetTable(window._spsSheet.prices || {}, listEl);
+    if (typeof renderSalesmanHiddenMenu === 'function') renderSalesmanHiddenMenu();
     if (typeof saveSalesmanPriceSheetAndPush === 'function') {
         saveSalesmanPriceSheetAndPush({ silent: true });
     }
@@ -9018,14 +9018,74 @@ function renderSalesmanHiddenMenu() {
         const raw = window._spsHiddenPrices[name];
         const n = Number(raw);
         const priceText = isNaN(n) ? '' : (' · $' + n.toFixed(2));
-        return '<div class="flex items-start justify-between gap-2 py-2 border-b border-[#e8d9b8]">' +
-            '<span class="text-sm min-w-0">' + escapeHtml(salesmanSheetDisplayName(name)) +
+        return '<label class="flex items-start gap-3 py-2 border-b border-[#e8d9b8] cursor-pointer">' +
+            '<input type="checkbox" class="sps-hidden-cb mt-1 accent-[#1E4D2B]" value="' +
+            encodeURIComponent(name) + '">' +
+            '<span class="text-sm min-w-0 flex-1">' + escapeHtml(salesmanSheetDisplayName(name)) +
             '<span class="block text-xs text-[#6B4423]">Catalog: ' + escapeHtml(name) + priceText + '</span></span>' +
-            '<button type="button" class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#1E4D2B] text-[#d4b78f]" data-name="' +
-            encodeURIComponent(name) +
-            '" onclick="unhideSalesmanSheetItem(decodeURIComponent(this.getAttribute(\'data-name\')))">Unhide</button>' +
-            '</div>';
+            '</label>';
     }).join('');
+}
+
+function toggleSalesmanHiddenSelectAll() {
+    const boxes = Array.from(document.querySelectorAll('.sps-hidden-cb'));
+    if (!boxes.length) return;
+    const allOn = boxes.every(function (cb) { return cb.checked; });
+    boxes.forEach(function (cb) { cb.checked = !allOn; });
+}
+
+function restoreSalesmanHiddenItem(catalogName) {
+    if (!catalogName || !window._spsSheet) return false;
+    const hidden = window._spsHiddenPrices || {};
+    if (!Object.prototype.hasOwnProperty.call(hidden, catalogName)) return false;
+    const raw = hidden[catalogName];
+    const n = Number(raw);
+    if (!window._spsSheet.prices || typeof window._spsSheet.prices !== 'object') {
+        window._spsSheet.prices = {};
+    }
+    if (!isNaN(n)) {
+        window._spsSheet.prices[catalogName] = n;
+    } else if (typeof PRODUCT_CATALOG !== 'undefined') {
+        const catalog = PRODUCT_CATALOG.find(function (p) { return p && p.name === catalogName; });
+        if (catalog && catalog.unitPrice != null && !isNaN(Number(catalog.unitPrice))) {
+            window._spsSheet.prices[catalogName] = Number(catalog.unitPrice);
+        }
+    }
+    delete hidden[catalogName];
+    window._spsHiddenPrices = hidden;
+    return true;
+}
+
+async function unhideSelectedSalesmanSheetItems() {
+    const names = Array.from(document.querySelectorAll('.sps-hidden-cb:checked')).map(function (cb) {
+        try { return decodeURIComponent(cb.value || ''); } catch (e) { return cb.value || ''; }
+    }).filter(Boolean);
+    if (!names.length) {
+        alert('Select at least one hidden item.');
+        return;
+    }
+    if (!confirm('Unhide ' + names.length + ' item(s) and put them back on assigned store cards?')) return;
+    let restored = 0;
+    names.forEach(function (name) {
+        if (restoreSalesmanHiddenItem(name)) restored += 1;
+    });
+    if (typeof logAdminActivity === 'function') {
+        logAdminActivity({
+            action: 'unhide',
+            entityType: 'product',
+            entityLabel: names.slice(0, 8).join(', ') + (names.length > 8 ? '…' : ''),
+            summary: 'Unhid ' + restored + ' item(s) on ' + ((window._spsSheet && window._spsSheet.name) || 'salesman sheet')
+        });
+    }
+    const listEl = document.getElementById('price-sheet-modal-list');
+    if (typeof renderCategorizedPriceSheetTable === 'function') {
+        renderCategorizedPriceSheetTable(window._spsSheet.prices || {}, listEl);
+    }
+    if (typeof renderSalesmanHiddenMenu === 'function') renderSalesmanHiddenMenu();
+    if (typeof saveSalesmanPriceSheetAndPush === 'function') {
+        await saveSalesmanPriceSheetAndPush({ silent: true });
+    }
+    alert('Unhid ' + restored + ' item(s).');
 }
 
 function renderCategorizedPriceSheetTable(prices, listEl) {
