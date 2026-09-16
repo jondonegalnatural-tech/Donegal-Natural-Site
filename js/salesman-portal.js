@@ -2332,20 +2332,21 @@ function renderPlaceOrderItems(skipFocus) {
         return;
     }
 
-    const isWalkIn = !!(currentPlaceOrderCustomer && currentPlaceOrderCustomer.walkIn);
+    const canEditPrice = (typeof canPlaceOpenOrder === 'function' && canPlaceOpenOrder())
+        || !!(currentPlaceOrderCustomer && currentPlaceOrderCustomer.walkIn);
 
     container.innerHTML = placeOrderItems.map((item, index) => {
         const priceVal = (item.unitPrice != null && item.unitPrice !== '')
             ? Number(item.unitPrice).toFixed(2)
             : '';
-        const priceField = isWalkIn
+        const priceField = canEditPrice
             ? (`<label class="text-xs text-[#6B4423]">$</label>` +
                `<input type="number" step="0.01" min="0"` +
                ` value="${priceVal}" placeholder="0.00"` +
                ` class="place-order-price w-20 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm text-center"` +
                ` onchange="updatePlaceOrderPrice(${index}, this.value)">`)
             : '';
-        const sub = isWalkIn
+        const sub = canEditPrice
             ? escapeHtml(item.caseSize || '')
             : (escapeHtml(item.caseSize || '') + ' · ' + escapeHtml(item.displayPrice || ''));
         return `
