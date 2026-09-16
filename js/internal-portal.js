@@ -8919,7 +8919,11 @@ function hideSalesmanSheetItem(catalogName) {
     const hideLabel = (typeof salesmanSheetDisplayName === 'function')
         ? salesmanSheetDisplayName(catalogName)
         : catalogName;
-    if (!confirm('Hide "' + hideLabel + '" from this assortment and update assigned stores?')) return;
+    if (!confirm('Hide "' + hideLabel + '" from THIS salesman only?\n\n' +
+        'Other salesmen keep the item.\n' +
+        'Assigned stores for this salesman will lose it after Save & Push.\n' +
+        'Company Base is unchanged.\n' +
+        'Use Discontinue on the Company Base sheet to hide it from every salesman.')) return;
     if (!window._spsHiddenPrices || typeof window._spsHiddenPrices !== 'object') {
         window._spsHiddenPrices = {};
     }
@@ -18316,7 +18320,11 @@ async function discontinueSelectedProducts() {
         alert('Select at least one product.');
         return;
     }
-    if (!confirm('Discontinue ' + ids.length + ' product(s)?\n\nThey will be hidden from wholesale and salesman catalogs.\nYou can show them again with “Show discontinued” and Reactivate later.')) {
+    if (!confirm('Discontinue ' + ids.length + ' product(s) COMPANY-WIDE?\n\n' +
+        'This overrides salesman Hide and removes the item from EVERY salesman and EVERY store.\n' +
+        'Company Base keeps the row under Show discontinued.\n' +
+        'To hide for one salesman only, use that salesman’s sheet Hide button.\n' +
+        'Reactivate later with Show discontinued.')) {
         return;
     }
 
