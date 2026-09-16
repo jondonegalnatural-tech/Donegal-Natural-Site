@@ -8914,6 +8914,62 @@ function isSalesmanSheetHidden(name) {
     return !!(name && Object.prototype.hasOwnProperty.call(hidden, name));
 }
 
+function toggleSalesmanSheetHideSelectAll(master) {
+    const on = !!(master && master.checked);
+    document.querySelectorAll('.sps-hide-cb').forEach(function (cb) { cb.checked = on; });
+}
+
+function hideSalesmanSheetItemCore(catalogName) {
+    if (!catalogName || !window._spsSheet) return false;
+    if (!window._spsHiddenPrices || typeof window._spsHiddenPrices !== 'object') {
+        window._spsHiddenPrices = {};
+    }
+    const raw = window._spsSheet.prices ? window._spsSheet.prices[catalogName] : null;
+    const n = Number(raw);
+    window._spsHiddenPrices[catalogName] = isNaN(n) ? raw : n;
+    if (window._spsSheet.prices) delete window._spsSheet.prices[catalogName];
+    if (window._spsExport && window._spsExport.prices) delete window._spsExport.prices[catalogName];
+    return true;
+}
+
+async function hideSelectedSalesmanSheetItems() {
+    const names = Array.from(document.querySelectorAll('.sps-hide-cb:checked')).map(function (cb) {
+        try { return decodeURIComponent(cb.value || ''); } catch (e) { return cb.value || ''; }
+    }).filter(Boolean);
+    if (!names.length) {
+        alert('Select at least one item to hide.');
+        return;
+    }
+    if (!confirm('Hide ' + names.length + ' item(s) from THIS salesman only?\n\n' +
+        'Other salesmen keep these items.\n' +
+        'Assigned stores for this salesman will lose them after Save & Push.\n' +
+        'Company Base is unchanged.')) return;
+    if (window._spsEditing && typeof collectSalesmanPriceSheetInputs === 'function') {
+        window._spsSheet.prices = collectSalesmanPriceSheetInputs();
+    }
+    let hidden = 0;
+    names.forEach(function (name) {
+        if (hideSalesmanSheetItemCore(name)) hidden += 1;
+    });
+    if (typeof logAdminActivity === 'function') {
+        logAdminActivity({
+            action: 'hide',
+            entityType: 'product',
+            entityLabel: names.slice(0, 8).join(', ') + (names.length > 8 ? '…' : ''),
+            summary: 'Hid ' + hidden + ' item(s) from ' + ((window._spsSheet && window._spsSheet.name) || 'salesman sheet')
+        });
+    }
+    const listEl = document.getElementById('price-sheet-modal-list');
+    if (typeof renderCategorizedPriceSheetTable === 'function') {
+        renderCategorizedPriceSheetTable(window._spsSheet.prices || {}, listEl);
+    }
+    if (typeof renderSalesmanHiddenMenu === 'function') renderSalesmanHiddenMenu();
+    if (typeof saveSalesmanPriceSheetAndPush === 'function') {
+        await saveSalesmanPriceSheetAndPush({ silent: true });
+    }
+    alert('Hid ' + hidden + ' item(s) from this salesman only.');
+}
+
 function hideSalesmanSheetItem(catalogName) {
     if (!catalogName || !window._spsSheet) return;
     const hideLabel = (typeof salesmanSheetDisplayName === 'function')
@@ -8924,17 +8980,10 @@ function hideSalesmanSheetItem(catalogName) {
         'Assigned stores for this salesman will lose it after Save & Push.\n' +
         'Company Base is unchanged.\n' +
         'Use Discontinue on the Company Base sheet to hide it from every salesman.')) return;
-    if (!window._spsHiddenPrices || typeof window._spsHiddenPrices !== 'object') {
-        window._spsHiddenPrices = {};
-    }
     if (window._spsEditing && typeof collectSalesmanPriceSheetInputs === 'function') {
         window._spsSheet.prices = collectSalesmanPriceSheetInputs();
     }
-    const raw = window._spsSheet.prices ? window._spsSheet.prices[catalogName] : null;
-    const n = Number(raw);
-    window._spsHiddenPrices[catalogName] = isNaN(n) ? raw : n;
-    if (window._spsSheet.prices) delete window._spsSheet.prices[catalogName];
-    if (window._spsExport && window._spsExport.prices) delete window._spsExport.prices[catalogName];
+    hideSalesmanSheetItemCore(catalogName);
     if (typeof logAdminActivity === 'function') {
         logAdminActivity({
             action: 'hide',
@@ -9179,7 +9228,8 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
                                 <th class="p-2.5 text-right w-28">Unit Price</th>
                                 <th class="p-2.5 text-center w-28">As Of</th>
                                 ${editing ? '<th class="p-2.5 text-center w-24">Hide</th>' : ''}
-                            </tr>
+                            </tr>                                ${editing ? '<th class="p-2.5 text-center w-10"><input type="checkbox" class="accent-[#d4b78f]" onchange="toggleSalesmanSheetHideSelectAll(this)"></th>' : ''}
+                                ${editing ? '<th class="p-2.5 text-center w-24">Hide</th>' : ''}
                         </thead>
                         <tbody>
         `;
@@ -9207,6 +9257,7 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
                     <td class="p-2.5 text-[#6B4423]">${escapeHtml(row.caseSize || '—')}</td>
                     <td class="p-2.5 text-right">${priceCell}</td>
                     <td class="p-2.5 text-center text-xs text-[#6B4423]">${escapeHtml(row.priceAsOf || '—')}</td>
+                    ${editing ? ('<td class="p-2.5 text-center"><input type="checkbox" class="sps-hide-cb accent-[#1E4D2B]" value="' + encodeURIComponent(row.name) + '"></td>') : ''}
                     ${editing ? ('<td class="p-2.5 text-center"><button type="button" class="px-2 py-1 text-xs font-semibold rounded-lg bg-[#1E4D2B] text-[#d4b78f]" data-name="' + encodeURIComponent(row.name) + '" onclick="hideSalesmanSheetItem(decodeURIComponent(this.getAttribute(\'data-name\')))">Hide</button></td>') : ''}
                 </tr>
             `;
@@ -9328,6 +9379,8 @@ function setSalesmanPriceSheetEditMode(on) {
     }
     if (saveBtn) saveBtn.classList.toggle('hidden', !(canEdit && on));
     if (hint) hint.classList.toggle('hidden', !(canEdit && on));
+    const hideSel = document.getElementById('sps-hide-selected-btn');
+    if (hideSel) hideSel.classList.toggle('hidden', !(canEdit && on));
 }
 
 function toggleSalesmanPriceSheetEdit() {
