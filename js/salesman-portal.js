@@ -2591,6 +2591,7 @@ function openPlaceOrderConfirmModal() {
 }
 
 async function confirmAndSubmitPlaceOrder() {
+    if (window._placeOrderSubmitting) return;
     hidePlaceOrderConfirmModal();
     if (typeof submitPlaceOrder === 'function') {
         await submitPlaceOrder();
@@ -2612,93 +2613,95 @@ function displayInvoiceNumber(order) {
 }
 
 async function submitPlaceOrder() {
-    const nameFromField =
-        (document.getElementById("place-order-customer-name")?.textContent || "").trim() ||
-        (document.getElementById("place-order-customer")?.value || "").trim() ||
-        (typeof currentPlaceOrderCustomer === "string" ? currentPlaceOrderCustomer : "") ||
-        (currentPlaceOrderCustomer && currentPlaceOrderCustomer.name) ||
-        "";
+    if (window._placeOrderSubmitting) return;
+    window._placeOrderSubmitting = true;
+    try {
+        const nameFromField =
+            (document.getElementById("place-order-customer-name")?.textContent || "").trim() ||
+            (document.getElementById("place-order-customer")?.value || "").trim() ||
+            (typeof currentPlaceOrderCustomer === "string" ? currentPlaceOrderCustomer : "") ||
+            (currentPlaceOrderCustomer && currentPlaceOrderCustomer.name) ||
+            "";
 
-    if (!nameFromField) {
-        alert("No customer selected.");
-        return;
-    }
-
-    if (!placeOrderItems || placeOrderItems.length === 0) {
-        alert("Please add at least one product to the order.");
-        return;
-    }
-
-    const user = getCurrentUser() || currentUser;
-    if (!user) {
-        alert("You must be logged in.");
-        return;
-    }
-
-    const notesEl = document.getElementById("place-order-notes");
-    const notes = notesEl ? notesEl.value.trim() : "";
-
-    const customerObj = (currentPlaceOrderCustomer && typeof currentPlaceOrderCustomer === "object")
-        ? currentPlaceOrderCustomer
-        : null;
-    const isWalkIn = !!(customerObj && customerObj.walkIn);
-    const walkInName = (document.getElementById('po-walkin-name')?.value || '').trim();
-    const walkInCompany = (document.getElementById('po-walkin-company')?.value || '').trim();
-    const walkInEmail = (document.getElementById('po-walkin-email')?.value || '').trim();
-    const walkInPhone = (document.getElementById('po-walkin-phone')?.value || '').trim();
-    const walkInStreet = (document.getElementById('po-walkin-street')?.value || '').trim();
-    const walkInCity = (document.getElementById('po-walkin-city')?.value || '').trim();
-    const walkInState = (document.getElementById('po-walkin-state')?.value || '').trim().toUpperCase();
-    const walkInZip = (document.getElementById('po-walkin-zip')?.value || '').trim();
-    const walkInAddress = [walkInStreet, [walkInCity, walkInState].filter(Boolean).join(', '), walkInZip].filter(Boolean).join(' ');
-    const walkInCommissionRaw = (document.getElementById('po-walkin-commission')?.value || '').trim();
-    let walkInCommission = null;
-    if (walkInCommissionRaw !== '') {
-        walkInCommission = parseFloat(walkInCommissionRaw);
-        if (isNaN(walkInCommission) || walkInCommission < 0 || walkInCommission > 100) {
-            alert('Commission must be between 0 and 100, or blank.');
+        if (!nameFromField) {
+            alert("No customer selected.");
             return;
         }
-    }
-    if (isWalkIn && !walkInName) {
-        alert('Enter a customer name for this open order.');
-        return;
-    }
 
-    const invoiceNumber = generateInvoiceNumber();
+        if (!placeOrderItems || placeOrderItems.length === 0) {
+            alert("Please add at least one product to the order.");
+            return;
+        }
 
-    const payload = {
-        customer_id: isWalkIn ? null : (customerObj?.id || null),
-        customer_name: isWalkIn ? walkInName : nameFromField,
-        customer_email: isWalkIn ? (walkInEmail.toLowerCase() || null) : ((customerObj?.email || "").toLowerCase().trim() || null),
-        customer_company: isWalkIn ? (walkInCompany || null) : (customerObj?.company || null),
-        salesman_email: (typeof getOperatingSalesmanEmail === 'function' ? getOperatingSalesmanEmail() : (user.email || "")).toLowerCase().trim(),
-        salesman_name: (typeof getOperatingSalesmanName === 'function' ? getOperatingSalesmanName() : null) || user.fullName || user.name || "Salesman",
-        status: "submitted",
-        source: "salesman",
-        items: placeOrderItems.map(item => ({
-            product: item.name,
-            displayName: item.displayName || salesmanDisplayName(item.name),
-            quantity: item.quantity || 1,
-            caseSize: item.caseSize || "",
-            unitPrice: item.unitPrice != null ? item.unitPrice : null,
-            displayPrice: item.displayPrice || "",
-            isMarketPrice: !!item.isMarketPrice
-        })),
-        notes: (notes || "Submitted via Salesman Portal") +
-            (isWalkIn && walkInPhone ? ("\nPhone: " + walkInPhone) : "") +
-            (isWalkIn && walkInAddress ? ("\nAddress: " + walkInAddress) : ""),
-        shipping_cost: 0,
-        submitted_at: new Date().toISOString(),
-        invoice_number: invoiceNumber,
-        salesman_commission_percent: isWalkIn
-            ? walkInCommission
-            : ((customerObj && customerObj.salesman_commission_percent != null && customerObj.salesman_commission_percent !== '')
-                ? Number(customerObj.salesman_commission_percent)
-                : null)
-    };
+        const user = getCurrentUser() || currentUser;
+        if (!user) {
+            alert("You must be logged in.");
+            return;
+        }
 
-    try {
+        const notesEl = document.getElementById("place-order-notes");
+        const notes = notesEl ? notesEl.value.trim() : "";
+
+        const customerObj = (currentPlaceOrderCustomer && typeof currentPlaceOrderCustomer === "object")
+            ? currentPlaceOrderCustomer
+            : null;
+        const isWalkIn = !!(customerObj && customerObj.walkIn);
+        const walkInName = (document.getElementById('po-walkin-name')?.value || '').trim();
+        const walkInCompany = (document.getElementById('po-walkin-company')?.value || '').trim();
+        const walkInEmail = (document.getElementById('po-walkin-email')?.value || '').trim();
+        const walkInPhone = (document.getElementById('po-walkin-phone')?.value || '').trim();
+        const walkInStreet = (document.getElementById('po-walkin-street')?.value || '').trim();
+        const walkInCity = (document.getElementById('po-walkin-city')?.value || '').trim();
+        const walkInState = (document.getElementById('po-walkin-state')?.value || '').trim().toUpperCase();
+        const walkInZip = (document.getElementById('po-walkin-zip')?.value || '').trim();
+        const walkInAddress = [walkInStreet, [walkInCity, walkInState].filter(Boolean).join(', '), walkInZip].filter(Boolean).join(' ');
+        const walkInCommissionRaw = (document.getElementById('po-walkin-commission')?.value || '').trim();
+        let walkInCommission = null;
+        if (walkInCommissionRaw !== '') {
+            walkInCommission = parseFloat(walkInCommissionRaw);
+            if (isNaN(walkInCommission) || walkInCommission < 0 || walkInCommission > 100) {
+                alert('Commission must be between 0 and 100, or blank.');
+                return;
+            }
+        }
+        if (isWalkIn && !walkInName) {
+            alert('Enter a customer name for this open order.');
+            return;
+        }
+
+        const invoiceNumber = generateInvoiceNumber();
+
+        const payload = {
+            customer_id: isWalkIn ? null : (customerObj?.id || null),
+            customer_name: isWalkIn ? walkInName : nameFromField,
+            customer_email: isWalkIn ? (walkInEmail.toLowerCase() || null) : ((customerObj?.email || "").toLowerCase().trim() || null),
+            customer_company: isWalkIn ? (walkInCompany || null) : (customerObj?.company || null),
+            salesman_email: (typeof getOperatingSalesmanEmail === 'function' ? getOperatingSalesmanEmail() : (user.email || "")).toLowerCase().trim(),
+            salesman_name: (typeof getOperatingSalesmanName === 'function' ? getOperatingSalesmanName() : null) || user.fullName || user.name || "Salesman",
+            status: "submitted",
+            source: "salesman",
+            items: placeOrderItems.map(item => ({
+                product: item.name,
+                displayName: item.displayName || salesmanDisplayName(item.name),
+                quantity: item.quantity || 1,
+                caseSize: item.caseSize || "",
+                unitPrice: item.unitPrice != null ? item.unitPrice : null,
+                displayPrice: item.displayPrice || "",
+                isMarketPrice: !!item.isMarketPrice
+            })),
+            notes: (notes || "Submitted via Salesman Portal") +
+                (isWalkIn && walkInPhone ? ("\nPhone: " + walkInPhone) : "") +
+                (isWalkIn && walkInAddress ? ("\nAddress: " + walkInAddress) : ""),
+            shipping_cost: 0,
+            submitted_at: new Date().toISOString(),
+            invoice_number: invoiceNumber,
+            salesman_commission_percent: isWalkIn
+                ? walkInCommission
+                : ((customerObj && customerObj.salesman_commission_percent != null && customerObj.salesman_commission_percent !== '')
+                    ? Number(customerObj.salesman_commission_percent)
+                    : null)
+        };
+
         const { data, error } = await supabaseClient
             .from("orders")
             .insert([payload])
@@ -2736,6 +2739,8 @@ async function submitPlaceOrder() {
     } catch (err) {
         console.error(err);
         alert("Could not submit order.\n" + (err.message || ""));
+    } finally {
+        window._placeOrderSubmitting = false;
     }
 }
 
