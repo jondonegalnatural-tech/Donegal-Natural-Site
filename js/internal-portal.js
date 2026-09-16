@@ -9227,9 +9227,8 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
                                 <th class="p-2.5 text-left w-28">Case Size</th>
                                 <th class="p-2.5 text-right w-28">Unit Price</th>
                                 <th class="p-2.5 text-center w-28">As Of</th>
-                                ${editing ? '<th class="p-2.5 text-center w-24">Hide</th>' : ''}
-                            </tr>                                ${editing ? '<th class="p-2.5 text-center w-10"><input type="checkbox" class="accent-[#d4b78f]" onchange="toggleSalesmanSheetHideSelectAll(this)"></th>' : ''}
-                                ${editing ? '<th class="p-2.5 text-center w-24">Hide</th>' : ''}
+                                ${editing ? '<th class="p-2.5 text-center w-28"><input type="checkbox" class="accent-[#d4b78f] mr-1 align-middle" onchange="toggleSalesmanSheetHideSelectAll(this)"> Hide</th>' : ''}
+                            </tr>
                         </thead>
                         <tbody>
         `;
@@ -9257,8 +9256,7 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
                     <td class="p-2.5 text-[#6B4423]">${escapeHtml(row.caseSize || '—')}</td>
                     <td class="p-2.5 text-right">${priceCell}</td>
                     <td class="p-2.5 text-center text-xs text-[#6B4423]">${escapeHtml(row.priceAsOf || '—')}</td>
-                    ${editing ? ('<td class="p-2.5 text-center"><input type="checkbox" class="sps-hide-cb accent-[#1E4D2B]" value="' + encodeURIComponent(row.name) + '"></td>') : ''}
-                    ${editing ? ('<td class="p-2.5 text-center"><button type="button" class="px-2 py-1 text-xs font-semibold rounded-lg bg-[#1E4D2B] text-[#d4b78f]" data-name="' + encodeURIComponent(row.name) + '" onclick="hideSalesmanSheetItem(decodeURIComponent(this.getAttribute(\'data-name\')))">Hide</button></td>') : ''}
+                    ${editing ? ('<td class="p-2.5 text-center whitespace-nowrap"><input type="checkbox" class="sps-hide-cb accent-[#1E4D2B] mr-2 align-middle" value="' + encodeURIComponent(row.name) + '"><button type="button" class="px-2 py-1 text-xs font-semibold rounded-lg bg-[#1E4D2B] text-[#d4b78f]" data-name="' + encodeURIComponent(row.name) + '" onclick="hideSalesmanSheetItem(decodeURIComponent(this.getAttribute(\'data-name\')))">Hide</button></td>') : ''}
                 </tr>
             `;
         });
