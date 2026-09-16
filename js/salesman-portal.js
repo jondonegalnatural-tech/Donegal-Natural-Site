@@ -2045,9 +2045,13 @@ function searchPlaceOrderProducts() {
 
         const sheetMap = window._placeOrderBrianPrices || {};
     const sheetNames = Object.keys(sheetMap);
+    if (!sheetNames.length) {
+        resultsEl.innerHTML = `<p class="p-3 text-sm text-[#6B4423]">Choose a customer first to see that salesman’s items.</p>`;
+        resultsEl.classList.remove("hidden");
+        return;
+    }
     const matches = PRODUCT_CATALOG.filter(function (p) {
         if (!p || !p.name || !p.name.toLowerCase().includes(term)) return false;
-        if (!sheetNames.length) return true;
         return Object.prototype.hasOwnProperty.call(sheetMap, p.name);
     });
     const have = {};
@@ -2076,13 +2080,13 @@ function searchPlaceOrderProducts() {
         const priceLabel = priced.displayPrice + (priced.isMarketPrice
             ? ' — Market price. Final invoice may be adjusted to current market cost at shipment.'
             : '');
-        const safeName = p.name.replace(/'/g, "\\'");
+        const safeName = encodeURIComponent(p.name);
 
         const oos = typeof isSalesmanOos === 'function' && isSalesmanOos(p.name);
         const oosText = oos ? (salesmanOosLabel(p.name) || 'Out of stock') : '';
         return `
             <div class="px-3 py-2 border-b border-[#d4b78f] flex justify-between items-center hover:bg-[#f8f4eb] cursor-pointer"
-                 onclick="addProductToPlaceOrder('${safeName}')">
+                 onclick="addProductToPlaceOrder(decodeURIComponent('${safeName}'))">
                 <div>
                     <p class="text-sm font-semibold brand-green">${escapeHtml(salesmanDisplayName(p.name))}</p>
                     <p class="text-xs text-[#6B4423]">${escapeHtml(p.caseSize || "")} · ${escapeHtml(priceLabel)}</p>
@@ -2278,6 +2282,7 @@ async function loadBrianPlaceOrderPrices(customer) {
 
 function addProductToPlaceOrder(productName) {
     const sheetMap = window._placeOrderBrianPrices || {};
+    if (!productName || !Object.prototype.hasOwnProperty.call(sheetMap, productName)) return;
     const catalogProduct = (typeof PRODUCT_CATALOG !== 'undefined')
         ? PRODUCT_CATALOG.find(function (p) { return p.name === productName; })
         : null;
@@ -5670,8 +5675,9 @@ async function submitCustomerEditProposal(event) {
 
 // ================== INITIALIZATION ==================
 function newProductAlertStorageKey() {
-    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    const email = (user.email || '').toLowerCase().trim();
+    const email = (typeof getOperatingSalesmanEmail === 'function')
+        ? getOperatingSalesmanEmail()
+        : String((JSON.parse(localStorage.getItem('currentUser') || '{}').email) || '').toLowerCase().trim();
     return email ? ('newProductAlertSeenAt_' + email) : null;
 }
 
@@ -5692,11 +5698,32 @@ async function checkNewProductAlert() {
         if (error) throw error;
         if (!data || data.length === 0) return;
 
+        const salesmanEmail = (typeof getOperatingSalesmanEmail === 'function')
+            ? getOperatingSalesmanEmail()
+            : '';
+        let allowed = null;
+        if (salesmanEmail) {
+            const { data: sheet } = await supabaseClient
+                .from('salesman_price_sheets')
+                .select('prices')
+                .eq('salesman_email', salesmanEmail)
+                .maybeSingle();
+            if (sheet && sheet.prices && typeof sheet.prices === 'object') {
+                allowed = sheet.prices;
+            }
+        }
+        const visible = (data || []).filter(function (p) {
+            if (!p || !p.name) return false;
+            if (!allowed) return false;
+            return Object.prototype.hasOwnProperty.call(allowed, p.name);
+        });
+        if (!visible.length) return;
+
         const list = document.getElementById('new-product-alert-list');
         const modal = document.getElementById('new-product-alert-modal');
         if (!list || !modal) return;
 
-        list.innerHTML = data.map(p => {
+        list.innerHTML = visible.map(p => {
             const price = p.unit_price != null ? ('$' + Number(p.unit_price).toFixed(2)) : '';
             const cs = p.case_size ? (' · ' + p.case_size) : '';
             return '<li><strong>' + escapeHtml(p.name || '') + '</strong>' +
