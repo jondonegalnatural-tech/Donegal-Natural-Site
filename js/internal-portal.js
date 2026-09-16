@@ -3573,6 +3573,12 @@ function renderOrdersTable() {
                 class="hidden px-4 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl text-sm font-semibold hover:bg-[#254a2f]">
             Print Selected Orders
         </button>
+        ${(typeof isJonathanAdmin === 'function' && isJonathanAdmin()) ? `
+        <button id="delete-selected-btn"
+                onclick="deleteSelectedOrders()"
+                class="hidden px-4 py-2 bg-red-700 text-white rounded-xl text-sm font-semibold hover:bg-red-800">
+            Delete Selected Orders
+        </button>` : ''}
         ${jonathanCommissionButtons}
     </div>
     <table class="w-full">
@@ -5983,6 +5989,58 @@ function updatePrintSelectedButton() {
     }
     if (apply10) apply10.classList.toggle('hidden', count === 0);
     if (reset5) reset5.classList.toggle('hidden', count === 0);
+    const delBtn = document.getElementById('delete-selected-btn');
+    if (delBtn) {
+        if (count > 0) {
+            delBtn.classList.remove('hidden');
+            delBtn.textContent = 'Delete Selected Orders (' + count + ')';
+        } else {
+            delBtn.classList.add('hidden');
+        }
+    }
+}
+
+async function deleteSelectedOrders() {
+    if (typeof isJonathanAdmin === 'function' && !isJonathanAdmin()) {
+        alert('Only Jonathan can delete orders.');
+        return;
+    }
+    const checked = Array.from(document.querySelectorAll('.order-checkbox:checked')).map(function (cb) {
+        return String(cb.value);
+    });
+    if (!checked.length) {
+        alert('Select at least one order first.');
+        return;
+    }
+    const labels = checked.map(function (id) {
+        const order = (allOrders || []).find(function (o) { return String(o.id) === id; });
+        return (typeof displayInvoiceNumber === 'function' && order) ? displayInvoiceNumber(order) : id;
+    });
+    if (!confirm('Delete ' + checked.length + ' order(s)?\n\n' + labels.join('\n') + '\n\nThis cannot be undone.')) return;
+    if (!confirm('Final confirm: permanently delete ' + checked.length + ' order(s)?')) return;
+    try {
+        const { error } = await supabaseClient
+            .from('orders')
+            .delete()
+            .in('id', checked);
+        if (error) throw error;
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'delete',
+                entityType: 'order',
+                entityLabel: labels.join(', '),
+                summary: 'Deleted ' + checked.length + ' order(s)'
+            });
+        }
+        if (typeof loadOrders === 'function') await loadOrders();
+        if (typeof updateDashboardOrders === 'function') updateDashboardOrders();
+        if (typeof updateDashboardSales === 'function') updateDashboardSales();
+        if (typeof updatePortalCommissionCard === 'function') updatePortalCommissionCard();
+        alert('Deleted ' + checked.length + ' order(s).');
+    } catch (err) {
+        console.error(err);
+        alert('Could not delete order(s).\n' + (err.message || ''));
+    }
 }
 
 async function bulkSetPortalCommissionRate(rate) {
