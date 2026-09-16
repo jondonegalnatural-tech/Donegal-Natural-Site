@@ -9898,6 +9898,9 @@ async function populateReportsSalesmanSelect() {
     if (!Array.isArray(salesmen) || salesmen.length === 0) {
         if (typeof loadSalesmen === 'function') await loadSalesmen();
     }
+    if (!Array.isArray(allCustomers) || !allCustomers.length) {
+        if (typeof loadCustomers === 'function') await loadCustomers();
+    }
 
     const active = (salesmen || []).filter(s => s.active !== false && (s.email || '').trim());
     const current = select.value;
@@ -19077,16 +19080,41 @@ async function onBulkPercentStoreChange() {
 
 function renderBulkPercentTable() {
     const tbody = document.getElementById('bulk-pct-tbody');
-    if (!tbody || typeof PRODUCT_CATALOG === 'undefined') return;
+    if (!tbody) return;
 
-    const products = PRODUCT_CATALOG.filter(p => !p.isMarketPrice && p.unitPrice != null);
-    if (products.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-[#6B4423]">No non-market products in catalog.</td></tr>';
+    const sheet = bulkPctCurrentPrices && typeof bulkPctCurrentPrices === 'object'
+        ? bulkPctCurrentPrices
+        : {};
+    const names = Object.keys(sheet).filter(function (name) {
+        if (!name) return false;
+        const n = Number(sheet[name]);
+        if (isNaN(n)) return false;
+        const catalogItem = (typeof PRODUCT_CATALOG !== 'undefined')
+            ? PRODUCT_CATALOG.find(function (p) { return p.name === name; })
+            : null;
+        if (catalogItem && catalogItem.isMarketPrice) return false;
+        return true;
+    }).sort(function (a, b) { return a.localeCompare(b); });
+
+    if (!names.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="p-6 text-center text-[#6B4423]">No products on this salesman / store sheet.</td></tr>';
         return;
     }
 
+    const products = names.map(function (name) {
+        const catalogItem = (typeof PRODUCT_CATALOG !== 'undefined')
+            ? PRODUCT_CATALOG.find(function (p) { return p.name === name; })
+            : null;
+        return {
+            name: name,
+            category: (catalogItem && catalogItem.category) || 'Other',
+            caseSize: (catalogItem && catalogItem.caseSize) || '',
+            unitPrice: catalogItem ? Number(catalogItem.unitPrice) || 0 : Number(sheet[name]) || 0
+        };
+    });
+
     const byCat = {};
-    products.forEach(p => {
+    products.forEach(function (p) {
         const cat = p.category || 'Uncategorized';
         if (!byCat[cat]) byCat[cat] = [];
         byCat[cat].push(p);
@@ -19096,7 +19124,7 @@ function renderBulkPercentTable() {
     let html = '';
     let rowIndex = 0;
 
-    catNames.forEach(cat => {
+    catNames.forEach(function (cat) {
         const list = byCat[cat];
         const safeCat = String(cat).replace(/"/g, '&quot;');
         html += `
@@ -19109,11 +19137,9 @@ function renderBulkPercentTable() {
                 <td class="p-2 font-bold" colspan="6">${escapeHtml(cat)} · ${list.length} item${list.length === 1 ? '' : 's'}</td>
             </tr>
         `;
-        list.forEach(p => {
+        list.forEach(function (p) {
             const catalog = Number(p.unitPrice) || 0;
-            const current = bulkPctCurrentPrices[p.name] != null
-                ? Number(bulkPctCurrentPrices[p.name])
-                : catalog;
+            const current = Number(sheet[p.name]);
             const delta = catalog > 0 ? ((current - catalog) / catalog * 100) : 0;
             const deltaText = (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%';
             const deltaClass = Math.abs(delta) > 0.05
@@ -19133,7 +19159,7 @@ function renderBulkPercentTable() {
                     <td class="p-2">
                         <span class="font-medium">${escapeHtml(p.name)}</span>
                         ${alreadyAdjusted ? '<span class="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-100 text-blue-800">adjusted</span>' : ''}
-                        ${p.caseSize ? `<span class="block text-xs text-[#6B4423]">${p.caseSize}</span>` : ''}
+                        ${p.caseSize ? `<span class="block text-xs text-[#6B4423]">${escapeHtml(p.caseSize)}</span>` : ''}
                     </td>
                     <td class="p-2 text-right">$${catalog.toFixed(2)}</td>
                     <td class="p-2 text-right font-semibold">$${current.toFixed(2)}</td>
@@ -19249,13 +19275,22 @@ async function confirmBulkPercentAdjust() {
         return;
     }
 
+    const storeId = String(document.getElementById('bulk-pct-store')?.value || '');
+    const store = storeId
+        ? (allCustomers || []).find(function (c) { return String(c.id) === storeId; })
+        : null;
+    if (storeId && !store) {
+        alert('That store is not loaded. Open Customers once, then try again.');
+        if (typeof loadCustomers === 'function') await loadCustomers();
+        return;
+    }
+
     const factor = 1 + (pct / 100);
     const updates = {};
-
-    checked.forEach(cb => {
+    checked.forEach(function (cb) {
         const product = cb.getAttribute('data-product');
         if (!product) return;
-        const catalogItem = (PRODUCT_CATALOG || []).find(p => p.name === product);
+        const catalogItem = (PRODUCT_CATALOG || []).find(function (p) { return p.name === product; });
         const catalog = catalogItem ? Number(catalogItem.unitPrice) || 0 : 0;
         const current = bulkPctCurrentPrices[product] != null
             ? Number(bulkPctCurrentPrices[product])
@@ -19266,12 +19301,18 @@ async function confirmBulkPercentAdjust() {
 
     const productCount = Object.keys(updates).length;
     const direction = pct > 0 ? 'increase' : 'decrease';
+    const targetLabel = store
+        ? ((store.company || store.name || 'store') + ' customer sheet')
+        : (bulkPctSalesmanName + "'s salesman sheet");
     if (!confirm(
-        `Apply ${pct > 0 ? '+' : ''}${pct}% ${direction} to ${productCount} product(s) on ${bulkPctSalesmanName}'s price sheet?\n\n` +
-        `This writes only to salesman_price_sheets.\nCustomer price sheets are NOT changed.`
+        'Apply ' + (pct > 0 ? '+' : '') + pct + '% ' + direction + ' to ' + productCount +
+        ' product(s) on ' + targetLabel + '?\n\n' +
+        (store
+            ? 'Only this store’s customer price sheet will change.'
+            : 'This writes only to the salesman sheet.\nCustomer sheets will not change.')
     )) return;
 
-    ['bulk-pct-confirm-btn', 'bulk-pct-confirm-btn-top'].forEach(id => {
+    ['bulk-pct-confirm-btn', 'bulk-pct-confirm-btn-top'].forEach(function (id) {
         const btn = document.getElementById(id);
         if (btn) {
             btn.disabled = true;
@@ -19280,46 +19321,14 @@ async function confirmBulkPercentAdjust() {
     });
 
     try {
-        // Merge with existing sheet
-        const { data: existing } = await supabaseClient
-            .from('salesman_price_sheets')
-            .select('id, prices')
-            .eq('salesman_email', bulkPctSalesmanEmail)
-            .maybeSingle();
-
-        const merged = { ...(existing?.prices || {}), ...updates };
-
-        if (existing) {
-            const { error } = await supabaseClient
-                .from('salesman_price_sheets')
-                .update({
-                    prices: merged,
-                    salesman_name: bulkPctSalesmanName,
-                    updated_at: new Date().toISOString()
-                })
-                .eq('id', existing.id);
-            if (error) throw error;
-        } else {
-            const { error } = await supabaseClient
-                .from('salesman_price_sheets')
-                .insert({
-                    salesman_email: bulkPctSalesmanEmail,
-                    salesman_name: bulkPctSalesmanName,
-                    prices: merged
-                });
-            if (error) throw error;
-        }
-
         if (store && store.id) {
-            const { data: prevSheet } = await supabaseClient
+            const { data: prevSheet, error: prevErr } = await supabaseClient
                 .from('customer_price_sheets')
                 .select('prices, display_names, salesman_email')
                 .eq('customer_id', store.id)
                 .maybeSingle();
-            let nextPrices = Object.assign({}, (prevSheet && prevSheet.prices) || bulkPctCurrentPrices || {}, updates);
-            if (typeof mergeStoreOnlyPriceExtras === 'function') {
-                nextPrices = mergeStoreOnlyPriceExtras(nextPrices, prevSheet && prevSheet.prices, bulkPctSalesmanEmail);
-            }
+            if (prevErr) throw prevErr;
+            const nextPrices = Object.assign({}, (prevSheet && prevSheet.prices) || bulkPctCurrentPrices || {}, updates);
             const payload = {
                 customer_id: store.id,
                 salesman_email: bulkPctSalesmanEmail || (prevSheet && prevSheet.salesman_email) || null,
@@ -19346,16 +19355,42 @@ async function confirmBulkPercentAdjust() {
             return;
         }
 
-        alert(`Done. ${productCount} product(s) updated on ${bulkPctSalesmanName}'s sheet.`);
+        const { data: existing } = await supabaseClient
+            .from('salesman_price_sheets')
+            .select('id, prices')
+            .eq('salesman_email', bulkPctSalesmanEmail)
+            .maybeSingle();
+        const merged = Object.assign({}, (existing && existing.prices) || {}, updates);
+        if (existing) {
+            const { error } = await supabaseClient
+                .from('salesman_price_sheets')
+                .update({
+                    prices: merged,
+                    salesman_name: bulkPctSalesmanName,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', existing.id);
+            if (error) throw error;
+        } else {
+            const { error } = await supabaseClient
+                .from('salesman_price_sheets')
+                .insert({
+                    salesman_email: bulkPctSalesmanEmail,
+                    salesman_name: bulkPctSalesmanName,
+                    prices: merged
+                });
+            if (error) throw error;
+        }
+        alert('Done. ' + productCount + ' product(s) updated on ' + bulkPctSalesmanName + "'s sheet.");
         hideBulkPercentAdjustModal();
     } catch (err) {
         console.error('confirmBulkPercentAdjust error:', err);
         alert('Could not save changes.\n' + (err.message || ''));
-        ['bulk-pct-confirm-btn', 'bulk-pct-confirm-btn-top'].forEach(id => {
+        ['bulk-pct-confirm-btn', 'bulk-pct-confirm-btn-top'].forEach(function (id) {
             const btn = document.getElementById(id);
             if (btn) {
                 btn.disabled = false;
-                btn.textContent = 'Apply to Salesman Sheet';
+                btn.textContent = store ? 'Apply to This Store' : 'Apply to Salesman Sheet';
             }
         });
     }
