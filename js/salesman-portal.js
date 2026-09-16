@@ -2081,14 +2081,14 @@ function searchPlaceOrderProducts() {
         const oos = typeof isSalesmanOos === 'function' && isSalesmanOos(p.name);
         const oosText = oos ? (salesmanOosLabel(p.name) || 'Out of stock') : '';
         return `
-            <div class="px-3 py-2 border-b border-[#d4b78f] flex justify-between items-center ${oos ? '' : 'hover:bg-[#f8f4eb] cursor-pointer'}"
-                 ${oos ? '' : `onclick="addProductToPlaceOrder('${safeName}')"`}>
+            <div class="px-3 py-2 border-b border-[#d4b78f] flex justify-between items-center hover:bg-[#f8f4eb] cursor-pointer"
+                 onclick="addProductToPlaceOrder('${safeName}')">
                 <div>
                     <p class="text-sm font-semibold brand-green">${escapeHtml(salesmanDisplayName(p.name))}</p>
                     <p class="text-xs text-[#6B4423]">${escapeHtml(p.caseSize || "")} · ${escapeHtml(priceLabel)}</p>
                     ${oos ? `<p class="text-xs font-semibold text-red-700">${escapeHtml(oosText)}</p>` : ''}
                 </div>
-                <span class="text-xs font-bold ${oos ? 'text-red-700' : 'text-[#1E4D2B]'}">${oos ? 'OOS' : 'Add'}</span>
+                <span class="text-xs font-bold ${oos ? 'text-red-700' : 'text-[#1E4D2B]'}">${oos ? 'Add OOS' : 'Add'}</span>
             </div>
         `;
     }).join("");
@@ -2288,11 +2288,6 @@ function addProductToPlaceOrder(productName) {
         unitPrice: Number(sheetMap[productName]),
         isMarketPrice: false
     };
-    if (isSalesmanOos(productName)) {
-        alert(salesmanOosLabel(productName) || 'This item is out of stock.');
-        return;
-    }
-
     const existing = placeOrderItems.find(i => i.name === productName);
     if (existing) {
         existing.quantity += 1;
