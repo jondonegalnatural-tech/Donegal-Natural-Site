@@ -19009,9 +19009,69 @@ async function onBulkPercentSalesmanChange() {
 
         renderBulkPercentTable();
         previewBulkPercentAdjust();
+        if (typeof populateBulkPercentStoreSelect === 'function') populateBulkPercentStoreSelect();
+        if (typeof updateBulkPercentApplyLabel === 'function') updateBulkPercentApplyLabel();
     } catch (err) {
         console.error('onBulkPercentSalesmanChange error:', err);
         if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-red-600">Could not load sheet.<br>${err.message || ''}</td></tr>`;
+    }
+}
+
+function populateBulkPercentStoreSelect() {
+    const sel = document.getElementById('bulk-pct-store');
+    if (!sel) return;
+    const email = String(bulkPctSalesmanEmail || '').toLowerCase().trim();
+    const previous = String(sel.value || '');
+    const rows = (allCustomers || []).filter(function (c) {
+        if (!c || !c.id) return false;
+        if (typeof isHiddenTestCustomer === 'function' && isHiddenTestCustomer(c)) return false;
+        const salesman = String(c.salesmanEmail || c.salesman_email || '').toLowerCase().trim();
+        return !!email && salesman === email;
+    }).sort(function (a, b) {
+        const la = String(a.company || a.name || '').toLowerCase();
+        const lb = String(b.company || b.name || '').toLowerCase();
+        return la.localeCompare(lb);
+    });
+    sel.innerHTML = '<option value="">— Salesman sheet only —</option>' + rows.map(function (c) {
+        const label = (c.company || c.name || 'Store') + (c.name && c.company ? (' — ' + c.name) : '');
+        return '<option value="' + escapeHtml(String(c.id)) + '"' +
+            (String(c.id) === previous ? ' selected' : '') + '>' +
+            escapeHtml(label) + '</option>';
+    }).join('');
+}
+
+function updateBulkPercentApplyLabel() {
+    const storeId = String(document.getElementById('bulk-pct-store')?.value || '');
+    const label = storeId ? 'Apply to This Store' : 'Apply to Salesman Sheet';
+    ['bulk-pct-confirm-btn', 'bulk-pct-confirm-btn-top'].forEach(function (id) {
+        const btn = document.getElementById(id);
+        if (btn && !btn.disabled) btn.textContent = label;
+        else if (btn) btn.textContent = label;
+    });
+}
+
+async function onBulkPercentStoreChange() {
+    updateBulkPercentApplyLabel();
+    const storeId = String(document.getElementById('bulk-pct-store')?.value || '');
+    if (!storeId) {
+        if (bulkPctSalesmanEmail && typeof onBulkPercentSalesmanChange === 'function') {
+            return onBulkPercentSalesmanChange();
+        }
+        return;
+    }
+    try {
+        const { data: custSheet } = await supabaseClient
+            .from('customer_price_sheets')
+            .select('prices')
+            .eq('customer_id', storeId)
+            .maybeSingle();
+        if (custSheet && custSheet.prices && typeof custSheet.prices === 'object' && Object.keys(custSheet.prices).length) {
+            bulkPctCurrentPrices = Object.assign({}, custSheet.prices);
+        }
+        renderBulkPercentTable();
+        previewBulkPercentAdjust();
+    } catch (err) {
+        console.warn('onBulkPercentStoreChange:', err);
     }
 }
 
@@ -19248,6 +19308,42 @@ async function confirmBulkPercentAdjust() {
                     prices: merged
                 });
             if (error) throw error;
+        }
+
+        if (store && store.id) {
+            const { data: prevSheet } = await supabaseClient
+                .from('customer_price_sheets')
+                .select('prices, display_names, salesman_email')
+                .eq('customer_id', store.id)
+                .maybeSingle();
+            let nextPrices = Object.assign({}, (prevSheet && prevSheet.prices) || bulkPctCurrentPrices || {}, updates);
+            if (typeof mergeStoreOnlyPriceExtras === 'function') {
+                nextPrices = mergeStoreOnlyPriceExtras(nextPrices, prevSheet && prevSheet.prices, bulkPctSalesmanEmail);
+            }
+            const payload = {
+                customer_id: store.id,
+                salesman_email: bulkPctSalesmanEmail || (prevSheet && prevSheet.salesman_email) || null,
+                prices: nextPrices,
+                updated_at: new Date().toISOString()
+            };
+            if (prevSheet && prevSheet.display_names && typeof prevSheet.display_names === 'object') {
+                payload.display_names = prevSheet.display_names;
+            }
+            const { error: custErr } = await supabaseClient
+                .from('customer_price_sheets')
+                .upsert(payload, { onConflict: 'customer_id' });
+            if (custErr) throw custErr;
+            if (typeof logAdminActivity === 'function') {
+                logAdminActivity({
+                    action: 'edit',
+                    entityType: 'customer_sheet',
+                    entityLabel: targetLabel,
+                    summary: (pct > 0 ? '+' : '') + pct + '% on ' + productCount + ' item(s)'
+                });
+            }
+            alert('Done. ' + productCount + ' product(s) updated on ' + targetLabel + '.');
+            hideBulkPercentAdjustModal();
+            return;
         }
 
         alert(`Done. ${productCount} product(s) updated on ${bulkPctSalesmanName}'s sheet.`);
