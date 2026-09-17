@@ -10016,6 +10016,9 @@ async function populateReportsSalesmanSelect() {
     if (!Array.isArray(allCustomers) || !allCustomers.length) {
         if (typeof loadCustomers === 'function') await loadCustomers();
     }
+    if (!Array.isArray(allCustomers) || !allCustomers.length) {
+        if (typeof loadCustomers === 'function') await loadCustomers();
+    }
 
     const active = (salesmen || []).filter(s => s.active !== false && (s.email || '').trim());
     const current = select.value;
@@ -19325,8 +19328,9 @@ function updateBulkPercentSelectedCount() {
     if (el) el.textContent = checked > 0 ? `${checked} of ${total} selected` : '';
     ['bulk-pct-confirm-btn', 'bulk-pct-confirm-btn-top'].forEach(id => {
         const btn = document.getElementById(id);
-        if (btn) btn.disabled = checked === 0;
+        if (btn) btn.disabled = total === 0;
     });
+    if (typeof updateBulkPercentApplyLabel === 'function') updateBulkPercentApplyLabel();
 }
 
 function previewBulkPercentAdjust() {
@@ -19388,19 +19392,34 @@ async function confirmBulkPercentAdjust() {
         return;
     }
 
-    const checked = Array.from(document.querySelectorAll('.bulk-pct-cb:checked'));
-    if (checked.length === 0) {
-        alert('Select at least one product.');
+    let checked = Array.from(document.querySelectorAll('.bulk-pct-cb:checked'));
+    if (!checked.length) {
+        checked = Array.from(document.querySelectorAll('.bulk-pct-cb'));
+    }
+    if (!checked.length) {
+        alert('No products on this sheet to adjust.');
         return;
     }
 
     const storeId = String(document.getElementById('bulk-pct-store')?.value || '');
-    const store = storeId
+    let store = storeId
         ? (allCustomers || []).find(function (c) { return String(c.id) === storeId; })
         : null;
     if (storeId && !store) {
-        alert('That store is not loaded. Open Customers once, then try again.');
         if (typeof loadCustomers === 'function') await loadCustomers();
+        store = (allCustomers || []).find(function (c) { return String(c.id) === storeId; }) || null;
+    }
+    if (storeId && !store) {
+        const { data: storeRow, error: storeErr } = await supabaseClient
+            .from('customers')
+            .select('id, name, company, email, salesman_email')
+            .eq('id', storeId)
+            .maybeSingle();
+        if (storeErr) throw storeErr;
+        store = storeRow || null;
+    }
+    if (storeId && !store) {
+        alert('Could not load that store. Close Bulk % and open it again.');
         return;
     }
 
