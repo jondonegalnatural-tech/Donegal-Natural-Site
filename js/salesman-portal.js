@@ -1942,6 +1942,64 @@ function openWalkInPlaceOrder() {
     }
 }
 
+function placeOrderDraftKey(customer) {
+    const seat = (typeof getOperatingSalesmanEmail === 'function')
+        ? String(getOperatingSalesmanEmail() || '').toLowerCase().trim()
+        : '';
+    const id = customer && customer.id ? String(customer.id) : '';
+    if (!seat || !id) return '';
+    return 'salesmanPlaceOrderDraft_' + seat + '_' + id;
+}
+
+function persistPlaceOrderDraft() {
+    const customer = (currentPlaceOrderCustomer && typeof currentPlaceOrderCustomer === 'object')
+        ? currentPlaceOrderCustomer
+        : null;
+    const key = placeOrderDraftKey(customer);
+    if (!key) return;
+    const notes = (document.getElementById('place-order-notes')?.value || '').trim();
+    if (!placeOrderItems.length && !notes) {
+        try { localStorage.removeItem(key); } catch (e) {}
+        return;
+    }
+    const payload = {
+        customerId: String(customer.id),
+        notes: notes,
+        items: (placeOrderItems || []).map(function (item) {
+            return {
+                name: item.name,
+                displayName: item.displayName || '',
+                quantity: item.quantity || 1,
+                caseSize: item.caseSize || '',
+                unitPrice: item.unitPrice,
+                displayPrice: item.displayPrice || '',
+                isMarketPrice: !!item.isMarketPrice
+            };
+        })
+    };
+    try { localStorage.setItem(key, JSON.stringify(payload)); } catch (e) {}
+}
+
+function loadPlaceOrderDraft(customer) {
+    const key = placeOrderDraftKey(customer);
+    if (!key) return null;
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (!data || !Array.isArray(data.items)) return null;
+        return data;
+    } catch (e) {
+        return null;
+    }
+}
+
+function clearPlaceOrderDraft(customer) {
+    const key = placeOrderDraftKey(customer);
+    if (!key) return;
+    try { localStorage.removeItem(key); } catch (e) {}
+}
+
 function placeOrderForCustomer(customerName) {
     const walk = document.getElementById('place-order-walkin-fields');
     if (walk) walk.classList.add('hidden');
@@ -1967,6 +2025,7 @@ function placeOrderForCustomer(customerName) {
 
     placeOrderItems = [];
     window._placeOrderBrianPrices = {};
+    const draft = loadPlaceOrderDraft(customerObj || currentPlaceOrderCustomer);
     const priceCustomer = (typeof currentPlaceOrderCustomer === 'object' && currentPlaceOrderCustomer)
         ? currentPlaceOrderCustomer
         : customerObj;
@@ -2006,7 +2065,20 @@ function placeOrderForCustomer(customerName) {
     }
 
     const notesEl = document.getElementById("place-order-notes");
-    if (notesEl) notesEl.value = "";
+    if (notesEl) notesEl.value = (draft && draft.notes) ? draft.notes : "";
+    if (draft && draft.items && draft.items.length) {
+        placeOrderItems = draft.items.map(function (item) {
+            return {
+                name: item.name,
+                displayName: item.displayName || item.name,
+                quantity: item.quantity || 1,
+                caseSize: item.caseSize || '',
+                unitPrice: item.unitPrice,
+                displayPrice: item.displayPrice || '',
+                isMarketPrice: !!item.isMarketPrice
+            };
+        });
+    }
 
     renderPlaceOrderItems();
 
@@ -2014,7 +2086,8 @@ function placeOrderForCustomer(customerName) {
     if (modal) modal.classList.remove("hidden");
 }
 
-function hidePlaceOrderModal() {
+function hidePlaceOrderModal(opts) {
+    if (!(opts && opts.discard)) persistPlaceOrderDraft();
     const modal = document.getElementById("place-order-modal");
     if (modal) {
         modal.classList.add("hidden");
@@ -2329,6 +2402,7 @@ function renderPlaceOrderItems(skipFocus) {
         container.innerHTML = `<p class="text-sm text-[#6B4423]">No products added yet.</p>`;
         const totalElEmpty = document.getElementById("place-order-total");
         if (totalElEmpty) totalElEmpty.textContent = '$0.00';
+        if (typeof persistPlaceOrderDraft === 'function') persistPlaceOrderDraft();
         return;
     }
 
@@ -2389,6 +2463,8 @@ function renderPlaceOrderItems(skipFocus) {
             last.select();
         }
     }
+
+    if (typeof persistPlaceOrderDraft === 'function') persistPlaceOrderDraft();
 }
 
 function updatePlaceOrderQty(index, value) {
@@ -2734,7 +2810,8 @@ async function submitPlaceOrder() {
             commissionRate: payload.salesman_commission_percent || null
         });
 
-        hidePlaceOrderModal();
+        clearPlaceOrderDraft(currentPlaceOrderCustomer);
+        hidePlaceOrderModal({ discard: true });
         alert("Order submitted successfully for " + nameFromField + ".");
 
         if (typeof renderMyOrders === "function") {
