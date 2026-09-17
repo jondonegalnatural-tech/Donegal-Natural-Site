@@ -32,6 +32,7 @@
     </a>
 
     <nav class="navbar-nav">
+      <a href="#our-line">Our Line</a>
       <a href="#about">About Us</a>
     </nav>
 
@@ -118,6 +119,101 @@
     </div>
   </div>
 </div>
+
+<!-- ─── OUR LINE (public lookbook — no prices) ─── -->
+<section class="section" id="our-line">
+  <div class="container">
+    <div class="products-header">
+      <div>
+        <p class="eyebrow" style="margin-bottom:.4rem;">Our Line</p>
+        <h2 style="font-size:2rem;">What we make</h2>
+        <p style="color:var(--brown);margin-top:.5rem;max-width:36rem;">
+          All-natural chews and treats for independent pet stores. Wholesale pricing is available after your account is approved.
+        </p>
+      </div>
+    </div>
+    <div class="grid-4 lookbook-grid">
+      <article class="product-card">
+        <div class="product-card-img">
+          <img src="media/Green%20Line%20Bully%20Stick%20(Full%20picture).jpg" alt="Green Line bully sticks">
+        </div>
+        <div class="product-card-body">
+          <h3 class="lookbook-name">Green Line Bully Sticks</h3>
+          <p class="lookbook-blurb">Long-lasting single-ingredient chews.</p>
+        </div>
+      </article>
+      <article class="product-card">
+        <div class="product-card-img">
+          <img src="media/Honey%20Smoked%20Rollio%20(Upright).jpg" alt="Honey smoked rollios">
+        </div>
+        <div class="product-card-body">
+          <h3 class="lookbook-name">Rollios</h3>
+          <p class="lookbook-blurb">Rolled cow cheek in regular, phat, and flavored.</p>
+        </div>
+      </article>
+      <article class="product-card">
+        <div class="product-card-img">
+          <img src="media/Bully%20Canes%20.jpg" alt="Bully canes">
+        </div>
+        <div class="product-card-body">
+          <h3 class="lookbook-name">Bully Canes</h3>
+          <p class="lookbook-blurb">Extra-long bully chews for bigger dogs.</p>
+        </div>
+      </article>
+      <article class="product-card">
+        <div class="product-card-img">
+          <img src="media/Super%20Meaty%20Beef%20Tendons.jpg" alt="Super meaty beef tendons">
+        </div>
+        <div class="product-card-body">
+          <h3 class="lookbook-name">Beef Tendons</h3>
+          <p class="lookbook-blurb">Meaty, high-value chews.</p>
+        </div>
+      </article>
+      <article class="product-card">
+        <div class="product-card-img">
+          <img src="media/Hairy%20Cow%20Ears%20(Full%20Product).jpg" alt="Cow ears">
+        </div>
+        <div class="product-card-body">
+          <h3 class="lookbook-name">Ears</h3>
+          <p class="lookbook-blurb">Cow, buffalo, and other natural ears.</p>
+        </div>
+      </article>
+      <article class="product-card">
+        <div class="product-card-img">
+          <img src="media/Elky%20Sticks%20%20(Full%20Shot).jpg" alt="Elky jerky sticks">
+        </div>
+        <div class="product-card-body">
+          <h3 class="lookbook-name">Jerky &amp; Training Treats</h3>
+          <p class="lookbook-blurb">USA elky, turkey, and bagged treats.</p>
+        </div>
+      </article>
+      <article class="product-card">
+        <div class="product-card-img">
+          <img src="media/Case%20of%20Pig%20Ears.jpg" alt="Case of pig ears">
+        </div>
+        <div class="product-card-body">
+          <h3 class="lookbook-name">Pig Ears</h3>
+          <p class="lookbook-blurb">Bulk cases for the treat bar.</p>
+        </div>
+      </article>
+      <article class="product-card">
+        <div class="product-card-img">
+          <img src="media/Large%20Femur%20Bone%20(Full%20Product).jpg" alt="Large femur bone">
+        </div>
+        <div class="product-card-body">
+          <h3 class="lookbook-name">Bones</h3>
+          <p class="lookbook-blurb">Femurs and other long-lasting bones.</p>
+        </div>
+      </article>
+    </div>
+    <div class="lookbook-cta">
+      <button type="button" class="btn btn-primary btn-lg" id="open-wholesale-inquiry-lookbook">
+        Request wholesale pricing
+      </button>
+      <p class="lookbook-note">No public price list. Approved stores see their salesman sheet in the portal.</p>
+    </div>
+  </div>
+</section>
 
 <!-- ─── FEATURED PRODUCTS (hidden until retail shop is ready) ─── -->
 <section class="section" style="display:none;" aria-hidden="true">
@@ -504,6 +600,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
   document.getElementById('open-wholesale-inquiry')?.addEventListener('click', openModal);
   document.getElementById('open-wholesale-inquiry-cta')?.addEventListener('click', openModal);
   document.getElementById('open-wholesale-inquiry-about')?.addEventListener('click', openModal);
+  document.getElementById('open-wholesale-inquiry-lookbook')?.addEventListener('click', openModal);
   document.getElementById('footer-wholesale-inquiry')?.addEventListener('click', function (e) {
     e.preventDefault();
     openModal();
