@@ -172,6 +172,7 @@ body { background: #f8f1e9; }
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body class="min-h-screen">
@@ -3741,6 +3742,11 @@ body { background: #f8f1e9; }
                     class="px-6 py-2 bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
                 Print
             </button>
+                        <button type="button" id="inv-download-btn"
+                    onclick="downloadOrderInvoice()"
+                    class="px-6 py-2 bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
+                Download
+            </button>
             <button type="button" id="inv-edit-order-btn"
                     onclick="editOrderFromInvoice()"
                     class="hidden px-6 py-2 bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
@@ -3776,7 +3782,7 @@ body { background: #f8f1e9; }
             </button>
             <button type="button" id="sps-export-btn" onclick="exportOpenSalesmanPriceSheetPdf()"
                     class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
-                Export PDF
+                 Export PDF
             </button>
             <button type="button" id="sps-hidden-btn" onclick="openSalesmanHiddenModal()"
                     class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">

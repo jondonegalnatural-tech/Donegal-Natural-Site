@@ -1595,6 +1595,84 @@ function printOrderInvoice() {
     window.print();
 }
 
+function invoiceDownloadFilename() {
+    const raw = (document.getElementById('inv-number') && document.getElementById('inv-number').textContent) || 'invoice';
+    const safe = String(raw).trim().replace(/[^A-Za-z0-9._-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    return (safe || 'invoice') + '.pdf';
+}
+
+async function downloadOrderInvoice() {
+    const modal = document.getElementById('order-invoice-modal');
+    const sheet = document.getElementById('order-invoice-sheet');
+    if (!modal || modal.classList.contains('hidden') || !sheet) {
+        alert('Open an invoice first.');
+        return;
+    }
+    const jsPdfCtor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : window.jsPDF;
+    if (typeof html2canvas !== 'function' || !jsPdfCtor) {
+        alert('PDF library not loaded. Hard-refresh and try again.');
+        return;
+    }
+    const btn = document.getElementById('inv-download-btn');
+    if (btn && btn.getAttribute('data-busy') === '1') return;
+    const prevLabel = btn ? btn.textContent : 'Download';
+    if (btn) {
+        btn.setAttribute('data-busy', '1');
+        btn.disabled = true;
+        btn.textContent = 'Downloading…';
+    }
+
+    const hidden = [];
+    sheet.querySelectorAll('.invoice-no-print').forEach(function (el) {
+        hidden.push({ el: el, display: el.style.display });
+        el.style.display = 'none';
+    });
+    const prevMax = sheet.style.maxHeight;
+    const prevOverflow = sheet.style.overflow;
+    sheet.style.maxHeight = 'none';
+    sheet.style.overflow = 'visible';
+
+    try {
+        const canvas = await html2canvas(sheet, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            backgroundColor: '#ffffff'
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const doc = new jsPdfCtor({ unit: 'pt', format: 'letter', compress: true });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 28;
+        const imgWidth = pageWidth - (margin * 2);
+        const imgHeight = canvas.height * (imgWidth / canvas.width);
+        const pageDrawHeight = pageHeight - (margin * 2);
+        let heightLeft = imgHeight;
+        let position = margin;
+        doc.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
+        heightLeft -= pageDrawHeight;
+        while (heightLeft > 0) {
+            position = heightLeft - imgHeight + margin;
+            doc.addPage();
+            doc.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
+            heightLeft -= pageDrawHeight;
+        }
+        doc.save(invoiceDownloadFilename());
+    } catch (err) {
+        console.error('downloadOrderInvoice', err);
+        alert('Could not download the invoice. Try Print and choose Save as PDF.');
+    } finally {
+        hidden.forEach(function (item) { item.el.style.display = item.display; });
+        sheet.style.maxHeight = prevMax;
+        sheet.style.overflow = prevOverflow;
+        if (btn) {
+            btn.removeAttribute('data-busy');
+            btn.disabled = false;
+            btn.textContent = prevLabel || 'Download';
+        }
+    }
+}
+
 function openOrderInvoiceModal(orderId) {
     const order = (allOrders || []).find(o => String(o.id) === String(orderId));
     if (!order) {
