@@ -2545,13 +2545,16 @@ function openPlaceOrderConfirmModal() {
             pricedTotal += line;
             lineLabel = '$' + line.toFixed(2);
         }
+        const unitText = (isMarket && (item.unitPrice == null || item.unitPrice === ''))
+            ? 'Market'
+            : ('$' + (parseFloat(item.unitPrice) || 0).toFixed(2) + ' ea');
         rows += `
-            <div style="display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #f0e6d6;padding-bottom:8px;margin-bottom:8px;">
-                <div>
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-bottom:1px solid #f0e6d6;padding-bottom:8px;margin-bottom:8px;">
+                <div style="min-width:0;flex:1;">
                     <p style="font-weight:600;color:#1E4D2B;margin:0;">${escapeHtml(orderLineDisplayName(item))}</p>
-                    <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.caseSize ? ' · ' + item.caseSize : ''}</p>
-                </div>                    <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.caseSize ? ' · ' + escapeHtml(item.caseSize) : ''}</p>
-                <p style="font-weight:600;color:#1E4D2B;margin:0;">${lineLabel}</p>
+                    <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.caseSize ? ' · ' + escapeHtml(item.caseSize) : ''} · ${unitText}</p>
+                </div>
+                <p style="font-weight:600;color:#1E4D2B;margin:0;white-space:nowrap;">${lineLabel}</p>
             </div>
         `;
     });
