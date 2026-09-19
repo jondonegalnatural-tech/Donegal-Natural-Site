@@ -2911,6 +2911,9 @@ async function submitPlaceOrder() {
                     ? Number(customerObj.salesman_commission_percent)
                     : null)
         };
+        if (String(payload.salesman_email || '').toLowerCase().trim() !== 'jackerman@donegalnatural.com') {
+            payload.portal_commission_rate = 5;
+        }
 
         const { data, error } = await supabaseClient
             .from("orders")

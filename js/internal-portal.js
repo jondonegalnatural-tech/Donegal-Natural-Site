@@ -16239,7 +16239,16 @@ function isJonathanAdmin() {
     }
 }
 
+function isJonathanAssignedOrder(order) {
+    const email = String((order && (order.salesmanEmail || order.salesman_email)) || '')
+        .toLowerCase()
+        .trim();
+    return email === 'jackerman@donegalnatural.com';
+}
+
 function getOrderCommissionPercent(order) {
+    if (!order) return 5;
+    if (!isJonathanAssignedOrder(order)) return 5;
     const raw = order.salesmanCommissionPercent ?? order.salesman_commission_percent ?? order.commissionRate;
     if (raw != null && raw !== '' && !isNaN(Number(raw))) return Number(raw);
     return 5;
