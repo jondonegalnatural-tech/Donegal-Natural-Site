@@ -16239,16 +16239,48 @@ function isJonathanAdmin() {
     }
 }
 
-function isJonathanAssignedOrder(order) {
-    const email = String((order && (order.salesmanEmail || order.salesman_email)) || '')
+function commissionSalesmanEmail(order) {
+    let email = String((order && (order.salesmanEmail || order.salesman_email)) || '')
         .toLowerCase()
         .trim();
-    return email === 'jackerman@donegalnatural.com';
+    if (email) return email;
+    if (!order || typeof allCustomers === 'undefined' || !Array.isArray(allCustomers)) return '';
+    const cid = order.customerId || order.customer_id;
+    const cemail = String(order.customerEmail || order.customer_email || '').toLowerCase().trim();
+    const match = allCustomers.find(function (c) {
+        if (cid && String(c.id) === String(cid)) return true;
+        const ce = String(c.email || '').toLowerCase().trim();
+        return !!(cemail && ce === cemail);
+    });
+    return String((match && (match.salesmanEmail || match.salesman_email)) || '')
+        .toLowerCase()
+        .trim();
+}
+
+function isBrianAssignedOrder(order) {
+    return commissionSalesmanEmail(order) === 'donegaldogtreats@gmail.com';
+}
+
+function commissionSalesmanLabel(order) {
+    const email = commissionSalesmanEmail(order);
+    const name = String((order && (order.salesman || order.salesmanName || order.salesman_name)) || '').trim();
+    if (email === 'donegaldogtreats@gmail.com') return 'Brian Frohne';
+    if (email === 'jackerman@donegalnatural.com') return name || 'Jonathan Ackerman';
+    if (name && name.toLowerCase() !== 'unassigned') return name;
+    if (email && typeof salesmen !== 'undefined' && Array.isArray(salesmen)) {
+        const s = salesmen.find(function (row) {
+            return String(row.email || '').toLowerCase().trim() === email;
+        });
+        if (s) {
+            return s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || email;
+        }
+    }
+    return name || email || 'Unassigned';
 }
 
 function getOrderCommissionPercent(order) {
     if (!order) return 5;
-    if (!isJonathanAssignedOrder(order)) return 5;
+    if (isBrianAssignedOrder(order)) return 10;
     const raw = order.salesmanCommissionPercent ?? order.salesman_commission_percent ?? order.commissionRate;
     if (raw != null && raw !== '' && !isNaN(Number(raw))) return Number(raw);
     return 5;
@@ -16466,8 +16498,8 @@ function renderPortalCommissionBlock() {
         const groups = {};
         rows.forEach(function (r) {
             const o = r.order;
-            const email = String(o.salesmanEmail || o.salesman_email || '').trim();
-            const name = String(o.salesman || o.salesmanName || o.salesman_name || '').trim();
+            const email = commissionSalesmanEmail(o);
+            const name = commissionSalesmanLabel(o);
             const key = (email || name || 'unassigned').toLowerCase();
             if (!groups[key]) {
                 groups[key] = { name: name || 'Unassigned', email: email, orders: 0, sales: 0, commission: 0, stores: {} };
@@ -16515,7 +16547,7 @@ function renderPortalCommissionBlock() {
                 groups[key] = {
                     store: company || name || 'Store',
                     contact: name,
-                    salesman: String(o.salesman || o.salesmanName || o.salesmanEmail || '—').trim() || '—',
+                    salesman: commissionSalesmanLabel(o) || '—',
                     orders: 0,
                     sales: 0,
                     commission: 0
@@ -16566,7 +16598,7 @@ function renderPortalCommissionBlock() {
             ? displayInvoiceNumber(o)
             : (o.invoiceNumber || o.id || '—');
         const store = o.customerCompany || o.customer || o.customerEmail || '—';
-        const salesman = o.salesman || o.salesmanEmail || 'Unassigned';
+        const salesman = commissionSalesmanLabel(o);
         html += '<tr class="border-t border-[#d4b78f] hover:bg-[#f8f4eb] cursor-pointer" onclick="openOrderInvoiceModal(\'' + safeId + '\')">'
             + '<td class="p-3 whitespace-nowrap">' + escapeHtml(r.date.toLocaleDateString()) + '</td>'
             + '<td class="p-3 font-semibold brand-green">' + escapeHtml(inv) + '</td>'

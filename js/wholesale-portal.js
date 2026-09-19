@@ -5708,7 +5708,9 @@ async function submitQuote() {
         customer_email: (user.email || customer?.email || "").toLowerCase().trim(),
         customer_company: user.company || customer?.company || "",
         salesman_email: customer?.salesman_email || null,
-        salesman_name: null,
+        salesman_name: (String(customer?.salesman_email || '').toLowerCase().trim() === 'donegaldogtreats@gmail.com')
+            ? 'Brian Frohne'
+            : null,
         status: "submitted",
         source: "wholesale",
         items: items,
@@ -5720,8 +5722,8 @@ async function submitQuote() {
             ? Number(customer.salesman_commission_percent)
             : null
     };
-    if (String(payload.salesman_email || '').toLowerCase().trim() !== 'jackerman@donegalnatural.com') {
-        payload.portal_commission_rate = 5;
+    if (String(payload.salesman_email || '').toLowerCase().trim() === 'donegaldogtreats@gmail.com') {
+        payload.portal_commission_rate = 10;
     }
 
     try {
