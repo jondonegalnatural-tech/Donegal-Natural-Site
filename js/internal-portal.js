@@ -16278,11 +16278,24 @@ function commissionSalesmanLabel(order) {
     return name || email || 'Unassigned';
 }
 
-function getOrderCommissionPercent(order) {
-    if (!order) return 5;
+function isJonathanAssignedOrder(order) {
+    return commissionSalesmanEmail(order) === 'jackerman@donegalnatural.com';
+}
+
+function getSalesmanCommissionPercent(order) {
     if (isBrianAssignedOrder(order)) return 10;
     const raw = order.salesmanCommissionPercent ?? order.salesman_commission_percent ?? order.commissionRate;
     if (raw != null && raw !== '' && !isNaN(Number(raw))) return Number(raw);
+    return 0;
+}
+
+function getOrderCommissionPercent(order) {
+    if (!order) return 5;
+    if (isJonathanAssignedOrder(order)) {
+        const raw = order.salesmanCommissionPercent ?? order.salesman_commission_percent ?? order.commissionRate;
+        if (raw != null && raw !== '' && !isNaN(Number(raw))) return Number(raw);
+        return 5;
+    }
     return 5;
 }
 
@@ -16341,8 +16354,8 @@ function updatePortalCommissionCard() {
     }
 }
 
-let commissionPeriod = 'ytd';
-let commissionBreakdown = 'overview';
+let commissionPeriod = 'all';
+let commissionBreakdown = 'order';
 
 function getOrderSalesTotal(order) {
     let total = 0;
@@ -16582,36 +16595,83 @@ function renderPortalCommissionBlock() {
         return;
     }
 
-    let html = '<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="bg-[#f8f4eb]">'
-        + '<th class="p-3 text-left">Date</th>'
-        + '<th class="p-3 text-left">Invoice</th>'
-        + '<th class="p-3 text-left">Store</th>'
-        + '<th class="p-3 text-left">Salesman</th>'
-        + '<th class="p-3 text-right">Rate</th>'
-        + '<th class="p-3 text-right">Sales</th>'
-        + '<th class="p-3 text-right">Commission</th>'
-        + '</tr></thead><tbody>';
+    function commissionOrderTable(list, showSalesmanCut) {
+        if (!list.length) {
+            return '<p class="text-sm text-[#6B4423] px-1 py-3">No orders in this group.</p>';
+        }
+        let table = '<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="bg-[#f8f4eb]">'
+            + '<th class="p-3 text-left">Date</th>'
+            + '<th class="p-3 text-left">Invoice</th>'
+            + '<th class="p-3 text-left">Store</th>'
+            + '<th class="p-3 text-left">Salesman</th>'
+            + (showSalesmanCut ? '<th class="p-3 text-right">Salesman rate</th><th class="p-3 text-right">Salesman $</th>' : '')
+            + '<th class="p-3 text-right">Your rate</th>'
+            + '<th class="p-3 text-right">Your commission</th>'
+            + '</tr></thead><tbody>';
+        list.forEach(function (r) {
+            const o = r.order;
+            const safeId = String(o.id || '').replace(/'/g, '');
+            const inv = (typeof displayInvoiceNumber === 'function')
+                ? displayInvoiceNumber(o)
+                : (o.invoiceNumber || o.id || '—');
+            const store = o.customerCompany || o.customer || o.customerEmail || '—';
+            const salesmanRate = getSalesmanCommissionPercent(o);
+            const salesmanPay = r.sales * (salesmanRate / 100);
+            table += '<tr class="border-t border-[#d4b78f] hover:bg-[#f8f4eb] cursor-pointer" onclick="openOrderInvoiceModal(\'' + safeId + '\')">'
+                + '<td class="p-3 whitespace-nowrap">' + escapeHtml(r.date.toLocaleDateString()) + '</td>'
+                + '<td class="p-3 font-semibold brand-green">' + escapeHtml(inv) + '</td>'
+                + '<td class="p-3">' + escapeHtml(store) + '</td>'
+                + '<td class="p-3">' + escapeHtml(commissionSalesmanLabel(o)) + '</td>'
+                + (showSalesmanCut
+                    ? ('<td class="p-3 text-right">' + salesmanRate + '%</td>'
+                        + '<td class="p-3 text-right">' + formatCommissionMoney(salesmanPay) + '</td>')
+                    : '')
+                + '<td class="p-3 text-right">' + escapeHtml(r.rate) + '%</td>'
+                + '<td class="p-3 text-right font-semibold">' + formatCommissionMoney(r.commission) + '</td>'
+                + '</tr>';
+        });
+        table += '</tbody></table></div>';
+        return table;
+    }
+
+    const mine = [];
+    const others = [];
     rows.forEach(function (r) {
-        const o = r.order;
-        const safeId = String(o.id || '').replace(/'/g, '');
-        const inv = (typeof displayInvoiceNumber === 'function')
-            ? displayInvoiceNumber(o)
-            : (o.invoiceNumber || o.id || '—');
-        const store = o.customerCompany || o.customer || o.customerEmail || '—';
-        const salesman = commissionSalesmanLabel(o);
-        html += '<tr class="border-t border-[#d4b78f] hover:bg-[#f8f4eb] cursor-pointer" onclick="openOrderInvoiceModal(\'' + safeId + '\')">'
-            + '<td class="p-3 whitespace-nowrap">' + escapeHtml(r.date.toLocaleDateString()) + '</td>'
-            + '<td class="p-3 font-semibold brand-green">' + escapeHtml(inv) + '</td>'
-            + '<td class="p-3">' + escapeHtml(store) + '</td>'
-            + '<td class="p-3">' + escapeHtml(salesman) + '</td>'
-            + '<td class="p-3 text-right">' + escapeHtml(r.rate) + '%</td>'
-            + '<td class="p-3 text-right">' + formatCommissionMoney(r.sales) + '</td>'
-            + '<td class="p-3 text-right font-semibold">' + formatCommissionMoney(r.commission) + '</td>'
-            + '</tr>';
+        if (isJonathanAssignedOrder(r.order)) mine.push(r);
+        else others.push(r);
     });
-    html += '</tbody></table></div>';
-    body.innerHTML = html;
+    function groupSum(list) {
+        let sales = 0;
+        let yours = 0;
+        let salesman = 0;
+        list.forEach(function (r) {
+            sales += r.sales;
+            yours += r.commission;
+            salesman += r.sales * (getSalesmanCommissionPercent(r.order) / 100);
+        });
+        return { sales: sales, yours: yours, salesman: salesman };
+    }
+    const mineSum = groupSum(mine);
+    const otherSum = groupSum(others);
+
+    body.innerHTML =
+        '<div class="mb-8">'
+        + '<h3 class="text-base font-bold brand-green mb-1">Your orders</h3>'
+        + '<p class="text-xs text-[#6B4423] mb-3">Only you are paid on these. '
+        + mine.length + ' invoices · ' + formatCommissionMoney(mineSum.sales) + ' sales · '
+        + formatCommissionMoney(mineSum.yours) + ' to you</p>'
+        + commissionOrderTable(mine, false)
+        + '</div>'
+        + '<div>'
+        + '<h3 class="text-base font-bold brand-green mb-1">All other orders</h3>'
+        + '<p class="text-xs text-[#6B4423] mb-3">You earn 5%. Brian earns 10% on his stores. '
+        + others.length + ' invoices · ' + formatCommissionMoney(otherSum.sales) + ' sales · '
+        + formatCommissionMoney(otherSum.salesman) + ' to the salesman · '
+        + formatCommissionMoney(otherSum.yours) + ' to you</p>'
+        + commissionOrderTable(others, true)
+        + '</div>';
 }
+
 
 // ================== VENDORS SYSTEM ==================
 let vendors = [];

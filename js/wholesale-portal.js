@@ -5722,8 +5722,8 @@ async function submitQuote() {
             ? Number(customer.salesman_commission_percent)
             : null
     };
-    if (String(payload.salesman_email || '').toLowerCase().trim() === 'donegaldogtreats@gmail.com') {
-        payload.portal_commission_rate = 10;
+    if (String(payload.salesman_email || '').toLowerCase().trim() !== 'jackerman@donegalnatural.com') {
+        payload.portal_commission_rate = 5;
     }
 
     try {
