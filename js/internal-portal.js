@@ -961,6 +961,11 @@ function showFinancialsSub(which) {
             setTimeout(() => renderProfitMarginSection(), 50);
         }
     }
+    if (which === 'commission') {
+        if (typeof renderPortalCommissionBlock === 'function') {
+            setTimeout(() => renderPortalCommissionBlock(), 50);
+        }
+    }
 }
 
 function showSection(section) {
@@ -14235,6 +14240,9 @@ function dashboardCardClick(event, target) {
         setTimeout(() => showFinancialsSub('ach-log'), 50);
     } else if (target === 'reports') {
         showSection('reports');
+    } else if (target === 'financials-commission') {
+        showSection('financials');
+        setTimeout(() => showFinancialsSub('commission'), 200);
     } else if (target === 'salesmen') {
         showSection('salesmen');
     } else if (target === 'vendors') {
@@ -16243,11 +16251,14 @@ function updatePortalCommissionCard() {
     const mtdEl = document.getElementById('dash-commission-mtd');
     if (!card) return;
 
+    const tabBtn = document.getElementById('financials-commission-tab-btn');
     if (!isJonathanAdmin()) {
         card.style.display = 'none';
+        if (tabBtn) tabBtn.style.display = 'none';
         return;
     }
     card.style.display = '';
+    if (tabBtn) tabBtn.style.display = '';
 
     let ytdCommission = 0;
     let mtdCommission = 0;
@@ -16282,7 +16293,285 @@ function updatePortalCommissionCard() {
     const fmt = (n) => '$' + Math.round(n).toLocaleString();
     if (ytdEl) ytdEl.textContent = fmt(ytdCommission);
     if (mtdEl) mtdEl.textContent = fmt(mtdCommission);
+
+    const panel = document.getElementById('financials-commission');
+    if (panel && !panel.classList.contains('hidden') && typeof renderPortalCommissionBlock === 'function') {
+        renderPortalCommissionBlock();
+    }
 }
+
+let commissionPeriod = 'ytd';
+let commissionBreakdown = 'overview';
+
+function getOrderSalesTotal(order) {
+    let total = 0;
+    (order && order.items ? order.items : []).forEach(function (item) {
+        const qty = parseInt(item.quantity, 10) || 0;
+        const unit = typeof getOrderItemUnitPrice === 'function'
+            ? getOrderItemUnitPrice(item)
+            : (parseFloat(item.unitPrice) || 0);
+        total += qty * unit;
+    });
+    return total;
+}
+
+function getCommissionPeriodStart(period) {
+    const now = new Date();
+    if (period === 'mtd') return new Date(now.getFullYear(), now.getMonth(), 1);
+    if (period === 'wtd') {
+        const start = new Date(now);
+        start.setDate(now.getDate() - now.getDay());
+        start.setHours(0, 0, 0, 0);
+        return start;
+    }
+    if (period === 'all') return null;
+    return new Date(now.getFullYear(), 0, 1);
+}
+
+function listCommissionOrders(period) {
+    const start = getCommissionPeriodStart(period || commissionPeriod);
+    const rows = [];
+    (allOrders || []).forEach(function (order) {
+        if (typeof isTestStoreOrder === 'function' && isTestStoreOrder(order)) return;
+        const status = String(order.status || '').toLowerCase();
+        if (status === 'denied' || status === 'cancelled' || status === 'canceled') return;
+        if (!order.items || !Array.isArray(order.items)) return;
+        const orderDate = new Date(order.submittedAt || order.submitted_at || order.date || Date.now());
+        if (isNaN(orderDate.getTime())) return;
+        if (start && orderDate < start) return;
+        const sales = getOrderSalesTotal(order);
+        const rate = getOrderCommissionPercent(order);
+        rows.push({
+            order: order,
+            date: orderDate,
+            sales: sales,
+            rate: rate,
+            commission: sales * (rate / 100)
+        });
+    });
+    rows.sort(function (a, b) { return b.date - a.date; });
+    return rows;
+}
+
+function setCommissionPeriod(period) {
+    commissionPeriod = period || 'ytd';
+    renderPortalCommissionBlock();
+}
+
+function showCommissionBreakdown(which) {
+    commissionBreakdown = which || 'overview';
+    renderPortalCommissionBlock();
+}
+
+function formatCommissionMoney(n) {
+    return '$' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function renderPortalCommissionBlock() {
+    const panel = document.getElementById('financials-commission');
+    if (!panel) return;
+    if (typeof isJonathanAdmin === 'function' && !isJonathanAdmin()) {
+        panel.classList.add('hidden');
+        const hideBtn = document.getElementById('financials-commission-tab-btn');
+        if (hideBtn) hideBtn.style.display = 'none';
+        return;
+    }
+
+    document.querySelectorAll('[data-comm-period]').forEach(function (btn) {
+        const on = btn.getAttribute('data-comm-period') === commissionPeriod;
+        btn.classList.toggle('bg-[#1E4D2B]', on);
+        btn.classList.toggle('text-[#d4b78f]', on);
+        btn.classList.toggle('bg-white', !on);
+        btn.classList.toggle('text-[#6B4423]', !on);
+        btn.classList.toggle('hover:bg-[#f8f4eb]', !on);
+    });
+    document.querySelectorAll('[data-comm-tab]').forEach(function (btn) {
+        const on = btn.getAttribute('data-comm-tab') === commissionBreakdown;
+        btn.classList.toggle('bg-[#1E4D2B]', on);
+        btn.classList.toggle('text-[#d4b78f]', on);
+        btn.classList.toggle('bg-white', !on);
+        btn.classList.toggle('text-[#6B4423]', !on);
+        btn.classList.toggle('hover:bg-[#f8f4eb]', !on);
+    });
+
+    const rows = listCommissionOrders(commissionPeriod);
+    let sales = 0;
+    let commission = 0;
+    rows.forEach(function (r) {
+        sales += r.sales;
+        commission += r.commission;
+    });
+    const avgRate = sales > 0 ? (commission / sales) * 100 : 0;
+
+    const salesEl = document.getElementById('comm-sum-sales');
+    const commEl = document.getElementById('comm-sum-commission');
+    const ordersEl = document.getElementById('comm-sum-orders');
+    const rateEl = document.getElementById('comm-sum-rate');
+    if (salesEl) salesEl.textContent = formatCommissionMoney(sales);
+    if (commEl) commEl.textContent = formatCommissionMoney(commission);
+    if (ordersEl) ordersEl.textContent = String(rows.length);
+    if (rateEl) rateEl.textContent = avgRate.toFixed(1) + '%';
+
+    const body = document.getElementById('commission-breakdown-body');
+    if (!body) return;
+
+    if (!rows.length) {
+        body.innerHTML = '<p class="text-sm text-[#6B4423] text-center py-6">No commission orders in this period.</p>';
+        return;
+    }
+
+    if (commissionBreakdown === 'overview') {
+        const byRate = {};
+        rows.forEach(function (r) {
+            const key = String(r.rate);
+            if (!byRate[key]) byRate[key] = { rate: r.rate, orders: 0, sales: 0, commission: 0 };
+            byRate[key].orders += 1;
+            byRate[key].sales += r.sales;
+            byRate[key].commission += r.commission;
+        });
+        const rateRows = Object.keys(byRate).sort(function (a, b) {
+            return Number(b) - Number(a);
+        }).map(function (k) {
+            const g = byRate[k];
+            return '<tr class="border-t border-[#d4b78f]">'
+                + '<td class="p-3">' + escapeHtml(g.rate) + '%</td>'
+                + '<td class="p-3 text-right">' + g.orders + '</td>'
+                + '<td class="p-3 text-right">' + formatCommissionMoney(g.sales) + '</td>'
+                + '<td class="p-3 text-right font-semibold">' + formatCommissionMoney(g.commission) + '</td>'
+                + '</tr>';
+        }).join('');
+        body.innerHTML =
+            '<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="bg-[#f8f4eb]">'
+            + '<th class="p-3 text-left">Rate used</th>'
+            + '<th class="p-3 text-right">Orders</th>'
+            + '<th class="p-3 text-right">Sales</th>'
+            + '<th class="p-3 text-right">Commission</th>'
+            + '</tr></thead><tbody>'
+            + rateRows
+            + '</tbody></table></div>'
+            + '<p class="text-xs text-[#6B4423] mt-3">Same math as the Dashboard card: item subtotal × salesman commission % on the order (default 5%). Shipping and credits are not included.</p>';
+        return;
+    }
+
+    if (commissionBreakdown === 'salesman') {
+        const groups = {};
+        rows.forEach(function (r) {
+            const o = r.order;
+            const email = String(o.salesmanEmail || o.salesman_email || '').trim();
+            const name = String(o.salesman || o.salesmanName || o.salesman_name || '').trim();
+            const key = (email || name || 'unassigned').toLowerCase();
+            if (!groups[key]) {
+                groups[key] = { name: name || 'Unassigned', email: email, orders: 0, sales: 0, commission: 0, stores: {} };
+            }
+            groups[key].orders += 1;
+            groups[key].sales += r.sales;
+            groups[key].commission += r.commission;
+            const store = String(o.customerCompany || o.customer || o.customerEmail || 'Store').trim();
+            groups[key].stores[store] = true;
+        });
+        const list = Object.keys(groups).map(function (k) { return groups[k]; })
+            .sort(function (a, b) { return b.commission - a.commission; });
+        let html = '<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="bg-[#f8f4eb]">'
+            + '<th class="p-3 text-left">Salesman</th>'
+            + '<th class="p-3 text-right">Stores</th>'
+            + '<th class="p-3 text-right">Orders</th>'
+            + '<th class="p-3 text-right">Sales</th>'
+            + '<th class="p-3 text-right">Commission</th>'
+            + '</tr></thead><tbody>';
+        list.forEach(function (g) {
+            html += '<tr class="border-t border-[#d4b78f]">'
+                + '<td class="p-3 font-semibold brand-green">' + escapeHtml(g.name)
+                + (g.email ? '<div class="text-xs font-normal text-[#6B4423]">' + escapeHtml(g.email) + '</div>' : '')
+                + '</td>'
+                + '<td class="p-3 text-right">' + Object.keys(g.stores).length + '</td>'
+                + '<td class="p-3 text-right">' + g.orders + '</td>'
+                + '<td class="p-3 text-right">' + formatCommissionMoney(g.sales) + '</td>'
+                + '<td class="p-3 text-right font-semibold">' + formatCommissionMoney(g.commission) + '</td>'
+                + '</tr>';
+        });
+        html += '</tbody></table></div>';
+        body.innerHTML = html;
+        return;
+    }
+
+    if (commissionBreakdown === 'store') {
+        const groups = {};
+        rows.forEach(function (r) {
+            const o = r.order;
+            const company = String(o.customerCompany || '').trim();
+            const name = String(o.customer || o.customerName || '').trim();
+            const email = String(o.customerEmail || '').trim();
+            const key = String(o.customerId || email || company || name || o.id).toLowerCase();
+            if (!groups[key]) {
+                groups[key] = {
+                    store: company || name || 'Store',
+                    contact: name,
+                    salesman: String(o.salesman || o.salesmanName || o.salesmanEmail || '—').trim() || '—',
+                    orders: 0,
+                    sales: 0,
+                    commission: 0
+                };
+            }
+            groups[key].orders += 1;
+            groups[key].sales += r.sales;
+            groups[key].commission += r.commission;
+        });
+        const list = Object.keys(groups).map(function (k) { return groups[k]; })
+            .sort(function (a, b) { return b.commission - a.commission; });
+        let html = '<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="bg-[#f8f4eb]">'
+            + '<th class="p-3 text-left">Store</th>'
+            + '<th class="p-3 text-left">Salesman</th>'
+            + '<th class="p-3 text-right">Orders</th>'
+            + '<th class="p-3 text-right">Sales</th>'
+            + '<th class="p-3 text-right">Commission</th>'
+            + '</tr></thead><tbody>';
+        list.forEach(function (g) {
+            html += '<tr class="border-t border-[#d4b78f]">'
+                + '<td class="p-3 font-semibold brand-green">' + escapeHtml(g.store)
+                + (g.contact && g.contact !== g.store ? '<div class="text-xs font-normal text-[#6B4423]">' + escapeHtml(g.contact) + '</div>' : '')
+                + '</td>'
+                + '<td class="p-3">' + escapeHtml(g.salesman) + '</td>'
+                + '<td class="p-3 text-right">' + g.orders + '</td>'
+                + '<td class="p-3 text-right">' + formatCommissionMoney(g.sales) + '</td>'
+                + '<td class="p-3 text-right font-semibold">' + formatCommissionMoney(g.commission) + '</td>'
+                + '</tr>';
+        });
+        html += '</tbody></table></div>';
+        body.innerHTML = html;
+        return;
+    }
+
+    let html = '<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="bg-[#f8f4eb]">'
+        + '<th class="p-3 text-left">Date</th>'
+        + '<th class="p-3 text-left">Invoice</th>'
+        + '<th class="p-3 text-left">Store</th>'
+        + '<th class="p-3 text-left">Salesman</th>'
+        + '<th class="p-3 text-right">Rate</th>'
+        + '<th class="p-3 text-right">Sales</th>'
+        + '<th class="p-3 text-right">Commission</th>'
+        + '</tr></thead><tbody>';
+    rows.forEach(function (r) {
+        const o = r.order;
+        const safeId = String(o.id || '').replace(/'/g, '');
+        const inv = (typeof displayInvoiceNumber === 'function')
+            ? displayInvoiceNumber(o)
+            : (o.invoiceNumber || o.id || '—');
+        const store = o.customerCompany || o.customer || o.customerEmail || '—';
+        const salesman = o.salesman || o.salesmanEmail || 'Unassigned';
+        html += '<tr class="border-t border-[#d4b78f] hover:bg-[#f8f4eb] cursor-pointer" onclick="openOrderInvoiceModal(\'' + safeId + '\')">'
+            + '<td class="p-3 whitespace-nowrap">' + escapeHtml(r.date.toLocaleDateString()) + '</td>'
+            + '<td class="p-3 font-semibold brand-green">' + escapeHtml(inv) + '</td>'
+            + '<td class="p-3">' + escapeHtml(store) + '</td>'
+            + '<td class="p-3">' + escapeHtml(salesman) + '</td>'
+            + '<td class="p-3 text-right">' + escapeHtml(r.rate) + '%</td>'
+            + '<td class="p-3 text-right">' + formatCommissionMoney(r.sales) + '</td>'
+            + '<td class="p-3 text-right font-semibold">' + formatCommissionMoney(r.commission) + '</td>'
+            + '</tr>';
+    });
+    html += '</tbody></table></div>';
+    body.innerHTML = html;
+}
+
 // ================== VENDORS SYSTEM ==================
 let vendors = [];
 

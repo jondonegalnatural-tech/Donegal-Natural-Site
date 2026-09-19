@@ -446,7 +446,7 @@ body { background: #f8f1e9; }
                                 <!-- YTD Portal Commission (Jonathan only) -->
                 <div data-card-id="portal-commission"
                      id="dash-portal-commission-card"
-                     onclick="dashboardCardClick(event, 'orders')"
+                     onclick="dashboardCardClick(event, 'financials-commission')"
                      class="dashboard-card bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition"
                      style="display: none;"
                      draggable="false">
@@ -468,6 +468,7 @@ body { background: #f8f1e9; }
                         <p class="text-xs text-green-700 font-medium mb-0.5">MTD Commission</p>
                         <p id="dash-commission-mtd" class="text-xl font-bold text-green-700">$0</p>
                     </div>
+                    <p class="text-xs text-[#6B4423] text-center mt-3">View breakdown →</p>
                 </div>
 
                                 <!-- Active Salesmen Card -->
@@ -1005,6 +1006,12 @@ body { background: #f8f1e9; }
                         class="px-4 py-2 text-sm font-semibold border-2 border-[#6B4423] rounded-xl bg-white text-[#6B4423] hover:bg-[#f8f4eb]">
                     Profit Margin
                 </button>
+                <button type="button" id="financials-commission-tab-btn"
+                        onclick="showFinancialsSub('commission')"
+                        class="px-4 py-2 text-sm font-semibold border-2 border-[#6B4423] rounded-xl bg-white text-[#6B4423] hover:bg-[#f8f4eb]"
+                        style="display: none;">
+                    Portal Commission
+                </button>
 
             </div>
 
@@ -1253,6 +1260,61 @@ body { background: #f8f1e9; }
                     </div>
 
                     <div id="pm-search-results" class="space-y-2"></div>
+                </div>
+            </div>
+
+            <!-- Portal Commission (Jonathan only) -->
+            <div id="financials-commission" class="financials-sub hidden">
+                <div class="bg-white border-2 border-[#6B4423] rounded-2xl p-6">
+                    <div class="mb-5">
+                        <h2 class="text-xl font-bold brand-green flex items-center gap-2">
+                            <i class="fas fa-percent"></i> <span>Portal Commission</span>
+                        </h2>
+                        <p class="text-sm text-[#6B4423]">Same dollars as the Dashboard card, broken down by period, salesman, store, and order. Test stores and denied/cancelled orders are excluded.</p>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <button type="button" data-comm-period="ytd" onclick="setCommissionPeriod('ytd')"
+                                class="px-4 py-2 text-sm font-semibold border-2 border-[#6B4423] rounded-xl bg-[#1E4D2B] text-[#d4b78f]">YTD</button>
+                        <button type="button" data-comm-period="mtd" onclick="setCommissionPeriod('mtd')"
+                                class="px-4 py-2 text-sm font-semibold border-2 border-[#6B4423] rounded-xl bg-white text-[#6B4423] hover:bg-[#f8f4eb]">MTD</button>
+                        <button type="button" data-comm-period="wtd" onclick="setCommissionPeriod('wtd')"
+                                class="px-4 py-2 text-sm font-semibold border-2 border-[#6B4423] rounded-xl bg-white text-[#6B4423] hover:bg-[#f8f4eb]">WTD</button>
+                        <button type="button" data-comm-period="all" onclick="setCommissionPeriod('all')"
+                                class="px-4 py-2 text-sm font-semibold border-2 border-[#6B4423] rounded-xl bg-white text-[#6B4423] hover:bg-[#f8f4eb]">All</button>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                        <div class="bg-[#f8f4eb] rounded-xl p-3 text-center">
+                            <p class="text-xs text-[#6B4423] font-medium">Sales</p>
+                            <p id="comm-sum-sales" class="text-lg font-bold brand-green">$0</p>
+                        </div>
+                        <div class="bg-green-50 rounded-xl p-3 text-center">
+                            <p class="text-xs text-green-700 font-medium">Commission</p>
+                            <p id="comm-sum-commission" class="text-lg font-bold text-green-700">$0</p>
+                        </div>
+                        <div class="bg-[#f8f4eb] rounded-xl p-3 text-center">
+                            <p class="text-xs text-[#6B4423] font-medium">Orders</p>
+                            <p id="comm-sum-orders" class="text-lg font-bold brand-green">0</p>
+                        </div>
+                        <div class="bg-[#f8f4eb] rounded-xl p-3 text-center">
+                            <p class="text-xs text-[#6B4423] font-medium">Avg Rate</p>
+                            <p id="comm-sum-rate" class="text-lg font-bold brand-green">0%</p>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <button type="button" data-comm-tab="overview" onclick="showCommissionBreakdown('overview')"
+                                class="px-4 py-2 text-sm font-semibold border-2 border-[#6B4423] rounded-xl bg-[#1E4D2B] text-[#d4b78f]">Overview</button>
+                        <button type="button" data-comm-tab="salesman" onclick="showCommissionBreakdown('salesman')"
+                                class="px-4 py-2 text-sm font-semibold border-2 border-[#6B4423] rounded-xl bg-white text-[#6B4423] hover:bg-[#f8f4eb]">By Salesman</button>
+                        <button type="button" data-comm-tab="store" onclick="showCommissionBreakdown('store')"
+                                class="px-4 py-2 text-sm font-semibold border-2 border-[#6B4423] rounded-xl bg-white text-[#6B4423] hover:bg-[#f8f4eb]">By Store</button>
+                        <button type="button" data-comm-tab="order" onclick="showCommissionBreakdown('order')"
+                                class="px-4 py-2 text-sm font-semibold border-2 border-[#6B4423] rounded-xl bg-white text-[#6B4423] hover:bg-[#f8f4eb]">By Order</button>
+                    </div>
+
+                    <div id="commission-breakdown-body" class="text-[#6B4423]"></div>
                 </div>
             </div>
         </div>
