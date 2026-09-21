@@ -747,6 +747,30 @@
             </button>
         </div>
 
+        <div class="flex flex-wrap items-end gap-2 mb-3 p-3 border-2 border-[#6B4423] rounded-xl bg-[#f8f4eb]">
+            <div>
+                <label for="cp-bulk-pct" class="block text-xs font-semibold text-[#6B4423] mb-1">Bulk % change</label>
+                <div class="flex items-center gap-1">
+                    <input type="number" id="cp-bulk-pct" step="0.1" value="5"
+                           class="w-20 border-2 border-[#6B4423] rounded-lg px-2 py-1.5 text-sm text-center">
+                    <span class="text-sm font-semibold text-[#6B4423]">%</span>
+                </div>
+            </div>
+            <button type="button" onclick="document.getElementById('cp-bulk-pct').value='5';"
+                    class="px-3 py-1.5 text-xs font-semibold border-2 border-[#6B4423] rounded-lg hover:bg-white">+5%</button>
+            <button type="button" onclick="document.getElementById('cp-bulk-pct').value='10';"
+                    class="px-3 py-1.5 text-xs font-semibold border-2 border-[#6B4423] rounded-lg hover:bg-white">+10%</button>
+            <button type="button" onclick="document.getElementById('cp-bulk-pct').value='-5';"
+                    class="px-3 py-1.5 text-xs font-semibold border-2 border-[#6B4423] rounded-lg hover:bg-white">−5%</button>
+            <button type="button" onclick="applyCustomerPricingBulkPercent()"
+                    class="px-4 py-1.5 text-xs font-semibold bg-[#1E4D2B] text-[#d4b78f] rounded-lg hover:bg-[#254a2f]">
+                Apply to This Sheet
+            </button>
+            <p class="w-full text-xs text-[#6B4423] mt-1">
+                Multiplies the prices currently on this sheet. Does not save until you click Save Customer Pricing.
+            </p>
+        </div>
+
         <div id="customer-pricing-list" class="space-y-2 max-h-[55vh] overflow-y-auto mb-4">
             <p class="text-sm text-[#6B4423]">Loading…</p>
         </div>

@@ -1450,6 +1450,9 @@ async function openCustomerPricingEditor(customer) {
             (customer.company ? ' · ' + customer.company : '');
     }
 
+    const bulkPct = document.getElementById('cp-bulk-pct');
+    if (bulkPct) bulkPct.value = '5';
+
     const list = document.getElementById('customer-pricing-list');
     if (list) list.innerHTML = `<p class="text-sm text-[#6B4423]">Loading price sheet…</p>`;
 
@@ -1702,6 +1705,43 @@ function expandAllCustomerPriceCategories(open) {
         });
     }
     renderCustomerPricingEditor();
+}
+
+function applyCustomerPricingBulkPercent() {
+    const box = document.getElementById('cp-bulk-pct');
+    const pct = parseFloat(box && box.value);
+    if (isNaN(pct)) {
+        alert('Enter a percent.');
+        return;
+    }
+    if (pct === 0) {
+        alert('Enter a percent other than 0.');
+        return;
+    }
+    const inputs = document.querySelectorAll('#customer-pricing-list .cp-price-input');
+    if (!inputs.length) {
+        alert('Price sheet is still loading.');
+        return;
+    }
+    const label = (pct > 0 ? '+' : '') + pct + '%';
+    if (!confirm('Apply ' + label + ' to every price on this customer sheet?\n\nThis only changes the numbers on screen. Click Save Customer Pricing to write them.\nApplying twice compounds.')) {
+        return;
+    }
+    if (!window._customerPricingDraft) window._customerPricingDraft = {};
+    const factor = 1 + (pct / 100);
+    let changed = 0;
+    inputs.forEach(function (el) {
+        const current = parseFloat(el.value);
+        if (isNaN(current) || current < 0) return;
+        const next = Math.round(current * factor * 100) / 100;
+        el.value = next.toFixed(2);
+        const name = el.getAttribute('data-name');
+        if (name) window._customerPricingDraft[name] = next;
+        if (typeof flagCustomerPrice === 'function') flagCustomerPrice(el);
+        changed += 1;
+    });
+    if (typeof updateCustomerPricingSummary === 'function') updateCustomerPricingSummary();
+    alert('Applied ' + label + ' to ' + changed + ' price(s). Review the sheet, then click Save Customer Pricing.');
 }
 
 function onCustomerPriceInput(input) {
