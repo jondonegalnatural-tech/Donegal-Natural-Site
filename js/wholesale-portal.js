@@ -7021,7 +7021,37 @@ function hideWholesalePriceList() {
 }
 
 function printWholesalePriceList() {
-    window.print();
+    const body = document.getElementById('wholesale-price-list-body');
+    if (!body || !body.innerHTML.trim()) {
+        alert('Open the price list first.');
+        return;
+    }
+    const w = window.open('', '_blank', 'noopener,noreferrer,width=900,height=1100');
+    if (!w) {
+        alert('Allow pop-ups to print the price list.');
+        return;
+    }
+    w.document.open();
+    w.document.write('<!DOCTYPE html><html><head><title>Wholesale Price List</title>');
+    w.document.write('<base href="' + window.location.origin + '/">');
+    w.document.write('<style>');
+    w.document.write('@page{margin:0.6in;}');
+    w.document.write('body{font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;margin:0;}');
+    w.document.write('img{height:56px!important;width:auto!important;max-width:160px!important;object-fit:contain;}');
+    w.document.write('h3{color:#1E4D2B;margin:0 0 4px;}');
+    w.document.write('table{width:100%;border-collapse:collapse;margin-bottom:10px;}');
+    w.document.write('th,td{padding:5px 6px;font-size:12px;vertical-align:top;}');
+    w.document.write('th{text-align:left;border-bottom:2px solid #6B4423;color:#1E4D2B;}');
+    w.document.write('td{border-bottom:1px solid #e6e6e6;}');
+    w.document.write('th:last-child,td:last-child{text-align:right;}');
+    w.document.write('tr{page-break-inside:avoid;}');
+    w.document.write('.brand-green{color:#1E4D2B;}');
+    w.document.write('</style></head><body>');
+    w.document.write(body.innerHTML);
+    w.document.write('</body></html>');
+    w.document.close();
+    w.focus();
+    setTimeout(function () { w.print(); }, 400);
 }
 
 function openWholesalePriceList(autoPrint) {
@@ -7096,8 +7126,9 @@ function openWholesalePriceList(autoPrint) {
 
     body.innerHTML = html;
     modal.classList.remove('hidden');
+    modal.scrollTop = 0;
     if (autoPrint) {
-        setTimeout(function () { window.print(); }, 250);
+        setTimeout(function () { printWholesalePriceList(); }, 250);
     }
 }
 
