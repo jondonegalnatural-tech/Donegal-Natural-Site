@@ -7044,7 +7044,10 @@ function openWholesalePriceList(autoPrint) {
 
     const store = escapeHtml(customer.company || customer.name || 'Store');
     const salesmanEl = document.getElementById('account-assigned-salesman');
-    const salesman = salesmanEl ? salesmanEl.innerText.replace(/\s+/g, ' ').trim() : (customer.salesman_email || '');
+    const salesmanRaw = salesmanEl
+        ? String(salesmanEl.innerText || '').split('\n')[0].trim()
+        : '';
+    const salesman = salesmanRaw || String(customer.salesman_email || '').trim();
     const today = new Date().toLocaleDateString();
     const grouped = {};
     rows.forEach(function (row) {
@@ -7058,12 +7061,12 @@ function openWholesalePriceList(autoPrint) {
                 <p class="text-xs font-semibold tracking-wide text-[#6B4423]">DONEGAL NATURAL DOG TREATS</p>
                 <h3 class="text-2xl font-bold brand-green">Wholesale Price List</h3>
                 <p class="text-sm text-[#6B4423] mt-1">${store}</p>
-                <p class="text-xs text-[#6B4423]">${escapeHtml(salesman || '')}</p>
                 <p class="text-xs text-[#6B4423]">Printed ${escapeHtml(today)}</p>
             </div>
-            <img src="media/logo.png" alt="Donegal Natural" class="h-16 w-auto">
+            <img src="media/logo.png" alt="Donegal Natural"
+                 style="height:56px;width:auto;max-width:160px;object-fit:contain;flex-shrink:0;">
         </div>
-        <p class="text-xs text-[#6B4423] mb-4">These prices are for this store only.</p>
+        <p class="text-sm text-[#6B4423] mb-4">Assigned salesman: ${escapeHtml(salesman || '—')}</p>
     `;
     Object.keys(grouped).forEach(function (cat) {
         html += '<p class="text-xs font-bold uppercase tracking-wide text-[#6B4423] mt-4 mb-1">' +
