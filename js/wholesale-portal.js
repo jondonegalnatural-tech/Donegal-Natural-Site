@@ -6927,6 +6927,33 @@ function showAccountInfo() {
 
 
 
+    html += `
+        <div class="border-t border-[#d4b78f] pt-6 mt-6">
+            <div class="flex justify-between items-start gap-3 mb-2">
+                <div>
+                    <h3 class="font-bold brand-green">Your wholesale price list</h3>
+                    <p class="text-xs text-[#6B4423] mt-1">The list your salesman set for this store. Print a copy for the shop.</p>
+                </div>
+                ${pricingOk ? `
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" onclick="openWholesalePriceList()"
+                            class="px-4 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold text-[#1E4D2B]">
+                        View
+                    </button>
+                    <button type="button" onclick="openWholesalePriceList(true)"
+                            class="px-4 py-1.5 text-sm bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-semibold">
+                        Print
+                    </button>
+                </div>` : ''}
+            </div>
+            <p class="text-sm ${pricingOk ? 'text-[#6B4423]' : 'text-orange-700'}">
+                ${pricingOk
+                    ? 'Uses your assigned salesman\'s sheet and any extras on this store only.'
+                    : 'Prices unlock after your salesman approves pricing.'}
+            </p>
+        </div>
+    `;
+
     // ========== RESALE CERTIFICATE ==========
     html += `
         <div class="border-t border-[#d4b78f] pt-6 mt-6">
@@ -6957,6 +6984,118 @@ function showAccountInfo() {
     // Load resale cert summary asynchronously
     loadAccountResaleSummary();    
     loadAssignedSalesmanDisplay(active);
+}
+
+function getWholesalePriceListRows() {
+    const salesmanPrices = window._wholesaleSalesmanPrices || {};
+    if (!salesmanPrices || !Object.keys(salesmanPrices).length) return [];
+    const hidden = window._wholesaleHiddenPrices || {};
+    const rows = [];
+    (WHOLESALE_PRICES || []).forEach(function (p) {
+        if (!p || !p.name) return;
+        if (typeof isTestProductName === 'function' && isTestProductName(p.name)) return;
+        if (hidden[p.name]) return;
+        if (!Object.prototype.hasOwnProperty.call(salesmanPrices, p.name) &&
+            !(window._currentCustomer && window._currentCustomer.id)) return;
+        rows.push({
+            name: p.name,
+            display: (typeof wholesaleDisplayName === 'function') ? wholesaleDisplayName(p.name) : p.name,
+            category: p.category || 'Other',
+            caseSize: p.cs || p.caseSize || '',
+            price: p.price || '',
+            isMarketPrice: !!p.isMarketPrice,
+            oos: (typeof wholesaleOosLabel === 'function') ? wholesaleOosLabel(p.name) : ''
+        });
+    });
+    rows.sort(function (a, b) {
+        const c = String(a.category).localeCompare(String(b.category));
+        if (c) return c;
+        return String(a.display).localeCompare(String(b.display));
+    });
+    return rows;
+}
+
+function hideWholesalePriceList() {
+    const modal = document.getElementById('wholesale-price-list-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function printWholesalePriceList() {
+    window.print();
+}
+
+function openWholesalePriceList(autoPrint) {
+    const customer = window._currentCustomer;
+    if (!customer || !customer.pricing_approved_at) {
+        alert('Pricing is not approved for this store yet.');
+        return;
+    }
+    const rows = getWholesalePriceListRows();
+    const body = document.getElementById('wholesale-price-list-body');
+    const modal = document.getElementById('wholesale-price-list-modal');
+    if (!body || !modal) {
+        alert('Price list is missing from the page. Refresh and try again.');
+        return;
+    }
+    if (!rows.length) {
+        alert('No salesman price list is attached to this store yet.');
+        return;
+    }
+
+    const store = escapeHtml(customer.company || customer.name || 'Store');
+    const salesmanEl = document.getElementById('account-assigned-salesman');
+    const salesman = salesmanEl ? salesmanEl.innerText.replace(/\s+/g, ' ').trim() : (customer.salesman_email || '');
+    const today = new Date().toLocaleDateString();
+    const grouped = {};
+    rows.forEach(function (row) {
+        if (!grouped[row.category]) grouped[row.category] = [];
+        grouped[row.category].push(row);
+    });
+
+    let html = `
+        <div class="flex items-start justify-between gap-4 mb-4">
+            <div>
+                <p class="text-xs font-semibold tracking-wide text-[#6B4423]">DONEGAL NATURAL DOG TREATS</p>
+                <h3 class="text-2xl font-bold brand-green">Wholesale Price List</h3>
+                <p class="text-sm text-[#6B4423] mt-1">${store}</p>
+                <p class="text-xs text-[#6B4423]">${escapeHtml(salesman || '')}</p>
+                <p class="text-xs text-[#6B4423]">Printed ${escapeHtml(today)}</p>
+            </div>
+            <img src="media/logo.png" alt="Donegal Natural" class="h-16 w-auto">
+        </div>
+        <p class="text-xs text-[#6B4423] mb-4">These prices are for this store only.</p>
+    `;
+    Object.keys(grouped).forEach(function (cat) {
+        html += '<p class="text-xs font-bold uppercase tracking-wide text-[#6B4423] mt-4 mb-1">' +
+            escapeHtml(cat) + '</p>';
+        html += '<table class="w-full text-sm mb-2"><thead><tr class="border-b-2 border-[#6B4423] text-left">' +
+            '<th class="py-1 font-semibold text-[#1E4D2B]">Product</th>' +
+            '<th class="py-1 font-semibold text-[#1E4D2B]">Case</th>' +
+            '<th class="py-1 font-semibold text-[#1E4D2B] text-right">Price</th>' +
+            '</tr></thead><tbody>';
+        grouped[cat].forEach(function (row) {
+            html += '<tr class="border-b border-[#eee]">' +
+                '<td class="py-1.5 pr-2">' + escapeHtml(row.display) +
+                (row.isMarketPrice ? '<span class="block text-[11px] text-[#c56134]">Market price</span>' : '') +
+                (row.oos ? '<span class="block text-[11px] text-orange-700">' + escapeHtml(row.oos) + '</span>' : '') +
+                '</td>' +
+                '<td class="py-1.5 text-[#6B4423] whitespace-nowrap">' + escapeHtml(row.caseSize) + '</td>' +
+                '<td class="py-1.5 text-right font-semibold brand-green whitespace-nowrap">' + escapeHtml(row.price) + '</td>' +
+                '</tr>';
+        });
+        html += '</tbody></table>';
+    });
+    html += '<p class="text-[11px] text-[#6B4423] mt-4">' +
+        escapeHtml(typeof MARKET_PRICE_DISCLAIMER === 'string'
+            ? MARKET_PRICE_DISCLAIMER
+            : 'Market price. Final invoice may be adjusted to current market cost at shipment.') +
+        '</p>';
+
+    body.innerHTML = html;
+    modal.classList.remove('hidden');
+    if (autoPrint) {
+        setTimeout(function () { window.print(); }, 250);
+    }
 }
 
 async function loadAssignedSalesmanDisplay(customer) {
