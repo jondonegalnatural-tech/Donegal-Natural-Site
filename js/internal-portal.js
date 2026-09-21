@@ -8058,6 +8058,112 @@ async function setAllCustomersActive(enabled) {
     }
 }
 
+async function resendCustomerCredentials() {
+    const modal = document.getElementById('customer-modal');
+    const customerId = modal && modal.dataset ? modal.dataset.customerId : '';
+    const customer = (allCustomers || []).find(function (c) {
+        return String(c.id) === String(customerId);
+    });
+    if (!customer) {
+        alert('Could not find this customer. Close and open the card again.');
+        return;
+    }
+    if (typeof shouldSkipCustomerLoginReset === 'function' && shouldSkipCustomerLoginReset(customer)) {
+        alert('This store is on the protected list. Do not send credentials from here.');
+        return;
+    }
+    const email = String(customer.email || '').toLowerCase().trim();
+    if (!email || email.indexOf('@') === -1) {
+        alert('This store has no email. Edit the customer and save a valid email first.');
+        return;
+    }
+    const display = customer.company || customer.name || email;
+    if (!confirm(
+        'Resend the initial credentials email to ' + email + '?\n' +
+        'Store: ' + display + '\n\n' +
+        'From noreply@donegalnatural.com\n' +
+        'Subject: Your Donegal Natural wholesale account is approved\n' +
+        'They get a temporary password and must change it on first login.'
+    )) return;
+
+    const btn = document.getElementById('modal-resend-credentials-btn');
+    if (btn && btn.dataset.busy === '1') return;
+    if (btn) {
+        btn.dataset.busy = '1';
+        btn.disabled = true;
+    }
+
+    try {
+        const fnUrl = SUPABASE_URL + '/functions/v1/create-customer-user';
+        const fnRes = await fetch(fnUrl, {
+            method: 'POST',
+            headers: await getEdgeFunctionHeaders(),
+            body: JSON.stringify({
+                email: email,
+                full_name: customer.name || display,
+                company: customer.company || ''
+            })
+        });
+        const fnText = await fnRes.text();
+        let fnData = null;
+        try { fnData = JSON.parse(fnText); } catch (e) { fnData = { error: fnText || 'Empty response' }; }
+        if (!fnRes.ok || (fnData && fnData.error)) {
+            throw new Error((fnData && fnData.error) ? fnData.error : ('Function HTTP ' + fnRes.status));
+        }
+
+        const emailOk = fnData && fnData.email_sent === true;
+        const emailFailReason = (fnData && fnData.email_error) ? String(fnData.email_error) : '';
+
+        await supabaseClient
+            .from('customers')
+            .update({
+                password_changed: false,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', customer.id);
+
+        if (typeof logPortalEmail === 'function') {
+            await logPortalEmail({
+                email_type: 'credentials',
+                status: emailOk ? 'sent' : 'failed',
+                to_email: email,
+                to_name: customer.name || '',
+                subject: 'Your Donegal Natural wholesale account is approved',
+                store_names: customer.company || customer.name || '',
+                related_customer_id: customer.id,
+                error: emailOk ? null : (emailFailReason || 'Credentials email was not sent')
+            });
+        }
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'edit',
+                entityType: 'customer',
+                entityLabel: display,
+                summary: 'Credentials email ' + (emailOk ? 'sent' : 'failed') + ' to ' + email
+            });
+        }
+        if (typeof loadCustomers === 'function') await loadCustomers();
+        if (typeof showCustomerDetail === 'function') showCustomerDetail(customer.name);
+
+        alert(
+            'Login: ' + email + '\n\n' +
+            (emailOk
+                ? 'Credentials email was sent from noreply@.\nThey must change the password on first login.'
+                : ('Credentials email was NOT sent.\n' +
+                   (emailFailReason ? ('Reason: ' + emailFailReason + '\n') : '') +
+                   'Check Reports → Email Log.'))
+        );
+    } catch (err) {
+        console.error('resendCustomerCredentials error:', err);
+        alert('Could not send credentials.\n\n' + (err.message || String(err)));
+    } finally {
+        if (btn) {
+            btn.dataset.busy = '0';
+            btn.disabled = false;
+        }
+    }
+}
+
 async function deactivateCustomer() {
     const modal = document.getElementById('customer-modal');
     const customerId = modal?.dataset?.customerId;
