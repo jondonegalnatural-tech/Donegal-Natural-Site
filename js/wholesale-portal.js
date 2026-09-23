@@ -260,6 +260,32 @@ function isMidAtlantic650Location(text) {
  * PA $200 free · FL half $250–$399.99 / free $400 ·
  * East half $250–$1,499.99 / free $1,500 · West half $250–$1,999.99 / free $2,000
  */
+
+
+const WHOLESALE_MIN_ORDER = 200;
+
+function getWholesaleQuoteMerchandiseTotal() {
+    let total = 0;
+    (quoteItems || []).forEach(function (item) {
+        const unit = parseFloat(String((item && item.price) || '').replace(/[^0-9.]/g, '')) || 0;
+        const qty = parseInt((item && item.quantity), 10) || 0;
+        if (unit > 0 && qty > 0) total += unit * qty;
+    });
+    return total;
+}
+
+function wholesaleQuoteMeetsMinimum() {
+    return getWholesaleQuoteMerchandiseTotal() + 0.0001 >= WHOLESALE_MIN_ORDER;
+}
+
+function alertWholesaleMinimum() {
+    const left = Math.max(0, WHOLESALE_MIN_ORDER - getWholesaleQuoteMerchandiseTotal());
+    alert(
+        'Wholesale orders must total at least $200.00.\n' +
+        'Add $' + left.toFixed(2) + ' more to submit.'
+    );
+}
+
 function evaluateFreeShipping(subtotal, locationText) {
     const amount = Number(subtotal) || 0;
     const loc = locationText || '';
@@ -5223,14 +5249,22 @@ function updateQuoteSidebar() {
         }
     }
 
+    const minRemaining = Math.max(0, WHOLESALE_MIN_ORDER - pricedTotal);
+    if (minRemaining > 0) {
+        summaryHTML += `
+            <div class="mb-3 px-3 py-2 rounded-xl bg-orange-50 border border-orange-200 text-orange-800 text-xs font-semibold">
+                $${minRemaining.toFixed(2)} more to reach the $200.00 minimum order.
+            </div>
+        `;
+    }
+
     summaryHTML += `
         <p class="text-xs text-[#6B4423] italic mb-3">
             Final total will be sent with your invoice.
         </p>
-
-        <button onclick="openQuoteConfirmModal()" 
-                class="w-full bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f] font-bold py-3 rounded-2xl border-2 border-[#6B4423]">
-            Submit Quote Request
+        <button onclick="${minRemaining > 0 ? 'alertWholesaleMinimum()' : 'openQuoteConfirmModal()'}"
+                class="w-full font-bold py-3 rounded-2xl border-2 border-[#6B4423] ${minRemaining > 0 ? 'bg-[#d4b78f] text-[#6B4423]' : 'bg-[#1E4D2B] hover:bg-[#254a2f] text-[#d4b78f]'}">
+            ${minRemaining > 0 ? '$200.00 minimum required' : 'Submit Quote Request'}
         </button>
         <button onclick="clearQuote()" 
                 class="w-full mt-2 text-sm text-[#6B4423] hover:text-red-600">
@@ -5557,6 +5591,10 @@ function openQuoteConfirmModal() {
         alert('Your quote is empty!');
         return;
     }
+    if (!wholesaleQuoteMeetsMinimum()) {
+        alertWholesaleMinimum();
+        return;
+    }
     const payCustomer = window._currentCustomer || null;
     const requirePayment = !!(payCustomer && payCustomer.require_payment_method);
     if (requirePayment && !shouldSkipPaymentPrompt(payCustomer) && !hasPaymentMethodOnFile(payCustomer)) {
@@ -5674,6 +5712,10 @@ async function submitQuote() {
     }
     if (quoteItems.length === 0) {
         alert("Your quote is empty!");
+        return;
+    }
+    if (!wholesaleQuoteMeetsMinimum()) {
+        alertWholesaleMinimum();
         return;
     }
 
