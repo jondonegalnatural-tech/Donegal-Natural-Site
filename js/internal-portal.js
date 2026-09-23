@@ -14535,6 +14535,7 @@ window.onload = async function() {
     if (typeof updateDashboardSalesMatrix === 'function') updateDashboardSalesMatrix();
     if (typeof updateDashboardAchCounts === 'function') updateDashboardAchCounts();
     if (typeof updateInquiryStats === 'function') updateInquiryStats();
+    if (typeof checkOosDueAlerts === 'function') checkOosDueAlerts();
 };
 
 function filterOrdersByStatus(status) {
@@ -20325,6 +20326,225 @@ async function markSelectedInStock() {
         alert('Could not mark In Stock.\n' + (err.message || ''));
     }
 }
+
+function oosLocalTodayYmd() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + d;
+}
+
+function oosYmdToLabel(ymd) {
+    const parts = String(ymd || '').slice(0, 10).split('-');
+    if (parts.length !== 3) return ymd || '—';
+    return parts[1] + '/' + parts[2] + '/' + String(parts[0]).slice(-2);
+}
+
+function dueOosRows() {
+    const today = oosLocalTodayYmd();
+    const rows = [];
+    Object.keys(oosStatusMap || {}).forEach(function (name) {
+        const st = oosStatusMap[name] || {};
+        if (st.is_out_of_stock !== true) return;
+        const eta = String(st.estimated_back_at || '').slice(0, 10);
+        if (!eta || eta > today) return;
+        rows.push({ name: name, eta: eta });
+    });
+    rows.sort(function (a, b) {
+        if (a.eta === b.eta) return a.name.localeCompare(b.name);
+        return a.eta.localeCompare(b.eta);
+    });
+    return rows;
+}
+
+function updateOosDueBadge() {
+    const badge = document.getElementById('oos-due-badge');
+    if (!badge) return;
+    const n = dueOosRows().length;
+    if (n) {
+        badge.textContent = String(n);
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
+}
+
+function renderOosDueList() {
+    const list = document.getElementById('oos-due-list');
+    if (!list) return;
+    const rows = dueOosRows();
+    const today = oosLocalTodayYmd();
+    if (!rows.length) {
+        list.innerHTML = '<p class="text-sm text-[#6B4423] text-center py-6">No expected-back dates are due.</p>';
+        return;
+    }
+    list.innerHTML = rows.map(function (row) {
+        const safe = String(row.name).replace(/"/g, '&quot;');
+        const overdue = row.eta < today;
+        return (
+            '<div class="border-2 ' + (overdue ? 'border-red-300 bg-red-50' : 'border-[#d4b78f] bg-[#f8f4eb]') + ' rounded-xl p-3">' +
+                '<div class="flex flex-wrap items-start justify-between gap-2 mb-2">' +
+                    '<p class="font-semibold text-[#1E4D2B]">' + escapeHtml(row.name) + '</p>' +
+                    '<span class="text-xs font-bold ' + (overdue ? 'text-red-800' : 'text-[#6B4423]') + '">' +
+                        (overdue ? 'Overdue · ' : 'Due today · ') +
+                        'expected ' + escapeHtml(oosYmdToLabel(row.eta)) +
+                    '</span>' +
+                '</div>' +
+                '<div class="flex flex-wrap items-end gap-2">' +
+                    '<label class="text-xs font-semibold text-[#6B4423]">New date' +
+                        '<input type="date" class="oos-due-date block border-2 border-[#6B4423] rounded-xl px-3 py-1.5 text-sm mt-1"' +
+                               ' data-product="' + safe + '" min="' + today + '" value="' + today + '">' +
+                    '</label>' +
+                    '<button type="button" onclick="extendOosDueItem(this.getAttribute(\'data-product\'))"' +
+                            ' data-product="' + safe + '"' +
+                            ' class="px-4 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-white font-semibold text-[#1E4D2B]">' +
+                        'Extend date' +
+                    '</button>' +
+                    '<button type="button" onclick="restockOosDueItem(this.getAttribute(\'data-product\'))"' +
+                            ' data-product="' + safe + '"' +
+                            ' class="px-4 py-1.5 text-sm bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-semibold">' +
+                        'Back in stock' +
+                    '</button>' +
+                '</div>' +
+            '</div>'
+        );
+    }).join('');
+}
+
+function hideOosDueModal() {
+    const modal = document.getElementById('oos-due-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function snoozeOosDueModal() {
+    try { sessionStorage.setItem('oosDueSnooze', oosLocalTodayYmd()); } catch (e) {}
+    hideOosDueModal();
+}
+
+function showOosDueModal() {
+    const modal = document.getElementById('oos-due-modal');
+    if (!modal) return;
+    renderOosDueList();
+    modal.classList.remove('hidden');
+}
+
+async function checkOosDueAlerts() {
+    if (typeof loadOutOfStockStatus === 'function') {
+        await loadOutOfStockStatus();
+    }
+    updateOosDueBadge();
+    const rows = dueOosRows();
+    if (!rows.length) {
+        hideOosDueModal();
+        return;
+    }
+    let snoozed = '';
+    try { snoozed = sessionStorage.getItem('oosDueSnooze') || ''; } catch (e) {}
+    if (snoozed === oosLocalTodayYmd()) return;
+    showOosDueModal();
+}
+
+async function extendOosDueItem(name) {
+    if (!name) return;
+    const input = document.querySelector('.oos-due-date[data-product="' + name.replace(/"/g, '\\"') + '"]');
+    const eta = input && input.value ? input.value : '';
+    const today = oosLocalTodayYmd();
+    if (!eta || eta < today) {
+        alert('Pick a new expected-back date that is today or later.');
+        return;
+    }
+    const who = oosActor();
+    const now = new Date().toISOString();
+    try {
+        const { error: stErr } = await supabaseClient
+            .from('product_stock_status')
+            .upsert({
+                product_name: name,
+                is_out_of_stock: true,
+                estimated_back_at: eta,
+                updated_at: now,
+                updated_by: who
+            }, { onConflict: 'product_name' });
+        if (stErr) throw stErr;
+        const { error: evErr } = await supabaseClient
+            .from('product_stock_events')
+            .insert({
+                product_name: name,
+                event: 'date_extended',
+                estimated_back_at: eta,
+                created_by: who
+            });
+        if (evErr) throw evErr;
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'oos',
+                entityType: 'product',
+                entityLabel: name,
+                summary: 'Extended OOS date to ' + eta
+            });
+        }
+        await loadOutOfStockStatus();
+        updateOosDueBadge();
+        if (dueOosRows().length) renderOosDueList();
+        else hideOosDueModal();
+        if (document.getElementById('out-of-stock-modal') &&
+            !document.getElementById('out-of-stock-modal').classList.contains('hidden')) {
+            renderOutOfStockList();
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Could not extend the date.\n' + (err.message || ''));
+    }
+}
+
+async function restockOosDueItem(name) {
+    if (!name) return;
+    const who = oosActor();
+    const now = new Date().toISOString();
+    try {
+        const { error: stErr } = await supabaseClient
+            .from('product_stock_status')
+            .upsert({
+                product_name: name,
+                is_out_of_stock: false,
+                estimated_back_at: null,
+                oos_since: null,
+                updated_at: now,
+                updated_by: who
+            }, { onConflict: 'product_name' });
+        if (stErr) throw stErr;
+        const { error: evErr } = await supabaseClient
+            .from('product_stock_events')
+            .insert({
+                product_name: name,
+                event: 'back_in_stock',
+                estimated_back_at: null,
+                created_by: who
+            });
+        if (evErr) throw evErr;
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'oos',
+                entityType: 'product',
+                entityLabel: name,
+                summary: 'Cleared out of stock from due alert'
+            });
+        }
+        await loadOutOfStockStatus();
+        updateOosDueBadge();
+        if (dueOosRows().length) renderOosDueList();
+        else hideOosDueModal();
+        if (document.getElementById('out-of-stock-modal') &&
+            !document.getElementById('out-of-stock-modal').classList.contains('hidden')) {
+            renderOutOfStockList();
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Could not mark in stock.\n' + (err.message || ''));
+    }
+}
+
 // ================== PRODUCT PHOTO GALLERY ==================
 const PHOTO_BUCKET = 'product-photos';
 const PHOTO_FAMILIES = [
