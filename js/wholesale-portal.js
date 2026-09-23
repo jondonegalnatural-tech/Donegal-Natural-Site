@@ -6974,7 +6974,7 @@ function showAccountInfo() {
             <div class="flex justify-between items-start gap-3 mb-2">
                 <div>
                     <h3 class="font-bold brand-green">Your wholesale price list</h3>
-                    <p class="text-xs text-[#6B4423] mt-1">The list your salesman set for this store. Print a copy for the shop.</p>
+                    <p class="text-xs text-[#6B4423] mt-1">The list your salesman set for this store. Print or download Excel / PDF.</p>
                 </div>
                 ${pricingOk ? `
                 <div class="flex flex-wrap gap-2">
@@ -6985,6 +6985,14 @@ function showAccountInfo() {
                     <button type="button" onclick="openWholesalePriceList(true)"
                             class="px-4 py-1.5 text-sm bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-semibold">
                         Print
+                    </button>
+                    <button type="button" onclick="exportWholesalePriceListExcel()"
+                            class="px-4 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold text-[#1E4D2B]">
+                        Export Excel
+                    </button>
+                    <button type="button" onclick="exportWholesalePriceListPdf()"
+                            class="px-4 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold text-[#1E4D2B]">
+                        Export PDF
                     </button>
                 </div>` : ''}
             </div>
@@ -7037,8 +7045,9 @@ function getWholesalePriceListRows() {
         if (!p || !p.name) return;
         if (typeof isTestProductName === 'function' && isTestProductName(p.name)) return;
         if (hidden[p.name]) return;
-        if (!Object.prototype.hasOwnProperty.call(salesmanPrices, p.name) &&
-            !(window._currentCustomer && window._currentCustomer.id)) return;
+        const extraOk = window._wholesaleAssignedProducts &&
+            window._wholesaleAssignedProducts.has(p.name);
+        if (!Object.prototype.hasOwnProperty.call(salesmanPrices, p.name) && !extraOk) return;
         rows.push({
             name: p.name,
             display: (typeof wholesaleDisplayName === 'function') ? wholesaleDisplayName(p.name) : p.name,
@@ -7103,6 +7112,185 @@ function printWholesalePriceList() {
     doc.close();
     frame.contentWindow.focus();
     frame.contentWindow.print();
+}
+
+function wholesalePriceListFileSlug(name) {
+    return String(name || 'Wholesale_Price_List')
+        .replace(/[^a-z0-9]+/gi, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 60) || 'Wholesale_Price_List';
+}
+
+function getWholesalePriceListExportMeta() {
+    const customer = window._currentCustomer;
+    if (!customer || !customer.pricing_approved_at) {
+        alert('Pricing is not approved for this store yet.');
+        return null;
+    }
+    const rows = getWholesalePriceListRows();
+    if (!rows.length) {
+        alert('No salesman price list is attached to this store yet.');
+        return null;
+    }
+    const store = customer.company || customer.name || 'Store';
+    const salesmanEl = document.getElementById('account-assigned-salesman');
+    const salesmanRaw = salesmanEl
+        ? String(salesmanEl.innerText || '').split('\n')[0].trim()
+        : '';
+    const salesman = salesmanRaw || String(customer.salesman_email || '').trim() || '—';
+    const grouped = {};
+    rows.forEach(function (row) {
+        const cat = row.category || 'Other';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(row);
+    });
+    const categories = Object.keys(grouped).sort();
+    return { rows: rows, grouped: grouped, categories: categories, store: store, salesman: salesman };
+}
+
+function exportWholesalePriceListExcel() {
+    const meta = getWholesalePriceListExportMeta();
+    if (!meta) return;
+    if (typeof XLSX === 'undefined') {
+        alert('Excel library not loaded. Hard-refresh and try again.');
+        return;
+    }
+    const stamp = new Date().toISOString().slice(0, 10);
+    const aoa = [
+        ['Donegal Natural Dog Treats'],
+        ['258 W Front St · Marietta, PA 17547'],
+        ['(800) 223-0017'],
+        [meta.store + ' — Wholesale Price List'],
+        ['Assigned salesman: ' + meta.salesman],
+        ['Price list as of ' + stamp],
+        []
+    ];
+    meta.categories.forEach(function (cat) {
+        aoa.push([cat]);
+        aoa.push(['Product', 'Case Size', 'Unit Price']);
+        meta.grouped[cat].forEach(function (row) {
+            const raw = String(row.price || '').replace(/[^0-9.]/g, '');
+            const price = raw === '' ? '' : Number(raw);
+            const market = row.isMarketPrice ? ' (Market)' : '';
+            aoa.push([
+                String(row.display || row.name || '') + market,
+                row.caseSize || '',
+                price
+            ]);
+        });
+        aoa.push([]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ wch: 56 }, { wch: 16 }, { wch: 12 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Price List');
+    XLSX.writeFile(wb, wholesalePriceListFileSlug(meta.store) + '_Wholesale_Price_List_' + stamp + '.xlsx');
+}
+
+async function exportWholesalePriceListPdf() {
+    const meta = getWholesalePriceListExportMeta();
+    if (!meta) return;
+    const jsPdfCtor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : window.jsPDF;
+    if (!jsPdfCtor) {
+        alert('PDF library not loaded. Hard-refresh and try again.');
+        return;
+    }
+    const stamp = new Date().toLocaleDateString();
+    const fileStamp = new Date().toISOString().slice(0, 10);
+    const doc = new jsPdfCtor({ unit: 'pt', format: 'letter', compress: true });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const green = [30, 77, 43];
+    const gold = [212, 183, 143];
+    const cream = [248, 244, 235];
+    const brown = [107, 68, 35];
+    const title = String(meta.store || 'Wholesale Price List');
+
+    function drawPageChrome() {
+        doc.setFillColor(green[0], green[1], green[2]);
+        doc.rect(0, 0, pageWidth, 78, 'F');
+        doc.setTextColor(gold[0], gold[1], gold[2]);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(16);
+        doc.text('Donegal Natural Dog Treats', 28, 32);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text('258 W Front St  ·  Marietta, PA 17547  ·  (800) 223-0017', 28, 48);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text('WHOLESALE PRICE LIST', pageWidth - 28, 32, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text(title + '  ·  ' + stamp, pageWidth - 28, 48, { align: 'right' });
+        doc.setFillColor(gold[0], gold[1], gold[2]);
+        doc.rect(0, 78, pageWidth, 6, 'F');
+        doc.setFillColor(green[0], green[1], green[2]);
+        doc.rect(0, pageHeight - 32, pageWidth, 32, 'F');
+        doc.setTextColor(gold[0], gold[1], gold[2]);
+        doc.setFontSize(8);
+        doc.text(
+            'Donegal Natural  ·  ' + title + '  ·  Page ' + doc.internal.getCurrentPageInfo().pageNumber,
+            pageWidth / 2,
+            pageHeight - 14,
+            { align: 'center' }
+        );
+    }
+
+    drawPageChrome();
+    let cursorY = 100;
+    meta.categories.forEach(function (cat) {
+        const body = meta.grouped[cat].map(function (row) {
+            const market = row.isMarketPrice ? ' (Market)' : '';
+            return [
+                String(row.display || row.name || '') + market,
+                String(row.caseSize || '—'),
+                String(row.price || '—')
+            ];
+        });
+        if (cursorY > pageHeight - 120) {
+            doc.addPage();
+            cursorY = 100;
+        }
+        doc.setFillColor(green[0], green[1], green[2]);
+        doc.roundedRect(28, cursorY, pageWidth - 56, 22, 3, 3, 'F');
+        doc.setTextColor(gold[0], gold[1], gold[2]);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text(String(cat), 40, cursorY + 15);
+        cursorY += 26;
+        doc.autoTable({
+            startY: cursorY,
+            head: [['Product', 'Case Size', 'Unit Price']],
+            body: body,
+            theme: 'grid',
+            styles: {
+                font: 'helvetica',
+                fontSize: 9,
+                textColor: [40, 28, 16],
+                lineColor: [212, 183, 143],
+                lineWidth: 0.4,
+                cellPadding: 5
+            },
+            headStyles: {
+                fillColor: brown,
+                textColor: gold,
+                fontStyle: 'bold'
+            },
+            alternateRowStyles: { fillColor: cream },
+            columnStyles: {
+                0: { cellWidth: 340 },
+                1: { cellWidth: 90 },
+                2: { cellWidth: 86, halign: 'right', fontStyle: 'bold', textColor: green }
+            },
+            margin: { left: 28, right: 28, top: 100, bottom: 44 },
+            didDrawPage: function () {
+                drawPageChrome();
+            }
+        });
+        cursorY = doc.lastAutoTable.finalY + 16;
+    });
+
+    doc.save(wholesalePriceListFileSlug(meta.store) + '_Wholesale_Price_List_' + fileStamp + '.pdf');
 }
 
 function openWholesalePriceList(autoPrint) {

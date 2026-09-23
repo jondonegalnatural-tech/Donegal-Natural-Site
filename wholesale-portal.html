@@ -958,6 +958,14 @@
         <div class="flex justify-end gap-3 mt-6 wpl-no-print">
             <button type="button" onclick="hideWholesalePriceList()"
                     class="px-5 py-2 border-2 border-[#6B4423] rounded-xl font-semibold">Close</button>
+            <button type="button" onclick="exportWholesalePriceListExcel()"
+                    class="px-5 py-2 border-2 border-[#6B4423] rounded-xl font-semibold">
+                Export Excel
+            </button>
+            <button type="button" onclick="exportWholesalePriceListPdf()"
+                    class="px-5 py-2 border-2 border-[#6B4423] rounded-xl font-semibold">
+                Export PDF
+            </button>
             <button type="button" onclick="printWholesalePriceList()"
                     class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-bold">
                 <i class="fas fa-print mr-2"></i>Print
@@ -1000,6 +1008,9 @@
 </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
     <script src="js/phone-mask.js"></script>
     <script src="js/wholesale-portal.js"></script>
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA3w15On3HstCQaS_XfKNXbO0I0ipHsQCg&libraries=places&callback=initWholesaleAccountPlaces&loading=async" async defer></script>
