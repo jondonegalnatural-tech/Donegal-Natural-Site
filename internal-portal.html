@@ -550,9 +550,10 @@ body { background: #f8f1e9; }
                                 class="w-full flex items-center px-4 py-3 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] transition text-left">
                             <i class="fas fa-box w-5 text-[#1E4D2B]"></i>
                             <span class="ml-2 text-sm font-semibold brand-green">Out of Stock</span>
-                            <span id="oos-due-badge"
-                                  class="hidden ml-auto min-w-[22px] h-[22px] px-1.5 flex items-center justify-center text-xs font-bold bg-orange-500 text-white rounded-full"
-                                  title="Expected-back date is today or overdue">0</span>
+                            <span id="oos-count-badge"
+                                  class="hidden ml-auto min-w-[22px] h-[22px] px-1.5 flex items-center justify-center text-xs font-bold bg-[#1E4D2B] text-[#d4b78f] rounded-full"
+                                  onclick="event.stopPropagation(); openOutOfStockModal('current');"
+                                  title="View items currently out of stock">0</span>
                         </button>
                         <button type="button"
                                 onclick="event.stopPropagation(); openBulkPercentAdjustModal();"
@@ -4154,6 +4155,16 @@ body { background: #f8f1e9; }
             </div>
             <button type="button" onclick="hideOutOfStockModal()"
                     class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
+        </div>
+        <div class="flex flex-wrap gap-2 mb-3">
+            <button type="button" id="oos-tab-all" onclick="setOosListTab('all')"
+                    class="px-4 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl font-semibold">
+                All products
+            </button>
+            <button type="button" id="oos-tab-current" onclick="setOosListTab('current')"
+                    class="px-4 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl font-semibold">
+                Currently OOS (<span id="oos-tab-count">0</span>)
+            </button>
         </div>
         <div class="mb-4">
             <input type="text" id="oos-search" placeholder="Search products…"

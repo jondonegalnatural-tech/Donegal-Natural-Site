@@ -20112,6 +20112,7 @@ async function confirmBulkPercentAdjust() {
 
 // ================== OUT OF STOCK ==================
 let oosStatusMap = {};
+let oosListTab = 'all';
 
 function oosActor() {
     try {
@@ -20122,13 +20123,53 @@ function oosActor() {
     }
 }
 
-async function openOutOfStockModal() {
+function currentOosCount() {
+    let n = 0;
+    Object.keys(oosStatusMap || {}).forEach(function (name) {
+        if (oosStatusMap[name] && oosStatusMap[name].is_out_of_stock === true) n += 1;
+    });
+    return n;
+}
+
+function updateOosCountBadge() {
+    const n = currentOosCount();
+    const badge = document.getElementById('oos-count-badge');
+    if (badge) {
+        badge.textContent = String(n);
+        if (n) badge.classList.remove('hidden');
+        else badge.classList.add('hidden');
+        badge.title = n === 1
+            ? '1 item currently out of stock'
+            : n + ' items currently out of stock';
+    }
+    const tabCount = document.getElementById('oos-tab-count');
+    if (tabCount) tabCount.textContent = String(n);
+}
+
+function setOosTabButtons() {
+    const allBtn = document.getElementById('oos-tab-all');
+    const curBtn = document.getElementById('oos-tab-current');
+    const on = 'px-4 py-1.5 text-sm rounded-xl font-semibold bg-[#1E4D2B] text-[#d4b78f] border-2 border-[#1E4D2B]';
+    const off = 'px-4 py-1.5 text-sm rounded-xl font-semibold border-2 border-[#6B4423] text-[#1E4D2B] hover:bg-[#f8f4eb]';
+    if (allBtn) allBtn.className = oosListTab === 'all' ? on : off;
+    if (curBtn) curBtn.className = oosListTab === 'current' ? on : off;
+}
+
+function setOosListTab(tab) {
+    oosListTab = tab === 'current' ? 'current' : 'all';
+    setOosTabButtons();
+    renderOutOfStockList();
+}
+
+async function openOutOfStockModal(tab) {
     const modal = document.getElementById('out-of-stock-modal');
     if (!modal) return;
+    oosListTab = tab === 'current' ? 'current' : 'all';
     const search = document.getElementById('oos-search');
     if (search) search.value = '';
     modal.classList.remove('hidden');
     await loadOutOfStockStatus();
+    setOosTabButtons();
     renderOutOfStockList();
 }
 
@@ -20151,6 +20192,7 @@ async function loadOutOfStockStatus() {
         console.error('loadOutOfStockStatus:', err);
         alert('Could not load stock status.\nRun the product_stock_status SQL in Supabase if that table is missing.\n' + (err.message || ''));
     }
+    updateOosCountBadge();
 }
 
 function renderOutOfStockList() {
@@ -20159,6 +20201,10 @@ function renderOutOfStockList() {
     const q = (document.getElementById('oos-search')?.value || '').trim().toLowerCase();
     const products = PRODUCT_CATALOG.filter(p => {
         if (p.isMarketPrice) return false;
+        if (oosListTab === 'current') {
+            const st = oosStatusMap[p.name] || {};
+            if (st.is_out_of_stock !== true) return false;
+        }
         if (!q) return true;
         return (p.name || '').toLowerCase().includes(q)
             || (p.category || '').toLowerCase().includes(q);
@@ -20171,7 +20217,9 @@ function renderOutOfStockList() {
     });
     const cats = Object.keys(byCat).sort();
     if (!cats.length) {
-        list.innerHTML = '<p class="text-sm text-[#6B4423] text-center py-8">No products match.</p>';
+        list.innerHTML = oosListTab === 'current'
+            ? '<p class="text-sm text-[#6B4423] text-center py-8">No products are currently out of stock.</p>'
+            : '<p class="text-sm text-[#6B4423] text-center py-8">No products match.</p>';
         return;
     }
     list.innerHTML = cats.map(cat => {
@@ -20359,15 +20407,7 @@ function dueOosRows() {
 }
 
 function updateOosDueBadge() {
-    const badge = document.getElementById('oos-due-badge');
-    if (!badge) return;
-    const n = dueOosRows().length;
-    if (n) {
-        badge.textContent = String(n);
-        badge.classList.remove('hidden');
-    } else {
-        badge.classList.add('hidden');
-    }
+    if (typeof updateOosCountBadge === 'function') updateOosCountBadge();
 }
 
 function renderOosDueList() {
