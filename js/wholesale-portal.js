@@ -2993,12 +2993,46 @@ function pickRandomProducts(count) {
 const MARKET_PRICE_DISCLAIMER = 'Market price. Final invoice may be adjusted to current market cost at shipment.';
 
 function formatCardPrice(product) {
-    let displayPrice = product.price || '';
-    if (displayPrice && !displayPrice.toLowerCase().includes('market') && !displayPrice.includes('/')) {
-        displayPrice += '/ea';
-    }
+    let displayPrice = String((product && product.price) || '').trim();
+    if (!displayPrice) return '';
+    if (displayPrice.toLowerCase().includes('market')) return displayPrice;
+    displayPrice = displayPrice.replace(/\/ea\.?$/i, '').trim();
+    if (!displayPrice.includes('/')) displayPrice += ' each';
     return displayPrice;
 }
+
+function formatPackSize(cs) {
+    const raw = String(cs || '').trim();
+    if (!raw) return '';
+    const m = raw.match(/^(\d+)\s*\/\s*cs$/i);
+    if (m) return m[1] + ' per case';
+    return raw;
+}
+
+function formatListPrice(price, isMarket) {
+    const raw = String(price || '').trim();
+    if (!raw) return '';
+    if (isMarket || raw.toLowerCase().includes('market')) return raw;
+    if (/\/lb/i.test(raw)) return raw;
+    if (/\/ea/i.test(raw)) return raw.replace(/\/ea\.?$/i, ' / ea');
+    if (raw.includes('/')) return raw;
+    return raw + ' / ea';
+}
+
+function formatCardMeta(product) {
+    const priceText = formatCardPrice(product);
+    const packText = formatPackSize(product && product.cs);
+    return [priceText, packText].filter(Boolean).join(' · ');
+}
+
+function makeOrderAnyQtyNote() {
+    const note = document.createElement('p');
+    note.className = 'text-[11px] leading-snug text-[#6B4423] mt-1 mb-2';
+    note.textContent = 'Order any quantity — a full case is not required.';
+    return note;
+}
+
+const PRICE_LIST_EACH_NOTE = 'All prices are per piece, bag, or pack as listed. You may order any quantity — a full case is not required.';
 
 function isWholesaleMarketProduct(productOrName) {
     if (productOrName && typeof productOrName === 'object') {
@@ -4390,8 +4424,7 @@ function buildCombinedCard(group) {
             if (!chosen.length) {
                 meta.textContent = 'Select one or more options';
             } else if (chosen.length === 1) {
-                const csText = chosen[0].cs ? ('Case size ' + chosen[0].cs) : '';
-                meta.textContent = [csText, formatCardPrice(chosen[0])].filter(Boolean).join(' · ');
+                meta.textContent = formatCardMeta(chosen[0]);
                 marketNote.classList.toggle('hidden', !isWholesaleMarketProduct(chosen[0]));
                 if (marketNote) marketNote.classList.toggle('hidden', !isWholesaleMarketProduct(chosen[0]));
             } else {
@@ -4443,6 +4476,7 @@ function buildCombinedCard(group) {
         body.appendChild(ingredientsEl);
         body.appendChild(sizeRow);
         body.appendChild(qtyRow);
+        body.appendChild(makeOrderAnyQtyNote());
         body.appendChild(btn);
         refreshMulti();
     } else {
@@ -4463,8 +4497,7 @@ function buildCombinedCard(group) {
 
         function refreshSingle() {
             selected = findSelected();
-            const csText = selected.cs ? ('Case size ' + selected.cs) : '';
-            meta.textContent = [csText, formatCardPrice(selected)].filter(Boolean).join(' · ');
+            meta.textContent = formatCardMeta(selected);
             marketNote.classList.toggle('hidden', !isWholesaleMarketProduct(selected));
             img.src = getProductImagePath(selected);
             img.alt = selected.name;
@@ -4522,6 +4555,7 @@ function buildCombinedCard(group) {
         body.appendChild(ingredientsEl);
         body.appendChild(sizeRow);
         body.appendChild(qtyRow);
+        body.appendChild(makeOrderAnyQtyNote());
         body.appendChild(btn);
         refreshSingle();
     }
@@ -4563,9 +4597,7 @@ function buildProductCard(product) {
 
     const meta = document.createElement('p');
     meta.className = 'card-meta';
-    const csText = product.cs ? ('Case size ' + product.cs) : '';
-    const priceText = formatCardPrice(product);
-    meta.textContent = [csText, priceText].filter(Boolean).join(' · ');
+    meta.textContent = formatCardMeta(product);
 
     const descEl = buildCardDescriptionEl();
     const sizeRow = buildDogSizeRow();
@@ -4607,6 +4639,7 @@ function buildProductCard(product) {
 
     body.appendChild(name);
     body.appendChild(meta);
+    body.appendChild(makeOrderAnyQtyNote());
     body.appendChild(marketNote);
     body.appendChild(descEl);
     body.appendChild(ingredientsEl);
@@ -4861,7 +4894,8 @@ function showPackagedItemModal(name, price, cs, category, image = null, healthBe
             ${imageHTML}
 
             <p class="font-semibold text-lg mb-1">${escapeHtml(wholesaleDisplayName(name))}</p>
-            <p class="text-sm text-[#6B4423] mb-4">${escapeHtml(cs)} • ${escapeHtml(price)}</p>
+            <p class="text-sm text-[#6B4423] mb-1">${escapeHtml(formatCardMeta({ price: price, cs: cs }))}</p>
+            <p class="text-[11px] leading-snug text-[#6B4423] mb-4">Order any quantity — a full case is not required.</p>
 
             ${(function () {
                 const text = getIngredientsForProduct(name);
@@ -7163,18 +7197,19 @@ function exportWholesalePriceListExcel() {
         [meta.store + ' — Wholesale Price List'],
         ['Assigned salesman: ' + meta.salesman],
         ['Price list as of ' + stamp],
+        [PRICE_LIST_EACH_NOTE],
         []
     ];
     meta.categories.forEach(function (cat) {
         aoa.push([cat]);
-        aoa.push(['Product', 'Case Size', 'Unit Price']);
+        aoa.push(['Product', 'Pack size', 'Price each']);
         meta.grouped[cat].forEach(function (row) {
             const raw = String(row.price || '').replace(/[^0-9.]/g, '');
             const price = raw === '' ? '' : Number(raw);
             const market = row.isMarketPrice ? ' (Market)' : '';
             aoa.push([
                 String(row.display || row.name || '') + market,
-                row.caseSize || '',
+                formatPackSize(row.caseSize) || '',
                 price
             ]);
         });
@@ -7237,14 +7272,22 @@ async function exportWholesalePriceListPdf() {
     }
 
     drawPageChrome();
-    let cursorY = 100;
+    doc.setTextColor(brown[0], brown[1], brown[2]);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(
+        'All prices are per piece, bag, or pack as listed. You may order any quantity - a full case is not required.',
+        28,
+        96
+    );
+    let cursorY = 110;
     meta.categories.forEach(function (cat) {
         const body = meta.grouped[cat].map(function (row) {
             const market = row.isMarketPrice ? ' (Market)' : '';
             return [
                 String(row.display || row.name || '') + market,
-                String(row.caseSize || '—'),
-                String(row.price || '—')
+                String(formatPackSize(row.caseSize) || '—'),
+                String(formatListPrice(row.price, row.isMarketPrice) || '—')
             ];
         });
         if (cursorY > pageHeight - 120) {
@@ -7260,7 +7303,7 @@ async function exportWholesalePriceListPdf() {
         cursorY += 26;
         doc.autoTable({
             startY: cursorY,
-            head: [['Product', 'Case Size', 'Unit Price']],
+            head: [['Product', 'Pack size', 'Price each']],
             body: body,
             theme: 'grid',
             styles: {
@@ -7335,15 +7378,16 @@ function openWholesalePriceList(autoPrint) {
             <img src="media/logo.png" alt="Donegal Natural"
                  style="height:56px;width:auto;max-width:160px;object-fit:contain;flex-shrink:0;">
         </div>
-        <p class="text-sm text-[#6B4423] mb-4">Assigned salesman: ${escapeHtml(salesman || '—')}</p>
+        <p class="text-sm text-[#6B4423] mb-2">Assigned salesman: ${escapeHtml(salesman || '—')}</p>
+        <p class="text-sm text-[#6B4423] mb-4">${escapeHtml(PRICE_LIST_EACH_NOTE)}</p>
     `;
     Object.keys(grouped).forEach(function (cat) {
         html += '<p class="text-xs font-bold uppercase tracking-wide text-[#6B4423] mt-4 mb-1">' +
             escapeHtml(cat) + '</p>';
         html += '<table class="w-full text-sm mb-2"><thead><tr class="border-b-2 border-[#6B4423] text-left">' +
             '<th class="py-1 font-semibold text-[#1E4D2B]">Product</th>' +
-            '<th class="py-1 font-semibold text-[#1E4D2B]">Case</th>' +
-            '<th class="py-1 font-semibold text-[#1E4D2B] text-right">Price</th>' +
+            '<th class="py-1 font-semibold text-[#1E4D2B]">Pack size</th>' +
+            '<th class="py-1 font-semibold text-[#1E4D2B] text-right">Price each</th>' +
             '</tr></thead><tbody>';
         grouped[cat].forEach(function (row) {
             html += '<tr class="border-b border-[#eee]">' +
@@ -7351,8 +7395,8 @@ function openWholesalePriceList(autoPrint) {
                 (row.isMarketPrice ? '<span class="block text-[11px] text-[#c56134]">Market price</span>' : '') +
                 (row.oos ? '<span class="block text-[11px] text-orange-700">' + escapeHtml(row.oos) + '</span>' : '') +
                 '</td>' +
-                '<td class="py-1.5 text-[#6B4423] whitespace-nowrap">' + escapeHtml(row.caseSize) + '</td>' +
-                '<td class="py-1.5 text-right font-semibold brand-green whitespace-nowrap">' + escapeHtml(row.price) + '</td>' +
+                '<td class="py-1.5 text-[#6B4423] whitespace-nowrap">' + escapeHtml(formatPackSize(row.caseSize)) + '</td>' +
+                '<td class="py-1.5 text-right font-semibold brand-green whitespace-nowrap">' + escapeHtml(formatListPrice(row.price, row.isMarketPrice)) + '</td>' +
                 '</tr>';
         });
         html += '</tbody></table>';
