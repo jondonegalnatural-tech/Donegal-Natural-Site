@@ -2271,14 +2271,26 @@ function searchPlaceOrderProducts() {
         const catalog = (typeof PRODUCT_CATALOG !== 'undefined')
             ? PRODUCT_CATALOG.find(function (p) { return p && p.name === name; })
             : null;
+        let category = (catalog && catalog.category) || '';
+        const n = String(name || '').toLowerCase();
+        if (!category) {
+            if (n.indexOf('bully') !== -1 || n.indexOf('thin green') !== -1) category = 'Bully Sticks';
+            else if (n.indexOf('jerky') !== -1 || n.indexOf('elky') !== -1) category = 'Jerky';
+            else if (n.indexOf('ear') !== -1) category = 'Ears';
+            else if (n.indexOf('lung') !== -1) category = 'Beef';
+            else category = 'Other';
+        }
         rows.push({
             name: name,
             nick: nick,
+            category: category,
             caseSize: (catalog && catalog.caseSize) || '',
             unitPrice: Number(sheetMap[name])
         });
     });
     rows.sort(function (a, b) {
+        const ca = String(a.category || 'Other').localeCompare(String(b.category || 'Other'));
+        if (ca) return ca;
         return String(a.nick || a.name).localeCompare(String(b.nick || b.name));
     });
 
@@ -2288,12 +2300,18 @@ function searchPlaceOrderProducts() {
         return;
     }
 
+    let lastCat = '';
     resultsEl.innerHTML = rows.map(function (p, idx) {
         const oos = typeof isSalesmanOos === 'function' && isSalesmanOos(p.name);
         const oosText = oos ? (salesmanOosLabel(p.name) || 'Out of stock') : '';
         const price = isFinite(p.unitPrice) ? ('$' + p.unitPrice.toFixed(2) + ' each') : '';
         const safeName = encodeURIComponent(p.name);
-        return (
+        const cat = p.category || 'Other';
+        const header = (cat !== lastCat)
+            ? '<div class="px-3 py-2 bg-[#1E4D2B] text-[#d4b78f] text-sm font-bold sticky top-0">' + escapeHtml(cat) + '</div>'
+            : '';
+        lastCat = cat;
+        return header + (
             '<div class="px-3 py-2 border-b border-[#d4b78f] flex items-center gap-3">' +
             '<div class="flex-1 min-w-0">' +
             '<p class="text-sm font-semibold brand-green">' + escapeHtml(p.nick) + '</p>' +
