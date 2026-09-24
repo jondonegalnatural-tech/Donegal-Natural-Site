@@ -9662,7 +9662,21 @@ function collectSalesmanPriceSheetInputs() {
             { name: '6” Thin Green Line Bully Sticks (Bulk)', price: 0.59 },
             { name: '12” Thin Green Line Bully Sticks (Bulk)', price: 1.21 },
             { name: '40 Pack, 6" Thin Green Line Bully Sticks', price: 20 },
-            { name: '20 Pack, 12" Thin Green Line Bully Sticks', price: 20 }
+            { name: '20 Pack, 12" Thin Green Line Bully Sticks', price: 20 },
+            { name: '25 Pack, 6" Regular Bully Sticks', price: 90 },
+            { name: '20 Pack, 12" Regular Bully Sticks', price: 56.25 },
+            { name: '20 Pack, 6" Braided Bully Sticks', price: 80 },
+            { name: '10 Pack, 12" Braided Bully Sticks', price: 80 },
+            { name: '20 Pack, 12" Thick Euro Bullies', price: 110 },
+            { name: '25 Pack, 6" Thick Euro Bullies', price: 68.75 },
+            { name: '50 Pack, Elky Jerky Treats', price: 39.5 },
+            { name: '50 Pack, Turkey Jerky Treats', price: 37 },
+            { name: '50 Pack, Chicken Jerky Treats', price: 36 },
+            { name: '50 Pack, Beef Jerky Treats', price: 29 },
+            { name: '50 Pack, Venison and Sweet Potato Jerky Treats', price: 39.5 },
+            { name: '50 Pack, Sexy Chicken Feets', price: 25 },
+            { name: '12" Beef Trachea, bagged (15/bag)', price: 35 },
+            { name: '6" Beef Trachea, bagged (25/bag)', price: 27.5 }
         ];
         function norm(s) {
             return String(s || '').toLowerCase()
