@@ -2619,33 +2619,33 @@ function renderPlaceOrderItems(skipFocus) {
             ? (hideCase ? '' : escapeHtml(item.caseSize || ''))
             : ((hideCase || !item.caseSize) ? unitText : (escapeHtml(item.caseSize || '') + ' · ' + unitText));
         return `
-        <div class="flex justify-between items-center py-2 border-b border-[#d4b78f] flex-wrap gap-2">
-            <div class="flex-1 pr-3 min-w-[140px]">
-                <span class="text-sm font-bold brand-green whitespace-nowrap">${lineText}</span>
-                <p class="text-sm font-semibold brand-green">${escapeHtml(item.displayName || salesmanDisplayName(item.name))}</p>
-                <p class="text-xs text-[#6B4423]">${sub}</p>
-                ${packagingNoteText(item) ? ('<p class="text-[11px] font-semibold text-[#6B4423] mt-1">' + escapeHtml(packagingNoteText(item)) + '</p>') : ''}
-                ${(typeof isTftppCustomer === 'function' && isTftppCustomer(currentPlaceOrderCustomer)) ? (
-                    '<label class="text-[11px] text-[#6B4423] mr-2"><input type="checkbox" class="accent-[#1E4D2B]" ' +
-                    (item.needsUpcLabel ? 'checked ' : '') +
-                    'onchange="togglePlaceOrderPackaging(' + index + ', \'needsUpcLabel\', this.checked)"> UPC + Label</label>' +
-                    '<label class="text-[11px] text-[#6B4423]"><input type="checkbox" class="accent-[#1E4D2B]" ' +
-                    (item.needsCigarTag ? 'checked ' : '') +
-                    'onchange="togglePlaceOrderPackaging(' + index + ', \'needsCigarTag\', this.checked)"> Cigar Tag</label>'
-                ) : ''}
+        <div class="py-2 border-b border-[#d4b78f]">
+            <div class="flex justify-between items-start gap-2">
+                <p class="text-sm font-semibold brand-green pr-2">${escapeHtml(item.displayName || salesmanDisplayName(item.name))}</p>
+                <button type="button" onclick="removePlaceOrderItem(${index})"
+                        class="text-red-600 text-sm px-1 py-0 hover:bg-red-50 rounded shrink-0">Remove</button>
             </div>
-            <div class="flex items-center gap-2">
-                ${priceField}
-                <label class="text-xs text-[#6B4423]">Units</label>
-                <input type="number"
-                       min="1"
-                       value="${item.quantity}"
-                       class="place-order-qty w-16 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm text-center"
-                       onchange="updatePlaceOrderQty(${index}, this.value)">
-                <button onclick="removePlaceOrderItem(${index})"
-                        class="text-red-600 text-sm px-2 py-1 hover:bg-red-50 rounded-lg">
-                    Remove
-                </button>
+            <p class="text-xs text-[#6B4423]">${sub}</p>
+            ${packagingNoteText(item) ? ('<p class="text-[11px] font-semibold text-[#6B4423] mt-1">' + escapeHtml(packagingNoteText(item)) + '</p>') : ''}
+            ${(typeof isTftppCustomer === 'function' && isTftppCustomer(currentPlaceOrderCustomer)) ? (
+                '<label class="text-[11px] text-[#6B4423] mr-2"><input type="checkbox" class="accent-[#1E4D2B]" ' +
+                (item.needsUpcLabel ? 'checked ' : '') +
+                'onchange="togglePlaceOrderPackaging(' + index + ', \'needsUpcLabel\', this.checked)"> UPC + Label</label>' +
+                '<label class="text-[11px] text-[#6B4423]"><input type="checkbox" class="accent-[#1E4D2B]" ' +
+                (item.needsCigarTag ? 'checked ' : '') +
+                'onchange="togglePlaceOrderPackaging(' + index + ', \'needsCigarTag\', this.checked)"> Cigar Tag</label>'
+            ) : ''}
+            <div class="flex items-center justify-between gap-2 mt-2">
+                <div class="flex items-center gap-2">
+                    ${priceField}
+                    <label class="text-xs text-[#6B4423]">Units</label>
+                    <input type="number"
+                           min="1"
+                           value="${item.quantity}"
+                           class="place-order-qty w-16 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm text-center"
+                           onchange="updatePlaceOrderQty(${index}, this.value)">
+                </div>
+                <span class="text-sm font-bold brand-green whitespace-nowrap">${lineText}</span>
             </div>
         </div>`;
     }).join("");
