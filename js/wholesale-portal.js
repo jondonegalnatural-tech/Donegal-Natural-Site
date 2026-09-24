@@ -3049,20 +3049,12 @@ function hideWholesaleCaseCounts(customer) {
 }
 
 function useWholesaleItemGrid() {
-    const target = 'daveplefka88@yahoo.com';
-    const customer = window._currentCustomer || {};
-    const emails = [
-        customer.email,
-        customer.login_email,
-        customer.username
-    ];
-    try {
-        const user = JSON.parse(localStorage.getItem('currentUser') || 'null') || {};
-        emails.push(user.email, user.username);
-    } catch (e) {}
-    return emails.some(function (v) {
-        return String(v || '').toLowerCase().trim() === target;
-    });
+    if (typeof isBrianAssignedCustomer === 'function') {
+        return isBrianAssignedCustomer(window._currentCustomer);
+    }
+    const email = String((window._currentCustomer &&
+        (window._currentCustomer.salesman_email || window._currentCustomer.salesmanEmail)) || '').toLowerCase().trim();
+    return email === 'donegaldogtreats@gmail.com';
 }
 
 function renderWholesaleItemGrid(container) {
@@ -3136,7 +3128,6 @@ function renderWholesaleItemGrid(container) {
             'onerror="this.onerror=null;this.src=\'media/placeholder-bully-stick.png\';">' +
             '</button>' +
             '<div>' + escapeHtml(display) +
-            (display !== p.name ? '<p class="text-[10px] text-[#6B4423]">' + escapeHtml(p.name) + '</p>' : '') +
             (oos ? '<p class="text-[11px] text-orange-700">' + escapeHtml(oosLabel || 'Out of stock') + '</p>' : '') +
             '</div></div></td>' +
             (hideCase ? '' : ('<td class="p-2.5 text-[#6B4423]">' +
