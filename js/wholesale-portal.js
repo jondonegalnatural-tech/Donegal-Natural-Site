@@ -164,10 +164,10 @@ async function switchActiveCustomer(customerId) {
         await loadOpenQuoteForActiveStore();
     }
     if (typeof applyBrianWholesaleSheetPrices === 'function') {
-        applyBrianWholesaleSheetPrices().then(function () {
-            if (typeof renderPortalProducts === 'function') renderPortalProducts();
-        });
+        await applyBrianWholesaleSheetPrices();
     }
+    if (typeof renderCategoryFilters === 'function') renderCategoryFilters();
+    if (typeof renderPortalProducts === 'function') renderPortalProducts();
 
     if (isCustomerInactive(next)) {
         applyInactiveSoftRestriction();
@@ -176,7 +176,6 @@ async function switchActiveCustomer(customerId) {
     }
 
     if (typeof updateShippingPolicyCard === 'function') updateShippingPolicyCard();
-    if (typeof renderPortalProducts === 'function') renderPortalProducts();
     if (typeof displayWelcome === 'function') displayWelcome();
     if (typeof updateOrderingAsIndicator === 'function') updateOrderingAsIndicator();
     if (typeof updateQuoteSidebar === 'function') updateQuoteSidebar();
@@ -186,6 +185,7 @@ async function switchActiveCustomer(customerId) {
         document.getElementById('onboarding-modal')?.classList.remove('hidden');
     }
 }
+
 // ================== END MULTI-STORE ==================
 let _quotesStoreFilter = 'all';   // 'all' or a customer id (string)
 let _ordersStoreFilter = 'all';   // same for Order History
@@ -392,7 +392,7 @@ function getStoreLabel(c) {
     return c.id ? `Store ${String(c.id).slice(0, 8)}` : 'Store';
 }
 
-function setActiveCustomer(id) {
+async function setActiveCustomer(id) {
     const accounts = window._customerAccounts || [];
     const found = accounts.find(c => String(c.id) === String(id));
     if (!found) return;
@@ -400,13 +400,12 @@ function setActiveCustomer(id) {
     window._currentCustomer = found;
     localStorage.setItem('activeCustomerId', String(found.id));
     if (typeof applyBrianWholesaleSheetPrices === 'function') {
-        applyBrianWholesaleSheetPrices().then(function () {
-            if (typeof renderPortalProducts === 'function') renderPortalProducts();
-        });
+        await applyBrianWholesaleSheetPrices();
     }
 
     // Refresh anything that depends on the active store
     if (typeof updateShippingPolicyCard === 'function') updateShippingPolicyCard();
+    if (typeof renderCategoryFilters === 'function') renderCategoryFilters();
     if (typeof renderPortalProducts === 'function') renderPortalProducts();
     if (typeof updateOrderingAsIndicator === 'function') updateOrderingAsIndicator();
     if (typeof updateQuoteSidebar === 'function') updateQuoteSidebar();
@@ -8185,6 +8184,17 @@ function isBrianAssignedCustomer(customer) {
     return email === BRIAN_SEAT_EMAIL;
 }
 
+function shouldFailClosedToSalesmanSheet(customer) {
+    const salesman = String((customer && (customer.salesman_email || customer.salesmanEmail)) || '').toLowerCase().trim();
+    if (!salesman) return false;
+    if (salesman === 'jackerman@donegalnatural.com') return false;
+    const email = String((customer && customer.email) || '').toLowerCase().trim();
+    const company = String((customer && (customer.company || customer.name)) || '').toLowerCase();
+    if (email === 'jackerman@donegalnatural.com') return false;
+    if (company.indexOf('admin test store') !== -1) return false;
+    return true;
+}
+
 function wholesaleDisplayName(catalogName) {
     const map = window._wholesaleDisplayNames || {};
     if (!catalogName) return '';
@@ -8208,16 +8218,25 @@ function orderLineDisplayName(item) {
 }
 
 async function applyBrianWholesaleSheetPrices() {
-    if (Array.isArray(window._wholesaleCatalogBase) && window._wholesaleCatalogBase.length) {
-        WHOLESALE_PRICES = window._wholesaleCatalogBase.map(function (p) {
-            return Object.assign({}, p);
-        });
-    }
-    const customer = window._currentCustomer;
-    if (!customer || !customer.id) return;
-    const salesmanEmail = String((customer.salesman_email || customer.salesmanEmail) || '').toLowerCase().trim();
-    if (!salesmanEmail) return;
+    const base = (Array.isArray(window._wholesaleCatalogBase) && window._wholesaleCatalogBase.length)
+        ? window._wholesaleCatalogBase.map(function (p) { return Object.assign({}, p); })
+        : (WHOLESALE_PRICES || []).map(function (p) { return Object.assign({}, p); });
+
+    window._wholesaleSalesmanPrices = {};
     window._wholesaleDisplayNames = {};
+    window._wholesaleHiddenPrices = {};
+
+    const customer = window._currentCustomer;
+    if (!customer || !customer.id) {
+        WHOLESALE_PRICES = shouldFailClosedToSalesmanSheet(customer) ? [] : base;
+        return;
+    }
+    const salesmanEmail = String((customer.salesman_email || customer.salesmanEmail) || '').toLowerCase().trim();
+    if (!salesmanEmail) {
+        WHOLESALE_PRICES = base;
+        return;
+    }
+
     try {
         const { data: nickRow } = await supabaseClient
             .from('salesman_price_sheets')
@@ -8236,6 +8255,7 @@ async function applyBrianWholesaleSheetPrices() {
     } catch (err) {
         console.warn('wholesale display_names:', err);
     }
+
     let prices = Object.assign({}, window._wholesaleSalesmanPrices || {});
     try {
         const { data: custSheet } = await supabaseClient
@@ -8262,21 +8282,38 @@ async function applyBrianWholesaleSheetPrices() {
     } catch (err) {
         console.warn('applyBrianWholesaleSheetPrices customer:', err);
     }
-    if (!Object.keys(prices).length) return;
+
     Object.keys(window._wholesaleHiddenPrices || {}).forEach(function (name) {
         delete prices[name];
     });
-    WHOLESALE_PRICES = (WHOLESALE_PRICES || []).filter(function (p) {
-        return p && p.name && Object.prototype.hasOwnProperty.call(prices, p.name);
+
+    if (!Object.keys(prices).length) {
+        WHOLESALE_PRICES = shouldFailClosedToSalesmanSheet(customer) ? [] : base;
+        return;
+    }
+
+    const byName = {};
+    base.forEach(function (p) {
+        if (p && p.name) byName[p.name] = Object.assign({}, p);
     });
-    (WHOLESALE_PRICES || []).forEach(function (p) {
-        if (!p || !p.name) return;
-        const raw = prices[p.name];
-        if (raw == null || raw === '') return;
-        const n = Number(raw);
-        if (isNaN(n)) return;
-        p.price = '$' + n.toFixed(2);
+    const next = [];
+    Object.keys(prices).forEach(function (name) {
+        const row = byName[name] || {
+            name: name,
+            category: 'Other',
+            subCategory: '',
+            cs: '',
+            price: '',
+            isMarketPrice: false
+        };
+        const raw = prices[name];
+        if (raw != null && raw !== '') {
+            const n = Number(raw);
+            if (!isNaN(n)) row.price = '$' + n.toFixed(2);
+        }
+        next.push(row);
     });
+    WHOLESALE_PRICES = next;
 }
 
 async function loadWholesaleCatalog() {
@@ -8320,6 +8357,9 @@ async function loadWholesaleCatalog() {
         await applyBrianWholesaleSheetPrices();
     } catch (err) {
         console.error('loadWholesaleCatalog error — keeping hardcoded list:', err);
+        if (typeof applyBrianWholesaleSheetPrices === 'function') {
+            await applyBrianWholesaleSheetPrices();
+        }
     }
 }
 
@@ -8566,10 +8606,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Customer load error:', err);
     }
 
-    // Normal portal init — paint immediately from the fallback catalog
-    renderCategoryFilters();
-    renderPortalProducts();
-    if (typeof checkNewProductAlert === 'function') checkNewProductAlert();
+
 
     await Promise.all([
         loadWholesaleCatalog(),
@@ -8580,6 +8617,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     ]);
     renderCategoryFilters();
     renderPortalProducts();
+    if (typeof checkNewProductAlert === 'function') checkNewProductAlert();
     if (typeof updateShippingPolicyCard === 'function') updateShippingPolicyCard();
     if (typeof loadOpenQuoteForActiveStore === 'function') await loadOpenQuoteForActiveStore();
     updateQuoteSidebar();

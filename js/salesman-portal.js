@@ -2154,7 +2154,7 @@ function togglePlaceOrderPackaging(index, field, on) {
     if (typeof persistPlaceOrderDraft === 'function') persistPlaceOrderDraft();
 }
 
-function placeOrderForCustomer(customerName) {
+async function placeOrderForCustomer(customerName) {
     const walk = document.getElementById('place-order-walkin-fields');
     if (walk) walk.classList.add('hidden');
     const shipWrap = document.getElementById('place-order-shipping-wrap');
@@ -2184,7 +2184,7 @@ function placeOrderForCustomer(customerName) {
         ? currentPlaceOrderCustomer
         : customerObj;
     if (priceCustomer && typeof loadBrianPlaceOrderPrices === 'function') {
-        loadBrianPlaceOrderPrices(priceCustomer);
+       await loadBrianPlaceOrderPrices(priceCustomer);
     }
 
     const displayName = (typeof currentPlaceOrderCustomer === 'object' && currentPlaceOrderCustomer)
@@ -2454,57 +2454,74 @@ function resolvePlaceOrderPrice(product) {
 async function loadBrianPlaceOrderPrices(customer) {
     window._placeOrderBrianPrices = {};
     window._placeOrderDisplayNames = {};
+    window._placeOrderHiddenPrices = {};
     if (!customer || !customer.id) return;
     const salesmanEmail = String((customer.salesman_email || customer.salesmanEmail || getOperatingSalesmanEmail()) || '').toLowerCase().trim();
-    if (salesmanEmail) {
-        try {
-            const { data: nickRow } = await supabaseClient
-                .from('salesman_price_sheets')
-                .select('display_names, hidden_prices')
-                .eq('salesman_email', salesmanEmail)
-                .maybeSingle();
-            if (nickRow && nickRow.display_names && typeof nickRow.display_names === 'object') {
-                window._placeOrderDisplayNames = nickRow.display_names;
-            }
-            window._placeOrderHiddenPrices = (nickRow && nickRow.hidden_prices && typeof nickRow.hidden_prices === 'object')
-                ? nickRow.hidden_prices
-                : {};
-        } catch (err) {
-            console.warn('place order display_names:', err);
-        }
-    }
     if (!salesmanEmail) return;
+
+    let salesmanPrices = {};
+    let assigned = [];
+    try {
+        const { data: nickRow } = await supabaseClient
+            .from('salesman_price_sheets')
+            .select('prices, display_names, hidden_prices')
+            .eq('salesman_email', salesmanEmail)
+            .maybeSingle();
+        if (nickRow && nickRow.display_names && typeof nickRow.display_names === 'object') {
+            window._placeOrderDisplayNames = nickRow.display_names;
+        }
+        window._placeOrderHiddenPrices = (nickRow && nickRow.hidden_prices && typeof nickRow.hidden_prices === 'object')
+            ? nickRow.hidden_prices
+            : {};
+        if (nickRow && nickRow.prices && typeof nickRow.prices === 'object') {
+            salesmanPrices = nickRow.prices;
+        }
+    } catch (err) {
+        console.warn('place order display_names:', err);
+    }
+
+    try {
+        const { data: salesmanRow } = await supabaseClient
+            .from('salesmen')
+            .select('assigned_products')
+            .eq('email', salesmanEmail)
+            .maybeSingle();
+        if (Array.isArray(salesmanRow && salesmanRow.assigned_products)) {
+            assigned = salesmanRow.assigned_products;
+        } else if (salesmanRow && typeof salesmanRow.assigned_products === 'string') {
+            try { assigned = JSON.parse(salesmanRow.assigned_products); } catch (e) { assigned = []; }
+        }
+    } catch (err) {
+        console.warn('place order assigned_products:', err);
+    }
+
+    const prices = Object.assign({}, salesmanPrices);
     try {
         const { data: custSheet } = await supabaseClient
             .from('customer_price_sheets')
             .select('prices')
             .eq('customer_id', customer.id)
             .maybeSingle();
-        if (custSheet && custSheet.prices && typeof custSheet.prices === 'object' && Object.keys(custSheet.prices).length) {
-            window._placeOrderBrianPrices = custSheet.prices;
-            Object.keys(window._placeOrderHiddenPrices || {}).forEach(function (name) {
-                delete window._placeOrderBrianPrices[name];
+        if (custSheet && custSheet.prices && typeof custSheet.prices === 'object') {
+            Object.keys(prices).forEach(function (name) {
+                if (custSheet.prices[name] != null && custSheet.prices[name] !== '') {
+                    prices[name] = custSheet.prices[name];
+                }
             });
-            return;
+            assigned.forEach(function (name) {
+                if (!name || Object.prototype.hasOwnProperty.call(prices, name)) return;
+                if (custSheet.prices[name] == null || custSheet.prices[name] === '') return;
+                prices[name] = custSheet.prices[name];
+            });
         }
     } catch (err) {
         console.warn('loadBrianPlaceOrderPrices customer:', err);
     }
-    try {
-        const { data: salesSheet } = await supabaseClient
-            .from('salesman_price_sheets')
-            .select('prices')
-            .eq('salesman_email', salesmanEmail)
-            .maybeSingle();
-        if (salesSheet && salesSheet.prices && typeof salesSheet.prices === 'object') {
-            window._placeOrderBrianPrices = salesSheet.prices;
-            Object.keys(window._placeOrderHiddenPrices || {}).forEach(function (name) {
-                delete window._placeOrderBrianPrices[name];
-            });
-        }
-    } catch (err) {
-        console.warn('loadBrianPlaceOrderPrices salesman:', err);
-    }
+
+    Object.keys(window._placeOrderHiddenPrices || {}).forEach(function (name) {
+        delete prices[name];
+    });
+    window._placeOrderBrianPrices = prices;
 }
 
 function addProductToPlaceOrder(productName) {
