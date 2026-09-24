@@ -3048,6 +3048,98 @@ function hideWholesaleCaseCounts(customer) {
     }
 }
 
+function useWholesaleItemGrid() {
+    const customer = window._currentCustomer || {};
+    const email = String(customer.email || '').toLowerCase().trim();
+    return email === 'daveplefka88@yahoo.com';
+}
+
+function renderWholesaleItemGrid(container) {
+    if (!container) return;
+    stopRecommendedRotator();
+    updateProductsHeading('Wholesale Products');
+    const searchVal = String((document.getElementById('product-search') || {}).value || '')
+        .toLowerCase().trim();
+    let rows = (WHOLESALE_PRICES || []).filter(function (p) {
+        if (!p || !p.name) return false;
+        if (typeof isTestProductName === 'function' && isTestProductName(p.name)) return false;
+        return true;
+    });
+    if (currentCategoryFilter && currentCategoryFilter !== 'All') {
+        rows = rows.filter(function (p) {
+            return String(p.category || '') === currentCategoryFilter;
+        });
+    }
+    if (searchVal) {
+        rows = rows.filter(function (p) {
+            const nick = (typeof wholesaleDisplayName === 'function')
+                ? wholesaleDisplayName(p.name) : p.name;
+            return (p.name + ' ' + nick).toLowerCase().indexOf(searchVal) !== -1;
+        });
+    }
+    rows.sort(function (a, b) {
+        const ca = String(a.category || 'Other').localeCompare(String(b.category || 'Other'));
+        if (ca) return ca;
+        const na = (typeof wholesaleDisplayName === 'function') ? wholesaleDisplayName(a.name) : a.name;
+        const nb = (typeof wholesaleDisplayName === 'function') ? wholesaleDisplayName(b.name) : b.name;
+        return String(na).localeCompare(String(nb));
+    });
+    if (!rows.length) {
+        container.innerHTML = '<p class="text-center py-8 text-[#6B4423]">No products found.</p>';
+        return;
+    }
+    const hideCase = typeof hideWholesaleCaseCounts === 'function' && hideWholesaleCaseCounts();
+    let html = '<div class="overflow-x-auto border-2 border-[#6B4423] rounded-2xl bg-white">' +
+        '<table class="w-full text-sm"><thead><tr class="bg-[#1E4D2B] text-[#d4b78f]">' +
+        '<th class="p-2.5 text-left">Product</th>' +
+        (hideCase ? '' : '<th class="p-2.5 text-left w-28">Case size</th>') +
+        '<th class="p-2.5 text-right w-28">Price each</th>' +
+        '<th class="p-2.5 text-center w-40">Add to quote</th>' +
+        '</tr></thead><tbody>';
+    let lastCat = '';
+    rows.forEach(function (p, idx) {
+        const cat = p.category || 'Other';
+        if (cat !== lastCat) {
+            lastCat = cat;
+            html += '<tr class="bg-[#f8f4eb]"><td colspan="' + (hideCase ? '3' : '4') +
+                '" class="p-2.5 font-bold brand-green border-t border-[#d4b78f]">' +
+                escapeHtml(cat) + '</td></tr>';
+        }
+        const display = (typeof wholesaleDisplayName === 'function')
+            ? wholesaleDisplayName(p.name) : p.name;
+        const priceText = (typeof formatListPrice === 'function')
+            ? formatListPrice(p.price, p.isMarketPrice)
+            : String(p.price || '');
+        const oos = typeof isWholesaleOos === 'function' && isWholesaleOos(p.name);
+        const oosLabel = oos && typeof wholesaleOosLabel === 'function'
+            ? wholesaleOosLabel(p.name) : '';
+        const safeName = encodeURIComponent(p.name);
+        const safePrice = encodeURIComponent(p.price || '');
+        const safeCs = encodeURIComponent(p.cs || '');
+        html += '<tr class="' + (idx % 2 ? 'bg-[#f8f4eb]' : 'bg-white') + ' border-t border-[#e8d9b8]">' +
+            '<td class="p-2.5">' + escapeHtml(display) +
+            (display !== p.name ? '<p class="text-[10px] text-[#6B4423]">' + escapeHtml(p.name) + '</p>' : '') +
+            (oos ? '<p class="text-[11px] text-orange-700">' + escapeHtml(oosLabel || 'Out of stock') + '</p>' : '') +
+            '</td>' +
+            (hideCase ? '' : ('<td class="p-2.5 text-[#6B4423]">' +
+                escapeHtml((typeof formatPackSize === 'function' ? formatPackSize(p.cs) : p.cs) || '—') +
+                '</td>')) +
+            '<td class="p-2.5 text-right font-semibold brand-green whitespace-nowrap">' +
+            escapeHtml(priceText || '—') + '</td>' +
+            '<td class="p-2.5 text-center whitespace-nowrap">' +
+            (oos
+                ? '<span class="text-xs text-orange-700">Unavailable</span>'
+                : ('<input type="number" min="1" value="1" class="w-16 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm mr-2" id="grid-qty-' + idx + '">' +
+                    '<button type="button" class="px-3 py-1 text-xs font-semibold rounded-lg bg-[#1E4D2B] text-[#d4b78f]" ' +
+                    'onclick="addToQuote(decodeURIComponent(\'' + safeName + '\'), decodeURIComponent(\'' + safePrice + '\'), decodeURIComponent(\'' + safeCs + '\'), (document.getElementById(\'grid-qty-' + idx + '\')||{}).value || 1)">' +
+                    'Add</button>')) +
+            '</td></tr>';
+    });
+    html += '</tbody></table></div>' +
+        '<p class="text-[11px] text-[#6B4423] mt-2">Every item on your sheet is listed. A full case is not required.</p>';
+    container.innerHTML = html;
+}
+
 function makeOrderAnyQtyNote() {
     const note = document.createElement('p');
     note.className = 'text-[11px] leading-snug text-[#6B4423] mt-1 mb-2';
