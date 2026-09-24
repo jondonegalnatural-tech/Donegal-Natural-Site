@@ -3128,10 +3128,17 @@ function renderWholesaleItemGrid(container) {
         const safePrice = encodeURIComponent(p.price || '');
         const safeCs = encodeURIComponent(p.cs || '');
         html += '<tr class="' + (idx % 2 ? 'bg-[#f8f4eb]' : 'bg-white') + ' border-t border-[#e8d9b8]">' +
-            '<td class="p-2.5">' + escapeHtml(display) +
+            '<td class="p-2.5">' +
+            '<div class="flex items-center gap-3">' +
+            '<button type="button" class="flex-shrink-0" title="View photo" onclick="openGridProductPhoto(decodeURIComponent(\'' + encodeURIComponent(p.name) + '\'))">' +
+            '<img src="' + escapeHtml((typeof getProductImagePath === 'function' && getProductImagePath(p)) || 'media/placeholder-bully-stick.png') +
+            '" alt="" class="w-12 h-12 object-contain rounded-lg border border-[#d4b78f] bg-[#f8f4eb]" ' +
+            'onerror="this.onerror=null;this.src=\'media/placeholder-bully-stick.png\';">' +
+            '</button>' +
+            '<div>' + escapeHtml(display) +
             (display !== p.name ? '<p class="text-[10px] text-[#6B4423]">' + escapeHtml(p.name) + '</p>' : '') +
             (oos ? '<p class="text-[11px] text-orange-700">' + escapeHtml(oosLabel || 'Out of stock') + '</p>' : '') +
-            '</td>' +
+            '</div></div></td>' +
             (hideCase ? '' : ('<td class="p-2.5 text-[#6B4423]">' +
                 escapeHtml((typeof formatPackSize === 'function' ? formatPackSize(p.cs) : p.cs) || '—') +
                 '</td>')) +
@@ -3149,6 +3156,19 @@ function renderWholesaleItemGrid(container) {
     html += '</tbody></table></div>' +
         '<p class="text-[11px] text-[#6B4423] mt-2">Every item on your sheet is listed. A full case is not required.</p>';
     container.innerHTML = html;
+}
+
+function openGridProductPhoto(name) {
+    const paths = (typeof getProductImagePaths === 'function')
+        ? getProductImagePaths(name)
+        : [];
+    const fallback = (typeof getProductImagePath === 'function')
+        ? getProductImagePath({ name: name })
+        : '';
+    const list = (paths && paths.length) ? paths : (fallback ? [fallback] : ['media/placeholder-bully-stick.png']);
+    if (typeof openProductImageLightbox === 'function') {
+        openProductImageLightbox(list, 0);
+    }
 }
 
 function makeOrderAnyQtyNote() {
