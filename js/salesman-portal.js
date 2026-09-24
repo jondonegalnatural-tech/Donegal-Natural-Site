@@ -2570,16 +2570,8 @@ function addProductToPlaceOrder(productName) {
         placeOrderItems.push(line);
     }
 
-    const searchEl = document.getElementById("place-order-product-search");
-    if (searchEl) searchEl.value = "";
-
-    const resultsEl = document.getElementById("place-order-product-results");
-    if (resultsEl) {
-        resultsEl.innerHTML = "";
-        resultsEl.classList.add("hidden");
-    }
-
     renderPlaceOrderItems();
+    if (typeof searchPlaceOrderProducts === 'function') searchPlaceOrderProducts();
 }
 
 function renderPlaceOrderItems(skipFocus) {
