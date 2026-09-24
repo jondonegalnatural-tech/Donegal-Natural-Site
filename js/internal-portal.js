@@ -9098,9 +9098,28 @@ function orderLineDisplayName(item) {
     return (item && (item.product || item.name)) || '—';
 }
 
+function normalizeSalesmanSheetName(name) {
+    return String(name || '')
+        .toLowerCase()
+        .replace(/[“”]/g, '"')
+        .replace(/[‘’]/g, "'")
+        .replace(/,/g, '')
+        .replace(/\./g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function salesmanSheetNameMatches(a, b) {
+    return normalizeSalesmanSheetName(a) === normalizeSalesmanSheetName(b);
+}
+
 function isSalesmanSheetHidden(name) {
     const hidden = window._spsHiddenPrices || {};
-    return !!(name && Object.prototype.hasOwnProperty.call(hidden, name));
+    if (!name) return false;
+    if (Object.prototype.hasOwnProperty.call(hidden, name)) return true;
+    return Object.keys(hidden).some(function (key) {
+        return salesmanSheetNameMatches(key, name);
+    });
 }
 
 function toggleSalesmanSheetHideSelectAll(master) {
@@ -9345,11 +9364,6 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
     Object.keys(source).forEach(function (name) {
         if (name) nameSet[name] = true;
     });
-    if (window._spsEditing) {
-        Object.keys(catalogByName).forEach(function (name) {
-            nameSet[name] = true;
-        });
-    }
 
     const grouped = {};
     const unmatched = [];
@@ -9589,8 +9603,8 @@ function collectSalesmanPriceSheetInputs() {
         if (isNaN(n) || n < 0) return;
         next[name] = Math.round(n * 100) / 100;
     });
-    Object.keys(window._spsHiddenPrices || {}).forEach(function (name) {
-        delete next[name];
+    Object.keys(next).forEach(function (name) {
+        if (isSalesmanSheetHidden(name)) delete next[name];
     });
     return next;
 }

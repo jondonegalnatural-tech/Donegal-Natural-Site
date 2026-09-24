@@ -8283,8 +8283,22 @@ async function applyBrianWholesaleSheetPrices() {
         console.warn('applyBrianWholesaleSheetPrices customer:', err);
     }
 
-    Object.keys(window._wholesaleHiddenPrices || {}).forEach(function (name) {
-        delete prices[name];
+    Object.keys(prices).forEach(function (name) {
+        const hidden = window._wholesaleHiddenPrices || {};
+        if (Object.prototype.hasOwnProperty.call(hidden, name)) {
+            delete prices[name];
+            return;
+        }
+        const want = (typeof normalizeProductName === 'function')
+            ? normalizeProductName(name)
+            : String(name || '').toLowerCase();
+        const hit = Object.keys(hidden).some(function (key) {
+            const have = (typeof normalizeProductName === 'function')
+                ? normalizeProductName(key)
+                : String(key || '').toLowerCase();
+            return have === want;
+        });
+        if (hit) delete prices[name];
     });
 
     if (!Object.keys(prices).length) {
