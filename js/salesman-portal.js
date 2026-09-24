@@ -2186,6 +2186,7 @@ async function placeOrderForCustomer(customerName) {
     if (priceCustomer && typeof loadBrianPlaceOrderPrices === 'function') {
        await loadBrianPlaceOrderPrices(priceCustomer);
     }
+    if (typeof searchPlaceOrderProducts === 'function') searchPlaceOrderProducts();
 
     const displayName = (typeof currentPlaceOrderCustomer === 'object' && currentPlaceOrderCustomer)
         ? (currentPlaceOrderCustomer.name || customerName || '')
@@ -2257,74 +2258,77 @@ function searchPlaceOrderProducts() {
     if (!searchEl || !resultsEl) return;
 
     const term = (searchEl.value || "").toLowerCase().trim();
-
-    if (term.length < 2) {
-        resultsEl.innerHTML = "";
-        resultsEl.classList.add("hidden");
-        return;
-    }
-
-    if (typeof PRODUCT_CATALOG === "undefined") {
-        resultsEl.innerHTML = `<p class="p-3 text-sm text-red-600">PRODUCT_CATALOG not found.</p>`;
-        resultsEl.classList.remove("hidden");
-        return;
-    }
-
-        const sheetMap = window._placeOrderBrianPrices || {};
+    const sheetMap = window._placeOrderBrianPrices || {};
     const sheetNames = Object.keys(sheetMap);
     if (!sheetNames.length) {
-        resultsEl.innerHTML = `<p class="p-3 text-sm text-[#6B4423]">Choose a customer first to see that salesman’s items.</p>`;
+        resultsEl.innerHTML = '<p class="p-3 text-sm text-[#6B4423]">Choose a customer first to see that salesman\'s items.</p>';
         resultsEl.classList.remove("hidden");
         return;
     }
-    const matches = PRODUCT_CATALOG.filter(function (p) {
-        if (!p || !p.name || !p.name.toLowerCase().includes(term)) return false;
-        return Object.prototype.hasOwnProperty.call(sheetMap, p.name);
-    });
-    const have = {};
-    matches.forEach(function (p) { if (p && p.name) have[p.name] = true; });
+
+    const hideCase = typeof isBrianAssignedCustomer === 'function'
+        && isBrianAssignedCustomer(currentPlaceOrderCustomer);
+
+    const rows = [];
     sheetNames.forEach(function (name) {
-        if (!name || have[name]) return;
-        if (!name.toLowerCase().includes(term)) return;
-        matches.push({
+        const nick = (typeof salesmanDisplayName === 'function')
+            ? salesmanDisplayName(name) : name;
+        const hay = (name + ' ' + nick).toLowerCase();
+        if (term && hay.indexOf(term) === -1) return;
+        const catalog = (typeof PRODUCT_CATALOG !== 'undefined')
+            ? PRODUCT_CATALOG.find(function (p) { return p && p.name === name; })
+            : null;
+        rows.push({
             name: name,
-            caseSize: '',
-            unitPrice: Number(sheetMap[name]),
-            isMarketPrice: false
+            nick: nick,
+            caseSize: (catalog && catalog.caseSize) || '',
+            unitPrice: Number(sheetMap[name])
         });
-        have[name] = true;
     });
-    matches.splice(12);
+    rows.sort(function (a, b) {
+        return String(a.nick || a.name).localeCompare(String(b.nick || b.name));
+    });
 
-    if (matches.length === 0) {
-        resultsEl.innerHTML = `<p class="p-3 text-sm text-[#6B4423]">No products found.</p>`;
+    if (!rows.length) {
+        resultsEl.innerHTML = '<p class="p-3 text-sm text-[#6B4423]">No products found.</p>';
         resultsEl.classList.remove("hidden");
         return;
     }
 
-    resultsEl.innerHTML = matches.map(p => {
-        const priced = resolvePlaceOrderPrice(p);
-        const priceLabel = priced.displayPrice + (priced.isMarketPrice
-            ? ' — Market price. Final invoice may be adjusted to current market cost at shipment.'
-            : '');
-        const safeName = encodeURIComponent(p.name);
-
+    resultsEl.innerHTML = rows.map(function (p, idx) {
         const oos = typeof isSalesmanOos === 'function' && isSalesmanOos(p.name);
         const oosText = oos ? (salesmanOosLabel(p.name) || 'Out of stock') : '';
-        return `
-            <div class="px-3 py-2 border-b border-[#d4b78f] flex justify-between items-center hover:bg-[#f8f4eb] cursor-pointer"
-                 onclick="addProductToPlaceOrder(decodeURIComponent('${safeName}'))">
-                <div>
-                    <p class="text-sm font-semibold brand-green">${escapeHtml(salesmanDisplayName(p.name))}</p>
-                    <p class="text-xs text-[#6B4423]">${escapeHtml(p.caseSize || "")} · ${escapeHtml(priceLabel)}</p>
-                    ${oos ? `<p class="text-xs font-semibold text-red-700">${escapeHtml(oosText)}</p>` : ''}
-                </div>
-                <span class="text-xs font-bold ${oos ? 'text-red-700' : 'text-[#1E4D2B]'}">${oos ? 'Add OOS' : 'Add'}</span>
-            </div>
-        `;
-    }).join("");
-
+        const price = isFinite(p.unitPrice) ? ('$' + p.unitPrice.toFixed(2) + ' each') : '';
+        const safeName = encodeURIComponent(p.name);
+        return (
+            '<div class="px-3 py-2 border-b border-[#d4b78f] flex items-center gap-3">' +
+            '<div class="flex-1 min-w-0">' +
+            '<p class="text-sm font-semibold brand-green">' + escapeHtml(p.nick) + '</p>' +
+            (hideCase || !p.caseSize ? '' : ('<p class="text-xs text-[#6B4423]">' + escapeHtml(p.caseSize) + '</p>')) +
+            (oos ? ('<p class="text-xs font-semibold text-red-700">' + escapeHtml(oosText) + '</p>') : '') +
+            '</div>' +
+            '<p class="text-sm font-semibold brand-green whitespace-nowrap">' + escapeHtml(price) + '</p>' +
+            (oos
+                ? '<span class="text-xs text-red-700">Unavailable</span>'
+                : ('<input type="number" min="1" value="1" class="w-16 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm" id="po-grid-qty-' + idx + '">' +
+                    '<button type="button" class="px-3 py-1 text-xs font-semibold rounded-lg bg-[#1E4D2B] text-[#d4b78f]" ' +
+                    'onclick="addProductToPlaceOrderQty(decodeURIComponent(\'' + safeName + '\'), (document.getElementById(\'po-grid-qty-' + idx + '\')||{}).value)">' +
+                    'Add</button>')) +
+            '</div>'
+        );
+    }).join('');
     resultsEl.classList.remove("hidden");
+}
+
+function addProductToPlaceOrderQty(name, rawQty) {
+    const qty = Math.max(1, parseInt(rawQty, 10) || 1);
+    if (typeof addProductToPlaceOrder !== 'function') return;
+    addProductToPlaceOrder(name);
+    const last = placeOrderItems && placeOrderItems.find(function (i) { return i.name === name; });
+    if (last && qty > 1) {
+        last.quantity = (last.quantity || 1) + (qty - 1);
+        if (typeof renderPlaceOrderItems === 'function') renderPlaceOrderItems();
+    }
 }
 
 var salesmanOosMap = {};
@@ -2593,12 +2597,20 @@ function renderPlaceOrderItems(skipFocus) {
                ` class="place-order-price w-20 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm text-center"` +
                ` onchange="updatePlaceOrderPrice(${index}, this.value)">`)
             : '';
+        const hideCase = typeof isBrianAssignedCustomer === 'function'
+            && isBrianAssignedCustomer(currentPlaceOrderCustomer);
+        const qtyN = Number(item.quantity) || 0;
+        const unitN = Number(item.unitPrice);
+        const lineTotal = isFinite(unitN) ? (unitN * qtyN) : 0;
+        const unitText = isFinite(unitN) ? ('$' + unitN.toFixed(2) + ' each') : escapeHtml(item.displayPrice || '');
+        const lineText = isFinite(unitN) ? ('$' + lineTotal.toFixed(2)) : '';
         const sub = canEditPrice
-            ? escapeHtml(item.caseSize || '')
-            : (escapeHtml(item.caseSize || '') + ' · ' + escapeHtml(item.displayPrice || ''));
+            ? (hideCase ? '' : escapeHtml(item.caseSize || ''))
+            : ((hideCase || !item.caseSize) ? unitText : (escapeHtml(item.caseSize || '') + ' · ' + unitText));
         return `
         <div class="flex justify-between items-center py-2 border-b border-[#d4b78f] flex-wrap gap-2">
             <div class="flex-1 pr-3 min-w-[140px]">
+                <span class="text-sm font-bold brand-green whitespace-nowrap">${lineText}</span>
                 <p class="text-sm font-semibold brand-green">${escapeHtml(item.displayName || salesmanDisplayName(item.name))}</p>
                 <p class="text-xs text-[#6B4423]">${sub}</p>
                 ${packagingNoteText(item) ? ('<p class="text-[11px] font-semibold text-[#6B4423] mt-1">' + escapeHtml(packagingNoteText(item)) + '</p>') : ''}
