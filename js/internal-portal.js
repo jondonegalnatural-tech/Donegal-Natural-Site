@@ -9630,6 +9630,34 @@ function collectSalesmanPriceSheetInputs() {
     Object.keys(next).forEach(function (name) {
         if (isSalesmanSheetHidden(name)) delete next[name];
     });
+    const sheetEmail = String((window._spsSheet && window._spsSheet.email) || '').toLowerCase().trim();
+    if (sheetEmail === 'donegaldogtreats@gmail.com') {
+        Object.keys(next).forEach(function (name) {
+            const n = String(name || '').toLowerCase();
+            if (n.indexOf('elky') === -1 || n.indexOf('training') === -1) return;
+            if (n.indexOf('6oz') !== -1 || n.indexOf('10oz') !== -1) delete next[name];
+        });
+        const required = [
+            { name: '6” Thin Green Line Bully Sticks (Bulk)', price: 0.59 },
+            { name: '12” Thin Green Line Bully Sticks (Bulk)', price: 1.21 },
+            { name: '40 Pack, 6" Thin Green Line Bully Sticks', price: 20 },
+            { name: '20 Pack, 12" Thin Green Line Bully Sticks', price: 20 }
+        ];
+        function norm(s) {
+            return String(s || '').toLowerCase()
+                .replace(/[“”]/g, '"').replace(/[‘’]/g, "'")
+                .replace(/\s+/g, ' ').trim();
+        }
+        required.forEach(function (row) {
+            const want = norm(row.name);
+            const hit = Object.keys(next).find(function (k) { return norm(k) === want; });
+            if (hit) {
+                if (next[hit] == null || next[hit] === '') next[hit] = row.price;
+                return;
+            }
+            next[row.name] = row.price;
+        });
+    }
     return next;
 }
 
@@ -10135,7 +10163,9 @@ async function saveSalesmanPriceSheetOnly() {
             .update({
                 prices: prices,
                 display_names: names,
-                hidden_prices: window._spsHiddenPrices || {},
+                hidden_prices: (window._spsHiddenPrices && Object.keys(window._spsHiddenPrices).length)
+                    ? window._spsHiddenPrices
+                    : ((window._spsSheet && window._spsSheet.hidden_prices) || {}),
                 salesman_name: salesmanName,
                 updated_at: nowIso
             })
