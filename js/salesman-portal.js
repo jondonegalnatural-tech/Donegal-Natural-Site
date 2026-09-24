@@ -1451,7 +1451,7 @@ async function openCustomerPricingEditor(customer) {
     }
 
     const bulkPct = document.getElementById('cp-bulk-pct');
-    if (bulkPct) bulkPct.value = '5';
+    if (bulkPct) bulkPct.value = '';
 
     const list = document.getElementById('customer-pricing-list');
     if (list) list.innerHTML = `<p class="text-sm text-[#6B4423]">Loading price sheet…</p>`;
@@ -1711,7 +1711,7 @@ function applyCustomerPricingBulkPercent() {
     const box = document.getElementById('cp-bulk-pct');
     const pct = parseFloat(box && box.value);
     if (isNaN(pct)) {
-        alert('Enter a percent.');
+        alert('Bulk % is optional. Enter a number and click Apply, or skip it and click Save Customer Pricing.');
         return;
     }
     if (pct === 0) {
