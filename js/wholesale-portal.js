@@ -628,7 +628,9 @@ const WHOLESALE_BROWSE_TREE = {
             "20 Pack, 12\" Regular Bully Sticks",
             "20 Pack, 12\" Thick Euro Bullies",
             "25 Pack, 6\" Regular Bully Sticks",
-            "25 Pack, 6\" Thick Euro Bullies"
+            "25 Pack, 6\" Thick Euro Bullies",
+            "20 Pack, 12\" Thin Green Line Bully Sticks",
+            "40 Pack, 6\" Thin Green Line Bully Sticks"            
         ]
     },
     "Jerky": {
@@ -4851,6 +4853,9 @@ function renderPortalProducts() {
         extraLungNamesForBrowse(currentCategoryFilter, sub).forEach(function (n) {
             if (names.indexOf(n) === -1) names.push(n);
         });
+                extraBullyPackNamesForBrowse(currentCategoryFilter, sub).forEach(function (n) {
+            if (names.indexOf(n) === -1) names.push(n);
+        });
         const products = names.map(findCatalogProduct).filter(Boolean);
         if (!products.length) return;
         shown += products.length;
@@ -8358,6 +8363,13 @@ async function applyBrianWholesaleSheetPrices() {
             price: '',
             isMarketPrice: false
         };
+        const packName = String(name || '').toLowerCase();
+        if (packName.indexOf('thin') !== -1 && packName.indexOf('pack') !== -1) {
+            row.category = 'Bully Sticks';
+            row.subCategory = 'Packaged';
+            if (packName.indexOf('40') !== -1) row.cs = '40/pack';
+            else if (packName.indexOf('20') !== -1) row.cs = '20/pack';
+        }
         const raw = prices[name];
         if (raw != null && raw !== '') {
             const n = Number(raw);
@@ -8388,6 +8400,24 @@ function extraLungNamesForBrowse(category, sub) {
     (WHOLESALE_PRICES || []).forEach(function (p) {
         const name = p && p.name;
         if (!isBeefOrBuffaloLungName(name) || seen[name]) return;
+        seen[name] = true;
+        out.push(name);
+    });
+    return out;
+}
+
+function extraBullyPackNamesForBrowse(category, sub) {
+    const cat = String(category || '');
+    const folder = String(sub || '');
+    if (cat !== 'Bully Sticks') return [];
+    if (folder && folder !== 'Packaged') return [];
+    const seen = {};
+    const out = [];
+    (WHOLESALE_PRICES || []).forEach(function (p) {
+        const name = p && p.name;
+        if (!name || seen[name]) return;
+        const n = String(name).toLowerCase();
+        if (n.indexOf('pack') === -1 || n.indexOf('thin') === -1) return;
         seen[name] = true;
         out.push(name);
     });
