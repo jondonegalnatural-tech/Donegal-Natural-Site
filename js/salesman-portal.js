@@ -2210,14 +2210,7 @@ async function placeOrderForCustomer(customerName) {
     const totalEl = document.getElementById("place-order-total");
     if (totalEl) totalEl.textContent = '$0.00';
 
-    const searchEl = document.getElementById("place-order-product-search");
-    if (searchEl) searchEl.value = "";
-
-    const resultsEl = document.getElementById("place-order-product-results");
-    if (resultsEl) {
-        resultsEl.innerHTML = "";
-        resultsEl.classList.add("hidden");
-    }
+    if (typeof searchPlaceOrderProducts === 'function') searchPlaceOrderProducts();
 
     const notesEl = document.getElementById("place-order-notes");
     if (notesEl) notesEl.value = (draft && draft.notes) ? draft.notes : "";
