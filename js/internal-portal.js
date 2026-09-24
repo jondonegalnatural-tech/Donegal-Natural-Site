@@ -9601,6 +9601,8 @@ function setSalesmanPriceSheetEditMode(on) {
         editBtn.textContent = on ? 'Cancel Edit' : 'Edit';
     }
     if (saveBtn) saveBtn.classList.toggle('hidden', !(canEdit && on));
+    const saveSheetBtn = document.getElementById('sps-save-sheet-btn');
+    if (saveSheetBtn) saveSheetBtn.classList.toggle('hidden', !(canEdit && on));
     if (hint) hint.classList.toggle('hidden', !(canEdit && on));
     const hideSel = document.getElementById('sps-hide-selected-btn');
     if (hideSel) hideSel.classList.toggle('hidden', !(canEdit && on));
@@ -10104,6 +10106,62 @@ async function exportOpenSalesmanPriceSheetPdf() {
 
     const fileStamp = new Date().toISOString().slice(0, 10);
     doc.save(salesmanSheetFileSlug(title) + '_Price_Sheet_' + fileStamp + '.pdf');
+}
+
+async function saveSalesmanPriceSheetOnly() {
+    if (!window._spsSheet || !window._spsSheet.id || !window._spsSheet.email) {
+        alert('No salesman sheet is loaded.');
+        return;
+    }
+    const prices = collectSalesmanPriceSheetInputs();
+    if (!Object.keys(prices).length) {
+        alert('No prices to save.');
+        return;
+    }
+    const names = (typeof collectSalesmanDisplayNames === 'function')
+        ? collectSalesmanDisplayNames()
+        : (window._spsDisplayNames || {});
+    const email = String(window._spsSheet.email || '').toLowerCase().trim();
+    const salesmanName = window._spsSheet.name || email;
+    const saveBtn = document.getElementById('sps-save-sheet-btn');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving…';
+    }
+    try {
+        const nowIso = new Date().toISOString();
+        const { error } = await supabaseClient
+            .from('salesman_price_sheets')
+            .update({
+                prices: prices,
+                display_names: names,
+                hidden_prices: window._spsHiddenPrices || {},
+                salesman_name: salesmanName,
+                updated_at: nowIso
+            })
+            .eq('id', window._spsSheet.id);
+        if (error) throw error;
+        window._spsSheet.prices = prices;
+        window._spsDisplayNames = names;
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'save',
+                entityType: 'salesman_sheet',
+                entityLabel: salesmanName,
+                summary: 'Saved sheet only (no store push)',
+                details: { productCount: Object.keys(prices).length }
+            });
+        }
+        alert('Saved ' + salesmanName + '\'s sheet.\nAssigned store sheets were not changed.\nUse Save & Push to Customers when you want stores updated.');
+    } catch (err) {
+        console.error('saveSalesmanPriceSheetOnly:', err);
+        alert('Could not save the sheet.\n' + (err.message || ''));
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
+        }
+    }
 }
 
 async function saveSalesmanPriceSheetAndPush(opts) {
