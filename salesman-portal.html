@@ -498,7 +498,7 @@
 
     <!-- Place Order Modal -->
 <div id="place-order-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-    <div class="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto border-2 border-[#6B4423]">
+    <div class="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-6xl mx-4 h-[90vh] overflow-hidden border-2 border-[#6B4423] flex flex-col">
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-2xl font-bold brand-green">Place Order</h2>
             <button onclick="hidePlaceOrderModal()" class="text-2xl leading-none">&times;</button>
@@ -529,46 +529,39 @@
             <p id="place-order-shipping" class="text-sm text-[#1E4D2B] whitespace-pre-line">—</p>
         </div>
 
-        <div class="mb-4">
-            <label class="block text-sm font-semibold mb-1 brand-brown">Search Products</label>
-            <input type="text" id="place-order-product-search"
-                   class="form-input w-full px-4 py-3"
-                   placeholder="Type product name..."
-                   oninput="searchPlaceOrderProducts()">
-            <div id="place-order-product-results" class="mt-2 max-h-40 overflow-y-auto border border-[#d4b78f] rounded-xl hidden"></div>
-        </div>            <div id="place-order-product-results" class="mt-2 max-h-72 overflow-y-auto border border-[#d4b78f] rounded-xl bg-white"></div>
-
-        <div class="mb-4">
-    <label class="block text-sm font-semibold mb-2 brand-brown">
-        Order Items <span class="font-normal text-[#6B4423]">(quantity is in units)</span>
-    </label>
-    <div id="place-order-items-list" class="bg-[#f8f4eb] p-4 rounded-xl min-h-[80px]">
-        <p class="text-sm text-[#6B4423]">No products added yet.</p>
-    </div>
-</div>
-
-        <div class="mb-4 flex justify-between items-center bg-[#f8f4eb] rounded-xl px-4 py-3 border border-[#d4b78f]">
-            <span class="font-semibold text-[#6B4423]">Order Total</span>
-            <span id="place-order-total" class="text-xl font-bold brand-green">$0.00</span>
+        <div class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="lg:col-span-2 min-h-0 flex flex-col">
+                <label class="block text-sm font-semibold mb-1 brand-brown">Search Products</label>
+                <input type="text" id="place-order-product-search"
+                       class="form-input w-full px-4 py-3 mb-2"
+                       placeholder="Search this sheet…"
+                       oninput="searchPlaceOrderProducts()">
+                <div id="place-order-product-results"
+                     class="flex-1 min-h-0 overflow-y-auto border border-[#d4b78f] rounded-xl bg-white"></div>
+            </div>
+            <div class="min-h-0 flex flex-col border-2 border-[#6B4423] rounded-xl bg-[#f8f4eb] p-3">
+                <p class="text-sm font-bold brand-green mb-2">Order</p>
+                <div id="place-order-items-list" class="flex-1 min-h-0 overflow-y-auto mb-2">
+                    <p class="text-sm text-[#6B4423]">No products added yet.</p>
+                </div>
+                <div class="flex justify-between items-center bg-white rounded-xl px-3 py-2 border border-[#d4b78f] mb-2">
+                    <span class="font-semibold text-[#6B4423]">Order Total</span>
+                    <span id="place-order-total" class="text-lg font-bold brand-green">$0.00</span>
+                </div>
+                <label class="block text-xs font-semibold mb-1 brand-brown">Notes (optional)</label>
+                <textarea id="place-order-notes" class="form-input w-full px-3 py-2 text-sm mb-3" rows="2"></textarea>
+                <div class="flex gap-2">
+                    <button type="button" onclick="hidePlaceOrderModal()"
+                            class="flex-1 px-3 py-2 border-2 border-[#6B4423] rounded-xl font-semibold text-[#6B4423] text-sm">
+                        Cancel
+                    </button>
+                    <button type="button" onclick="openPlaceOrderConfirmModal()"
+                            class="flex-1 px-3 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-bold text-sm">
+                        Submit Order
+                    </button>
+                </div>
+            </div>
         </div>
-
-        <div class="mb-4">
-            <label class="block text-sm font-semibold mb-1 brand-brown">Notes (optional)</label>
-            <textarea id="place-order-notes" class="form-input w-full px-4 py-3" rows="2"></textarea>
-        </div>
-
-        <div class="flex gap-3">
-            <button onclick="hidePlaceOrderModal()"
-                    class="flex-1 px-4 py-3 border-2 border-[#6B4423] rounded-xl font-semibold text-[#6B4423]">
-                Cancel
-            </button>
-            <button onclick="openPlaceOrderConfirmModal()"
-                    class="flex-1 px-4 py-3 bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-bold">
-                Submit Order
-            </button>
-        </div>
-    </div>
-</div>
 
 <!-- Salesman Customer Detail (view) -->
 <div id="salesman-customer-modal"
