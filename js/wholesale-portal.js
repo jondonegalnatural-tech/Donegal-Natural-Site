@@ -768,7 +768,12 @@ const WHOLESALE_BROWSE_TREE = {
             "6” Beef Wrapped Corium Sticks (Bulk)",
             "12” Beef Wrapped Corium Sticks (Bulk)"
         ],
-        "Beef Lung": ["8oz. Bag of Beef Lung", "16oz. Bag of Beef Lung"],
+        "Beef Lung": [
+            "8oz. Bag of Beef Lung",
+            "16oz. Bag of Beef Lung",
+            "8oz. Beef Lung Flips, Made in USA",
+            "16oz. Beef Lung Flips, Made in USA"
+        ],
         "Trachea and Trachea Pieces": [
             "5-6” Beef Trachea",
             "10-13” Beef Trachea",
@@ -780,6 +785,8 @@ const WHOLESALE_BROWSE_TREE = {
             "16oz. Bags of Beef Trachea Pieces",
             "8oz. Bag of Beef Lung",
             "16oz. Bag of Beef Lung",
+            "8oz. Beef Lung Flips, Made in USA",
+            "16oz. Beef Lung Flips, Made in USA",
             "5-Pack Hairy Beef Ears",
             "12\" Beef Trachea, bagged (15/bag)",
             "12\" Beef Trachea, bagged (30/bag)",
@@ -991,7 +998,12 @@ const WHOLESALE_BROWSE_TREE = {
             "16oz. Bags of White Chunky Cheeks",
             "16oz. Bags of Vanilla Chunky Cheeks"
         ],
-        "Beef Lung": ["8oz. Bag of Beef Lung", "16oz. Bag of Beef Lung"],
+        "Beef Lung": [
+            "8oz. Bag of Beef Lung",
+            "16oz. Bag of Beef Lung",
+            "8oz. Beef Lung Flips, Made in USA",
+            "16oz. Beef Lung Flips, Made in USA"
+        ],
         "Bully Pieces": [
             "8oz. Bag of Bully Pieces",
             "10oz. Bag of Bully Pieces",
@@ -4825,7 +4837,10 @@ function renderPortalProducts() {
     container.innerHTML = '';
     let shown = 0;
     subKeys.forEach(sub => {
-        const names = tree[sub] || [];
+        const names = (tree[sub] || []).slice();
+        extraLungNamesForBrowse(currentCategoryFilter, sub).forEach(function (n) {
+            if (names.indexOf(n) === -1) names.push(n);
+        });
         const products = names.map(findCatalogProduct).filter(Boolean);
         if (!products.length) return;
         shown += products.length;
@@ -8328,6 +8343,32 @@ async function applyBrianWholesaleSheetPrices() {
         next.push(row);
     });
     WHOLESALE_PRICES = next;
+}
+
+function isBeefOrBuffaloLungName(name) {
+    const n = String(name || '');
+    if (!n || /lamb/i.test(n)) return false;
+    return /beef\s*lung/i.test(n) ||
+        /buffalo\s*lung/i.test(n) ||
+        /lung\s*flips/i.test(n) ||
+        /lung\s*bites/i.test(n);
+}
+
+function extraLungNamesForBrowse(category, sub) {
+    const cat = String(category || '');
+    const folder = String(sub || '');
+    const inBeef = cat === 'Beef' && (!folder || folder === 'Beef Lung' || folder === 'Packaged');
+    const inPack = cat === 'Packaged Items' && (!folder || folder === 'Beef Lung' || folder === 'Packaged' || /lung/i.test(folder));
+    if (!inBeef && !inPack) return [];
+    const seen = {};
+    const out = [];
+    (WHOLESALE_PRICES || []).forEach(function (p) {
+        const name = p && p.name;
+        if (!isBeefOrBuffaloLungName(name) || seen[name]) return;
+        seen[name] = true;
+        out.push(name);
+    });
+    return out;
 }
 
 async function loadWholesaleCatalog() {

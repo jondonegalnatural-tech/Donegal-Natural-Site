@@ -9767,6 +9767,18 @@ function priceSheetDisplayCategories(name, catalog) {
     }
     const isRabbit = /rabbit|bunny/i.test(n);
     const isPack = /\d+-pack|\bpack\b|packaged/i.test(n) || /packaged/i.test(base);
+    const isDualLung = !/lamb/i.test(n) && (
+        /beef\s*lung/i.test(n) ||
+        /buffalo\s*lung/i.test(n) ||
+        /lung\s*flips/i.test(n) ||
+        /lung\s*bites/i.test(n)
+    );
+    if (isDualLung) {
+        add('Beef');
+        add('Packaged Items');
+        add(base);
+        return cats;
+    }
     if (isRabbit && isPack) {
         add('Rabbit');
         add(base && /pack/i.test(base) ? base : 'Packaged Items');
