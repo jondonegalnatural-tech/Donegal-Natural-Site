@@ -9484,9 +9484,30 @@ function filterInternalSalesmanPriceSheetList() {
     const list = document.getElementById('price-sheet-modal-list');
     if (!list) return;
     list.querySelectorAll('tbody tr').forEach(function (tr) {
-        const hit = !q || String(tr.textContent || '').toLowerCase().indexOf(q) !== -1;
+        let hay = String(tr.textContent || '');
+        tr.querySelectorAll('input, textarea, select').forEach(function (el) {
+            hay += ' ' + String(el.value || '');
+        });
+        tr.querySelectorAll('[data-name]').forEach(function (el) {
+            try {
+                hay += ' ' + decodeURIComponent(el.getAttribute('data-name') || '');
+            } catch (e) {
+                hay += ' ' + String(el.getAttribute('data-name') || '');
+            }
+        });
+        const hit = !q || hay.toLowerCase().indexOf(q) !== -1;
         tr.style.display = hit ? '' : 'none';
     });
+    list.querySelectorAll(':scope > div').forEach(function (wrap) {
+        const rows = wrap.querySelectorAll('tbody tr');
+        if (!rows.length) return;
+        let any = false;
+        rows.forEach(function (tr) {
+            if (tr.style.display !== 'none') any = true;
+        });
+        wrap.style.display = any || !q ? '' : 'none';
+    });
+}
     list.querySelectorAll(':scope > div').forEach(function (wrap) {
         const rows = wrap.querySelectorAll('tbody tr');
         if (!rows.length) return;
