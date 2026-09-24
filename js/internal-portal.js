@@ -9507,7 +9507,7 @@ function filterInternalSalesmanPriceSheetList() {
         });
         wrap.style.display = any || !q ? '' : 'none';
     });
-}
+
     list.querySelectorAll(':scope > div').forEach(function (wrap) {
         const rows = wrap.querySelectorAll('tbody tr');
         if (!rows.length) return;
