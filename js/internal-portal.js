@@ -9474,11 +9474,33 @@ function renderCategorizedPriceSheetTable(prices, listEl) {
 
     listEl.innerHTML = html;
     if (typeof renderSalesmanHiddenMenu === 'function') renderSalesmanHiddenMenu();
+    if (typeof filterInternalSalesmanPriceSheetList === 'function') filterInternalSalesmanPriceSheetList();
     return total;
 }
 
+function filterInternalSalesmanPriceSheetList() {
+    const q = String((document.getElementById('sps-sheet-search') || {}).value || '')
+        .toLowerCase().trim();
+    const list = document.getElementById('price-sheet-modal-list');
+    if (!list) return;
+    list.querySelectorAll('tbody tr').forEach(function (tr) {
+        const hit = !q || String(tr.textContent || '').toLowerCase().indexOf(q) !== -1;
+        tr.style.display = hit ? '' : 'none';
+    });
+    list.querySelectorAll(':scope > div').forEach(function (wrap) {
+        const rows = wrap.querySelectorAll('tbody tr');
+        if (!rows.length) return;
+        let any = false;
+        rows.forEach(function (tr) {
+            if (tr.style.display !== 'none') any = true;
+        });
+        wrap.style.display = any || !q ? '' : 'none';
+    });
+}
 
 async function openSalesmanPriceSheetModal() {
+    const searchEl = document.getElementById('sps-sheet-search');
+    if (searchEl) searchEl.value = '';
     window._spsCanEdit = true;
     window._spsEditing = false;
     window._spsSheet = null;

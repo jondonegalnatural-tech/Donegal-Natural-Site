@@ -4878,11 +4878,63 @@ async function renderPriceSheet() {
         }
         tableHtml += `</tbody></table></div>`;
         list.innerHTML = tableHtml;
+        if (typeof filterSalesmanPriceSheetList === 'function') filterSalesmanPriceSheetList();
 
     } catch (err) {
         console.error(err);
         list.innerHTML = `<p class="text-sm text-red-600">Error loading price sheet.</p>`;
     }
+}
+
+function filterSalesmanPriceSheetList() {
+    const q = String((document.getElementById('salesman-price-sheet-search') || {}).value || '')
+        .toLowerCase().trim();
+    const list = document.getElementById('price-sheet-list');
+    if (!list) return;
+    const rows = list.querySelectorAll('tbody tr');
+    let header = null;
+    let shown = 0;
+    function closeSection() {
+        if (header) header.style.display = shown ? '' : 'none';
+    }
+    rows.forEach(function (tr) {
+        if (tr.querySelector('td[colspan]')) {
+            closeSection();
+            header = tr;
+            shown = 0;
+            return;
+        }
+        const hit = !q || String(tr.textContent || '').toLowerCase().indexOf(q) !== -1;
+        tr.style.display = hit ? '' : 'none';
+        if (hit) shown += 1;
+    });
+    closeSection();
+}
+
+function filterInitialPriceSheetList() {
+    const q = String((document.getElementById('initial-sheet-search') || {}).value || '')
+        .toLowerCase().trim();
+    const list = document.getElementById('initial-sheet-list');
+    if (!list) return;
+    const cards = list.querySelectorAll('[data-product-name]');
+    cards.forEach(function (card) {
+        const name = String(card.getAttribute('data-product-name') || card.textContent || '')
+            .toLowerCase();
+        const hit = !q || name.indexOf(q) !== -1;
+        card.style.display = hit ? '' : 'none';
+        if (hit && q) {
+            const body = card.closest('.initial-cat-body');
+            if (body) body.classList.remove('hidden');
+        }
+    });
+    list.querySelectorAll('.mb-3.border-2').forEach(function (wrap) {
+        const visible = wrap.querySelectorAll('[data-product-name]');
+        let any = false;
+        visible.forEach(function (card) {
+            if (card.style.display !== 'none') any = true;
+        });
+        wrap.style.display = any || !q ? '' : 'none';
+    });
 }
 
 async function exportPriceSheetPdf() {
@@ -5508,6 +5560,7 @@ async function renderInitialPriceSheet() {
     container.querySelectorAll(".initial-sheet-price").forEach(inp => {
         if (typeof flagInitialPrice === "function") flagInitialPrice(inp);
     });
+    if (typeof filterInitialPriceSheetList === 'function') filterInitialPriceSheetList();
 
     // Update Submit button label for pending vs first submit
     const submitBtn = document.getElementById('initial-sheet-submit-btn');

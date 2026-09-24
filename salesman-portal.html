@@ -432,6 +432,9 @@
                 </button>
             </div>
             <p id="price-sheet-updated" class="text-xs text-[#6B4423] mb-3"></p>
+            <input type="text" id="salesman-price-sheet-search" placeholder="Search products…"
+                   class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-full max-w-md mb-3"
+                   oninput="filterSalesmanPriceSheetList()">
             <div id="price-sheet-list">
                 <p class="text-sm text-[#6B4423]">No custom prices yet. Approved proposals will appear here.</p>
             </div>
@@ -454,6 +457,9 @@
 
         </div>
 
+        <input type="text" id="initial-sheet-search" placeholder="Search products…"
+               class="border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm w-full max-w-md mb-3"
+               oninput="filterInitialPriceSheetList()">
         <div id="initial-sheet-list" class="space-y-2 max-h-[60vh] overflow-y-auto mb-4">
             <!-- Filled by JavaScript -->
         </div>
@@ -728,8 +734,8 @@
                 <h2 class="text-xl sm:text-2xl font-bold brand-green">Customer Pricing</h2>
                 <p id="cp-customer-label" class="text-sm text-[#6B4423] mt-1">—</p>
                 <p class="text-xs text-[#6B4423] mt-1">
-                    Starts from your approved base sheet. Changes within ±5% of your base apply immediately.
-                    Anything outside ±5% goes to admin for approval.
+                    Starts from your approved base sheet. Leave Bulk % blank unless you need a percent change.
+                    Changes within ±5% of your base apply immediately. Anything outside ±5% goes to admin for approval.
                 </p>
             </div>
             <button type="button" onclick="hideCustomerPricingModal()"
@@ -749,9 +755,9 @@
 
         <div class="flex flex-wrap items-end gap-2 mb-3 p-3 border-2 border-[#6B4423] rounded-xl bg-[#f8f4eb]">
             <div>
-                <label for="cp-bulk-pct" class="block text-xs font-semibold text-[#6B4423] mb-1">Bulk % change</label>
+                <label for="cp-bulk-pct" class="block text-xs font-semibold text-[#6B4423] mb-1">Bulk % change (optional)</label>
                 <div class="flex items-center gap-1">
-                    <input type="number" id="cp-bulk-pct" step="0.1" value="5"
+                    <input type="number" id="cp-bulk-pct" step="0.1" value="" placeholder="—"
                            class="w-20 border-2 border-[#6B4423] rounded-lg px-2 py-1.5 text-sm text-center">
                     <span class="text-sm font-semibold text-[#6B4423]">%</span>
                 </div>
