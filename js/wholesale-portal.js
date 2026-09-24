@@ -3013,6 +3013,7 @@ function formatCardPrice(product) {
 }
 
 function formatPackSize(cs) {
+    if (typeof hideWholesaleCaseCounts === 'function' && hideWholesaleCaseCounts()) return '';
     const raw = String(cs || '').trim();
     if (!raw) return '';
     const m = raw.match(/^(\d+)\s*\/\s*cs$/i);
@@ -3034,6 +3035,15 @@ function formatCardMeta(product) {
     const priceText = formatCardPrice(product);
     const packText = formatPackSize(product && product.cs);
     return [priceText, packText].filter(Boolean).join(' · ');
+}
+
+function hideWholesaleCaseCounts(customer) {
+    try {
+        if (typeof isBrianAssignedCustomer !== 'function') return false;
+        return isBrianAssignedCustomer(customer || window._currentCustomer);
+    } catch (e) {
+        return false;
+    }
 }
 
 function makeOrderAnyQtyNote() {
@@ -5228,7 +5238,7 @@ function updateQuoteSidebar() {
             <div class="flex justify-between items-start">
                 <div class="flex-1 pr-2">
                     <p class="font-semibold leading-tight">${escapeHtml(wholesaleDisplayName(item.name))}</p>
-                    <p class="text-xs text-[#6B4423] mt-0.5">${escapeHtml(item.cs)}</p>
+                    ${(!hideWholesaleCaseCounts() && item.cs) ? ('<p class="text-xs text-[#6B4423] mt-0.5">' + escapeHtml(item.cs) + '</p>') : ''}
                     <p class="text-xs mt-1">${priceInfo}</p>
                     <div class="card-qty-input-wrap mt-1">
                         <input type="number" min="1" step="1" value="${qtyVal}"
@@ -5686,7 +5696,7 @@ function openQuoteConfirmModal() {
             <div style="display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #f0e6d6;padding-bottom:8px;margin-bottom:8px;">
                 <div style="min-width:0;">
                     <p style="font-weight:600;color:#1E4D2B;margin:0;">${escapeHtml(wholesaleDisplayName(item.name || 'Item'))}</p>
-                    <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${item.cs ? ' · ' + escapeHtml(item.cs) : ''}</p>
+                    <p style="font-size:12px;color:#6B4423;margin:2px 0 0;">Qty ${qty}${(!hideWholesaleCaseCounts() && item.cs) ? ' · ' + escapeHtml(item.cs) : ''}</p>
                     ${isMarket ? '<p style="font-size:11px;color:#c2410c;margin:4px 0 0;">' + MARKET_PRICE_DISCLAIMER + '</p>' : ''}
                 </div>
                 <p style="font-weight:600;color:#1E4D2B;white-space:nowrap;margin:0;">${lineLabel}</p>
@@ -6738,7 +6748,7 @@ function renderEditQuoteItems() {
             <div class="flex flex-wrap items-center gap-2 border border-[#d4b78f] rounded-xl px-3 py-2 bg-[#f8f4eb]">
                 <div class="flex-1 min-w-[140px]">
                     <p class="font-semibold text-sm brand-green">${escapeHtml(orderLineDisplayName(item))}</p>
-                    <p class="text-xs text-[#6B4423]">${priceLabel}${item.caseSize ? ' · ' + item.caseSize : ''}</p>
+                    <p class="text-xs text-[#6B4423]">${priceLabel}${(!hideWholesaleCaseCounts() && item.caseSize) ? ' · ' + item.caseSize : ''}</p>
                 </div>
                 <input type="number" min="1" step="1" value="${item.quantity}"
                        onchange="updateEditQuoteQty(${index}, this.value)"
@@ -7216,21 +7226,21 @@ function exportWholesalePriceListExcel() {
     ];
     meta.categories.forEach(function (cat) {
         aoa.push([cat]);
-        aoa.push(['Product', 'Pack size', 'Price each']);
+        const hideCase = hideWholesaleCaseCounts();
+        aoa.push(hideCase ? ['Product', 'Price each'] : ['Product', 'Pack size', 'Price each']);
         meta.grouped[cat].forEach(function (row) {
             const raw = String(row.price || '').replace(/[^0-9.]/g, '');
             const price = raw === '' ? '' : Number(raw);
             const market = row.isMarketPrice ? ' (Market)' : '';
-            aoa.push([
-                String(row.display || row.name || '') + market,
-                formatPackSize(row.caseSize) || '',
-                price
-            ]);
+            const name = String(row.display || row.name || '') + market;
+            aoa.push(hideCase ? [name, price] : [name, formatPackSize(row.caseSize) || '', price]);
         });
         aoa.push([]);
     });
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = [{ wch: 56 }, { wch: 16 }, { wch: 12 }];
+    ws['!cols'] = hideWholesaleCaseCounts()
+        ? [{ wch: 56 }, { wch: 12 }]
+        : [{ wch: 56 }, { wch: 16 }, { wch: 12 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Price List');
     XLSX.writeFile(wb, wholesalePriceListFileSlug(meta.store) + '_Wholesale_Price_List_' + stamp + '.xlsx');
@@ -7298,11 +7308,17 @@ async function exportWholesalePriceListPdf() {
     meta.categories.forEach(function (cat) {
         const body = meta.grouped[cat].map(function (row) {
             const market = row.isMarketPrice ? ' (Market)' : '';
-            return [
-                String(row.display || row.name || '') + market,
-                String(formatPackSize(row.caseSize) || '—'),
-                String(formatListPrice(row.price, row.isMarketPrice) || '—')
-            ];
+            const hideCase = hideWholesaleCaseCounts();
+            return hideCase
+                ? [
+                    String(row.display || row.name || '') + market,
+                    String(formatListPrice(row.price, row.isMarketPrice) || '—')
+                ]
+                : [
+                    String(row.display || row.name || '') + market,
+                    String(formatPackSize(row.caseSize) || '—'),
+                    String(formatListPrice(row.price, row.isMarketPrice) || '—')
+                ];
         });
         if (cursorY > pageHeight - 120) {
             doc.addPage();
@@ -7317,7 +7333,9 @@ async function exportWholesalePriceListPdf() {
         cursorY += 26;
         doc.autoTable({
             startY: cursorY,
-            head: [['Product', 'Pack size', 'Price each']],
+            head: hideWholesaleCaseCounts()
+                ? [['Product', 'Price each']]
+                : [['Product', 'Pack size', 'Price each']],
             body: body,
             theme: 'grid',
             styles: {
@@ -7335,9 +7353,13 @@ async function exportWholesalePriceListPdf() {
             },
             alternateRowStyles: { fillColor: cream },
             columnStyles: {
-                0: { cellWidth: 340 },
-                1: { cellWidth: 90 },
-                2: { cellWidth: 86, halign: 'right', fontStyle: 'bold', textColor: green }
+                0: { cellWidth: hideWholesaleCaseCounts() ? 430 : 340 },
+                1: hideWholesaleCaseCounts()
+                    ? { cellWidth: 86, halign: 'right', fontStyle: 'bold', textColor: green }
+                    : { cellWidth: 90 },
+                2: hideWholesaleCaseCounts()
+                    ? { cellWidth: 0 }
+                    : { cellWidth: 86, halign: 'right', fontStyle: 'bold', textColor: green }
             },
             margin: { left: 28, right: 28, top: 100, bottom: 44 },
             didDrawPage: function () {
@@ -7398,9 +7420,10 @@ function openWholesalePriceList(autoPrint) {
     Object.keys(grouped).forEach(function (cat) {
         html += '<p class="text-xs font-bold uppercase tracking-wide text-[#6B4423] mt-4 mb-1">' +
             escapeHtml(cat) + '</p>';
+        const hideCase = hideWholesaleCaseCounts();
         html += '<table class="w-full text-sm mb-2"><thead><tr class="border-b-2 border-[#6B4423] text-left">' +
             '<th class="py-1 font-semibold text-[#1E4D2B]">Product</th>' +
-            '<th class="py-1 font-semibold text-[#1E4D2B]">Pack size</th>' +
+            (hideCase ? '' : '<th class="py-1 font-semibold text-[#1E4D2B]">Pack size</th>') +
             '<th class="py-1 font-semibold text-[#1E4D2B] text-right">Price each</th>' +
             '</tr></thead><tbody>';
         grouped[cat].forEach(function (row) {
@@ -7409,7 +7432,7 @@ function openWholesalePriceList(autoPrint) {
                 (row.isMarketPrice ? '<span class="block text-[11px] text-[#c56134]">Market price</span>' : '') +
                 (row.oos ? '<span class="block text-[11px] text-orange-700">' + escapeHtml(row.oos) + '</span>' : '') +
                 '</td>' +
-                '<td class="py-1.5 text-[#6B4423] whitespace-nowrap">' + escapeHtml(formatPackSize(row.caseSize)) + '</td>' +
+                (hideCase ? '' : ('<td class="py-1.5 text-[#6B4423] whitespace-nowrap">' + escapeHtml(formatPackSize(row.caseSize)) + '</td>')) +
                 '<td class="py-1.5 text-right font-semibold brand-green whitespace-nowrap">' + escapeHtml(formatListPrice(row.price, row.isMarketPrice)) + '</td>' +
                 '</tr>';
         });
