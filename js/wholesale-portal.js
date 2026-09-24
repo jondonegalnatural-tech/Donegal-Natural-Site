@@ -3049,9 +3049,20 @@ function hideWholesaleCaseCounts(customer) {
 }
 
 function useWholesaleItemGrid() {
+    const target = 'daveplefka88@yahoo.com';
     const customer = window._currentCustomer || {};
-    const email = String(customer.email || '').toLowerCase().trim();
-    return email === 'daveplefka88@yahoo.com';
+    const emails = [
+        customer.email,
+        customer.login_email,
+        customer.username
+    ];
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || 'null') || {};
+        emails.push(user.email, user.username);
+    } catch (e) {}
+    return emails.some(function (v) {
+        return String(v || '').toLowerCase().trim() === target;
+    });
 }
 
 function renderWholesaleItemGrid(container) {
@@ -4909,6 +4920,11 @@ function renderPortalProducts() {
                 </p>
             </div>
         `;
+        return;
+    }
+
+    if (useWholesaleItemGrid()) {
+        renderWholesaleItemGrid(container);
         return;
     }
 
