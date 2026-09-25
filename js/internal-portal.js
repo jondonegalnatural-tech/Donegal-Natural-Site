@@ -9827,8 +9827,11 @@ function priceSheetDisplayCategories(name, catalog) {
     const base = (catalog && catalog.category) ? String(catalog.category) : '';
     const cats = [];
     function add(cat) {
-        if (!cat) return;
-        if (cats.indexOf(cat) === -1) cats.push(cat);
+        String(cat || '').split(',').forEach(function (c) {
+            c = c.trim();
+            if (!c) return;
+            if (cats.indexOf(c) === -1) cats.push(c);
+        });
     }
     const isRabbit = /rabbit|bunny/i.test(n);
     const isPack = /\d+-pack|\bpack\b|packaged/i.test(n) || /packaged/i.test(base);
@@ -12970,9 +12973,81 @@ function addNewProductCategory() {
         opt.value = cat;
         list.appendChild(opt);
     }
-    const rows = document.querySelectorAll('#new-product-rows [data-np-category]');
-    const last = rows[rows.length - 1];
-    if (last) last.value = cat;
+    document.querySelectorAll('#new-product-rows .new-product-row').forEach(function (row) {
+        renderNewProductCategoryBoxes(row);
+        const cb = Array.from(row.querySelectorAll('[data-np-cat-cb]')).find(function (el) {
+            return el.value === cat;
+        });
+        if (cb) cb.checked = true;
+        fillNewProductSubcategorySelect(row);
+    });
+}
+
+function knownAddProductCategories() {
+    const set = {};
+    (typeof PRODUCT_CATALOG !== 'undefined' ? PRODUCT_CATALOG : []).forEach(function (p) {
+        String((p && p.category) || '').split(',').forEach(function (c) {
+            c = String(c || '').trim();
+            if (c) set[c] = true;
+        });
+    });
+    const list = document.getElementById('new-product-category-list');
+    if (list) {
+        Array.from(list.options || []).forEach(function (o) {
+            const c = String(o.value || '').trim();
+            if (c) set[c] = true;
+        });
+    }
+    return Object.keys(set).sort();
+}
+
+function knownAddProductSubcategories(cats) {
+    const want = (cats || []).map(function (c) { return String(c).toLowerCase(); });
+    const set = {};
+    (typeof PRODUCT_CATALOG !== 'undefined' ? PRODUCT_CATALOG : []).forEach(function (p) {
+        if (!p || !p.subCategory) return;
+        const pc = String(p.category || '').split(',').map(function (c) {
+            return c.trim().toLowerCase();
+        });
+        if (want.length && !want.some(function (c) { return pc.indexOf(c) !== -1; })) return;
+        set[p.subCategory] = true;
+    });
+    return Object.keys(set).sort();
+}
+
+function selectedNewProductCategories(row) {
+    return Array.from(row.querySelectorAll('[data-np-cat-cb]:checked')).map(function (cb) {
+        return String(cb.value || '').trim();
+    }).filter(Boolean);
+}
+
+function renderNewProductCategoryBoxes(row) {
+    const box = row.querySelector('[data-np-categories]');
+    if (!box) return;
+    const kept = selectedNewProductCategories(row);
+    box.innerHTML = knownAddProductCategories().map(function (cat) {
+        const on = kept.indexOf(cat) !== -1 ? ' checked' : '';
+        return '<label class="flex items-center gap-2 text-xs text-[#6B4423] cursor-pointer">' +
+            '<input type="checkbox" class="accent-[#1E4D2B]" data-np-cat-cb value="' + escapeHtml(cat) + '"' + on + '>' +
+            escapeHtml(cat) + '</label>';
+    }).join('');
+    box.querySelectorAll('[data-np-cat-cb]').forEach(function (cb) {
+        cb.addEventListener('change', function () { fillNewProductSubcategorySelect(row); });
+    });
+    fillNewProductSubcategorySelect(row);
+}
+
+function fillNewProductSubcategorySelect(row) {
+    const sel = row.querySelector('[data-np-subcategory]');
+    if (!sel) return;
+    const prev = sel.value;
+    const cats = selectedNewProductCategories(row);
+    const subs = knownAddProductSubcategories(cats);
+    sel.innerHTML = '<option value="">Sub-category</option>' +
+        subs.map(function (s) {
+            return '<option value="' + escapeHtml(s) + '">' + escapeHtml(s) + '</option>';
+        }).join('');
+    if (prev && subs.indexOf(prev) !== -1) sel.value = prev;
 }
 
 function addNewProductRow() {
@@ -12986,10 +13061,11 @@ function addNewProductRow() {
             '<button type="button" class="np-remove text-xs font-semibold text-red-700 hover:underline">Remove</button>' +
         '</div>' +
         '<input type="text" data-np-name required class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2" placeholder="Product name *">' +
-        '<div class="grid grid-cols-2 gap-3">' +
-            '<input type="text" data-np-category required list="new-product-category-list" class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2" placeholder="Category *">' +
-            '<input type="text" data-np-subcategory class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2" placeholder="Sub-category">' +
-        '</div>' +
+        '<p class="text-xs font-semibold text-[#6B4423]">Categories (pick one or more) *</p>' +
+        '<div data-np-categories class="grid grid-cols-2 md:grid-cols-3 gap-1 border-2 border-[#d4b78f] rounded-xl p-2 max-h-36 overflow-y-auto"></div>' +
+        '<select data-np-subcategory class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2">' +
+            '<option value="">Sub-category</option>' +
+        '</select>' +
         '<div class="grid grid-cols-2 gap-3">' +
             '<input type="text" data-np-casesize class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2" placeholder="Case size">' +
             '<input type="number" data-np-price step="0.01" min="0" required class="w-full border-2 border-[#6B4423] rounded-xl px-3 py-2" placeholder="Unit price $ *">' +
@@ -12998,6 +13074,7 @@ function addNewProductRow() {
         removeNewProductRow(row);
     });
     wrap.appendChild(row);
+    renderNewProductCategoryBoxes(row);
     refreshNewProductRowState();
     row.querySelector('[data-np-name]')?.focus();
 }
@@ -13033,7 +13110,7 @@ function collectNewProductRows() {
         return {
             index: i + 1,
             name: String(row.querySelector('[data-np-name]')?.value || '').trim(),
-            category: String(row.querySelector('[data-np-category]')?.value || '').trim(),
+            category: selectedNewProductCategories(row).join(', '),
             subCategory: String(row.querySelector('[data-np-subcategory]')?.value || '').trim(),
             caseSize: String(row.querySelector('[data-np-casesize]')?.value || '').trim(),
             unitPrice: parseFloat(row.querySelector('[data-np-price]')?.value)
