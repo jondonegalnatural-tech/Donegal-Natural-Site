@@ -2745,6 +2745,7 @@ async function notifyMarshallProforma(order) {
             method: 'POST',
             headers: await getEdgeFunctionHeaders(),
             body: JSON.stringify({
+                skipMarshall: !!(order && order.skipMarshall),
                 orderId: order.orderId || order.id,
                 customerName: order.customerName || order.customer_name || '',
                 companyName: order.companyName || order.customer_company || '',
@@ -2781,7 +2782,18 @@ function hidePlaceOrderConfirmModal() {
     document.getElementById('place-order-confirm-dynamic')?.remove();
 }
 
+function isJonathanActing() {
+    try {
+        const u = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        if (String(u.email || '').toLowerCase() === 'jackerman@donegalnatural.com') return true;
+    } catch (e) {}
+    if (window.originalAdminUser && String(originalAdminUser.email || '').toLowerCase() === 'jackerman@donegalnatural.com') return true;
+    return false;
+}
+
 function openPlaceOrderConfirmModal() {
+    const wrap = document.getElementById('po-skip-marshall-wrap');
+    if (wrap) wrap.classList.toggle('hidden', !isJonathanActing());
     if (!placeOrderItems || placeOrderItems.length === 0) {
         alert('Please add at least one product to the order.');
         return;
@@ -3021,6 +3033,7 @@ async function submitPlaceOrder() {
         const shortId = data?.invoice_number || invoiceNumber || data?.id;
 
         await notifyMarshallProforma({
+            skipMarshall: !!(isJonathanActing() && document.getElementById('po-skip-marshall')?.checked),
             orderId: shortId,
             customerName: payload.customer_name,
             companyName: payload.customer_company,
