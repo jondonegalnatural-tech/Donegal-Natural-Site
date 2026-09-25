@@ -846,14 +846,9 @@ async function updateDashboardAchCounts() {
         );
         if (isNaN(orderDate.getTime())) return;
 
-        let orderTotal = 0;
-        order.items.forEach(item => {
-            const qty = parseInt(item.quantity, 10) || 0;
-            const unit = typeof getOrderItemUnitPrice === 'function'
-                ? getOrderItemUnitPrice(item)
-                : (parseFloat(item.unitPrice) || 0);
-            orderTotal += qty * unit;
-        });
+        const orderTotal = (typeof getOrderSalesTotal === 'function')
+            ? getOrderSalesTotal(order)
+            : 0;
 
         if (orderDate >= startOfYear) ytdTotal += orderTotal;
         if (orderDate >= startOfMonth) mtdTotal += orderTotal;
@@ -3626,12 +3621,14 @@ function renderOrdersTable() {
         const qty = parseInt(item.quantity, 10) || 0;
 
         if (item.isMarketPrice && !hasRealPrice) {
-            // Market item still waiting for admin price
             hasMarketPrice = true;
         } else if (hasRealPrice) {
             total += unit * qty;
         }
     });
+    const shipping = Number(order.shippingCost != null ? order.shippingCost : order.shipping_cost) || 0;
+    const credit = Number(order.credit != null ? order.credit : 0) || 0;
+    total = Math.max(0, total + shipping - credit);
     return { total, hasMarketPrice };
 }
 
@@ -16765,7 +16762,9 @@ function getOrderSalesTotal(order) {
             : (parseFloat(item.unitPrice) || 0);
         total += qty * unit;
     });
-    return total;
+    const shipping = Number(order && (order.shippingCost != null ? order.shippingCost : order.shipping_cost)) || 0;
+    const credit = Number(order && order.credit) || 0;
+    return Math.max(0, total + shipping - credit);
 }
 
 function getCommissionPeriodStart(period) {
