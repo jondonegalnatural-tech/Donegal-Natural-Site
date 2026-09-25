@@ -5307,7 +5307,13 @@ async function showAddOrderModal() {
     if (customerSelect) {
         customerSelect.innerHTML = '<option value="">Select customer...</option>' +
             '<option value="__walkin__">No customer (walk-in / open order)</option>' +
-            allCustomers.map(c =>
+            allCustomers.slice().sort(function (a, b) {
+                const aKey = String(a.company || a.name || '').toLowerCase();
+                const bKey = String(b.company || b.name || '').toLowerCase();
+                const byCo = aKey.localeCompare(bKey);
+                if (byCo) return byCo;
+                return String(a.name || '').toLowerCase().localeCompare(String(b.name || '').toLowerCase());
+            }).map(c =>
                 `<option value="${escapeHtml(c.name || '')}">${escapeHtml(c.name || '')}${c.company ? ' — ' + escapeHtml(c.company) : ''}</option>`
             ).join('');
     }
