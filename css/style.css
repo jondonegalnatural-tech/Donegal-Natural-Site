@@ -354,6 +354,30 @@ h1, h2, h3, h4 {
   object-fit: cover;
 }
 .product-card-body { padding: 1.1rem 1.2rem 1.4rem; }
+.lookbook-name {
+  margin: 0 0 .35rem;
+  font-size: 1.05rem;
+  color: var(--green);
+}
+.lookbook-blurb {
+  margin: 0;
+  font-size: .9rem;
+  color: var(--brown);
+  line-height: 1.45;
+}
+.lookbook-cta {
+  text-align: center;
+  margin-top: 2rem;
+}
+.lookbook-note {
+  margin: .75rem 0 0;
+  font-size: .85rem;
+  color: var(--brown);
+}
+.lookbook-grid .product-card-img img {
+  object-fit: contain;
+  background: #B8B4AE;
+}
 .skeleton {
   background: linear-gradient(90deg, var(--cream-dark) 25%, var(--border) 50%, var(--cream-dark) 75%);
   background-size: 200% 100%;
