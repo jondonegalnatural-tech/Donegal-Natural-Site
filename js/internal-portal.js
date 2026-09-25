@@ -5448,6 +5448,8 @@ function renderNewOrderSelectedList(skipFocus) {
 
     if (newOrderSelectedProducts.length === 0) {
         list.innerHTML = '<p class="text-sm text-[#6B4423]" id="new-order-empty-msg">No products added yet. Search above to add items.</p>';
+        const emptyTotal = document.getElementById('new-order-total');
+        if (emptyTotal) emptyTotal.textContent = '$0.00';
         return;
     }
 
@@ -5467,11 +5469,15 @@ function renderNewOrderSelectedList(skipFocus) {
                'onchange="updateOrderProductPrice(' + index + ', this.value)">')
             : '';
         const sub = isWalkIn ? escapeHtml(caseSize) : (escapeHtml(caseSize) + ' · ' + escapeHtml(priceText));
+        const qtyN = Number(p.quantity) || 0;
+        const unitN = Number(p.unitPrice);
+        const lineText = isFinite(unitN) ? ('$' + (unitN * qtyN).toFixed(2)) : '';
         return `
             <div class="flex flex-wrap items-center gap-3 bg-white border border-[#6B4423] rounded-xl px-3 py-2">
                 <div class="flex-1 min-w-[140px]">
                     <span class="text-sm font-medium text-[#1E4D2B]">${escapeHtml(p.name)}</span>
                     <span class="block text-xs text-[#6B4423]">${sub}</span>
+                    <span class="block text-sm font-bold brand-green">${lineText}</span>
                 </div>
                 ${priceField}
                 <label class="text-xs text-[#6B4423]">Units</label>
@@ -5485,7 +5491,16 @@ function renderNewOrderSelectedList(skipFocus) {
             </div>
         `;
     }).join('');
-
+        let orderTotal = 0;
+    newOrderSelectedProducts.forEach(function (p) {
+        const unit = Number(p.unitPrice);
+        const qty = Number(p.quantity) || 0;
+        if (isFinite(unit)) orderTotal += unit * qty;
+    });
+    const creditN = parseFloat(document.getElementById('new-order-credit')?.value || '0');
+    if (isFinite(creditN) && creditN > 0) orderTotal -= creditN;
+    const totalEl = document.getElementById('new-order-total');
+    if (totalEl) totalEl.textContent = '$' + orderTotal.toFixed(2);
     if (!skipFocus) {
         const qtyInputs = list.querySelectorAll('input.new-order-qty');
         if (qtyInputs.length > 0) {
@@ -5501,6 +5516,7 @@ function updateOrderProductQty(index, value) {
     if (!qty || qty < 1) return;
     if (newOrderSelectedProducts[index]) {
         newOrderSelectedProducts[index].quantity = qty;
+        renderNewOrderSelectedList(true);
     }
 }
 

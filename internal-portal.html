@@ -3174,12 +3174,17 @@ body { background: #f8f1e9; }
                 <div id="new-order-selected-list" class="space-y-2 min-h-[60px] border border-[#d4b78f] rounded-xl p-3 bg-[#f8f4eb]">
                     <p class="text-sm text-[#6B4423]" id="new-order-empty-msg">No products added yet. Search above to add items.</p>
                 </div>
+                <div class="flex justify-between items-center border-2 border-[#6B4423] rounded-xl px-4 py-2 bg-white">
+                    <span class="font-semibold text-[#6B4423]">Order Total</span>
+                    <span id="new-order-total" class="text-lg font-bold brand-green">$0.00</span>
+                </div>
             </div>
 
             <div id="new-order-credit-wrap" class="hidden">
                 <label class="block text-sm font-semibold text-[#6B4423] mb-1">Credit $</label>
                 <input type="number" id="new-order-credit" min="0" step="0.01" value="0"
-                       class="w-40 border-2 border-[#6B4423] rounded-xl px-4 py-2">
+                       class="w-40 border-2 border-[#6B4423] rounded-xl px-4 py-2"
+                       oninput="renderNewOrderSelectedList(true)">
             </div>
             <div>
                 <label class="block text-sm font-semibold text-[#6B4423] mb-1">Notes</label>
