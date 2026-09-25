@@ -2319,12 +2319,10 @@ function searchPlaceOrderProducts() {
             (oos ? ('<p class="text-xs font-semibold text-red-700">' + escapeHtml(oosText) + '</p>') : '') +
             '</div>' +
             '<p class="text-sm font-semibold brand-green whitespace-nowrap">' + escapeHtml(price) + '</p>' +
-            (oos
-                ? '<span class="text-xs text-red-700">Unavailable</span>'
-                : ('<input type="number" min="1" value="1" class="w-16 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm" id="po-grid-qty-' + idx + '">' +
-                    '<button type="button" class="px-3 py-1 text-xs font-semibold rounded-lg bg-[#1E4D2B] text-[#d4b78f]" ' +
-                    'onclick="addProductToPlaceOrderQty(decodeURIComponent(\'' + safeName + '\'), (document.getElementById(\'po-grid-qty-' + idx + '\')||{}).value)">' +
-                    'Add</button>')) +
+            '<input type="number" min="1" value="1" class="w-16 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm" id="po-grid-qty-' + idx + '">' +
+            '<button type="button" class="px-3 py-1 text-xs font-semibold rounded-lg bg-[#1E4D2B] text-[#d4b78f]" ' +
+            'onclick="addProductToPlaceOrderQty(decodeURIComponent(\'' + safeName + '\'), (document.getElementById(\'po-grid-qty-' + idx + '\')||{}).value)">' +
+            (oos ? 'Add OOS' : 'Add') + '</button>' +
             '</div>'
         );
     }).join('');
