@@ -3122,11 +3122,20 @@ function renderWholesaleItemGrid(container) {
         html += '<tr class="' + (idx % 2 ? 'bg-[#f8f4eb]' : 'bg-white') + ' border-t border-[#e8d9b8]">' +
             '<td class="p-2.5">' +
             '<div class="flex items-center gap-3">' +
-            '<button type="button" class="flex-shrink-0" title="View photo" onclick="openGridProductPhoto(decodeURIComponent(\'' + encodeURIComponent(p.name) + '\'))">' +
-            '<img src="' + escapeHtml((typeof getProductImagePath === 'function' && getProductImagePath(p)) || 'media/placeholder-bully-stick.png') +
-            '" alt="" class="w-12 h-12 object-contain rounded-lg border border-[#d4b78f] bg-[#f8f4eb]" ' +
-            'onerror="this.onerror=null;this.src=\'media/placeholder-bully-stick.png\';">' +
-            '</button>' +
+            (function () {
+                const coming = (typeof isWholesaleComingSoon === 'function' && isWholesaleComingSoon(p.name));
+                const src = (typeof getProductImagePath === 'function' && getProductImagePath(p)) || '';
+                const real = !coming && src && src.indexOf('placeholder') === -1;
+                if (!real) {
+                    return '<div class="w-12 h-12 flex-shrink-0 rounded-lg bg-[#8a8680] text-white text-[8px] leading-tight font-semibold flex items-center justify-center text-center px-1">Photograph Coming Soon</div>';
+                }
+                return '<button type="button" class="flex-shrink-0" title="View photo" onclick="openGridProductPhoto(decodeURIComponent(\'' +
+                    encodeURIComponent(p.name) + '\'))">' +
+                    '<img src="' + escapeHtml(src) +
+                    '" alt="" class="w-12 h-12 object-contain rounded-lg border border-[#d4b78f] bg-[#f8f4eb]" ' +
+                    'onerror="this.onerror=null;this.parentNode.outerHTML=\'<div class=\\\'w-12 h-12 flex-shrink-0 rounded-lg bg-[#8a8680] text-white text-[8px] leading-tight font-semibold flex items-center justify-center text-center px-1\\\'>Photograph Coming Soon</div>\';">' +
+                    '</button>';
+            }()) +
             '<div>' + escapeHtml(display) +
             (oos ? '<p class="text-[11px] text-orange-700">' + escapeHtml(oosLabel || 'Out of stock') + '</p>' : '') +
             '</div></div></td>' +
