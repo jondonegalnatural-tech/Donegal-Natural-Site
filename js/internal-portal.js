@@ -5850,6 +5850,14 @@ async function saveNewOrder(event) {
     const customer = (document.getElementById('new-order-customer')?.value || '').trim();
     const salesman = (document.getElementById('new-order-salesman')?.value || '').trim();
     const notes = (document.getElementById('new-order-notes')?.value || '').trim();
+    let creditAmt = 0;
+    if (typeof isJonathanAdmin === 'function' && isJonathanAdmin()) {
+        creditAmt = parseFloat(document.getElementById('new-order-credit')?.value || '0');
+        if (isNaN(creditAmt) || creditAmt < 0) {
+            alert('Credit must be 0 or a positive dollar amount.');
+            return;
+        }
+    }
 
     const isWalkIn = customer === '__walkin__';
     const walkInName = (document.getElementById('walkin-name')?.value || '').trim();
@@ -5945,6 +5953,7 @@ async function saveNewOrder(event) {
             (isWalkIn && walkInPhone ? ('\nPhone: ' + walkInPhone) : '') +
             (isWalkIn && walkInAddress ? ('\nAddress: ' + walkInAddress) : ''),
         shipping_cost: 0,
+        credit: creditAmt,
         submitted_at: new Date().toISOString(),
         invoice_number: invoiceNumber,
         salesman_commission_percent: isWalkIn ? walkInCommission : (function () {
