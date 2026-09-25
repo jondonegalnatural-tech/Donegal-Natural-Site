@@ -3685,14 +3685,18 @@ function renderOrdersTable() {
         const rateBadge = Number(order.portalCommissionRate) === 10
             ? `<span class="ml-1 text-xs font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">10%</span>`
             : '';
+        const creditAmt = Number(order.credit) || 0;
+        const creditBadge = creditAmt > 0
+            ? `<span class="ml-1 text-xs font-bold bg-red-100 text-red-800 px-1.5 py-0.5 rounded">Credit</span>`
+            : '';
 
         let totalHTML = '';
         if (hasMarketPrice) {
-            totalHTML = `<span class="text-orange-600 font-semibold">Needs Pricing</span>${rateBadge}`;
+            totalHTML = `<span class="text-orange-600 font-semibold">Needs Pricing</span>${rateBadge}${creditBadge}`;
         } else {
             totalHTML = `
                 <div class="flex flex-col items-start gap-0.5">
-                    <span>$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${rateBadge}</span>
+                    <span>$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${rateBadge}${creditBadge}</span>
                 </div>
             `;
         }
