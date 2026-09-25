@@ -3127,7 +3127,7 @@ function renderWholesaleItemGrid(container) {
                 const src = (typeof getProductImagePath === 'function' && getProductImagePath(p)) || '';
                 const real = !coming && src && src.indexOf('placeholder') === -1;
                 if (!real) {
-                    return '<div class="w-12 h-12 flex-shrink-0 rounded-lg bg-[#8a8680] text-white text-[8px] leading-tight font-semibold flex items-center justify-center text-center px-1">Photograph Coming Soon</div>';
+                    return '<div style="width:48px;height:48px;flex-shrink:0;border-radius:8px;background:#6B4423;color:#F5E6C8;font-size:9px;line-height:1.15;font-weight:700;display:flex;align-items:center;justify-content:center;text-align:center;padding:3px;">Photograph Coming Soon</div>';
                 }
                 return '<button type="button" class="flex-shrink-0" title="View photo" onclick="openGridProductPhoto(decodeURIComponent(\'' +
                     encodeURIComponent(p.name) + '\'))">' +
