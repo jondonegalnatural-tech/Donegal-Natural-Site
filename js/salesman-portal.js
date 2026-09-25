@@ -2587,7 +2587,30 @@ function renderPlaceOrderItems(skipFocus) {
     const canEditPrice = (typeof canPlaceOpenOrder === 'function' && canPlaceOpenOrder())
         || !!(currentPlaceOrderCustomer && currentPlaceOrderCustomer.walkIn);
 
-    container.innerHTML = placeOrderItems.map((item, index) => {
+    function placeOrderItemCategory(item) {
+        const catalog = (typeof PRODUCT_CATALOG !== 'undefined')
+            ? PRODUCT_CATALOG.find(function (p) { return p && p.name === item.name; })
+            : null;
+        const raw = catalog && catalog.category ? String(catalog.category) : '';
+        const first = raw.split(',')[0].trim();
+        if (first) return first;
+        const n = String(item.name || '').toLowerCase();
+        if (n.indexOf('bully') !== -1) return 'Bully Sticks';
+        if (n.indexOf('jerky') !== -1 || n.indexOf('elky') !== -1) return 'Jerky';
+        if (n.indexOf('ear') !== -1) return 'Ears';
+        return 'Other';
+    }
+    const grouped = {};
+    placeOrderItems.forEach(function (item, index) {
+        const cat = placeOrderItemCategory(item);
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(index);
+    });
+    container.innerHTML = Object.keys(grouped).sort().map(function (cat) {
+        const header = '<p class="text-xs font-bold text-[#d4b78f] bg-[#1E4D2B] rounded-lg px-2 py-1 mt-2 mb-1">' +
+            escapeHtml(cat) + '</p>';
+        const rows = grouped[cat].map(function (index) {
+        const item = placeOrderItems[index];
         const priceVal = (item.unitPrice != null && item.unitPrice !== '')
             ? Number(item.unitPrice).toFixed(2)
             : '';
@@ -2638,7 +2661,9 @@ function renderPlaceOrderItems(skipFocus) {
                 <span class="text-sm font-bold brand-green whitespace-nowrap">${lineText}</span>
             </div>
         </div>`;
-    }).join("");
+        }).join('');
+        return header + rows;
+    }).join('');
 
     let total = 0;
     placeOrderItems.forEach((item) => {
