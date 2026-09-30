@@ -10947,6 +10947,12 @@ function resetBuildPriceSheetDraft() {
     renderBuildPriceSheetDraft();
 }
 
+function setBuildPriceSheetWorkVisible(on) {
+    document.getElementById('bps-empty-state')?.classList.toggle('hidden', !!on);
+    document.getElementById('bps-create-wrap')?.classList.toggle('hidden', !on);
+    document.getElementById('bps-sheet-wrap')?.classList.toggle('hidden', !on);
+}
+
 async function openBuildPriceSheetModal() {
     const modal = document.getElementById('build-price-sheet-modal');
     if (!modal) {
@@ -10957,20 +10963,54 @@ async function openBuildPriceSheetModal() {
     await fillBuildPriceSheetSalesmen();
     await fillBuildPriceSheetDraftSelect();
     fillBuildPriceSheetCategoryOptions();
-    renderBuildPriceSheetCatalog();
-    renderBuildPriceSheetDraft();
+    setBuildPriceSheetWorkVisible(false);
     modal.classList.remove('hidden');
 }
 
 async function loadSalesmanSheetIntoBuilder(email) {
-    email = String(email || '').toLowerCase().trim();
-    if (!email) return;
+    email = String(email || '').trim();
+    if (!email) {
+        setBuildPriceSheetWorkVisible(false);
+        resetBuildPriceSheetDraft();
+        return;
+    }
+    const isCompany = email === '__company__';
+    if (!isCompany) email = email.toLowerCase();
     if (typeof supabaseClient === 'undefined') {
         alert('Stay on internal-portal.html.');
         return;
     }
     const existingKeys = Object.keys(_bpsDraft.prices || {});
-    if (existingKeys.length && !confirm('Replace this draft with the current sheet for ' + email + '?\n\nUnsaved draft lines will be dropped. Live sheets are not changed until Assign.')) {
+    if (existingKeys.length && !confirm('Replace this draft with the selected sheet?\n\nUnsaved draft lines will be dropped. Live sheets are not changed until Save to this sheet.')) {
+        return;
+    }
+    if (isCompany) {
+        const prices = {};
+        const categories = {};
+        const case_sizes = {};
+        (typeof PRODUCT_CATALOG !== 'undefined' ? PRODUCT_CATALOG : []).forEach(function (p) {
+            if (!p || !p.name) return;
+            if (typeof isTestProductName === 'function' && isTestProductName(p.name)) return;
+            prices[p.name] = Number(p.unitPrice);
+            if (p.category) categories[p.name] = p.category;
+            if (p.caseSize) case_sizes[p.name] = p.caseSize;
+        });
+        _bpsDraft.prices = prices;
+        _bpsDraft.display_names = {};
+        _bpsDraft.categories = categories;
+        _bpsDraft.case_sizes = case_sizes;
+        _bpsDraft.hidden = {};
+        const nameEl = document.getElementById('bps-draft-name');
+        if (nameEl && (!nameEl.value || nameEl.value === 'Untitled sheet')) {
+            nameEl.value = 'Company Base draft';
+            _bpsDraft.name = nameEl.value;
+        }
+        const title = document.getElementById('bps-sheet-title');
+        if (title) title.textContent = 'Company Base Sheet';
+        document.getElementById('bps-also-catalog-wrap')?.classList.add('hidden');
+        setBuildPriceSheetWorkVisible(true);
+        fillBuildPriceSheetCategoryOptions();
+        renderBuildPriceSheetDraft();
         return;
     }
     const { data: sheet, error } = await supabaseClient
@@ -11003,12 +11043,26 @@ async function loadSalesmanSheetIntoBuilder(email) {
             : null;
         if (catalog && catalog.category) categories[name] = catalog.category;
         if (catalog && catalog.caseSize) case_sizes[name] = catalog.caseSize;
+        if (!catalog) categories[name] = categories[name] || 'Special';
     });
     Object.keys(hidden).forEach(function (name) {
         hiddenMap[name] = true;
         if (!Object.prototype.hasOwnProperty.call(prices, name) && sheet.prices && sheet.prices[name] != null) {
             prices[name] = Number(sheet.prices[name]);
         }
+    });
+    const salesmanRow = (salesmen || []).find(function (s) {
+        return String(s.email || s.salesman_email || '').toLowerCase() === email;
+    });
+    const extras = salesmanRow && Array.isArray(salesmanRow.assignedProducts || salesmanRow.assigned_products)
+        ? (salesmanRow.assignedProducts || salesmanRow.assigned_products)
+        : [];
+    extras.forEach(function (name) {
+        if (!name || Object.prototype.hasOwnProperty.call(prices, name)) return;
+        const catalog = (PRODUCT_CATALOG || []).find(function (p) { return p && p.name === name; });
+        prices[name] = catalog ? Number(catalog.unitPrice) : 0;
+        categories[name] = (catalog && catalog.category) || 'Special';
+        if (catalog && catalog.caseSize) case_sizes[name] = catalog.caseSize;
     });
     _bpsDraft.prices = prices;
     _bpsDraft.display_names = display_names;
@@ -11020,7 +11074,11 @@ async function loadSalesmanSheetIntoBuilder(email) {
         nameEl.value = (sheet.salesman_name || email) + ' draft';
         _bpsDraft.name = nameEl.value;
     }
-    renderBuildPriceSheetCatalog();
+    const title = document.getElementById('bps-sheet-title');
+    if (title) title.textContent = (sheet.salesman_name || email) + ' — all items';
+    document.getElementById('bps-also-catalog-wrap')?.classList.remove('hidden');
+    setBuildPriceSheetWorkVisible(true);
+    fillBuildPriceSheetCategoryOptions();
     renderBuildPriceSheetDraft();
 }
 
@@ -11030,7 +11088,8 @@ async function fillBuildPriceSheetSalesmen() {
     if ((!salesmen || !salesmen.length) && typeof loadSalesmen === 'function') {
         await loadSalesmen();
     }
-    sel.innerHTML = '<option value="">Assign to salesman…</option>' +
+    sel.innerHTML = '<option value="">Pick a sheet…</option>' +
+        '<option value="__company__">Company Base Sheet</option>' +
         (salesmen || []).map(function (s) {
             const email = String(s.email || s.salesman_email || '').toLowerCase();
             const name = s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || email;
@@ -11163,9 +11222,13 @@ function renderBuildPriceSheetDraft() {
             const hiddenBadge = (_bpsDraft.hidden && _bpsDraft.hidden[name])
                 ? '<span class="ml-2 text-xs font-bold bg-red-100 text-red-800 px-1.5 py-0.5 rounded">Hidden</span>'
                 : '';
+            const catalogHit = (PRODUCT_CATALOG || []).some(function (p) { return p && p.name === name; });
+            const specialBadge = !catalogHit
+                ? '<span class="ml-2 text-xs font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">Special</span>'
+                : '';
             return '<div class="bg-white border border-[#6B4423] rounded-xl px-3 py-2 mb-2">' +
                 '<div class="flex justify-between gap-2">' +
-                '<p class="text-sm font-semibold brand-green">' + escapeHtml(name) + hiddenBadge + '</p>' +
+                '<p class="text-sm font-semibold brand-green">' + escapeHtml(name) + hiddenBadge + specialBadge + '</p>' +
                 '<button type="button" class="text-red-700 text-xs" onclick="removeBuildPriceSheetItem(\'' +
                 encodeURIComponent(name) + '\')">Remove</button></div>' +
                 '<p class="text-xs text-[#6B4423]">' + (cs ? escapeHtml(cs) : '') + '</p>' +
@@ -11213,6 +11276,9 @@ async function addCustomBuildPriceSheetItem() {
         alert('Stay on internal-portal.html.');
         return;
     }
+    const selectedSheet = String(document.getElementById('bps-assign-salesman')?.value || '');
+    const alsoCompany = selectedSheet === '__company__' ||
+        document.getElementById('bps-also-catalog')?.checked === true;
     const existing = await supabaseClient.from('products').select('id').eq('name', name).maybeSingle();
     if (existing.error) {
         alert(existing.error.message);
@@ -11220,29 +11286,31 @@ async function addCustomBuildPriceSheetItem() {
     }
     const inDraft = Object.prototype.hasOwnProperty.call(_bpsDraft.prices, name);
     if (existing.data || inDraft) {
-        if (!confirm('"' + name + '" already exists.\n\nOverwrite the company sheet price / category / case size and this draft line?')) {
+        if (!confirm('"' + name + '" already exists.\n\nOverwrite price / category / case size on this sheet' + (alsoCompany ? ' and the company sheet' : '') + '?')) {
             return;
         }
-        const updated = await supabaseClient.from('products').update({
-            category: category,
-            case_size: caseSize || null,
-            unit_price: price,
-            active: true,
-            updated_at: new Date().toISOString()
-        }).eq('name', name);
-        if (updated.error) {
-            alert(updated.error.message);
-            return;
+        if (alsoCompany && existing.data) {
+            const updated = await supabaseClient.from('products').update({
+                category: category,
+                case_size: caseSize || null,
+                unit_price: price,
+                active: true,
+                updated_at: new Date().toISOString()
+            }).eq('name', name);
+            if (updated.error) {
+                alert(updated.error.message);
+                return;
+            }
+            const catRow = (typeof PRODUCT_CATALOG !== 'undefined')
+                ? PRODUCT_CATALOG.find(function (p) { return p && p.name === name; })
+                : null;
+            if (catRow) {
+                catRow.category = category;
+                catRow.caseSize = caseSize;
+                catRow.unitPrice = price;
+            }
         }
-        const catRow = (typeof PRODUCT_CATALOG !== 'undefined')
-            ? PRODUCT_CATALOG.find(function (p) { return p && p.name === name; })
-            : null;
-        if (catRow) {
-            catRow.category = category;
-            catRow.caseSize = caseSize;
-            catRow.unitPrice = price;
-        }
-    } else {
+    } else if (alsoCompany) {
         const inserted = await supabaseClient.from('products').insert({
             name: name,
             category: category,
@@ -11337,8 +11405,8 @@ async function saveBuildPriceSheetDraft() {
 
 async function assignBuildPriceSheetDraft() {
     const email = String(document.getElementById('bps-assign-salesman')?.value || '').toLowerCase().trim();
-    if (!email) {
-        alert('Pick a salesman to assign this draft to.');
+    if (!email || email === '__company__') {
+        alert('Pick a salesman to save this onto. Company Base is edited with Create item + the company checkbox.');
         return;
     }
     const keys = Object.keys(_bpsDraft.prices || {});
