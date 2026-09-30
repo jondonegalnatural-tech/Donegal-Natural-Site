@@ -4364,6 +4364,13 @@ body { background: #f8f1e9; }
             <select id="bps-draft-select" class="border-2 border-[#6B4423] rounded-xl px-3 py-2" onchange="loadBuildPriceSheetDraft(this.value)">
                 <option value="">New draft</option>
             </select>
+            <span id="bps-apply-wrap" class="hidden flex flex-wrap items-center gap-2">
+                <span class="text-sm font-semibold brand-green">Apply to</span>
+                <select id="bps-apply-customer" class="border-2 border-[#6B4423] rounded-xl px-3 py-2">
+                    <option value="">Customer…</option>
+                </select>
+                <button type="button" onclick="applyCheckedBuildItemsToCustomer()" class="btn-brand px-3 py-2 rounded-xl text-sm">Add checked to customer sheet</button>
+            </span>
         </div>
         <div class="flex flex-wrap items-center gap-2 mb-4">
             <select id="bps-assign-salesman" class="border-2 border-[#6B4423] rounded-xl px-3 py-2" onchange="loadSalesmanSheetIntoBuilder(this.value)">

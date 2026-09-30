@@ -11008,6 +11008,7 @@ async function loadSalesmanSheetIntoBuilder(email) {
         const title = document.getElementById('bps-sheet-title');
         if (title) title.textContent = 'Company Base Sheet';
         document.getElementById('bps-also-catalog-wrap')?.classList.add('hidden');
+        document.getElementById('bps-apply-wrap')?.classList.add('hidden');
         setBuildPriceSheetWorkVisible(true);
         fillBuildPriceSheetCategoryOptions();
         renderBuildPriceSheetDraft();
@@ -11077,9 +11078,129 @@ async function loadSalesmanSheetIntoBuilder(email) {
     const title = document.getElementById('bps-sheet-title');
     if (title) title.textContent = (sheet.salesman_name || email) + ' — all items';
     document.getElementById('bps-also-catalog-wrap')?.classList.remove('hidden');
+    await fillBuildPriceSheetApplyCustomers(email);
     setBuildPriceSheetWorkVisible(true);
     fillBuildPriceSheetCategoryOptions();
     renderBuildPriceSheetDraft();
+}
+
+async function fillBuildPriceSheetApplyCustomers(salesmanEmail) {
+    const wrap = document.getElementById('bps-apply-wrap');
+    const sel = document.getElementById('bps-apply-customer');
+    if (!wrap || !sel) return;
+    const isBrian = String(salesmanEmail || '').toLowerCase() === 'donegaldogtreats@gmail.com';
+    if (!isBrian) {
+        wrap.classList.add('hidden');
+        sel.innerHTML = '<option value="">Customer…</option>';
+        return;
+    }
+    if ((!allCustomers || !allCustomers.length) && typeof loadCustomers === 'function') {
+        await loadCustomers();
+    }
+    const stores = (allCustomers || []).filter(function (c) {
+        const email = String(c.email || '').toLowerCase();
+        const company = String(c.company || '').toLowerCase();
+        if (email === 'jackerman@donegalnatural.com') return false;
+        if (company.indexOf('admin test store') !== -1) return false;
+        return String(c.salesmanEmail || '').toLowerCase() === 'donegaldogtreats@gmail.com';
+    }).sort(function (a, b) {
+        return String(a.company || a.name || '').localeCompare(String(b.company || b.name || ''));
+    });
+    sel.innerHTML = '<option value="">Customer…</option>' +
+        '<option value="__all__">All Brian stores</option>' +
+        stores.map(function (c) {
+            const label = (c.company || c.name || c.email || c.id);
+            return '<option value="' + escapeHtml(c.id) + '">' + escapeHtml(label) + '</option>';
+        }).join('');
+    wrap.classList.remove('hidden');
+}
+
+async function applyCheckedBuildItemsToCustomer() {
+    const target = String(document.getElementById('bps-apply-customer')?.value || '');
+    if (!target) {
+        alert('Pick a customer (or All Brian stores).');
+        return;
+    }
+    const boxes = document.querySelectorAll('#bps-draft-list [data-bps-apply-name]:checked');
+    if (!boxes.length) {
+        alert('Check one or more items first.');
+        return;
+    }
+    const names = [];
+    boxes.forEach(function (cb) {
+        const name = decodeURIComponent(cb.getAttribute('data-bps-apply-name') || '');
+        if (!name) return;
+        if (_bpsDraft.hidden && _bpsDraft.hidden[name]) return;
+        names.push(name);
+    });
+    if (!names.length) {
+        alert('Checked items were hidden on Brian’s sheet and were not added.');
+        return;
+    }
+    if (typeof supabaseClient === 'undefined') {
+        alert('Stay on internal-portal.html.');
+        return;
+    }
+    let stores = (allCustomers || []).filter(function (c) {
+        const email = String(c.email || '').toLowerCase();
+        const company = String(c.company || '').toLowerCase();
+        if (email === 'jackerman@donegalnatural.com') return false;
+        if (company.indexOf('admin test store') !== -1) return false;
+        return String(c.salesmanEmail || '').toLowerCase() === 'donegaldogtreats@gmail.com';
+    });
+    if (target !== '__all__') {
+        stores = stores.filter(function (c) { return String(c.id) === target; });
+    }
+    if (!stores.length) {
+        alert('No matching Brian store.');
+        return;
+    }
+    if (!confirm('Add ' + names.length + ' item(s) to ' + stores.length + ' customer sheet(s)?\n\nExisting customer prices will not change. Hidden items are skipped. Brian’s salesman sheet is not pushed.')) {
+        return;
+    }
+    let updated = 0;
+    let added = 0;
+    for (let i = 0; i < stores.length; i++) {
+        const c = stores[i];
+        const { data: sheet, error } = await supabaseClient
+            .from('customer_price_sheets')
+            .select('id, prices')
+            .eq('customer_id', c.id)
+            .maybeSingle();
+        if (error) {
+            alert(error.message);
+            return;
+        }
+        const prices = Object.assign({}, (sheet && sheet.prices) || {});
+        let storeAdded = 0;
+        names.forEach(function (name) {
+            if (Object.prototype.hasOwnProperty.call(prices, name)) return;
+            prices[name] = Number(_bpsDraft.prices[name]);
+            storeAdded += 1;
+        });
+        if (!storeAdded) continue;
+        const payload = {
+            customer_id: c.id,
+            salesman_email: 'donegaldogtreats@gmail.com',
+            prices: prices,
+            updated_at: new Date().toISOString()
+        };
+        if (sheet && sheet.id) {
+            const { error: upErr } = await supabaseClient
+                .from('customer_price_sheets')
+                .update({ prices: prices, updated_at: payload.updated_at })
+                .eq('id', sheet.id);
+            if (upErr) { alert(upErr.message); return; }
+        } else {
+            const { error: insErr } = await supabaseClient
+                .from('customer_price_sheets')
+                .insert(payload);
+            if (insErr) { alert(insErr.message); return; }
+        }
+        updated += 1;
+        added += storeAdded;
+    }
+    alert('Updated ' + updated + ' customer sheet(s). Added ' + added + ' new price key(s). Existing customer prices kept.');
 }
 
 async function fillBuildPriceSheetSalesmen() {
@@ -11226,9 +11347,14 @@ function renderBuildPriceSheetDraft() {
             const specialBadge = !catalogHit
                 ? '<span class="ml-2 text-xs font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">Special</span>'
                 : '';
+            const applyBox = document.getElementById('bps-apply-wrap') &&
+                !document.getElementById('bps-apply-wrap').classList.contains('hidden')
+                ? '<input type="checkbox" class="accent-[#1E4D2B] mt-1" data-bps-apply-name="' + encodeURIComponent(name) + '">'
+                : '';
             return '<div class="bg-white border border-[#6B4423] rounded-xl px-3 py-2 mb-2">' +
                 '<div class="flex justify-between gap-2">' +
-                '<p class="text-sm font-semibold brand-green">' + escapeHtml(name) + hiddenBadge + specialBadge + '</p>' +
+                '<p class="text-sm font-semibold brand-green flex items-start gap-2">' + applyBox +
+                '<span>' + escapeHtml(name) + hiddenBadge + specialBadge + '</span></p>' +
                 '<button type="button" class="text-red-700 text-xs" onclick="removeBuildPriceSheetItem(\'' +
                 encodeURIComponent(name) + '\')">Remove</button></div>' +
                 '<p class="text-xs text-[#6B4423]">' + (cs ? escapeHtml(cs) : '') + '</p>' +
