@@ -3882,6 +3882,11 @@ body { background: #f8f1e9; }
                     class="hidden px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
                 Edit
             </button>
+            <select id="sps-draft-select" class="hidden border-2 border-[#6B4423] rounded-xl px-3 py-2 text-sm">
+                <option value="">Apply draft…</option>
+            </select>
+            <button type="button" id="sps-apply-draft-btn" onclick="openSalesmanDraftDiffModal()"
+                    class="hidden btn-brand px-3 py-2 rounded-xl text-sm">Apply draft</button>
             <button type="button" id="sps-save-sheet-btn" onclick="saveSalesmanPriceSheetOnly()"
                     class="hidden px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb] font-semibold">
                 Save
@@ -4360,16 +4365,13 @@ body { background: #f8f1e9; }
             <button type="button" onclick="hideBuildPriceSheetModal()" class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
         </div>
         <div class="flex flex-wrap gap-3 mb-3">
-            <input type="text" id="bps-draft-name" class="flex-1 min-w-[180px] border-2 border-[#6B4423] rounded-xl px-3 py-2" placeholder="Draft name">
+            <input type="text" id="bps-draft-name" class="flex-1 min-w-[180px] border-2 border-[#6B4423] rounded-xl px-3 py-2" placeholder="Draft name" oninput="updateBuildPriceSheetApplyLabel()">
             <select id="bps-draft-select" class="border-2 border-[#6B4423] rounded-xl px-3 py-2" onchange="loadBuildPriceSheetDraft(this.value)">
                 <option value="">New draft</option>
             </select>
             <span id="bps-apply-wrap" class="hidden flex flex-wrap items-center gap-2">
-                <span class="text-sm font-semibold brand-green">Apply to</span>
-                <select id="bps-apply-customer" class="border-2 border-[#6B4423] rounded-xl px-3 py-2">
-                    <option value="">Customer…</option>
-                </select>
-                <button type="button" onclick="applyCheckedBuildItemsToCustomer()" class="btn-brand px-3 py-2 rounded-xl text-sm">Add checked to customer sheet</button>
+                <button type="button" id="bps-apply-to-draft-btn" onclick="applyCheckedItemsToNamedDraft()" class="btn-brand px-3 py-2 rounded-xl text-sm">Apply to draft</button>
+                <button type="button" onclick="saveBuildPriceSheetDraft()" class="px-3 py-2 border-2 border-[#6B4423] rounded-xl font-semibold text-sm">Save custom sales sheet</button>
             </span>
         </div>
         <div class="flex flex-wrap items-center gap-2 mb-4">
@@ -4399,13 +4401,37 @@ body { background: #f8f1e9; }
             </label>
             <button type="button" onclick="addCustomBuildPriceSheetItem()" class="mt-2 btn-brand px-3 py-2 rounded-xl text-sm">Add item to this sheet</button>
         </div>
-        <div id="bps-sheet-wrap" class="hidden min-h-0 flex flex-col border-2 border-[#6B4423] rounded-xl p-3 bg-[#f8f4eb]">
-            <div class="flex items-center justify-between gap-2 mb-2">
-                <p id="bps-sheet-title" class="text-sm font-semibold brand-green">Sheet items</p>
-                <input type="text" id="bps-sheet-search" class="border-2 border-[#6B4423] rounded-xl px-3 py-1 text-sm" placeholder="Search this sheet…" oninput="renderBuildPriceSheetDraft()">
+        <div id="bps-sheet-wrap" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 min-h-0">
+            <div class="min-h-0 flex flex-col border-2 border-[#d4b78f] rounded-xl p-3">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <p id="bps-sheet-title" class="text-sm font-semibold brand-green">Current salesman sheet</p>
+                    <input type="text" id="bps-sheet-search" class="border-2 border-[#6B4423] rounded-xl px-3 py-1 text-sm" placeholder="Search source…" oninput="renderBuildPriceSheetSource()">
+                </div>
+                <div id="bps-source-list" class="flex-1 min-h-0 overflow-y-auto max-h-[52vh]"></div>
+                <p id="bps-source-count" class="text-xs text-[#6B4423] mt-2">0 items</p>
             </div>
-            <div id="bps-draft-list" class="flex-1 min-h-0 overflow-y-auto max-h-[52vh]"></div>
-            <p id="bps-draft-count" class="text-xs text-[#6B4423] mt-2">0 items</p>
+            <div class="min-h-0 flex flex-col border-2 border-[#6B4423] rounded-xl p-3 bg-[#f8f4eb]">
+                <p id="bps-draft-title" class="text-sm font-semibold brand-green mb-2">Draft items</p>
+                <div id="bps-draft-list" class="flex-1 min-h-0 overflow-y-auto max-h-[52vh]"></div>
+                <p id="bps-draft-count" class="text-xs text-[#6B4423] mt-2">0 items</p>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="sps-draft-diff-modal"
+     onclick="document.getElementById('sps-draft-diff-modal').classList.add('hidden')"
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[90] p-4">
+    <div onclick="event.stopImmediatePropagation()"
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-3xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="text-xl font-bold brand-green">Draft vs current sheet</h3>
+            <button type="button" onclick="document.getElementById('sps-draft-diff-modal').classList.add('hidden')" class="text-3xl leading-none">&times;</button>
+        </div>
+        <p id="sps-draft-diff-summary" class="text-sm text-[#6B4423] mb-3"></p>
+        <div id="sps-draft-diff-list" class="text-sm"></div>
+        <div class="flex justify-end gap-2 mt-4">
+            <button type="button" onclick="document.getElementById('sps-draft-diff-modal').classList.add('hidden')" class="px-4 py-2 border-2 border-[#6B4423] rounded-xl">Cancel</button>
+            <button type="button" onclick="applySalesmanDraftAndPush()" class="btn-brand px-4 py-2 rounded-xl font-semibold">Apply draft and push to customers</button>
         </div>
     </div>
 </div>
