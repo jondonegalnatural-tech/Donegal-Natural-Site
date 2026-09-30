@@ -11151,7 +11151,31 @@ async function addCustomBuildPriceSheetItem() {
         alert(existing.error.message);
         return;
     }
-    if (!existing.data) {
+    const inDraft = Object.prototype.hasOwnProperty.call(_bpsDraft.prices, name);
+    if (existing.data || inDraft) {
+        if (!confirm('"' + name + '" already exists.\n\nOverwrite the company sheet price / category / case size and this draft line?')) {
+            return;
+        }
+        const updated = await supabaseClient.from('products').update({
+            category: category,
+            case_size: caseSize || null,
+            unit_price: price,
+            active: true,
+            updated_at: new Date().toISOString()
+        }).eq('name', name);
+        if (updated.error) {
+            alert(updated.error.message);
+            return;
+        }
+        const catRow = (typeof PRODUCT_CATALOG !== 'undefined')
+            ? PRODUCT_CATALOG.find(function (p) { return p && p.name === name; })
+            : null;
+        if (catRow) {
+            catRow.category = category;
+            catRow.caseSize = caseSize;
+            catRow.unitPrice = price;
+        }
+    } else {
         const inserted = await supabaseClient.from('products').insert({
             name: name,
             category: category,
@@ -11164,15 +11188,15 @@ async function addCustomBuildPriceSheetItem() {
             alert(inserted.error.message);
             return;
         }
-    }
-    if (typeof PRODUCT_CATALOG !== 'undefined' && !PRODUCT_CATALOG.some(function (p) { return p && p.name === name; })) {
-        PRODUCT_CATALOG.push({
-            name: name,
-            category: category,
-            caseSize: caseSize,
-            unitPrice: price,
-            isMarketPrice: false
-        });
+        if (typeof PRODUCT_CATALOG !== 'undefined') {
+            PRODUCT_CATALOG.push({
+                name: name,
+                category: category,
+                caseSize: caseSize,
+                unitPrice: price,
+                isMarketPrice: false
+            });
+        }
     }
     _bpsDraft.prices[name] = price;
     _bpsDraft.categories[name] = category;
@@ -11182,7 +11206,9 @@ async function addCustomBuildPriceSheetItem() {
     fillBuildPriceSheetCategoryOptions();
     renderBuildPriceSheetCatalog();
     renderBuildPriceSheetDraft();
-    alert('Created on the Company Base Price Sheet and added to this draft only. Other salesmen and stores were not changed.');
+    alert(existing.data || inDraft
+        ? 'Overwrote the company sheet and this draft line only. Other salesmen and stores were not changed.'
+        : 'Created on the Company Base Price Sheet and added to this draft only. Other salesmen and stores were not changed.');
 }
 
 function removeBuildPriceSheetItem(encoded) {
