@@ -4354,7 +4354,7 @@ body { background: #f8f1e9; }
      onclick="hideBuildPriceSheetModal()"
      class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-[80] p-4 pt-8 overflow-y-auto">
     <div onclick="event.stopImmediatePropagation()"
-         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-6xl mx-4 p-6 max-h-[90vh] overflow-y-auto flex flex-col">
+         class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-5xl mx-4 p-6 max-h-[90vh] overflow-y-auto flex flex-col">
         <div class="flex justify-between items-center mb-4">
             <h2 class="text-2xl font-bold brand-green">Build Price Sheet</h2>
             <button type="button" onclick="hideBuildPriceSheetModal()" class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
@@ -4367,15 +4367,18 @@ body { background: #f8f1e9; }
         </div>
         <div class="flex flex-wrap items-center gap-2 mb-4">
             <select id="bps-assign-salesman" class="border-2 border-[#6B4423] rounded-xl px-3 py-2" onchange="loadSalesmanSheetIntoBuilder(this.value)">
-                <option value="">Assign to salesman…</option>
+                <option value="">Pick a sheet…</option>
             </select>
             <button type="button" onclick="saveBuildPriceSheetDraft()" class="px-4 py-2 border-2 border-[#6B4423] rounded-xl font-semibold">Save Draft</button>
-            <button type="button" onclick="assignBuildPriceSheetDraft()" class="btn-brand px-4 py-2 rounded-xl font-semibold">Assign (merge only)</button>
+            <button type="button" onclick="assignBuildPriceSheetDraft()" class="btn-brand px-4 py-2 rounded-xl font-semibold">Save to this sheet (merge only)</button>
             <button type="button" onclick="hideBuildPriceSheetModal()" class="px-4 py-2 border-2 border-[#6B4423] rounded-xl">Close</button>
         </div>
-        <div class="border-2 border-[#d4b78f] rounded-xl p-3 mb-4">
-            <p class="text-sm font-semibold brand-green">Create new company item</p>
-            <p class="text-xs text-[#6B4423] mb-2">Adds to the Company Base Price Sheet and this draft only. Other salesmen and stores are not changed until you Assign.</p>
+        <div id="bps-empty-state" class="border-2 border-dashed border-[#d4b78f] rounded-xl p-8 text-center text-[#6B4423]">
+            Pick Company Base Sheet or a salesman to load that sheet.
+        </div>
+        <div id="bps-create-wrap" class="hidden border-2 border-[#d4b78f] rounded-xl p-3 mb-4">
+            <p class="text-sm font-semibold brand-green">Create new item</p>
+            <p class="text-xs text-[#6B4423] mb-2">Adds to the sheet you have selected. Other salesmen and stores are not changed.</p>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-1">
                 <input type="text" id="bps-new-name" class="border-2 border-[#6B4423] rounded-xl px-2 py-1 text-sm" placeholder="Product name">
                 <input type="text" id="bps-new-category" list="bps-category-options" class="border-2 border-[#6B4423] rounded-xl px-2 py-1 text-sm" placeholder="Category">
@@ -4383,20 +4386,19 @@ body { background: #f8f1e9; }
                 <input type="text" id="bps-new-case" class="border-2 border-[#6B4423] rounded-xl px-2 py-1 text-sm" placeholder="Case size">
                 <input type="number" id="bps-new-price" step="0.01" min="0" class="border-2 border-[#6B4423] rounded-xl px-2 py-1 text-sm" placeholder="Price each">
             </div>
-            <button type="button" onclick="addCustomBuildPriceSheetItem()" class="mt-2 btn-brand px-3 py-2 rounded-xl text-sm">Create item on company sheet + draft</button>
+            <label id="bps-also-catalog-wrap" class="block text-xs text-[#6B4423] mt-2">
+                <input type="checkbox" id="bps-also-catalog" class="accent-[#1E4D2B] mr-1">
+                Also add this item to the Company Base Sheet
+            </label>
+            <button type="button" onclick="addCustomBuildPriceSheetItem()" class="mt-2 btn-brand px-3 py-2 rounded-xl text-sm">Add item to this sheet</button>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
-            <div class="min-h-0 flex flex-col border-2 border-[#d4b78f] rounded-xl p-3">
-                <p class="text-sm font-semibold brand-brown mb-2">Company catalog</p>
-                <input type="text" id="bps-catalog-search" class="form-input w-full px-3 py-2 mb-2" placeholder="Search products…" oninput="renderBuildPriceSheetCatalog()">
-                <div id="bps-catalog-list" class="flex-1 min-h-0 overflow-y-auto max-h-[42vh] border border-[#d4b78f] rounded-xl p-2"></div>
-                <button type="button" onclick="bulkAddBuildPriceSheetItems()" class="mt-2 btn-brand px-3 py-2 rounded-xl text-sm">Add selected to draft</button>
+        <div id="bps-sheet-wrap" class="hidden min-h-0 flex flex-col border-2 border-[#6B4423] rounded-xl p-3 bg-[#f8f4eb]">
+            <div class="flex items-center justify-between gap-2 mb-2">
+                <p id="bps-sheet-title" class="text-sm font-semibold brand-green">Sheet items</p>
+                <input type="text" id="bps-sheet-search" class="border-2 border-[#6B4423] rounded-xl px-3 py-1 text-sm" placeholder="Search this sheet…" oninput="renderBuildPriceSheetDraft()">
             </div>
-            <div class="min-h-0 flex flex-col border-2 border-[#6B4423] rounded-xl p-3 bg-[#f8f4eb]">
-                <p class="text-sm font-semibold brand-green mb-2">Draft items</p>
-                <div id="bps-draft-list" class="flex-1 min-h-0 overflow-y-auto max-h-[46vh]"></div>
-                <p id="bps-draft-count" class="text-xs text-[#6B4423] mt-2">0 items</p>
-            </div>
+            <div id="bps-draft-list" class="flex-1 min-h-0 overflow-y-auto max-h-[52vh]"></div>
+            <p id="bps-draft-count" class="text-xs text-[#6B4423] mt-2">0 items</p>
         </div>
     </div>
 </div>
