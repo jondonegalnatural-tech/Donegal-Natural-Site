@@ -10922,7 +10922,8 @@ var _bpsDraft = {
     prices: {},
     display_names: {},
     categories: {},
-    case_sizes: {}
+    case_sizes: {},
+    hidden: {}
 };
 
 function hideBuildPriceSheetModal() {
@@ -10936,7 +10937,8 @@ function resetBuildPriceSheetDraft() {
         prices: {},
         display_names: {},
         categories: {},
-        case_sizes: {}
+        case_sizes: {},
+        hidden: {}
     };
     const nameEl = document.getElementById('bps-draft-name');
     if (nameEl) nameEl.value = 'Untitled sheet';
@@ -10958,6 +10960,68 @@ async function openBuildPriceSheetModal() {
     renderBuildPriceSheetCatalog();
     renderBuildPriceSheetDraft();
     modal.classList.remove('hidden');
+}
+
+async function loadSalesmanSheetIntoBuilder(email) {
+    email = String(email || '').toLowerCase().trim();
+    if (!email) return;
+    if (typeof supabaseClient === 'undefined') {
+        alert('Stay on internal-portal.html.');
+        return;
+    }
+    const existingKeys = Object.keys(_bpsDraft.prices || {});
+    if (existingKeys.length && !confirm('Replace this draft with the current sheet for ' + email + '?\n\nUnsaved draft lines will be dropped. Live sheets are not changed until Assign.')) {
+        return;
+    }
+    const { data: sheet, error } = await supabaseClient
+        .from('salesman_price_sheets')
+        .select('prices, display_names, hidden_prices, salesman_name')
+        .eq('salesman_email', email)
+        .maybeSingle();
+    if (error) {
+        alert(error.message);
+        return;
+    }
+    if (!sheet || !sheet.prices) {
+        alert('No live sheet found for ' + email + '.');
+        return;
+    }
+    const hidden = (sheet.hidden_prices && typeof sheet.hidden_prices === 'object') ? sheet.hidden_prices : {};
+    const prices = {};
+    const display_names = {};
+    const categories = {};
+    const case_sizes = {};
+    const hiddenMap = {};
+    Object.keys(sheet.prices).forEach(function (name) {
+        prices[name] = Number(sheet.prices[name]);
+        if (Object.prototype.hasOwnProperty.call(hidden, name)) hiddenMap[name] = true;
+        if (sheet.display_names && sheet.display_names[name]) {
+            display_names[name] = sheet.display_names[name];
+        }
+        const catalog = (typeof PRODUCT_CATALOG !== 'undefined')
+            ? PRODUCT_CATALOG.find(function (p) { return p && p.name === name; })
+            : null;
+        if (catalog && catalog.category) categories[name] = catalog.category;
+        if (catalog && catalog.caseSize) case_sizes[name] = catalog.caseSize;
+    });
+    Object.keys(hidden).forEach(function (name) {
+        hiddenMap[name] = true;
+        if (!Object.prototype.hasOwnProperty.call(prices, name) && sheet.prices && sheet.prices[name] != null) {
+            prices[name] = Number(sheet.prices[name]);
+        }
+    });
+    _bpsDraft.prices = prices;
+    _bpsDraft.display_names = display_names;
+    _bpsDraft.categories = categories;
+    _bpsDraft.case_sizes = case_sizes;
+    _bpsDraft.hidden = hiddenMap;
+    const nameEl = document.getElementById('bps-draft-name');
+    if (nameEl && (!nameEl.value || nameEl.value === 'Untitled sheet')) {
+        nameEl.value = (sheet.salesman_name || email) + ' draft';
+        _bpsDraft.name = nameEl.value;
+    }
+    renderBuildPriceSheetCatalog();
+    renderBuildPriceSheetDraft();
 }
 
 async function fillBuildPriceSheetSalesmen() {
@@ -11096,9 +11160,12 @@ function renderBuildPriceSheetDraft() {
         const items = groups[cat].map(function (name) {
             const price = Number(_bpsDraft.prices[name]);
             const cs = _bpsDraft.case_sizes[name] || '';
+            const hiddenBadge = (_bpsDraft.hidden && _bpsDraft.hidden[name])
+                ? '<span class="ml-2 text-xs font-bold bg-red-100 text-red-800 px-1.5 py-0.5 rounded">Hidden</span>'
+                : '';
             return '<div class="bg-white border border-[#6B4423] rounded-xl px-3 py-2 mb-2">' +
                 '<div class="flex justify-between gap-2">' +
-                '<p class="text-sm font-semibold brand-green">' + escapeHtml(name) + '</p>' +
+                '<p class="text-sm font-semibold brand-green">' + escapeHtml(name) + hiddenBadge + '</p>' +
                 '<button type="button" class="text-red-700 text-xs" onclick="removeBuildPriceSheetItem(\'' +
                 encodeURIComponent(name) + '\')">Remove</button></div>' +
                 '<p class="text-xs text-[#6B4423]">' + (cs ? escapeHtml(cs) : '') + '</p>' +
@@ -11299,6 +11366,7 @@ async function assignBuildPriceSheetDraft() {
     let added = 0;
     keys.forEach(function (key) {
         if (Object.prototype.hasOwnProperty.call(prices, key)) return;
+        if (_bpsDraft.hidden && _bpsDraft.hidden[key]) return;
         prices[key] = Number(_bpsDraft.prices[key]);
         if (_bpsDraft.display_names[key]) names[key] = _bpsDraft.display_names[key];
         added += 1;

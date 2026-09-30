@@ -4366,7 +4366,7 @@ body { background: #f8f1e9; }
             </select>
         </div>
         <div class="flex flex-wrap items-center gap-2 mb-4">
-            <select id="bps-assign-salesman" class="border-2 border-[#6B4423] rounded-xl px-3 py-2">
+            <select id="bps-assign-salesman" class="border-2 border-[#6B4423] rounded-xl px-3 py-2" onchange="loadSalesmanSheetIntoBuilder(this.value)">
                 <option value="">Assign to salesman…</option>
             </select>
             <button type="button" onclick="saveBuildPriceSheetDraft()" class="px-4 py-2 border-2 border-[#6B4423] rounded-xl font-semibold">Save Draft</button>
