@@ -10954,6 +10954,7 @@ async function openBuildPriceSheetModal() {
     resetBuildPriceSheetDraft();
     await fillBuildPriceSheetSalesmen();
     await fillBuildPriceSheetDraftSelect();
+    fillBuildPriceSheetCategoryOptions();
     renderBuildPriceSheetCatalog();
     renderBuildPriceSheetDraft();
     modal.classList.remove('hidden');
@@ -11019,6 +11020,24 @@ async function loadBuildPriceSheetDraft(id) {
     renderBuildPriceSheetDraft();
 }
 
+function fillBuildPriceSheetCategoryOptions() {
+    const list = document.getElementById('bps-category-options');
+    if (!list) return;
+    const cats = (typeof knownAddProductCategories === 'function')
+        ? knownAddProductCategories()
+        : [];
+    list.innerHTML = cats.map(function (c) {
+        return '<option value="' + escapeHtml(c) + '">';
+    }).join('');
+}
+
+function bpsItemCategories(raw) {
+    return String(raw || '')
+        .split(',')
+        .map(function (c) { return String(c || '').trim(); })
+        .filter(Boolean);
+}
+
 function renderBuildPriceSheetCatalog() {
     const box = document.getElementById('bps-catalog-list');
     if (!box) return;
@@ -11031,13 +11050,25 @@ function renderBuildPriceSheetCatalog() {
         return String(p.name).toLowerCase().indexOf(term) !== -1 ||
             String(p.category || '').toLowerCase().indexOf(term) !== -1;
     });
-    box.innerHTML = rows.slice(0, 300).map(function (p) {
-        const price = (p.unitPrice != null && p.unitPrice !== '') ? ('$' + Number(p.unitPrice).toFixed(2)) : '—';
-        return '<label class="flex items-start gap-2 text-sm py-1 border-b border-[#e8d9b8]">' +
-            '<input type="checkbox" class="accent-[#1E4D2B] mt-1" data-bps-cat-name="' + encodeURIComponent(p.name) + '">' +
-            '<span><span class="font-semibold brand-green">' + escapeHtml(p.name) + '</span>' +
-            '<span class="block text-xs text-[#6B4423]">' + escapeHtml(p.category || '') +
-            (p.caseSize ? (' · ' + escapeHtml(p.caseSize)) : '') + ' · ' + escapeHtml(price) + '</span></span></label>';
+    const groups = {};
+    rows.forEach(function (p) {
+        const cats = bpsItemCategories(p.category);
+        (cats.length ? cats : ['Other']).forEach(function (cat) {
+            if (!groups[cat]) groups[cat] = [];
+            groups[cat].push(p);
+        });
+    });
+    const headers = Object.keys(groups).sort();
+    box.innerHTML = headers.map(function (cat) {
+        const items = groups[cat].map(function (p) {
+            const price = (p.unitPrice != null && p.unitPrice !== '') ? ('$' + Number(p.unitPrice).toFixed(2)) : '—';
+            return '<label class="flex items-start gap-2 text-sm py-1 border-b border-[#e8d9b8]">' +
+                '<input type="checkbox" class="accent-[#1E4D2B] mt-1" data-bps-cat-name="' + encodeURIComponent(p.name) + '">' +
+                '<span><span class="font-semibold brand-green">' + escapeHtml(p.name) + '</span>' +
+                '<span class="block text-xs text-[#6B4423]">' +
+                (p.caseSize ? escapeHtml(p.caseSize) + ' · ' : '') + escapeHtml(price) + '</span></span></label>';
+        }).join('');
+        return '<p class="text-xs font-bold brand-green uppercase tracking-wide mt-3 mb-1">' + escapeHtml(cat) + '</p>' + items;
     }).join('') || '<p class="text-sm text-[#6B4423]">No catalog items match.</p>';
 }
 
@@ -11051,20 +11082,32 @@ function renderBuildPriceSheetDraft() {
         box.innerHTML = '<p class="text-sm text-[#6B4423]">No items in this draft yet.</p>';
         return;
     }
-    box.innerHTML = names.map(function (name) {
-        const price = Number(_bpsDraft.prices[name]);
-        const cs = _bpsDraft.case_sizes[name] || '';
-        const cat = _bpsDraft.categories[name] || '';
-        return '<div class="bg-white border border-[#6B4423] rounded-xl px-3 py-2 mb-2">' +
-            '<div class="flex justify-between gap-2">' +
-            '<p class="text-sm font-semibold brand-green">' + escapeHtml(name) + '</p>' +
-            '<button type="button" class="text-red-700 text-xs" onclick="removeBuildPriceSheetItem(\'' +
-            encodeURIComponent(name) + '\')">Remove</button></div>' +
-            '<p class="text-xs text-[#6B4423]">' + escapeHtml(cat) + (cs ? (' · ' + escapeHtml(cs)) : '') + '</p>' +
-            '<label class="text-xs text-[#6B4423]">$ <input type="number" step="0.01" min="0" value="' +
-            (isFinite(price) ? price.toFixed(2) : '') +
-            '" class="w-24 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm" onchange="updateBuildPriceSheetPrice(\'' +
-            encodeURIComponent(name) + '\', this.value)"></label></div>';
+    const groups = {};
+    names.forEach(function (name) {
+        const catalog = (PRODUCT_CATALOG || []).find(function (p) { return p && p.name === name; });
+        const raw = _bpsDraft.categories[name] || (catalog && catalog.category) || 'Other';
+        const cats = bpsItemCategories(raw);
+        (cats.length ? cats : ['Other']).forEach(function (cat) {
+            if (!groups[cat]) groups[cat] = [];
+            groups[cat].push(name);
+        });
+    });
+    box.innerHTML = Object.keys(groups).sort().map(function (cat) {
+        const items = groups[cat].map(function (name) {
+            const price = Number(_bpsDraft.prices[name]);
+            const cs = _bpsDraft.case_sizes[name] || '';
+            return '<div class="bg-white border border-[#6B4423] rounded-xl px-3 py-2 mb-2">' +
+                '<div class="flex justify-between gap-2">' +
+                '<p class="text-sm font-semibold brand-green">' + escapeHtml(name) + '</p>' +
+                '<button type="button" class="text-red-700 text-xs" onclick="removeBuildPriceSheetItem(\'' +
+                encodeURIComponent(name) + '\')">Remove</button></div>' +
+                '<p class="text-xs text-[#6B4423]">' + (cs ? escapeHtml(cs) : '') + '</p>' +
+                '<label class="text-xs text-[#6B4423]">$ <input type="number" step="0.01" min="0" value="' +
+                (isFinite(price) ? price.toFixed(2) : '') +
+                '" class="w-24 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm" onchange="updateBuildPriceSheetPrice(\'' +
+                encodeURIComponent(name) + '\', this.value)"></label></div>';
+        }).join('');
+        return '<p class="text-xs font-bold brand-green uppercase tracking-wide mt-3 mb-1">' + escapeHtml(cat) + '</p>' + items;
     }).join('');
 }
 
@@ -11086,9 +11129,9 @@ function bulkAddBuildPriceSheetItems() {
     renderBuildPriceSheetDraft();
 }
 
-function addCustomBuildPriceSheetItem() {
+async function addCustomBuildPriceSheetItem() {
     const name = String(document.getElementById('bps-new-name')?.value || '').trim();
-    const category = String(document.getElementById('bps-new-category')?.value || '').trim();
+    const category = String(document.getElementById('bps-new-category')?.value || '').trim() || 'Other';
     const caseSize = String(document.getElementById('bps-new-case')?.value || '').trim();
     const price = parseFloat(document.getElementById('bps-new-price')?.value || '');
     if (!name) {
@@ -11099,32 +11142,47 @@ function addCustomBuildPriceSheetItem() {
         alert('Enter a valid price.');
         return;
     }
-    _bpsDraft.prices[name] = price;
-    if (category) _bpsDraft.categories[name] = category;
-    if (caseSize) _bpsDraft.case_sizes[name] = caseSize;
-    const also = document.getElementById('bps-also-catalog')?.checked === true;
-    if (also && typeof supabaseClient !== 'undefined') {
-        supabaseClient.from('products').select('id').eq('name', name).maybeSingle()
-            .then(function (res) {
-                if (res.data && res.data.id) return;
-                return supabaseClient.from('products').insert({
-                    name: name,
-                    category: category || 'Other',
-                    case_size: caseSize || null,
-                    unit_price: price,
-                    is_market_price: false,
-                    active: true
-                });
-            })
-            .then(function () {
-                if (typeof loadProductCatalog === 'function') return loadProductCatalog();
-            })
-            .catch(function (err) { console.warn('catalog insert skipped', err); });
+    if (typeof supabaseClient === 'undefined') {
+        alert('Stay on internal-portal.html.');
+        return;
     }
+    const existing = await supabaseClient.from('products').select('id').eq('name', name).maybeSingle();
+    if (existing.error) {
+        alert(existing.error.message);
+        return;
+    }
+    if (!existing.data) {
+        const inserted = await supabaseClient.from('products').insert({
+            name: name,
+            category: category,
+            case_size: caseSize || null,
+            unit_price: price,
+            is_market_price: false,
+            active: true
+        });
+        if (inserted.error) {
+            alert(inserted.error.message);
+            return;
+        }
+    }
+    if (typeof PRODUCT_CATALOG !== 'undefined' && !PRODUCT_CATALOG.some(function (p) { return p && p.name === name; })) {
+        PRODUCT_CATALOG.push({
+            name: name,
+            category: category,
+            caseSize: caseSize,
+            unitPrice: price,
+            isMarketPrice: false
+        });
+    }
+    _bpsDraft.prices[name] = price;
+    _bpsDraft.categories[name] = category;
+    if (caseSize) _bpsDraft.case_sizes[name] = caseSize;
     document.getElementById('bps-new-name').value = '';
     document.getElementById('bps-new-price').value = '';
+    fillBuildPriceSheetCategoryOptions();
     renderBuildPriceSheetCatalog();
     renderBuildPriceSheetDraft();
+    alert('Created on the Company Base Price Sheet and added to this draft only. Other salesmen and stores were not changed.');
 }
 
 function removeBuildPriceSheetItem(encoded) {
