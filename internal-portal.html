@@ -4369,10 +4369,7 @@ body { background: #f8f1e9; }
             <select id="bps-draft-select" class="border-2 border-[#6B4423] rounded-xl px-3 py-2" onchange="loadBuildPriceSheetDraft(this.value)">
                 <option value="">New draft</option>
             </select>
-            <span id="bps-apply-wrap" class="hidden flex flex-wrap items-center gap-2">
-                <button type="button" id="bps-apply-to-draft-btn" onclick="applyCheckedItemsToNamedDraft()" class="btn-brand px-3 py-2 rounded-xl text-sm">Apply to draft</button>
-                <button type="button" onclick="saveBuildPriceSheetDraft()" class="px-3 py-2 border-2 border-[#6B4423] rounded-xl font-semibold text-sm">Save custom sales sheet</button>
-            </span>
+            <span id="bps-apply-wrap" class="hidden"></span>
         </div>
         <div class="flex flex-wrap items-center gap-2 mb-4">
             <select id="bps-assign-salesman" class="border-2 border-[#6B4423] rounded-xl px-3 py-2" onchange="loadSalesmanSheetIntoBuilder(this.value)">
@@ -4409,6 +4406,10 @@ body { background: #f8f1e9; }
                 </div>
                 <div id="bps-source-list" class="flex-1 min-h-0 overflow-y-auto max-h-[52vh]"></div>
                 <p id="bps-source-count" class="text-xs text-[#6B4423] mt-2">0 items</p>
+                <div class="flex flex-wrap gap-2 mt-3">
+                    <button type="button" id="bps-apply-to-draft-btn" onclick="applyCheckedItemsToNamedDraft()" class="btn-brand px-3 py-2 rounded-xl text-sm">Add to Sheet</button>
+                    <button type="button" onclick="saveBuildPriceSheetDraft()" class="px-3 py-2 border-2 border-[#6B4423] rounded-xl font-semibold text-sm">Save Sheet</button>
+                </div>
             </div>
             <div class="min-h-0 flex flex-col border-2 border-[#6B4423] rounded-xl p-3 bg-[#f8f4eb]">
                 <p id="bps-draft-title" class="text-sm font-semibold brand-green mb-2">Draft items</p>

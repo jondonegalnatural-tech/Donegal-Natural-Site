@@ -11194,8 +11194,6 @@ async function loadSalesmanSheetIntoBuilder(email) {
 
 function updateBuildPriceSheetApplyLabel() {
     const name = String(document.getElementById('bps-draft-name')?.value || '').trim() || 'draft';
-    const btn = document.getElementById('bps-apply-to-draft-btn');
-    if (btn) btn.textContent = 'Apply to ' + name;
     const title = document.getElementById('bps-draft-title');
     if (title) title.textContent = 'Draft — ' + name;
 }
