@@ -10916,6 +10916,344 @@ async function saveEditedSalesman(event) {
 }
 
 
+var _bpsDraft = {
+    id: null,
+    name: 'Untitled sheet',
+    prices: {},
+    display_names: {},
+    categories: {},
+    case_sizes: {}
+};
+
+function hideBuildPriceSheetModal() {
+    document.getElementById('build-price-sheet-modal')?.classList.add('hidden');
+}
+
+function resetBuildPriceSheetDraft() {
+    _bpsDraft = {
+        id: null,
+        name: 'Untitled sheet',
+        prices: {},
+        display_names: {},
+        categories: {},
+        case_sizes: {}
+    };
+    const nameEl = document.getElementById('bps-draft-name');
+    if (nameEl) nameEl.value = 'Untitled sheet';
+    const sel = document.getElementById('bps-draft-select');
+    if (sel) sel.value = '';
+    renderBuildPriceSheetDraft();
+}
+
+async function openBuildPriceSheetModal() {
+    const modal = document.getElementById('build-price-sheet-modal');
+    if (!modal) {
+        alert('Build Price Sheet modal is missing from internal-portal.html');
+        return;
+    }
+    resetBuildPriceSheetDraft();
+    await fillBuildPriceSheetSalesmen();
+    await fillBuildPriceSheetDraftSelect();
+    renderBuildPriceSheetCatalog();
+    renderBuildPriceSheetDraft();
+    modal.classList.remove('hidden');
+}
+
+async function fillBuildPriceSheetSalesmen() {
+    const sel = document.getElementById('bps-assign-salesman');
+    if (!sel) return;
+    if ((!salesmen || !salesmen.length) && typeof loadSalesmen === 'function') {
+        await loadSalesmen();
+    }
+    sel.innerHTML = '<option value="">Assign to salesman…</option>' +
+        (salesmen || []).map(function (s) {
+            const email = String(s.email || s.salesman_email || '').toLowerCase();
+            const name = s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || email;
+            return '<option value="' + escapeHtml(email) + '">' + escapeHtml(name + ' (' + email + ')') + '</option>';
+        }).join('');
+}
+
+async function fillBuildPriceSheetDraftSelect() {
+    const sel = document.getElementById('bps-draft-select');
+    if (!sel || typeof supabaseClient === 'undefined') return;
+    const { data, error } = await supabaseClient
+        .from('salesman_price_sheet_drafts')
+        .select('id, name, updated_at')
+        .order('updated_at', { ascending: false });
+    if (error) {
+        console.warn('drafts list', error);
+        return;
+    }
+    sel.innerHTML = '<option value="">New draft</option>' +
+        (data || []).map(function (row) {
+            return '<option value="' + escapeHtml(row.id) + '">' + escapeHtml(row.name || 'Untitled') + '</option>';
+        }).join('');
+}
+
+async function loadBuildPriceSheetDraft(id) {
+    if (!id) {
+        resetBuildPriceSheetDraft();
+        renderBuildPriceSheetCatalog();
+        return;
+    }
+    const { data, error } = await supabaseClient
+        .from('salesman_price_sheet_drafts')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
+    if (error || !data) {
+        alert((error && error.message) || 'Draft not found');
+        return;
+    }
+    _bpsDraft = {
+        id: data.id,
+        name: data.name || 'Untitled sheet',
+        prices: Object.assign({}, data.prices || {}),
+        display_names: Object.assign({}, data.display_names || {}),
+        categories: Object.assign({}, data.categories || {}),
+        case_sizes: Object.assign({}, data.case_sizes || {})
+    };
+    const nameEl = document.getElementById('bps-draft-name');
+    if (nameEl) nameEl.value = _bpsDraft.name;
+    renderBuildPriceSheetCatalog();
+    renderBuildPriceSheetDraft();
+}
+
+function renderBuildPriceSheetCatalog() {
+    const box = document.getElementById('bps-catalog-list');
+    if (!box) return;
+    const term = String(document.getElementById('bps-catalog-search')?.value || '').toLowerCase().trim();
+    const rows = (typeof PRODUCT_CATALOG !== 'undefined' ? PRODUCT_CATALOG : []).filter(function (p) {
+        if (!p || !p.name) return false;
+        if (typeof isTestProductName === 'function' && isTestProductName(p.name)) return false;
+        if (Object.prototype.hasOwnProperty.call(_bpsDraft.prices, p.name)) return false;
+        if (!term) return true;
+        return String(p.name).toLowerCase().indexOf(term) !== -1 ||
+            String(p.category || '').toLowerCase().indexOf(term) !== -1;
+    });
+    box.innerHTML = rows.slice(0, 300).map(function (p) {
+        const price = (p.unitPrice != null && p.unitPrice !== '') ? ('$' + Number(p.unitPrice).toFixed(2)) : '—';
+        return '<label class="flex items-start gap-2 text-sm py-1 border-b border-[#e8d9b8]">' +
+            '<input type="checkbox" class="accent-[#1E4D2B] mt-1" data-bps-cat-name="' + encodeURIComponent(p.name) + '">' +
+            '<span><span class="font-semibold brand-green">' + escapeHtml(p.name) + '</span>' +
+            '<span class="block text-xs text-[#6B4423]">' + escapeHtml(p.category || '') +
+            (p.caseSize ? (' · ' + escapeHtml(p.caseSize)) : '') + ' · ' + escapeHtml(price) + '</span></span></label>';
+    }).join('') || '<p class="text-sm text-[#6B4423]">No catalog items match.</p>';
+}
+
+function renderBuildPriceSheetDraft() {
+    const box = document.getElementById('bps-draft-list');
+    const countEl = document.getElementById('bps-draft-count');
+    const names = Object.keys(_bpsDraft.prices || {}).sort();
+    if (countEl) countEl.textContent = names.length + ' item' + (names.length === 1 ? '' : 's');
+    if (!box) return;
+    if (!names.length) {
+        box.innerHTML = '<p class="text-sm text-[#6B4423]">No items in this draft yet.</p>';
+        return;
+    }
+    box.innerHTML = names.map(function (name) {
+        const price = Number(_bpsDraft.prices[name]);
+        const cs = _bpsDraft.case_sizes[name] || '';
+        const cat = _bpsDraft.categories[name] || '';
+        return '<div class="bg-white border border-[#6B4423] rounded-xl px-3 py-2 mb-2">' +
+            '<div class="flex justify-between gap-2">' +
+            '<p class="text-sm font-semibold brand-green">' + escapeHtml(name) + '</p>' +
+            '<button type="button" class="text-red-700 text-xs" onclick="removeBuildPriceSheetItem(\'' +
+            encodeURIComponent(name) + '\')">Remove</button></div>' +
+            '<p class="text-xs text-[#6B4423]">' + escapeHtml(cat) + (cs ? (' · ' + escapeHtml(cs)) : '') + '</p>' +
+            '<label class="text-xs text-[#6B4423]">$ <input type="number" step="0.01" min="0" value="' +
+            (isFinite(price) ? price.toFixed(2) : '') +
+            '" class="w-24 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm" onchange="updateBuildPriceSheetPrice(\'' +
+            encodeURIComponent(name) + '\', this.value)"></label></div>';
+    }).join('');
+}
+
+function bulkAddBuildPriceSheetItems() {
+    const boxes = document.querySelectorAll('#bps-catalog-list [data-bps-cat-name]:checked');
+    if (!boxes.length) {
+        alert('Check one or more company products first.');
+        return;
+    }
+    boxes.forEach(function (cb) {
+        const name = decodeURIComponent(cb.getAttribute('data-bps-cat-name') || '');
+        const p = (PRODUCT_CATALOG || []).find(function (row) { return row && row.name === name; });
+        if (!name || !p) return;
+        _bpsDraft.prices[name] = Number(p.unitPrice);
+        if (p.category) _bpsDraft.categories[name] = p.category;
+        if (p.caseSize) _bpsDraft.case_sizes[name] = p.caseSize;
+    });
+    renderBuildPriceSheetCatalog();
+    renderBuildPriceSheetDraft();
+}
+
+function addCustomBuildPriceSheetItem() {
+    const name = String(document.getElementById('bps-new-name')?.value || '').trim();
+    const category = String(document.getElementById('bps-new-category')?.value || '').trim();
+    const caseSize = String(document.getElementById('bps-new-case')?.value || '').trim();
+    const price = parseFloat(document.getElementById('bps-new-price')?.value || '');
+    if (!name) {
+        alert('Product name is required.');
+        return;
+    }
+    if (isNaN(price) || price < 0) {
+        alert('Enter a valid price.');
+        return;
+    }
+    _bpsDraft.prices[name] = price;
+    if (category) _bpsDraft.categories[name] = category;
+    if (caseSize) _bpsDraft.case_sizes[name] = caseSize;
+    const also = document.getElementById('bps-also-catalog')?.checked === true;
+    if (also && typeof supabaseClient !== 'undefined') {
+        supabaseClient.from('products').select('id').eq('name', name).maybeSingle()
+            .then(function (res) {
+                if (res.data && res.data.id) return;
+                return supabaseClient.from('products').insert({
+                    name: name,
+                    category: category || 'Other',
+                    case_size: caseSize || null,
+                    unit_price: price,
+                    is_market_price: false,
+                    active: true
+                });
+            })
+            .then(function () {
+                if (typeof loadProductCatalog === 'function') return loadProductCatalog();
+            })
+            .catch(function (err) { console.warn('catalog insert skipped', err); });
+    }
+    document.getElementById('bps-new-name').value = '';
+    document.getElementById('bps-new-price').value = '';
+    renderBuildPriceSheetCatalog();
+    renderBuildPriceSheetDraft();
+}
+
+function removeBuildPriceSheetItem(encoded) {
+    const name = decodeURIComponent(encoded || '');
+    delete _bpsDraft.prices[name];
+    delete _bpsDraft.display_names[name];
+    delete _bpsDraft.categories[name];
+    delete _bpsDraft.case_sizes[name];
+    renderBuildPriceSheetCatalog();
+    renderBuildPriceSheetDraft();
+}
+
+function updateBuildPriceSheetPrice(encoded, raw) {
+    const name = decodeURIComponent(encoded || '');
+    const n = parseFloat(raw);
+    if (!name || isNaN(n) || n < 0) return;
+    _bpsDraft.prices[name] = n;
+}
+
+async function saveBuildPriceSheetDraft() {
+    if (typeof supabaseClient === 'undefined') {
+        alert('Stay on internal-portal.html.');
+        return;
+    }
+    const name = String(document.getElementById('bps-draft-name')?.value || '').trim() || 'Untitled sheet';
+    _bpsDraft.name = name;
+    const payload = {
+        name: name,
+        prices: _bpsDraft.prices,
+        display_names: _bpsDraft.display_names,
+        categories: _bpsDraft.categories,
+        case_sizes: _bpsDraft.case_sizes,
+        updated_at: new Date().toISOString()
+    };
+    try {
+        const u = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        payload.created_by = String(u.email || '').toLowerCase();
+    } catch (e) {}
+    if (_bpsDraft.id) {
+        const { error } = await supabaseClient
+            .from('salesman_price_sheet_drafts')
+            .update(payload)
+            .eq('id', _bpsDraft.id);
+        if (error) { alert(error.message); return; }
+    } else {
+        const { data, error } = await supabaseClient
+            .from('salesman_price_sheet_drafts')
+            .insert(payload)
+            .select('id')
+            .maybeSingle();
+        if (error) { alert(error.message); return; }
+        _bpsDraft.id = data && data.id;
+    }
+    await fillBuildPriceSheetDraftSelect();
+    const sel = document.getElementById('bps-draft-select');
+    if (sel && _bpsDraft.id) sel.value = _bpsDraft.id;
+    alert('Draft saved. Live salesman sheets were not changed.');
+}
+
+async function assignBuildPriceSheetDraft() {
+    const email = String(document.getElementById('bps-assign-salesman')?.value || '').toLowerCase().trim();
+    if (!email) {
+        alert('Pick a salesman to assign this draft to.');
+        return;
+    }
+    const keys = Object.keys(_bpsDraft.prices || {});
+    if (!keys.length) {
+        alert('Add items to the draft first.');
+        return;
+    }
+    if (!confirm('Merge ' + keys.length + ' draft item(s) onto ' + email + '?\n\nExisting prices, nicknames, and hidden items will not change.\nStores will not be pushed.')) {
+        return;
+    }
+    await saveBuildPriceSheetDraft();
+    const { data: sheet, error } = await supabaseClient
+        .from('salesman_price_sheets')
+        .select('id, prices, display_names, hidden_prices, salesman_name')
+        .eq('salesman_email', email)
+        .maybeSingle();
+    if (error) { alert(error.message); return; }
+    const salesman = (salesmen || []).find(function (s) {
+        return String(s.email || s.salesman_email || '').toLowerCase() === email;
+    });
+    const salesmanName = (salesman && (salesman.name || [salesman.firstName, salesman.lastName].filter(Boolean).join(' '))) || (sheet && sheet.salesman_name) || email;
+    const prices = Object.assign({}, (sheet && sheet.prices) || {});
+    const names = Object.assign({}, (sheet && sheet.display_names) || {});
+    const hidden = (sheet && sheet.hidden_prices) ? sheet.hidden_prices : {};
+    let added = 0;
+    keys.forEach(function (key) {
+        if (Object.prototype.hasOwnProperty.call(prices, key)) return;
+        prices[key] = Number(_bpsDraft.prices[key]);
+        if (_bpsDraft.display_names[key]) names[key] = _bpsDraft.display_names[key];
+        added += 1;
+    });
+    if (sheet && sheet.id) {
+        const { error: upErr } = await supabaseClient
+            .from('salesman_price_sheets')
+            .update({
+                prices: prices,
+                display_names: names,
+                hidden_prices: hidden,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', sheet.id);
+        if (upErr) { alert(upErr.message); return; }
+    } else {
+        const { error: insErr } = await supabaseClient
+            .from('salesman_price_sheets')
+            .insert({
+                salesman_email: email,
+                salesman_name: salesmanName,
+                prices: prices,
+                display_names: names,
+                hidden_prices: {}
+            });
+        if (insErr) { alert(insErr.message); return; }
+    }
+    if (_bpsDraft.id) {
+        await supabaseClient
+            .from('salesman_price_sheet_drafts')
+            .update({
+                assigned_to_email: email,
+                assigned_at: new Date().toISOString()
+            })
+            .eq('id', _bpsDraft.id);
+    }
+    alert('Assigned to ' + email + '. Added ' + added + ' new key(s). Existing prices / hidden items / nicknames kept. Stores not pushed.');
+}
+
 function showAddSalesmanModal() {
     const modal = document.getElementById('add-salesman-modal');
     if (!modal) {
