@@ -11483,7 +11483,9 @@ function renderBuildPriceSheetSource() {
     const term = String(document.getElementById('bps-sheet-search')?.value || '').toLowerCase().trim();
     const names = Object.keys(_bpsSource.prices || {}).filter(function (name) {
         if (!term) return true;
+        const nick = String((_bpsSource.display_names && _bpsSource.display_names[name]) || '').toLowerCase();
         return String(name).toLowerCase().indexOf(term) !== -1 ||
+            nick.indexOf(term) !== -1 ||
             String(_bpsSource.categories[name] || '').toLowerCase().indexOf(term) !== -1;
     }).sort();
     if (countEl) countEl.textContent = names.length + ' item' + (names.length === 1 ? '' : 's');
@@ -11506,10 +11508,16 @@ function renderBuildPriceSheetSource() {
             const hiddenBadge = (_bpsSource.hidden && _bpsSource.hidden[name])
                 ? '<span class="ml-2 text-xs font-bold bg-red-100 text-red-800 px-1.5 py-0.5 rounded">Hidden</span>'
                 : '';
+            const nick = (_bpsSource.display_names && _bpsSource.display_names[name]) || '';
+            const title = nick && nick !== name ? nick : name;
+            const sub = nick && nick !== name
+                ? '<span class="block text-xs text-[#8a7a68]">' + escapeHtml(name) + '</span>'
+                : '';
             return '<label class="flex items-start gap-2 bg-white border border-[#6B4423] rounded-xl px-3 py-2 mb-2">' +
                 '<input type="checkbox" class="accent-[#1E4D2B] mt-1" data-bps-apply-name="' + encodeURIComponent(name) + '">' +
-                '<span><span class="text-sm font-semibold brand-green">' + escapeHtml(name) + hiddenBadge +
-                '</span><span class="block text-xs text-[#6B4423]">$' +
+                '<span><span class="text-sm font-semibold brand-green">' + escapeHtml(title) + hiddenBadge +
+                '</span>' + sub +
+                '<span class="block text-xs text-[#6B4423]">$' +
                 (isFinite(price) ? price.toFixed(2) : '0.00') + '</span></span></label>';
         }).join('');
         const open = !!term;
