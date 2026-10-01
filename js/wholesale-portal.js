@@ -3156,7 +3156,9 @@ function renderWholesaleItemGrid(container) {
     });
     if (currentCategoryFilter && currentCategoryFilter !== 'All') {
         rows = rows.filter(function (p) {
-            return String(p.category || '') === currentCategoryFilter;
+            if (String(p.category || '') === currentCategoryFilter) return true;
+            const mapped = (typeof brianPackCategories === 'function') ? brianPackCategories(p.name) : null;
+            return !!(mapped && mapped.indexOf(currentCategoryFilter) !== -1);
         });
     }
     if (searchVal) {
@@ -8638,7 +8640,9 @@ function brianPackCategories(name) {
         "16oz bags of peanut butter binkey's": ["Binkey's"],
         "16oz bags of vanilla binkey's": ["Binkey's"],
     };
-    return map[key] || null;
+    if (map[key]) return map[key];
+    if (/euro bull/.test(key)) return ['Bully Sticks'];
+    return null;
 }
 
 async function applyBrianWholesaleSheetPrices() {
