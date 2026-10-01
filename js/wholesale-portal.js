@@ -2753,9 +2753,14 @@ function renderCategoryFilters() {
     const sidebar = document.getElementById('sidebar-categories');
     const mobile = document.getElementById('mobile-category-filters');
     const cats = getSidebarCategories();
-    const items = [{ label: 'Recommended', value: 'All' }].concat(
-        cats.map(c => ({ label: c, value: c }))
-    );
+    if (typeof useWholesaleItemGrid === 'function' && useWholesaleItemGrid()) {
+        if ((!currentCategoryFilter || currentCategoryFilter === 'All') && cats.length) {
+            currentCategoryFilter = cats[0];
+        }
+    }
+    const items = (typeof useWholesaleItemGrid === 'function' && useWholesaleItemGrid())
+        ? cats.map(c => ({ label: c, value: c }))
+        : [{ label: 'Recommended', value: 'All' }].concat(cats.map(c => ({ label: c, value: c })));
 
     function fill(container, useChip) {
         if (!container) return;
