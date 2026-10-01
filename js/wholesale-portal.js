@@ -3192,7 +3192,12 @@ function renderWholesaleItemGrid(container) {
         const ga = groupRank(a.name);
         const gb = groupRank(b.name);
         if (ga !== gb) return ga - gb;
-        return String(a.name || '').localeCompare(String(b.name || ''));
+        function likeName(name) {
+            const raw = String(name || '');
+            const pack = (raw.match(/^\d+\s*pack/i) || [''])[0];
+            return raw.replace(/^\d+\s*pack,\s*/i, '') + ' ' + pack;
+        }
+        return likeName(a.name).localeCompare(likeName(b.name));
     });
     if (!rows.length) {
         container.innerHTML = '<p class="text-center py-8 text-[#6B4423]">No products found.</p>';
