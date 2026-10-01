@@ -3093,7 +3093,7 @@ function brianPackGroup(name) {
     if (/braided bully/.test(n)) return 'Braided Bully';
     if (/euro bull/.test(n)) return 'Euro Bully';
     if (/bully cane/.test(n)) return 'Canes';
-    if (/monster|thin bully|regular|bully stick/.test(n)) return 'Green Line';
+    if (/monster|thin bully|regular bully|bully stick/.test(n)) return 'Green Line';
     if (/jerky treats/.test(n)) return 'Jerky Stick Treats';
     if (/elky training/.test(n)) return 'Training Treats';
     if (/stuffed buffalo bone/.test(n)) return 'Jerky Stuffed Bones';
