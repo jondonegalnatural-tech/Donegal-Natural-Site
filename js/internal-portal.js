@@ -11468,6 +11468,14 @@ function renderBuildPriceSheetCatalog() {
     }).join('') || '<p class="text-sm text-[#6B4423]">No catalog items match.</p>';
 }
 
+function toggleBuildPriceSheetCat(btn) {
+    const body = btn && btn.nextElementSibling;
+    if (!body) return;
+    const open = body.classList.toggle('hidden');
+    const caret = btn.querySelector('[data-bps-caret]');
+    if (caret) caret.textContent = open ? '▸' : '▾';
+}
+
 function renderBuildPriceSheetSource() {
     const box = document.getElementById('bps-source-list');
     const countEl = document.getElementById('bps-source-count');
@@ -11504,7 +11512,11 @@ function renderBuildPriceSheetSource() {
                 '</span><span class="block text-xs text-[#6B4423]">$' +
                 (isFinite(price) ? price.toFixed(2) : '0.00') + '</span></span></label>';
         }).join('');
-        return '<p class="text-xs font-bold brand-green uppercase tracking-wide mt-3 mb-1">' + escapeHtml(cat) + '</p>' + items;
+        const open = !!term;
+        return '<button type="button" class="w-full text-left text-xs font-bold brand-green uppercase tracking-wide mt-3 mb-1" onclick="toggleBuildPriceSheetCat(this)">' +
+            '<span data-bps-caret>' + (open ? '▾' : '▸') + '</span> ' + escapeHtml(cat) +
+            ' (' + groups[cat].length + ')</button>' +
+            '<div class="' + (open ? '' : 'hidden') + '">' + items + '</div>';
     }).join('');
 }
 
@@ -11555,7 +11567,10 @@ function renderBuildPriceSheetDraft() {
                 '" class="w-24 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm" onchange="updateBuildPriceSheetPrice(\'' +
                 encodeURIComponent(name) + '\', this.value)"></label></div>';
         }).join('');
-        return '<p class="text-xs font-bold brand-green uppercase tracking-wide mt-3 mb-1">' + escapeHtml(cat) + '</p>' + items;
+        return '<button type="button" class="w-full text-left text-xs font-bold brand-green uppercase tracking-wide mt-3 mb-1" onclick="toggleBuildPriceSheetCat(this)">' +
+            '<span data-bps-caret>▸</span> ' + escapeHtml(cat) +
+            ' (' + groups[cat].length + ')</button>' +
+            '<div class="hidden">' + items + '</div>';
     }).join('');
 }
 
