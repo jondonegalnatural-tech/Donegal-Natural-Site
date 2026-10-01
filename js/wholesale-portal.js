@@ -3088,6 +3088,61 @@ function useWholesaleItemGrid() {
     return email === 'donegaldogtreats@gmail.com';
 }
 
+function brianPackGroup(name) {
+    const n = String(name || '').toLowerCase();
+    if (/monster|thin bully|regular.? bully|bully stick/.test(n) && /pack/.test(n)) return 'Green Line';
+    if (/bully cane/.test(n)) return 'Canes';
+    if (/braided bully/.test(n)) return 'Braided Bully';
+    if (/euro bull/.test(n)) return 'Euro Bully';
+    if (/jerky treats/.test(n)) return 'Jerky Stick Treats';
+    if (/elky training/.test(n)) return 'Training Treats';
+    if (/stuffed buffalo bone/.test(n)) return 'Jerky Stuffed Bones';
+    if (/cow ear/.test(n)) return 'Natural/Flavored Cow Ears';
+    if (/buffalo ears/.test(n)) return 'Buffalo Ears';
+    if (/hairy beef ears/.test(n)) return 'Hairy Beef Ears';
+    if (/bunny ears/.test(n)) return 'Fuzzy Rabbit Ears';
+    if (/pig ear/.test(n)) return 'Pig Ears';
+    if (/natural .*rollio|natural rollio/.test(n)) return 'All Natural Rollio';
+    if (/phat/.test(n)) return 'PHAT Rollios';
+    if (/peanut butter stuffed .*rollio|peanut butter stuffed rollio/.test(n)) return 'Peanut Butter Rollios';
+    if (/rollio/.test(n)) return 'Natural/Flavored Rollios';
+    if (/cheek slab/.test(n)) return 'Cow Cheek Slabs';
+    if (/chunky/.test(n)) return 'Chunky Cheeks';
+    if (/ox tail/.test(n)) return 'MAGNA Ox Tails';
+    if (/bunny feet/.test(n)) return 'Fuzzy Rabbit Feet';
+    if (/duck neck/.test(n)) return 'Duck Neck';
+    if (/goose/.test(n)) return 'Goose Neck';
+    if (/duck head/.test(n)) return 'Duck Heads';
+    if (/duck feet/.test(n)) return 'Duck Feet';
+    if (/tendon/.test(n)) return 'Super Meaty Beef Tendons';
+    if (/paddywack/.test(n)) return 'Paddywacks';
+    if (/collagen/.test(n)) return 'Beef Collagen';
+    if (/corium/.test(n)) return 'Corium Sticks';
+    if (/hoove/.test(n)) return 'Hooves';
+    if (/trachea piece/.test(n)) return 'Trachea Pieces';
+    if (/trachea/.test(n)) return 'Trachea';
+    if (/esophagus/.test(n)) return 'Braided Esophagus';
+    if (/femur/.test(n)) return 'Jumbo Meaty Femur';
+    if (/lung flip/.test(n)) return 'Beef Lung';
+    if (/lamb ear/.test(n)) return 'Lamb Ears';
+    if (/lamb lung/.test(n)) return 'Lamb Lung';
+    if (/buffalo horn/.test(n)) return 'Buffalo Horns';
+    if (/buffalo knuckle|buffalo bone/.test(n)) return 'Buffalo Bone and Knuckle';
+    if (/buffalo bite/.test(n)) return 'Buffalo Bites';
+    if (/chicken feet/.test(n)) return 'Chicken Feet';
+    if (/donut/.test(n)) return 'Supreme USA Hide Braided Donuts';
+    if (/pressed ring/.test(n)) return 'Supreme Pressed Ring';
+    if (/pressed stick/.test(n)) return 'Supreme Pressed Stick';
+    if (/pressed bone/.test(n)) return 'Supreme Pressed Bones';
+    if (/vanilla/.test(n) && /retriever/.test(n)) return 'Vanilla Flavored Retriever';
+    if (/retriever/.test(n)) return 'USA White Hide Retriever';
+    if (/twisty-q|twisty q/.test(n)) return "Twisty Q's";
+    if (/twisty/.test(n)) return "Twisty's";
+    if (/munchy/.test(n)) return 'Munch Sticks';
+    if (/binkey/.test(n)) return "Binkey's";
+    return '';
+}
+
 function renderWholesaleItemGrid(container) {
     if (!container) return;
     stopRecommendedRotator();
@@ -3111,12 +3166,31 @@ function renderWholesaleItemGrid(container) {
             return (p.name + ' ' + nick).toLowerCase().indexOf(searchVal) !== -1;
         });
     }
+    const groupOrder = [
+        'Green Line', 'Canes', 'Braided Bully', 'Euro Bully',
+        'Jerky Stick Treats', 'Training Treats', 'Jerky Stuffed Bones',
+        'Natural/Flavored Cow Ears', 'Buffalo Ears', 'Hairy Beef Ears', 'Fuzzy Rabbit Ears', 'Pig Ears',
+        'Natural/Flavored Rollios', 'All Natural Rollio', 'PHAT Rollios', 'Peanut Butter Rollios', 'Cow Cheek Slabs', 'Chunky Cheeks',
+        'MAGNA Ox Tails', 'Fuzzy Rabbit Feet', 'Fuzzy Rabbit Ears',
+        'Duck Neck', 'Goose Neck', 'Duck Heads', 'Duck Feet',
+        'Super Meaty Beef Tendons', 'Paddywacks', 'Beef Collagen', 'Corium Sticks', 'Hooves', 'Trachea', 'Trachea Pieces', 'Braided Esophagus', 'Jumbo Meaty Femur', 'Beef Lung',
+        'Lamb Ears', 'Lamb Lung',
+        'Buffalo Horns', 'Buffalo Bone and Knuckle', 'Jerky Stuffed Bones', 'Buffalo Bites',
+        'Chicken Feet', 'Supreme USA Hide Braided Donuts',
+        'Supreme Pressed Bones', 'Supreme Pressed Ring', 'Supreme Pressed Stick',
+        'Vanilla Flavored Retriever', 'USA White Hide Retriever',
+        "Twisty's", "Twisty Q's", 'Munch Sticks', "Binkey's"
+    ];
+    function groupRank(name) {
+        const g = (typeof brianPackGroup === 'function') ? brianPackGroup(name) : '';
+        const i = groupOrder.indexOf(g);
+        return i === -1 ? 999 : i;
+    }
     rows.sort(function (a, b) {
-        const ca = String(a.category || 'Other').localeCompare(String(b.category || 'Other'));
-        if (ca) return ca;
-        const na = (typeof wholesaleDisplayName === 'function') ? wholesaleDisplayName(a.name) : a.name;
-        const nb = (typeof wholesaleDisplayName === 'function') ? wholesaleDisplayName(b.name) : b.name;
-        return String(na).localeCompare(String(nb));
+        const ga = groupRank(a.name);
+        const gb = groupRank(b.name);
+        if (ga !== gb) return ga - gb;
+        return String(a.name || '').localeCompare(String(b.name || ''));
     });
     if (!rows.length) {
         container.innerHTML = '<p class="text-center py-8 text-[#6B4423]">No products found.</p>';
@@ -3131,13 +3205,22 @@ function renderWholesaleItemGrid(container) {
         '<th class="p-2.5 text-center w-40">Add to quote</th>' +
         '</tr></thead><tbody>';
     let lastCat = '';
+    let lastGroup = '';
     rows.forEach(function (p, idx) {
         const cat = p.category || 'Other';
+        const group = (typeof brianPackGroup === 'function') ? brianPackGroup(p.name) : '';
         if (cat !== lastCat) {
             lastCat = cat;
+            lastGroup = '';
             html += '<tr class="bg-[#f8f4eb]"><td colspan="' + (hideCase ? '3' : '4') +
                 '" class="p-2.5 font-bold brand-green border-t border-[#d4b78f]">' +
                 escapeHtml(cat) + '</td></tr>';
+        }
+        if (group && group !== lastGroup) {
+            lastGroup = group;
+            html += '<tr><td colspan="' + (hideCase ? '3' : '4') +
+                '" class="px-2.5 py-1.5 text-xs font-semibold text-[#6B4423] border-t border-[#e5d5c0]">' +
+                escapeHtml(group) + '</td></tr>';
         }
         const display = (typeof wholesaleDisplayName === 'function')
             ? wholesaleDisplayName(p.name) : p.name;
