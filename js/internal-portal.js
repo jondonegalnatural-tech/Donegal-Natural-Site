@@ -13182,18 +13182,27 @@ function parseAddressBlock(block) {
     if (lines.length === 0) return result;
 
     for (let i = lines.length - 1; i >= 0; i--) {
-        const cityStateZip = lines[i].match(/^(.+?),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/i);
+        const cityStateZip = lines[i].match(/^(.+?),\s*([A-Z]{2})(?:\s+(\d{5}(?:-\d{4})?))?$/i);
         if (cityStateZip) {
             result.city = cityStateZip[1].trim();
             result.state = cityStateZip[2].toUpperCase();
-            result.zip = cityStateZip[3];
+            result.zip = cityStateZip[3] || '';
+            lines.splice(i, 1);
+            break;
+        }
+        const oneLine = lines[i].match(/^(.+?),\s*(.+?),\s*([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/i);
+        if (oneLine) {
+            result.street = oneLine[1].trim();
+            result.city = oneLine[2].trim();
+            result.state = oneLine[3].toUpperCase();
+            result.zip = oneLine[4];
             lines.splice(i, 1);
             break;
         }
     }
 
     if (lines.length >= 1) result.street = lines[0];
-    if (lines.length >= 2 && !/,\s*[A-Z]{2}\s+\d{5}/i.test(lines[1])) {
+    if (lines.length >= 2 && !/,\s*[A-Z]{2}\b/i.test(lines[1])) {
         result.apt = lines[1];
     }
     if (!result.city && !result.street && block) {
@@ -13238,8 +13247,12 @@ async function openInquiryApprovalModal(inquiryId) {
 
         // Extract multi-line Shipping block (until next known key or end)
         let shipBlock = '';
-        const shipMatch = notesText.match(/Shipping:\s*([\s\S]*?)(?=\n(?:Billing|Admin notes|Approved by|Assigned salesman|Temp username|Temp password|Google place|Lat|Lng):|$)/i);
-        if (shipMatch) shipBlock = shipMatch[1].trim();
+        const fmtMatch = notesText.match(/Google formatted:\s*([^\n]+)/i);
+        if (fmtMatch) {
+            shipBlock = fmtMatch[1].replace(/,\s*USA\s*$/i, '').trim();
+        }
+        const shipMatch = notesText.match(/Shipping:\s*([\s\S]*?)(?=\n(?:Billing|Admin notes|Approved by|Assigned salesman|Temp username|Temp password|Google formatted|Google place|Lat|Lng):|$)/i);
+        if (!shipBlock && shipMatch) shipBlock = shipMatch[1].trim();
 
         let billBlock = '';
         const billMatch = notesText.match(/Billing:\s*([\s\S]*?)(?=\n(?:Shipping|Admin notes|Approved by|Assigned salesman|Temp username|Temp password):|$)/i);

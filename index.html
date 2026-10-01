@@ -550,7 +550,7 @@
             placeholder="Optional"
             style="width:100%; padding:.65rem .9rem; border:1.5px solid var(--border); border-radius:.6rem; background:var(--cream); font-size:.9rem; font-family:inherit;">
         </div>
-        <div id="wi-city-state-zip-wrap" style="display:none; grid-template-columns:1fr 1fr 0.7fr; gap:.75rem;">
+        <div id="wi-city-state-zip-wrap" style="display:grid; grid-template-columns:1fr 1fr 0.7fr; gap:.75rem;">
           <div>
             <label for="wi-city" style="display:block; font-size:.8rem; font-weight:700; margin-bottom:.35rem; color:var(--brown);">City *</label>
             <input type="text" id="wi-city" name="city"
@@ -579,7 +579,7 @@
           <div>
             <label for="wi-zip" style="display:block; font-size:.8rem; font-weight:700; margin-bottom:.35rem; color:var(--brown);">ZIP *</label>
              <input type="text" id="wi-zip" name="zip"
-              placeholder="17547"              title="Enter a 5-digit ZIP or ZIP+4"
+              placeholder="ZIP"              title="Enter a 5-digit ZIP or ZIP+4" autocomplete="off"
               maxlength="10"
               style="width:100%; padding:.65rem .9rem; border:1.5px solid var(--border); border-radius:.6rem; background:var(--cream); font-size:.9rem; font-family:inherit;">
           </div>
@@ -763,7 +763,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
           fields: ['addressComponents', 'formattedAddress', 'location', 'id']
         });
         fillInquiryFromNewPlace(place);
-        setCityStateZipVisible(false);
+        setCityStateZipVisible(true);
       });
       widget.addEventListener('input', function () {
         const typed = widget.value || '';
@@ -794,7 +794,13 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     const state = get('administrative_area_level_1', true);
     const zip = get('postal_code');
     const apt = get('subpremise');
-    if (streetLine) document.getElementById('wi-street').value = streetLine;
+    if (!streetLine) {
+      selectedPlace = null;
+      alert('Pick a full street address from the list (house number and street). A city name is not a shipping address.\nPO Boxes can be typed in full.');
+      setCityStateZipVisible(true);
+      return;
+    }
+    document.getElementById('wi-street').value = streetLine;
     if (city) document.getElementById('wi-city').value = city;
     if (state) document.getElementById('wi-state').value = state;
     if (zip) document.getElementById('wi-zip').value = zip;
@@ -855,10 +861,24 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
       return;
     }
     const streetPreview = document.getElementById('wi-street')?.value.trim() || '';
+    const cityPreview = document.getElementById('wi-city')?.value.trim() || '';
+    const statePreview = document.getElementById('wi-state')?.value.trim() || '';
+    const zipPreview = document.getElementById('wi-zip')?.value.trim() || '';
     const placesReady = !!(window.google && google.maps && google.maps.places);
     if (placesReady && !selectedPlace && !isPoBoxAddress(streetPreview)) {
       alert('Please pick your street address from the Google list so we can confirm it.\nPO Boxes can be typed in full.');
       document.getElementById('wi-street')?.focus();
+      return;
+    }
+    if (!isPoBoxAddress(streetPreview) && !(streetPreview.length >= 5 && /\d/.test(streetPreview))) {
+      alert('A real street address is required. Pick it from the Google list.');
+      document.getElementById('wi-street')?.focus();
+      return;
+    }
+    if (!cityPreview || !/^[A-Z]{2}$/i.test(statePreview) || !/^\d{5}(-\d{4})?$/.test(zipPreview)) {
+      alert('City, state, and a 5-digit ZIP are required.');
+      setCityStateZipVisible(true);
+      document.getElementById('wi-city')?.focus();
       return;
     }
     if (!(consentTerms?.checked && consentPrivacy?.checked)) {
@@ -876,9 +896,16 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     const city = document.getElementById('wi-city')?.value.trim() || '';
     const state = document.getElementById('wi-state')?.value.trim() || '';
     const zip = document.getElementById('wi-zip')?.value.trim() || '';
-    const shippingParts = [street];
-    if (apt) shippingParts.push(apt);
-    shippingParts.push(city + ', ' + state + ' ' + zip);
+    const formatted = (selectedPlace && (selectedPlace.formatted || selectedPlace.formattedAddress)) || '';
+    const cleanFormatted = String(formatted).replace(/,\s*USA\s*$/i, '').trim();
+    const shippingParts = [];
+    if (cleanFormatted) {
+      shippingParts.push(cleanFormatted);
+    } else {
+      shippingParts.push(street);
+      if (apt) shippingParts.push(apt);
+      shippingParts.push(city + ', ' + state + ' ' + zip);
+    }
     const shipping = shippingParts.join('\n');
     const now = new Date().toISOString();
 
@@ -895,6 +922,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
       region: (city && state) ? (city + ', ' + state) : null,
       notes: shipping
         ? ('Shipping: ' + shipping +
+           (cleanFormatted ? ('\nGoogle formatted: ' + cleanFormatted) : '') +
            (selectedPlace && selectedPlace.place_id
              ? ('\nGoogle place: ' + selectedPlace.place_id +
                 (selectedPlace.lat != null ? ('\nLat: ' + selectedPlace.lat + '\nLng: ' + selectedPlace.lng) : ''))
