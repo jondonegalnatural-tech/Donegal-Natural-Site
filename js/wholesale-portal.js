@@ -2753,13 +2753,8 @@ function renderCategoryFilters() {
     const sidebar = document.getElementById('sidebar-categories');
     const mobile = document.getElementById('mobile-category-filters');
     const cats = getSidebarCategories();
-    if (typeof useWholesaleItemGrid === 'function' && useWholesaleItemGrid()) {
-        if ((!currentCategoryFilter || currentCategoryFilter === 'All') && cats.length) {
-            currentCategoryFilter = cats[0];
-        }
-    }
     const items = (typeof useWholesaleItemGrid === 'function' && useWholesaleItemGrid())
-        ? cats.map(c => ({ label: c, value: c }))
+        ? [{ label: 'All Categories', value: 'All' }].concat(cats.map(c => ({ label: c, value: c })))
         : [{ label: 'Recommended', value: 'All' }].concat(cats.map(c => ({ label: c, value: c })));
 
     function fill(container, useChip) {
@@ -2770,7 +2765,9 @@ function renderCategoryFilters() {
             const back = document.createElement('button');
             back.type = 'button';
             back.className = 'mobile-cat-chip';
-            back.textContent = 'Recommended';
+            back.textContent = (typeof useWholesaleItemGrid === 'function' && useWholesaleItemGrid())
+                ? 'All Categories'
+                : 'Recommended';
             back.onclick = () => selectWholesaleCategory('All');
             container.appendChild(back);
 
