@@ -3090,10 +3090,10 @@ function useWholesaleItemGrid() {
 
 function brianPackGroup(name) {
     const n = String(name || '').toLowerCase();
-    if (/monster|thin bully|regular.? bully|bully stick/.test(n) && /pack/.test(n)) return 'Green Line';
-    if (/bully cane/.test(n)) return 'Canes';
     if (/braided bully/.test(n)) return 'Braided Bully';
     if (/euro bull/.test(n)) return 'Euro Bully';
+    if (/bully cane/.test(n)) return 'Canes';
+    if (/monster|thin bully|regular|bully stick/.test(n)) return 'Green Line';
     if (/jerky treats/.test(n)) return 'Jerky Stick Treats';
     if (/elky training/.test(n)) return 'Training Treats';
     if (/stuffed buffalo bone/.test(n)) return 'Jerky Stuffed Bones';
@@ -8505,7 +8505,7 @@ function orderLineDisplayName(item) {
 }
 
 function brianPackCategories(name) {
-    const key = String(name || '').toLowerCase().replace(/[“”]/g, '"').replace(/\s+/g, ' ').trim();
+    const key = String(name || '').toLowerCase().replace(/[“”"]/g, '').replace(/\s+/g, ' ').trim();
     const map = {
         "40 pack, 6\" thin bully stick": ["Bully Sticks"],
         "20 pack, 12\" thin bully stick": ["Bully Sticks"],
@@ -8641,7 +8641,23 @@ function brianPackCategories(name) {
         "16oz bags of vanilla binkey's": ["Binkey's"],
     };
     if (map[key]) return map[key];
-    if (/euro bull/.test(key)) return ['Bully Sticks'];
+    if (/euro bull|bully stick|bully cane|braided bully|monster/.test(key)) return ['Bully Sticks'];
+    if (/jerky|elky training|stuffed buffalo bone/.test(key)) return ['Jerky'];
+    if (/bunny ear/.test(key)) return ['Ears', 'Rabbit'];
+    if (/bunny feet/.test(key)) return ['Rabbit'];
+    if (/cow ear|buffalo ear|hairy beef ear|pig ear/.test(key)) return ['Ears'];
+    if (/rollio|cheek slab|chunky/.test(key)) return ['Cow Cheeks'];
+    if (/ox tail/.test(key)) return ['Ox Tails'];
+    if (/duck|goose/.test(key)) return ['Duck and Goose'];
+    if (/lamb/.test(key)) return ['Lamb'];
+    if (/buffalo horn|buffalo knuckle|buffalo bone|buffalo bite/.test(key)) return ['Buffalo'];
+    if (/chicken feet/.test(key)) return ['Chicken'];
+    if (/donut/.test(key)) return ['Braided'];
+    if (/pressed/.test(key)) return ['Pressed Bones'];
+    if (/retriever/.test(key)) return ['Retrievers'];
+    if (/twisty|munchy/.test(key)) return ["Twisty Q's and Natural Munchy Sticks"];
+    if (/binkey/.test(key)) return ["Binkey's"];
+    if (/tendon|paddywack|collagen|corium|hoove|trachea|esophagus|femur|lung flip/.test(key)) return ['Beef'];
     return null;
 }
 
