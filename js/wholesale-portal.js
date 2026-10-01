@@ -3188,16 +3188,26 @@ function renderWholesaleItemGrid(container) {
         const i = groupOrder.indexOf(g);
         return i === -1 ? 999 : i;
     }
+        function itemSortKey(name) {
+        const raw = String(name || '').toLowerCase().replace(/[“”"]/g, '');
+        const pack = parseInt(raw, 10) || 0;
+        const lengthMatch = raw.match(/(\d+(?:\.\d+)?)\s*(?:”|"|'')/);
+        const length = lengthMatch ? Number(lengthMatch[1]) : 0;
+        let style = 'zzz';
+        if (/thin/.test(raw)) style = 'thin';
+        else if (/regular/.test(raw)) style = 'regular';
+        else if (/monster/.test(raw)) style = 'monster';
+        else if (/natural/.test(raw)) style = 'natural';
+        else if (/vanilla/.test(raw)) style = 'vanilla';
+        else if (/honey/.test(raw)) style = 'honey';
+        else if (/phat/.test(raw)) style = 'phat';
+        return style + ' ' + String(length).padStart(4, '0') + ' ' + String(pack).padStart(4, '0') + ' ' + raw;
+    }
     rows.sort(function (a, b) {
         const ga = groupRank(a.name);
         const gb = groupRank(b.name);
         if (ga !== gb) return ga - gb;
-        function likeName(name) {
-            const raw = String(name || '');
-            const pack = (raw.match(/^\d+\s*pack/i) || [''])[0];
-            return raw.replace(/^\d+\s*pack,\s*/i, '') + ' ' + pack;
-        }
-        return likeName(a.name).localeCompare(likeName(b.name));
+        return itemSortKey(a.name).localeCompare(itemSortKey(b.name));
     });
     if (!rows.length) {
         container.innerHTML = '<p class="text-center py-8 text-[#6B4423]">No products found.</p>';
