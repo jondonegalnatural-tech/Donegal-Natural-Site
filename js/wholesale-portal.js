@@ -2659,6 +2659,31 @@ const ITEM_SPECIFIC_BENEFITS = {
 // ================== RENDER CATEGORY FILTERS ==================
 
 function getSidebarCategories() {
+    if (typeof useWholesaleItemGrid === 'function' && useWholesaleItemGrid()) {
+        const brianOrder = [
+            'Bully Sticks',
+            'Jerky',
+            'Ears',
+            'Cow Cheeks',
+            'Ox Tails',
+            'Rabbit',
+            'Duck and Goose',
+            'Beef',
+            'Lamb',
+            'Buffalo',
+            'Chicken',
+            'Braided',
+            'Pressed Bones',
+            'Retrievers',
+            "Twisty Q's and Natural Munchy Sticks",
+            "Binkey's"
+        ];
+        const present = {};
+        (WHOLESALE_PRICES || []).forEach(function (p) {
+            if (p && p.category) present[p.category] = true;
+        });
+        return brianOrder.filter(function (cat) { return present[cat]; });
+    }
     const fromTree = Object.keys(WHOLESALE_BROWSE_TREE || {});
     const ordered = MAIN_CATEGORIES.filter(c => c !== 'All' && fromTree.indexOf(c) !== -1);
     const extra = fromTree.filter(c => MAIN_CATEGORIES.indexOf(c) === -1);
@@ -2666,6 +2691,7 @@ function getSidebarCategories() {
 }
 
 function getSubcategoriesFor(category) {
+    if (typeof useWholesaleItemGrid === 'function' && useWholesaleItemGrid()) return [];
     const tree = (WHOLESALE_BROWSE_TREE || {})[category];
     if (!tree) return [];
     return Object.keys(tree).filter(Boolean);
