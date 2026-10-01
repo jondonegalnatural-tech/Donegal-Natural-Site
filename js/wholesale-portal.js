@@ -2659,7 +2659,7 @@ const ITEM_SPECIFIC_BENEFITS = {
 // ================== RENDER CATEGORY FILTERS ==================
 
 function getSidebarCategories() {
-    if (typeof useWholesaleItemGrid === 'function' && useWholesaleItemGrid()) {
+    if (typeof isBrianAssignedCustomer === 'function' && isBrianAssignedCustomer(window._currentCustomer)) {
         const brianOrder = [
             'Bully Sticks',
             'Jerky',
@@ -2691,7 +2691,7 @@ function getSidebarCategories() {
 }
 
 function getSubcategoriesFor(category) {
-    if (typeof useWholesaleItemGrid === 'function' && useWholesaleItemGrid()) return [];
+    if (typeof isBrianAssignedCustomer === 'function' && isBrianAssignedCustomer(window._currentCustomer)) return [];
     const tree = (WHOLESALE_BROWSE_TREE || {})[category];
     if (!tree) return [];
     return Object.keys(tree).filter(Boolean);
@@ -2753,9 +2753,9 @@ function renderCategoryFilters() {
     const sidebar = document.getElementById('sidebar-categories');
     const mobile = document.getElementById('mobile-category-filters');
     const cats = getSidebarCategories();
-    const items = (typeof useWholesaleItemGrid === 'function' && useWholesaleItemGrid())
-        ? [{ label: 'All Categories', value: 'All' }].concat(cats.map(c => ({ label: c, value: c })))
-        : [{ label: 'Recommended', value: 'All' }].concat(cats.map(c => ({ label: c, value: c })));
+    const items = [{ label: 'All Categories', value: 'All' }].concat(
+        cats.map(c => ({ label: c, value: c }))
+    );
 
     function fill(container, useChip) {
         if (!container) return;
@@ -2765,9 +2765,11 @@ function renderCategoryFilters() {
             const back = document.createElement('button');
             back.type = 'button';
             back.className = 'mobile-cat-chip';
-            back.textContent = (typeof useWholesaleItemGrid === 'function' && useWholesaleItemGrid())
-                ? 'All Categories'
-                : 'Recommended';
+    if (/bully pieces/.test(n)) return 'Bully Pieces';
+    if (/braided bully/.test(n)) return 'Braided Bully';
+    if (/euro bull/.test(n)) return 'Euro Bully';
+    if (/bully cane/.test(n)) return 'Canes';
+    if (/super thick|thin green|regular green|thick green|green line|bully stick/.test(n)) return 'Green Line';
             back.onclick = () => selectWholesaleCategory('All');
             container.appendChild(back);
 
@@ -3077,12 +3079,10 @@ function hideWholesaleCaseCounts(customer) {
 }
 
 function useWholesaleItemGrid() {
-    if (typeof isBrianAssignedCustomer === 'function') {
-        return isBrianAssignedCustomer(window._currentCustomer);
-    }
-    const email = String((window._currentCustomer &&
-        (window._currentCustomer.salesman_email || window._currentCustomer.salesmanEmail)) || '').toLowerCase().trim();
-    return email === 'donegaldogtreats@gmail.com';
+    const customer = window._currentCustomer;
+    if (typeof isBrianAssignedCustomer === 'function' && isBrianAssignedCustomer(customer)) return true;
+    const email = String((customer && (customer.salesman_email || customer.salesmanEmail)) || '').toLowerCase().trim();
+    return email === 'donegaldogtreats@gmail.com' || email === 'jackerman@donegalnatural.com';
 }
 
 function brianPackGroup(name) {
@@ -3191,7 +3191,9 @@ function renderWholesaleItemGrid(container) {
         const lengthMatch = raw.match(/(\d+(?:\.\d+)?)\s*(?:”|"|'')/);
         const length = lengthMatch ? Number(lengthMatch[1]) : 0;
         let style = 'zzz';
-        if (/thin/.test(raw)) style = 'thin';
+        if (/super thick/.test(raw)) style = 'super thick';
+        else if (/thick/.test(raw)) style = 'thick';
+        else if (/thin/.test(raw)) style = 'thin';
         else if (/regular/.test(raw)) style = 'regular';
         else if (/monster/.test(raw)) style = 'monster';
         else if (/natural/.test(raw)) style = 'natural';
