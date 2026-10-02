@@ -5258,6 +5258,52 @@ function filterInitialPriceSheetList() {
     });
 }
 
+function exportPriceSheetExcel() {
+    if (typeof XLSX === 'undefined') {
+        alert('Excel is not loaded. Refresh and try again.');
+        return;
+    }
+    const sheet = window._currentSalesmanPriceSheet;
+    const prices = sheet && sheet.prices;
+    if (!prices || !Object.keys(prices).length) {
+        alert('No price sheet is loaded.');
+        return;
+    }
+    const grouped = {};
+    Object.keys(prices).forEach(function (name) {
+        const cats = (typeof brianPackCategories === 'function' && brianPackCategories(name)) || ['Other'];
+        const cat = cats[0] || 'Other';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(name);
+    });
+    Object.keys(grouped).forEach(function (cat) {
+        grouped[cat].sort(function (a, b) {
+            return salesmanSheetItemKey(a).localeCompare(salesmanSheetItemKey(b));
+        });
+    });
+    const aoa = [
+        ['Donegal Natural Dog Treats'],
+        ['258 W Front St · Marietta, PA 17547'],
+        ['(800) 223-0017'],
+        ['Salesman Price Sheet'],
+        []
+    ];
+    Object.keys(grouped).sort().forEach(function (cat) {
+        aoa.push([cat]);
+        aoa.push(['Product', 'Unit Price']);
+        grouped[cat].forEach(function (name) {
+            aoa.push([name, Number(prices[name])]);
+        });
+        aoa.push([]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ wch: 56 }, { wch: 12 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Price Sheet');
+    const stamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, 'Salesman_Price_Sheet_' + stamp + '.xlsx');
+}
+
 async function exportPriceSheetPdf() {
     const user = getCurrentUser() || currentUser;
     if (!user) {
