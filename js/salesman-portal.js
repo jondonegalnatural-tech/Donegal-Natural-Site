@@ -4843,7 +4843,7 @@ async function showAccountDetails() {
 }
 
 function brianPackCategories(name) {
-    const key = String(name || '').toLowerCase().replace(/[“”]/g, '"').replace(/\s+/g, ' ').trim();
+    const key = String(name || '').toLowerCase().replace(/[“”"]/g, '').replace(/\s+/g, ' ').trim();
     const map = {
         "40 pack, 6\" thin bully stick": ["Bully Sticks"],
         "20 pack, 12\" thin bully stick": ["Bully Sticks"],
@@ -4978,7 +4978,26 @@ function brianPackCategories(name) {
         "16oz bags of peanut butter binkey's": ["Binkey's"],
         "16oz bags of vanilla binkey's": ["Binkey's"],
     };
-    return map[key] || null;
+    if (map[key]) return map[key];
+    if (/euro bull|bully stick|bully cane|braided bully|monster/.test(key)) return ['Bully Sticks'];
+    if (/peanut butter stuffed buffalo|stuffed buffalo bone/.test(key)) return ['Jerky', 'Buffalo'];
+    if (/jerky|elky training/.test(key)) return ['Jerky'];
+    if (/bunny ear/.test(key)) return ['Ears', 'Rabbit'];
+    if (/bunny feet/.test(key)) return ['Rabbit'];
+    if (/cow ear|buffalo ear|hairy beef ear|pig ear/.test(key)) return ['Ears'];
+    if (/rollio|cheek slab|chunky/.test(key)) return ['Cow Cheeks'];
+    if (/ox tail/.test(key)) return ['Ox Tails'];
+    if (/duck|goose/.test(key)) return ['Duck and Goose'];
+    if (/lamb/.test(key)) return ['Lamb'];
+    if (/buffalo horn|buffalo knuckle|buffalo bone|buffalo bite/.test(key)) return ['Buffalo'];
+    if (/chicken feet/.test(key)) return ['Chicken'];
+    if (/donut/.test(key)) return ['Braided'];
+    if (/pressed/.test(key)) return ['Pressed Bones'];
+    if (/retriever/.test(key)) return ['Retrievers'];
+    if (/twisty|munchy/.test(key)) return ["Twisty Q's and Natural Munchy Sticks"];
+    if (/binkey/.test(key)) return ["Binkey's"];
+    if (/tendon|paddywack|collagen|corium|hoove|trachea|esophagus|femur|lung flip/.test(key)) return ['Beef'];
+    return null;
 }
 
 async function renderPriceSheet() {
