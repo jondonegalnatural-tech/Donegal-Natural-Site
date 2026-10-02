@@ -16899,8 +16899,7 @@ function getMassEmailRecipients(audience) {
         }
         (allCustomers || []).forEach(function (c) {
             if (shouldSkipMassEmailStore(c)) return;
-            if (String(c.status || '') !== 'Active') return;
-            const assigned = String(c.salesmanEmail || '').toLowerCase().trim();
+            const assigned = String(c.salesmanEmail || c.salesman_email || '').toLowerCase().trim();
             if (assigned !== selected) return;
             addMassEmailRecipient(map, c.email, c.name || c.company || '', c.company || c.name || '');
         });
