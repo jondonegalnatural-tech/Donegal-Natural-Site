@@ -908,7 +908,7 @@ async function renderCustomers() {
                 </div>
                 ${pricingBadge}
                 ${quoteBtn}
-                <button type="button" onclick="event.stopPropagation(); openSalesmanCustomerFromCard('${String(c.id).replace(/'/g, '')}')"
+                <button type="button" class="view-customer-btn"
                     style="width:100%;background:#fff;color:#1E4D2B;border:2px solid #6B4423;padding:0.55rem;border-radius:8px;font-weight:700;margin-top:0.5rem;">
                     View Customer
                 </button>
@@ -1312,6 +1312,8 @@ async function showSalesmanCustomerDetail(customer) {
 
     modal.classList.remove('hidden');
     modal.style.display = 'flex';
+    modal.style.position = 'fixed';
+    modal.style.zIndex = '4000';
     modal.dataset.customerId = customer.id || '';
     modal.dataset.customerJson = JSON.stringify(customer);
 
