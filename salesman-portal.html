@@ -747,6 +747,13 @@
                     class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
         </div>
 
+        <div class="flex justify-end mb-3">
+            <button type="button" id="customer-pricing-save-btn" onclick="saveCustomerPricing()"
+                    class="px-5 py-2.5 bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-bold">
+                Assign Pricing to Customer
+            </button>
+        </div>
+
         <div class="flex flex-wrap gap-2 mb-3">
             <button type="button" onclick="expandAllCustomerPriceCategories(true)"
                     class="px-3 py-1.5 text-xs font-semibold border-2 border-[#6B4423] rounded-lg hover:bg-[#f8f4eb]">
@@ -778,7 +785,7 @@
                 Apply to This Sheet
             </button>
             <p class="w-full text-xs text-[#6B4423] mt-1">
-                Multiplies the prices currently on this sheet. Does not save until you click Save Customer Pricing.
+                Multiplies the prices currently on this sheet. Does not save until you click Assign Pricing to Customer.
             </p>
         </div>
 
@@ -792,10 +799,6 @@
             <button type="button" onclick="hideCustomerPricingModal()"
                     class="px-5 py-2 border-2 border-[#6B4423] rounded-xl font-semibold">
                 Cancel
-            </button>
-            <button type="button" id="customer-pricing-save-btn" onclick="saveCustomerPricing()"
-                    class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-bold">
-                Save Customer Pricing
             </button>
         </div>
     </div>

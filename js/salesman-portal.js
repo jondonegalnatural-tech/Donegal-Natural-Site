@@ -1764,7 +1764,7 @@ function applyCustomerPricingBulkPercent() {
     const box = document.getElementById('cp-bulk-pct');
     const pct = parseFloat(box && box.value);
     if (isNaN(pct)) {
-        alert('Bulk % is optional. Enter a number and click Apply, or skip it and click Save Customer Pricing.');
+        alert('Bulk % is optional. Enter a number and click Apply, or skip it and click Assign Pricing to Customer.');
         return;
     }
     if (pct === 0) {
@@ -1777,7 +1777,7 @@ function applyCustomerPricingBulkPercent() {
         return;
     }
     const label = (pct > 0 ? '+' : '') + pct + '%';
-    if (!confirm('Apply ' + label + ' to every price on this customer sheet?\n\nThis only changes the numbers on screen. Click Save Customer Pricing to write them.\nApplying twice compounds.')) {
+    if (!confirm('Apply ' + label + ' to every price on this customer sheet?\n\nThis only changes the numbers on screen. Click Assign Pricing to Customer to write them.\nApplying twice compounds.')) {
         return;
     }
     if (!window._customerPricingDraft) window._customerPricingDraft = {};
@@ -1794,7 +1794,7 @@ function applyCustomerPricingBulkPercent() {
         changed += 1;
     });
     if (typeof updateCustomerPricingSummary === 'function') updateCustomerPricingSummary();
-    alert('Applied ' + label + ' to ' + changed + ' price(s). Review the sheet, then click Save Customer Pricing.');
+    alert('Applied ' + label + ' to ' + changed + ' price(s). Review the sheet, then click Assign Pricing to Customer.');
 }
 
 function onCustomerPriceInput(input) {
@@ -1996,7 +1996,7 @@ async function saveCustomerPricing() {
     } finally {
         if (saveBtn) {
             saveBtn.disabled = false;
-            saveBtn.textContent = 'Save Customer Pricing';
+            saveBtn.textContent = 'Assign Pricing to Customer';
         }
     }
 }
