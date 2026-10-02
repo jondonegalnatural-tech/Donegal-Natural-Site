@@ -7506,9 +7506,11 @@ async function openSetCustomerPricing(customerId) {
     if (typeof showCustomerDetail === 'function') {
         await showCustomerDetail(customer.name);
     }
-    if (typeof openReportsCustomerPriceSheet === 'function') {
-        openReportsCustomerPriceSheet(customerId);
-    }
+    setTimeout(function () {
+        if (typeof openReportsCustomerPriceSheet === 'function') {
+            openReportsCustomerPriceSheet(customerId);
+        }
+    }, 0);
 }
 
 async function notifyCustomerPricingReady(customer) {

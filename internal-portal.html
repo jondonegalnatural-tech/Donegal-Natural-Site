@@ -2113,7 +2113,7 @@ body { background: #f8f1e9; }
 
 <!-- Customer Detail Modal -->
 <div id="customer-modal"
-     onclick="hideCustomerModal()"
+     onclick="if (event.target === this) hideCustomerModal()"
      class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
     <div onclick="event.stopImmediatePropagation()"
          class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-3xl mx-4 p-8 max-h-[90vh] overflow-y-auto">
@@ -3879,7 +3879,7 @@ body { background: #f8f1e9; }
 
 <!-- Salesman Price Sheet Modal (admin view) -->
 <div id="salesman-price-sheet-modal"
-     onclick="hideSalesmanPriceSheetModal()"
+     onclick="if (event.target === this) hideSalesmanPriceSheetModal()"
      class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
     <div onclick="event.stopImmediatePropagation()"
          class="bg-white border-2 border-[#6B4423] rounded-2xl w-full max-w-4xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
