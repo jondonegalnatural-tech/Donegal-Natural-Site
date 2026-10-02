@@ -1310,9 +1310,11 @@ async function showSalesmanCustomerDetail(customer) {
     const modal = document.getElementById('salesman-customer-modal');
     if (!modal || !customer) return;
 
+    document.body.appendChild(modal);
     modal.classList.remove('hidden');
     modal.style.display = 'flex';
     modal.style.position = 'fixed';
+    modal.style.inset = '0';
     modal.style.zIndex = '4000';
     modal.dataset.customerId = customer.id || '';
     modal.dataset.customerJson = JSON.stringify(customer);
