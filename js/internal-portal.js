@@ -10267,7 +10267,10 @@ function groupSalesmanSheetRowsByCategory(rows) {
         if (/euro/.test(raw)) family = 'euro';
         else if (/braided bully/.test(raw)) family = 'braided bully';
         else if (/cane/.test(raw)) family = 'cane';
-        else if (/bully stick|monster/.test(raw)) family = 'green line';
+        else if (/monster/.test(raw)) family = 'green line 3 monster';
+    else if (/regular/.test(raw) && /bully/.test(raw)) family = 'green line 2 regular';
+    else if (/thin/.test(raw) && /bully/.test(raw)) family = 'green line 1 thin';
+    else if (/bully stick/.test(raw)) family = 'green line';
         else if (/elky training/.test(raw)) family = 'training';
         else if (/stuffed buffalo/.test(raw)) family = 'stuffed bone';
         else if (/jerky/.test(raw)) family = 'jerky';
