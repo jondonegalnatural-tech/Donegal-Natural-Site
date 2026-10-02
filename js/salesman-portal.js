@@ -1549,10 +1549,13 @@ async function loadSalesmanBasePrices(customer) {
     try {
         const { data: sheet } = await supabaseClient
             .from('salesman_price_sheets')
-            .select('prices')
+            .select('prices, display_names')
             .eq('salesman_email', email)
             .maybeSingle();
 
+        window._customerPricingDisplayNames = (sheet && sheet.display_names && typeof sheet.display_names === 'object')
+            ? sheet.display_names
+            : {};
         if (sheet && sheet.prices && typeof sheet.prices === 'object') {
             return sheet.prices;
         }
@@ -1701,13 +1704,16 @@ async function renderCustomerPricingEditor() {
             const baseLabel = base != null ? ('$' + Number(base).toFixed(2)) : 'Market';
             const safeName = p.name.replace(/"/g, '&quot;');
             const safeNameJs = p.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            const nickMap = window._customerPricingDisplayNames || {};
+            const shownName = String(nickMap[p.name] || p.name).trim();
+            const catalogNote = shownName !== p.name ? ('Catalog: ' + p.name) : '';
 
             html += `
                 <div class="bg-white border border-[#d4b78f] rounded-xl p-3 flex flex-wrap items-center gap-3"
                      data-cp-name="${safeName}">
                     <div class="flex-1 min-w-[160px]">
-                        <p class="text-sm font-semibold brand-green">${escapeHtml(p.name)}</p>
-                        <p class="text-xs text-[#6B4423]">${escapeHtml(p.caseSize || '')} · Your base: ${escapeHtml(baseLabel)}</p>
+                        <p class="text-sm font-semibold brand-green">${escapeHtml(shownName)}</p>
+                        <p class="text-xs text-[#6B4423]">${catalogNote ? escapeHtml(catalogNote) + ' · ' : ''}${escapeHtml(p.caseSize || '')} · Your base: ${escapeHtml(baseLabel)}</p>
                     </div>
                     <div class="flex items-center gap-2 flex-wrap">
                         <label class="text-xs text-[#6B4423] whitespace-nowrap">Customer price</label>
