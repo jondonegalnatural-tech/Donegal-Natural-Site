@@ -1925,14 +1925,18 @@ async function saveCustomerPricing() {
             if (upsertErr) throw upsertErr;
 
             const wasLocked = !customer.pricing_approved_at;
-            const { error: custErr } = await supabaseClient
+            const { data: approvedRows, error: custErr } = await supabaseClient
                 .from('customers')
                 .update({
                     pricing_approved_at: new Date().toISOString(),
                     pricing_approved_by: user.fullName || user.name || user.email || 'Salesman'
                 })
-                .eq('id', customer.id);
+                .eq('id', customer.id)
+                .select('id, pricing_approved_at');
             if (custErr) throw custErr;
+            if (!approvedRows || !approvedRows.length || !approvedRows[0].pricing_approved_at) {
+                throw new Error('The approval did not save. Brian can open the sheet, but his login is not allowed to mark this store approved.');
+            }
             if (wasLocked && typeof notifyCustomerPricingReady === 'function') {
                 await notifyCustomerPricingReady(customer);
             }
