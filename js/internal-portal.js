@@ -3612,6 +3612,22 @@ function renderOrdersTable() {
 
     if (empty) empty.classList.add('hidden');
 
+    function orderCompanyLabel(order) {
+        const stored = String((order && (order.customerCompany || order.customer_company)) || '').trim();
+        if (stored) return stored;
+        const id = String((order && (order.customerId || order.customer_id)) || '');
+        const email = String((order && (order.customerEmail || order.customer_email)) || '').toLowerCase().trim();
+        const pool = (typeof allCustomers !== 'undefined' && allCustomers) ? allCustomers : [];
+        const hit = pool.find(function (c) {
+            return (id && String(c.id) === id) ||
+                (email && String(c.email || '').toLowerCase().trim() === email);
+        });
+        if (hit && hit.company) return hit.company;
+        const raw = String((order && order.customer) || '').trim();
+        if (raw.indexOf('/') !== -1) return raw.split('/')[0].trim();
+        return raw || '—';
+    }
+
     function getOrderTotalInfo(order) {
     let total = 0;
     let hasMarketPrice = false;
@@ -3667,8 +3683,8 @@ function renderOrdersTable() {
                 <th class="p-3 text-center w-10">
                     <input type="checkbox" id="select-all-orders" onchange="toggleSelectAllOrders(this)">
                 </th>
-                <th class="p-3 text-left">Salesman</th>
-                <th class="p-3 text-left">Customer</th>
+                <th class="p-3 text-left">Submitted by</th>
+                <th class="p-3 text-left">Company Name</th>
                 <th class="p-3 text-left">Total</th>
                 <th class="p-3 text-left">Date</th>
             </tr>
@@ -3710,7 +3726,7 @@ function renderOrdersTable() {
                     <input type="checkbox" class="order-checkbox" value="${safeId}" onchange="updatePrintSelectedButton()">
                 </td>
                 <td class="p-3">${escapeHtml(order.salesman || (order.source === 'wholesale' ? 'Wholesale' : '—'))}</td>
-                <td class="p-3">${escapeHtml(order.customer || '—')}</td>
+                <td class="p-3">${escapeHtml(orderCompanyLabel(order))}</td>
                 <td class="p-3">${totalHTML}</td>
                 <td class="p-3 text-sm">${order.submittedAt ? new Date(order.submittedAt).toLocaleDateString() : '—'}</td>
             </tr>
