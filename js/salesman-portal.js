@@ -1499,8 +1499,12 @@ async function openCustomerPricingEditor(customer) {
 
     const modal = document.getElementById('customer-pricing-modal');
     if (modal) {
-        modal.style.display = '';
+        document.body.appendChild(modal);
         modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+        modal.style.position = 'fixed';
+        modal.style.inset = '0';
+        modal.style.zIndex = '5000';
     }
 
     await renderCustomerPricingEditor();
