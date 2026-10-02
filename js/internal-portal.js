@@ -17295,7 +17295,8 @@ async function loadAdminActivityLog() {
             tbody.innerHTML = '<tr><td class="p-3 text-[#6B4423]" colspan="5">No admin activity yet.</td></tr>';
             return;
         }
-        tbody.innerHTML = rows.map(function (r) {
+        window._adminActivityRows = rows;
+        tbody.innerHTML = rows.slice(0, 8).map(function (r) {
             const whenText = r.created_at ? new Date(r.created_at).toLocaleString() : '';
             const who = escapeHtml(r.actor_name || r.actor_email || '');
             const what = escapeHtml(r.entity_label || r.summary || r.entity_type || '');
@@ -17319,10 +17320,53 @@ async function loadAdminActivityLog() {
                 '</tr>'
             );
         }).join('');
+        const note = document.getElementById('admin-activity-recent-note');
+        if (note) note.textContent = 'Recent ' + Math.min(8, rows.length) + ' of ' + rows.length + '.';
     } catch (err) {
         tbody.innerHTML = '<tr><td class="p-3 text-red-700" colspan="5">Could not load admin log. Run the Admin Activity Log SQL in Supabase if this table is new.<br>' +
             escapeHtml(err.message || '') + '</td></tr>';
     }
+}
+
+function adminActivityRowHtml(r) {
+    const whenText = r.created_at ? new Date(r.created_at).toLocaleString() : '';
+    const who = escapeHtml(r.actor_name || r.actor_email || '');
+    const what = escapeHtml(r.entity_label || r.summary || r.entity_type || '');
+    const resultColor = r.result === 'ok' || r.result === 'verified'
+        ? 'text-green-700'
+        : (r.result === 'failed' ? 'text-red-700' : 'text-[#6B4423]');
+    return '<tr class="border-t border-[#d4b78f] align-top">' +
+        '<td class="p-3 whitespace-nowrap">' + escapeHtml(whenText) + '</td>' +
+        '<td class="p-3">' + who +
+            '<div class="text-xs text-[#6B4423]">' + escapeHtml(r.actor_email || '') + '</div></td>' +
+        '<td class="p-3">' + escapeHtml(r.action || '') + '</td>' +
+        '<td class="p-3">' + what +
+            (r.summary && r.entity_label
+                ? ('<div class="text-xs text-[#6B4423]">' + escapeHtml(r.summary) + '</div>')
+                : '') +
+        '</td>' +
+        '<td class="p-3 ' + resultColor + '">' + escapeHtml(r.result || '') +
+            (r.error ? ('<div class="text-xs text-red-700">' + escapeHtml(r.error) + '</div>') : '') +
+        '</td></tr>';
+}
+
+function openAdminActivityLogModal() {
+    const modal = document.getElementById('admin-activity-modal');
+    const body = document.getElementById('admin-activity-modal-table');
+    if (!modal || !body) return;
+    const rows = window._adminActivityRows || [];
+    body.innerHTML = rows.length
+        ? rows.map(adminActivityRowHtml).join('')
+        : '<tr><td class="p-3 text-[#6B4423]" colspan="5">No admin activity yet.</td></tr>';
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
+}
+
+function closeAdminActivityLogModal() {
+    const modal = document.getElementById('admin-activity-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
 }
 
 function isSkippedOpenQuoteStore(row) {
