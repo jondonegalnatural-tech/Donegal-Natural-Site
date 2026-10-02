@@ -859,6 +859,8 @@ async function renderCustomers() {
             div.style.cssText = "background:#fff;border:3px solid #6B4423;border-radius:12px;padding:1rem;cursor:pointer;position:relative;";
             div.onclick = function (e) {
                 if (e.target && e.target.closest && e.target.closest('button')) return;
+                e.preventDefault();
+                e.stopPropagation();
                 showSalesmanCustomerDetail(c);
             };
 
@@ -906,12 +908,24 @@ async function renderCustomers() {
                 </div>
                 ${pricingBadge}
                 ${quoteBtn}
+                <button type="button" class="view-customer-btn"
+                    style="width:100%;background:#fff;color:#1E4D2B;border:2px solid #6B4423;padding:0.55rem;border-radius:8px;font-weight:700;margin-top:0.5rem;">
+                    View Customer
+                </button>
                 <button type="button" onclick="event.stopPropagation(); placeOrderForCustomer('${safeName}')"
                     style="width:100%;background:#1E4D2B;color:#d4b78f;border:2px solid #6B4423;padding:0.55rem;border-radius:8px;font-weight:700;margin-top:0.5rem;">
                     Place Order
                 </button>
             `;
 
+            const viewBtn = div.querySelector('.view-customer-btn');
+            if (viewBtn) {
+                viewBtn.onclick = function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    showSalesmanCustomerDetail(c);
+                };
+            }
             grid.appendChild(div);
         });
     } catch (err) {
@@ -1285,6 +1299,8 @@ async function showSalesmanCustomerDetail(customer) {
     const modal = document.getElementById('salesman-customer-modal');
     if (!modal || !customer) return;
 
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
     modal.dataset.customerId = customer.id || '';
     modal.dataset.customerJson = JSON.stringify(customer);
 
