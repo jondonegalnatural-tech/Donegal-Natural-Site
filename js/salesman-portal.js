@@ -5352,7 +5352,14 @@ function exportPriceSheetExcel() {
         aoa.push([]);
     });
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = [{ wch: 56 }, { wch: 16 }, { wch: 12 }];
+    ws['!cols'] = [{ wch: 56 }, { wch: 16 }, { wch: 14 }];
+    Object.keys(ws).forEach(function (ref) {
+        if (ref.charAt(0) === '!') return;
+        if (XLSX.utils.decode_cell(ref).c !== 2) return;
+        if (typeof ws[ref].v !== 'number') return;
+        ws[ref].t = 'n';
+        ws[ref].z = '"$"#,##0.00';
+    });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Price Sheet');
     const stamp = new Date().toISOString().slice(0, 10);
