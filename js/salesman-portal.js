@@ -5000,6 +5000,26 @@ function brianPackCategories(name) {
     return null;
 }
 
+function salesmanSheetItemKey(name) {
+    const raw = String(name || '').toLowerCase().replace(/[“”"]/g, '');
+    const pack = parseInt(raw, 10) || 0;
+    const lengthMatch = raw.match(/(\d+(?:\.\d+)?)\s*(?:”|"|')/);
+    const length = lengthMatch ? Number(lengthMatch[1]) : 0;
+    let style = 'zzz';
+    if (/euro/.test(raw)) style = 'euro';
+    else if (/braided/.test(raw)) style = 'braided';
+    else if (/cane/.test(raw)) style = 'cane';
+    else if (/super thick/.test(raw)) style = 'super thick';
+    else if (/thin/.test(raw)) style = 'thin';
+    else if (/regular/.test(raw)) style = 'regular';
+    else if (/monster/.test(raw)) style = 'monster';
+    else if (/natural/.test(raw)) style = 'natural';
+    else if (/vanilla/.test(raw)) style = 'vanilla';
+    else if (/honey/.test(raw)) style = 'honey';
+    else if (/phat/.test(raw)) style = 'phat';
+    return style + ' ' + String(length).padStart(4, '0') + ' ' + String(pack).padStart(4, '0') + ' ' + raw;
+}
+
 async function renderPriceSheet() {
     const list = document.getElementById("price-sheet-list");
     const updatedEl = document.getElementById("price-sheet-updated");
@@ -5079,9 +5099,13 @@ async function renderPriceSheet() {
             }
         });
         categoryOrder.forEach(function (cat) {
-            grouped[cat].sort(function (a, b) { return a.name.localeCompare(b.name); });
+            grouped[cat].sort(function (a, b) {
+                return salesmanSheetItemKey(a.name).localeCompare(salesmanSheetItemKey(b.name));
+            });
         });
-        unmatched.sort(function (a, b) { return a.name.localeCompare(b.name); });
+        unmatched.sort(function (a, b) {
+            return salesmanSheetItemKey(a.name).localeCompare(salesmanSheetItemKey(b.name));
+        });
 
         let tableHtml = `
             <div class="overflow-x-auto">
@@ -5264,9 +5288,9 @@ async function exportPriceSheetPdf() {
 
     // Sort products inside each category
     categoryOrder.forEach(cat => {
-        grouped[cat].sort((a, b) => a.name.localeCompare(b.name));
+        grouped[cat].sort((a, b) => salesmanSheetItemKey(a.name).localeCompare(salesmanSheetItemKey(b.name)));
     });
-    unmatched.sort((a, b) => a.name.localeCompare(b.name));
+    unmatched.sort((a, b) => salesmanSheetItemKey(a.name).localeCompare(salesmanSheetItemKey(b.name)));
 
     const salesmanName = user.fullName || user.name || "Sales Representative";
     const generated = new Date().toLocaleString();
