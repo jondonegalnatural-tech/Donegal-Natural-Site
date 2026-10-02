@@ -18220,8 +18220,8 @@ function renderPortalCommissionBlock() {
         const list = Object.keys(groups).map(function (k) { return groups[k]; })
             .sort(function (a, b) { return b.commission - a.commission; });
         let html = '<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="bg-[#f8f4eb]">'
-            + '<th class="p-3 text-left">Salesman</th>'
-            + '<th class="p-3 text-right">Stores</th>'
+            + '<th class="p-3 text-left">Submitted By</th>'
+            + '<th class="p-3 text-right">Company Name</th>'
             + '<th class="p-3 text-right">Orders</th>'
             + '<th class="p-3 text-right">Sales</th>'
             + '<th class="p-3 text-right">Commission</th>'
