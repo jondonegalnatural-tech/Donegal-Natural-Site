@@ -1645,7 +1645,7 @@ async function renderCustomerPricingEditor() {
         addPricingRow(name, window._customerPricingDraft[name]);
     });
     Object.keys(existingCustomer || {}).forEach(function (name) {
-        if (!name || !onStoreSheet(name)) return;
+        if (!name || !onStoreSheet(name) || !onSalesmanSheet(name)) return;
         if (grouped[Object.keys(grouped).find(function (cat) {
             return grouped[cat].some(function (row) { return row.name === name; });
         }) || '']) return;
