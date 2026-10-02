@@ -5364,8 +5364,10 @@ function exportPriceSheetExcel() {
     Object.keys(grouped).sort().forEach(function (cat) {
         aoa.push([cat]);
         aoa.push(['Product', 'SKU', 'Unit Price']);
+        const nicks = window._placeOrderDisplayNames || {};
         grouped[cat].forEach(function (name) {
-            aoa.push([name, brianExcelSku(name), Number(prices[name])]);
+            const shown = String(nicks[name] || name).trim();
+            aoa.push([shown, brianExcelSku(name), Number(prices[name])]);
         });
         aoa.push([]);
     });
