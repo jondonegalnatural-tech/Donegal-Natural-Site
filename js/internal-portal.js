@@ -10396,6 +10396,61 @@ function printOpenSalesmanPriceSheet() {
     setTimeout(function () { win.print(); }, 350);
 }
 
+function brianExcelSku(name) {
+    const key = String(name || '').toLowerCase().replace(/[“”"]/g, '').replace(/\s+/g, ' ').trim();
+    const map = {
+        '40 pack, 6 thin bully stick': 'PZSK6',
+        '20 pack, 12 thin bully stick': 'PZSK12',
+        '25 pack, 6 regular bully sticks': 'GRPZ6',
+        '20 pack, 12 regular bully sticks': 'GRPZ12',
+        '25 pack, 6 monster green line bully stick': 'GRSUP6',
+        '20 pack, 12 monster green line bully stick': 'GRSUP12',
+        '20 pack, 6 braided bully sticks': '16925-22043',
+        '10 pack, 12 braided bully sticks': '16925-22055',
+        '25 pack, 6 thick euro bullies': '6EUR',
+        '20 pack, 12 thick euro bullies': '12EUR',
+        '10 pack, hairy beef ears': 'HBE',
+        '10 pack, super meaty beef tendons': 'SMBT',
+        '25 pack, fuzzy bunny ears': 'FRE',
+        '20 pack, handsome crunchy duck heads': 'DHD',
+        '10 pack, 10 rollio rolled cow cheek': 'ROLL',
+        '10 pack, 10 vanilla rollio rolled cow cheek': 'ROLLV',
+        '10 pack, 10 honey smoked rollio rolled cow cheek': 'ROLLHS',
+        '20 pack, 5 rollio rolled cow cheek': '5ROLL',
+        '20 pack, 5 vanilla rollio rolled cow cheek': '5ROLLV',
+        '20 pack, 5 honey smoked rollio rolled cow cheek': '5ROLLH',
+        '20 pack, 5-6 natural rollio rolled cow cheek': 'NROLL5',
+        '10 pack, 10-12 natural rollio rolled cow cheek': 'NROLL10',
+        '10 pack, 5-6 phat rollio rolled cow cheek': 'PH5',
+        '5 pack, 10-12 phat rollio rolled cow cheek': 'PH10',
+        '10 pack, 5-6 phat honey smoked rollio rolled cow cheek': 'PH5HS',
+        '5 pack, 10-12 phat honey smoked rollio rolled cow cheek': 'PH10HS',
+        '10 pack, 5-6 phat vanilla rollio rolled cow cheek': 'PH5V',
+        '5 pack, 10-12 phat vanilla rollio rolled cow cheek': 'PH10V',
+        '10 pack, 5-6 peanut butter stuffed rollio': 'NPBROLL5',
+        '5 pack, 10-12 peanut butter stuffed rollio': 'NPBROLL10',
+        '25 pack, 6 magna natural ox tails': 'MNOX6',
+        '10 pack, 12 magna natural ox tails': 'MNOX12',
+        '50 pack, usa venison and sweet potato jerky treats': 'VSP',
+        '50 pack, usa elky jerky treats': '16925-00006',
+        '50 pack, usa turkey jerky treats': '16925-02222',
+        '50 pack, usa chicken jerky treats': '16925-01225',
+        '20 pack, small buffalo horns': 'BUFFSM',
+        '10 pack, medium buffalo horns': 'BUFFM',
+        '5 pack, large buffalo horns': 'BUFFL',
+        '25 pack, 6 beef trachea': '16925-20407',
+        '15 pack, 12 beef trachea': '16925-20414',
+        '25 pack, natural cow ears': 'COWNAT',
+        '50 pack, regular magna buffalo ears': 'MBUFF',
+        '10 pack, 10/11 x 30mm white supreme retriever': 'SUP10RTR',
+        '8oz bags of buffalo bites (lung)': '8LUNG',
+        '16oz bags of buffalo bites (lung)': '16LUNG',
+        '8oz bags of usa elky training treats': 'TT8',
+        '12oz bags of usa elky training treats': 'TT12'
+    };
+    return map[key] || '';
+}
+
 function exportOpenSalesmanPriceSheetExcel() {
     const sheet = getOpenSalesmanSheetForExport();
     if (!sheet || !sheet.prices || !Object.keys(sheet.prices).length) {
@@ -10420,12 +10475,13 @@ function exportOpenSalesmanPriceSheetExcel() {
     ];
     packed.categories.forEach(function (cat) {
         aoa.push([cat]);
-        aoa.push(['Product', 'Case Size', 'Unit Price']);
+        aoa.push(['Product', 'SKU', 'Case Size', 'Unit Price']);
         packed.grouped[cat].forEach(function (row) {
             const price = row['Unit Price'] === '' ? '' : Number(row['Unit Price']);
             const market = row['Market Price'] === 'Yes' ? ' (Market)' : '';
             aoa.push([
                 (row.Product || '') + market,
+                brianExcelSku(row.Product),
                 row['Case Size'] || '',
                 price
             ]);
@@ -10433,7 +10489,7 @@ function exportOpenSalesmanPriceSheetExcel() {
         aoa.push([]);
     });
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = [{ wch: 56 }, { wch: 16 }, { wch: 12 }];
+    ws['!cols'] = [{ wch: 56 }, { wch: 16 }, { wch: 16 }, { wch: 12 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Price Sheet');
     XLSX.writeFile(wb, salesmanSheetFileSlug(title) + '_Price_Sheet_' + stamp + '.xlsx');
