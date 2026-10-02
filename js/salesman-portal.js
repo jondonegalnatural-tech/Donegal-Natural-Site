@@ -865,6 +865,7 @@ async function renderCustomers() {
             };
 
             const assignedAt = c.assigned_at ? new Date(c.assigned_at) : null;
+            const createdAt = c.created_at ? new Date(c.created_at) : null;
             const fiveDaysMs = 5 * 24 * 60 * 60 * 1000;
             const isNew = assignedAt && (Date.now() - assignedAt.getTime()) < fiveDaysMs;
 
@@ -873,9 +874,17 @@ async function renderCustomers() {
                 : '';
 
             const needsPricing = !c.pricing_approved_at;
+            function salesmanDateLabel(d) {
+                return d && !isNaN(d.getTime()) ? d.toLocaleDateString() : 'Not recorded';
+            }
+            const waitFrom = assignedAt || createdAt;
+            const waitingDays = (needsPricing && waitFrom && !isNaN(waitFrom.getTime()))
+                ? Math.max(0, Math.floor((Date.now() - waitFrom.getTime()) / 86400000))
+                : null;
             const pricingBadge = needsPricing
-                ? `<div style="margin-top:0.5rem;font-size:0.75rem;font-weight:700;color:#c2410c;">Pricing not approved yet</div>`
+                ? `<div style="margin-top:0.5rem;font-size:0.75rem;font-weight:700;color:#c2410c;">Pricing not approved yet${waitingDays == null ? '' : ' · ' + waitingDays + ' day' + (waitingDays === 1 ? '' : 's')}</div>`
                 : '';
+            const timingLine = `<div style="margin-top:0.35rem;font-size:0.75rem;color:#6B4423;">Account ${salesmanDateLabel(createdAt)} · Assigned ${salesmanDateLabel(assignedAt)}</div>`;
 
             const showCommission = (typeof canEditCustomerCommission === 'function' && canEditCustomerCommission())
                 && c.salesman_commission_percent != null
@@ -906,6 +915,7 @@ async function renderCustomers() {
                 <div style="color:#6B4423;font-size:0.8rem;margin-bottom:0.6rem;">
                     ${escapeHtml(c.territory || c.status || '')}
                 </div>
+                ${timingLine}
                 ${pricingBadge}
                 ${quoteBtn}
                 <button type="button" class="view-customer-btn"
