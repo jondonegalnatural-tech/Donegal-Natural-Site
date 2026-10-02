@@ -908,7 +908,7 @@ async function renderCustomers() {
                 </div>
                 ${pricingBadge}
                 ${quoteBtn}
-                <button type="button" class="view-customer-btn"
+                <button type="button" onclick="event.stopPropagation(); openSalesmanCustomerFromCard('${String(c.id).replace(/'/g, '')}')"
                     style="width:100%;background:#fff;color:#1E4D2B;border:2px solid #6B4423;padding:0.55rem;border-radius:8px;font-weight:700;margin-top:0.5rem;">
                     View Customer
                 </button>
@@ -1293,6 +1293,17 @@ function dismissNewCustomersModal() {
     const pending = window._pendingSeenCustomerIds || [];
     localStorage.setItem(seenKey, JSON.stringify([...new Set([...seen, ...pending])]));
     document.getElementById('new-customers-modal')?.classList.add('hidden');
+}
+
+function openSalesmanCustomerFromCard(id) {
+    const customer = (window._salesmanCustomers || []).find(function (row) {
+        return String(row.id) === String(id);
+    });
+    if (!customer) {
+        alert('Could not open this customer.');
+        return;
+    }
+    showSalesmanCustomerDetail(customer);
 }
 
 async function showSalesmanCustomerDetail(customer) {
