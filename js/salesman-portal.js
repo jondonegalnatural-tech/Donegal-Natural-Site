@@ -1604,55 +1604,48 @@ async function renderCustomerPricingEditor() {
     });
 
     const grouped = {};
-    const categoryOrder = [];
-    const listed = {};
-    PRODUCT_CATALOG.forEach(function (p) {
-        if (!p || !p.name) return;
-        if (!onSalesmanSheet(p.name)) return;
-        const cat = p.category || 'Other';
-        if (!grouped[cat]) {
-            grouped[cat] = [];
-            categoryOrder.push(cat);
-        }
-        grouped[cat].push(p);
-        listed[p.name] = true;
-    });
-    Object.keys(existingCustomer || {}).forEach(function (name) {
-        if (!name || listed[name]) return;
-        if (!onStoreSheet(name)) return;
-        if (window._customerPricingDraft[name] == null) {
-            window._customerPricingDraft[name] = Number(existingCustomer[name]);
-        }
-        if (!grouped['Store-only']) {
-            grouped['Store-only'] = [];
-            categoryOrder.push('Store-only');
-        }
-        grouped['Store-only'].push({
+    const sheetOrder = [
+        'Bully Sticks', 'Jerky', 'Ears', 'Cow Cheeks', 'Ox Tails', 'Rabbit',
+        'Duck and Goose', 'Beef', 'Lamb', 'Buffalo', 'Chicken', 'Braided',
+        'Pressed Bones', 'Retrievers', "Twisty Q's and Natural Munchy Sticks",
+        "Binkey's", 'Other'
+    ];
+    function addPricingRow(name, price) {
+        const cats = (typeof brianPackCategories === 'function' && brianPackCategories(name)) || ['Other'];
+        const cat = (cats && cats[0]) || 'Other';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push({
             name: name,
-            category: 'Store-only',
+            category: cat,
             caseSize: '',
-            unitPrice: Number(existingCustomer[name]),
+            unitPrice: Number(price),
             isMarketPrice: false
         });
-        listed[name] = true;
-    });
+    }
     Object.keys(basePrices || {}).forEach(function (name) {
-        if (!name || listed[name] || !onSalesmanSheet(name)) return;
+        if (!name || !onSalesmanSheet(name)) return;
         if (window._customerPricingDraft[name] == null) {
             window._customerPricingDraft[name] = Number(basePrices[name]);
         }
-        if (!grouped['Other']) {
-            grouped['Other'] = [];
-            categoryOrder.push('Other');
+        addPricingRow(name, window._customerPricingDraft[name]);
+    });
+    Object.keys(existingCustomer || {}).forEach(function (name) {
+        if (!name || !onStoreSheet(name)) return;
+        if (grouped[Object.keys(grouped).find(function (cat) {
+            return grouped[cat].some(function (row) { return row.name === name; });
+        }) || '']) return;
+        if (window._customerPricingDraft[name] == null) {
+            window._customerPricingDraft[name] = Number(existingCustomer[name]);
         }
-        grouped['Other'].push({
-            name: name,
-            category: 'Other',
-            caseSize: '',
-            unitPrice: Number(basePrices[name]),
-            isMarketPrice: false
+        addPricingRow(name, window._customerPricingDraft[name]);
+    });
+    Object.keys(grouped).forEach(function (cat) {
+        grouped[cat].sort(function (a, b) {
+            return salesmanSheetItemKey(a.name).localeCompare(salesmanSheetItemKey(b.name));
         });
-        listed[name] = true;
+    });
+    const categoryOrder = sheetOrder.filter(function (cat) {
+        return grouped[cat] && grouped[cat].length;
     });
 
     if (!window._customerPriceExpanded) window._customerPriceExpanded = {};
