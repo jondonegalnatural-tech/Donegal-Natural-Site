@@ -918,6 +918,10 @@ async function renderCustomers() {
                 ${timingLine}
                 ${pricingBadge}
                 ${quoteBtn}
+                ${needsPricing ? `<button type="button" onclick="event.stopPropagation(); openSetCustomerPricingFromCard('${String(c.id || '').replace(/'/g, "\\'")}')"
+                    style="width:100%;background:#1E4D2B;color:#d4b78f;border:2px solid #6B4423;padding:0.55rem;border-radius:8px;font-weight:700;margin-top:0.5rem;">
+                    Set Customer Pricing
+                </button>` : ''}
                 <button type="button" class="view-customer-btn"
                     style="width:100%;background:#fff;color:#1E4D2B;border:2px solid #6B4423;padding:0.55rem;border-radius:8px;font-weight:700;margin-top:0.5rem;">
                     View Customer
@@ -1450,6 +1454,17 @@ async function salesmanHasApprovedPriceSheet() {
     } catch (e) {
         return false;
     }
+}
+
+function openSetCustomerPricingFromCard(id) {
+    const customer = (window._salesmanCustomers || []).find(function (row) {
+        return String(row.id) === String(id);
+    });
+    if (!customer) {
+        alert('Could not open this customer.');
+        return;
+    }
+    openCustomerPricingEditor(customer);
 }
 
 async function approveCustomerPricing() {
