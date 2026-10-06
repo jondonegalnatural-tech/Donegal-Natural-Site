@@ -3055,6 +3055,13 @@ function openPlaceOrderConfirmModal() {
 
 async function confirmAndSubmitPlaceOrder() {
     if (window._placeOrderSubmitting) return;
+    const seat = (typeof getOperatingSalesmanEmail === 'function' ? getOperatingSalesmanEmail() : '') || '';
+    const user = (typeof getCurrentUser === 'function' ? getCurrentUser() : null) || {};
+    const email = String(user.email || '').toLowerCase().trim();
+    const isBrian = seat === 'donegaldogtreats@gmail.com' || email === 'donegaldogtreats@gmail.com';
+    if (isBrian && !confirm('Did we attach payment information for this customer?\n\nYes submits the order. Cancel goes back.')) {
+        return;
+    }
     hidePlaceOrderConfirmModal();
     if (typeof submitPlaceOrder === 'function') {
         await submitPlaceOrder();
