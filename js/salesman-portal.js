@@ -4503,7 +4503,7 @@ async function openSalesmanOrderInvoice(orderId) {
     const editBtn = document.getElementById('sm-inv-edit-order-btn');
     if (editBtn) {
         const st = String(order.status || 'submitted').toLowerCase();
-        const canEdit = (typeof canEditSalesmanOrder === 'function') && canEditSalesmanOrder() &&
+        const canEdit = (typeof canEditSalesmanOrder === 'function') && canEditSalesmanOrder(order) &&
             (st === 'submitted' || st === 'pending' || st === '' || st === 'received' || st === 'processing');
         if (canEdit) {
             editBtn.classList.remove('hidden');
@@ -4519,10 +4519,12 @@ async function openSalesmanOrderInvoice(orderId) {
     if (modal) modal.classList.remove('hidden');
 }
 
-function canEditSalesmanOrder() {
+function canEditSalesmanOrder(order) {
     const user = getCurrentUser() || currentUser;
     const email = (user && user.email ? String(user.email) : '').toLowerCase().trim();
-    return email === 'jackerman@donegalnatural.com' || !!(user && user.isViewAs) || !!localStorage.getItem('originalAdminUser');
+    if (email === 'jackerman@donegalnatural.com' || !!(user && user.isViewAs) || !!localStorage.getItem('originalAdminUser')) return true;
+    const orderEmail = String((order && (order.salesman_email || order.salesmanEmail)) || '').toLowerCase().trim();
+    return email === 'donegaldogtreats@gmail.com' && (!orderEmail || orderEmail === email);
 }
 
 function editOrderFromSalesmanInvoice() {
@@ -4538,7 +4540,7 @@ let smEditItems = [];
 
 async function openSalesmanEditOrder(orderId) {
     if (!canEditSalesmanOrder()) {
-        alert('Only Jonathan can edit orders from Salesman View.');
+        alert('You can only edit an order you submitted.');
         return;
     }
     let order = (window._salesmanOrders || []).find(function (o) {
@@ -4750,7 +4752,7 @@ function addSalesmanEditProduct(productName) {
 
 async function saveSalesmanEditedOrder() {
     if (!canEditSalesmanOrder()) {
-        alert('Only Jonathan can edit orders from Salesman View.');
+        alert('You can only edit an order you submitted.');
         return;
     }
     if (!smEditOrder) return;
