@@ -4613,6 +4613,7 @@ async function openSalesmanEditOrder(orderId) {
         return;
     }
     smEditOrder = order;
+    loadEditOrderSheet(order);
     smEditItems = (order.items || []).map(function (item) {
         return {
             product: item.product || item.name || '',
@@ -4744,36 +4745,63 @@ function removeSalesmanEditItem(index) {
     renderSalesmanEditItems();
 }
 
+async function loadEditOrderSheet(order) {
+    const email = String((order && (order.salesman_email || order.salesmanEmail)) || 'donegaldogtreats@gmail.com').toLowerCase().trim();
+    window._editOrderSheetPrices = {};
+    window._editOrderSheetNames = {};
+    try {
+        const { data } = await supabaseClient
+            .from('salesman_price_sheets')
+            .select('prices, display_names')
+            .eq('salesman_email', email)
+            .maybeSingle();
+        window._editOrderSheetPrices = (data && data.prices) || {};
+        window._editOrderSheetNames = (data && data.display_names) || {};
+    } catch (err) {
+        console.warn('loadEditOrderSheet:', err);
+    }
+}
+
 function renderSalesmanEditProductSearch() {
     const input = document.getElementById('sm-edit-product-search');
     const results = document.getElementById('sm-edit-product-results');
-    if (!input || !results || typeof PRODUCT_CATALOG === 'undefined') return;
+    if (!input || !results) return;
     const q = String(input.value || '').trim().toLowerCase();
+    const prices = window._editOrderSheetPrices || {};
+    const names = window._editOrderSheetNames || {};
     if (!q) {
         results.innerHTML = '';
         results.classList.add('hidden');
         return;
     }
-    const matches = PRODUCT_CATALOG.filter(function (p) {
-        return String(p.name || '').toLowerCase().indexOf(q) !== -1;
+    const matches = Object.keys(prices).filter(function (name) {
+        const shown = String(names[name] || name);
+        return (name + ' ' + shown).toLowerCase().indexOf(q) !== -1;
     }).slice(0, 12);
     if (!matches.length) {
-        results.innerHTML = '<p class="p-3 text-sm text-[#6B4423]">No products</p>';
+        results.innerHTML = '<p class="p-3 text-sm text-[#6B4423]">No products on this salesman sheet</p>';
         results.classList.remove('hidden');
         return;
     }
-    results.innerHTML = matches.map(function (p) {
-        const safe = String(p.name || '').replace(/'/g, "\\'");
+    results.innerHTML = matches.map(function (name) {
+        const shown = String(names[name] || name);
+        const safe = String(name).replace(/'/g, "\\'");
         return '<button type="button" class="w-full text-left px-3 py-2 hover:bg-[#f8f4eb]" onclick="addSalesmanEditProduct(\'' + safe + '\')">' +
-            escapeHtml(p.name) + '</button>';
+            escapeHtml(shown) + ' · $' + Number(prices[name]).toFixed(2) + '</button>';
     }).join('');
     results.classList.remove('hidden');
 }
 
 function addSalesmanEditProduct(productName) {
-    if (typeof PRODUCT_CATALOG === 'undefined') return;
-    const product = PRODUCT_CATALOG.find(function (p) { return p.name === productName; });
-    if (!product) return;
+    const prices = window._editOrderSheetPrices || {};
+    if (!Object.prototype.hasOwnProperty.call(prices, productName)) return;
+    const names = window._editOrderSheetNames || {};
+    const product = {
+        name: names[productName] || productName,
+        caseSize: '',
+        unitPrice: Number(prices[productName]),
+        isMarketPrice: false
+    };
     const existing = smEditItems.find(function (i) { return salesmanEditItemKey(i) === String(productName).toLowerCase(); });
     if (existing) {
         existing.quantity = salesmanEditItemQty(existing) + 1;
