@@ -2297,6 +2297,10 @@ async function placeOrderForCustomer(customerName) {
     if (modal) modal.classList.remove("hidden");
 }
 
+window.addEventListener('pagehide', function () {
+    if (typeof persistPlaceOrderDraft === 'function') persistPlaceOrderDraft();
+});
+
 function hidePlaceOrderModal(opts) {
     if (!(opts && opts.discard)) persistPlaceOrderDraft();
     const modal = document.getElementById("place-order-modal");

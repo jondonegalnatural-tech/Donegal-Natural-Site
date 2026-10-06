@@ -5283,6 +5283,8 @@ async function persistOpenQuoteNow() {
             _openQuoteSaveTimer = null;
         }
         if (!quoteItems || quoteItems.length === 0) {
+            if (!window._quoteClearConfirmed) return;
+            window._quoteClearConfirmed = false;
             const { error } = await supabaseClient
                 .from('customer_open_quotes')
                 .delete()
@@ -5676,6 +5678,7 @@ function removeFromQuote(index) {
 function clearQuote() {
     if (confirm("Are you sure you want to clear the entire quote?")) {
         quoteItems = [];
+        window._quoteClearConfirmed = true;
         localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
         updateQuoteSidebar();
         if (typeof persistOpenQuoteNow === 'function') persistOpenQuoteNow();
