@@ -4550,9 +4550,13 @@ async function openSalesmanOrderInvoice(orderId) {
 function canEditSalesmanOrder(order) {
     const user = getCurrentUser() || currentUser;
     const email = (user && user.email ? String(user.email) : '').toLowerCase().trim();
+    const seat = (typeof getOperatingSalesmanEmail === 'function')
+        ? String(getOperatingSalesmanEmail() || '').toLowerCase().trim()
+        : email;
     if (email === 'jackerman@donegalnatural.com' || !!(user && user.isViewAs) || !!localStorage.getItem('originalAdminUser')) return true;
+    if (seat !== 'donegaldogtreats@gmail.com' && email !== 'donegaldogtreats@gmail.com') return false;
     const orderEmail = String((order && (order.salesman_email || order.salesmanEmail)) || '').toLowerCase().trim();
-    return email === 'donegaldogtreats@gmail.com' && (!orderEmail || orderEmail === email);
+    return !orderEmail || orderEmail === 'donegaldogtreats@gmail.com';
 }
 
 function editOrderFromSalesmanInvoice() {
@@ -4567,7 +4571,7 @@ let smEditOrder = null;
 let smEditItems = [];
 
 async function openSalesmanEditOrder(orderId) {
-    if (!canEditSalesmanOrder()) {
+    if (!canEditSalesmanOrder(smEditOrder)) {
         alert('You can only edit an order you submitted.');
         return;
     }
