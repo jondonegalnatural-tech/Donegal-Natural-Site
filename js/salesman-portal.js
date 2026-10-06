@@ -2314,7 +2314,7 @@ async function loadPlaceOrderPhotos() {
     try {
         const { data, error } = await supabaseClient
             .from('product_images')
-            .select('variant_name, family_key, is_card_hero, scope, storage_path, sort_order')
+            .select('family_key, linked_family_key, scope, variant_name, is_card_hero, sort_order, storage_path')
             .order('sort_order', { ascending: true });
         if (error) throw error;
         window._placeOrderPhotos = data || [];
@@ -2325,21 +2325,25 @@ async function loadPlaceOrderPhotos() {
 }
 
 function placeOrderPhotoUrl(name) {
-    const norm = function (value) {
-        return String(value || '').toLowerCase().replace(/[“”"]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-    };
-    const want = norm(name);
+    const slug = String(name || '').toLowerCase()
+        .replace(/[“”"]/g, '')
+        .replace(/&/g, ' and ')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 48);
+    const key = String(name || '').toLowerCase().replace(/[“”"]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
     const rows = window._placeOrderPhotos || [];
     const hit = rows.find(function (row) {
-        return norm(row.variant_name) === want && row.is_card_hero;
+        return (row.family_key === slug || row.linked_family_key === slug) && row.is_card_hero;
     }) || rows.find(function (row) {
-        return norm(row.variant_name) === want;
+        return row.family_key === slug || row.linked_family_key === slug;
     }) || rows.find(function (row) {
-        const family = norm(String(row.family_key || '').replace(/-/g, ' '));
-        return family && want.indexOf(family) !== -1 && (row.is_card_hero || row.scope === 'family');
+        const variant = String(row.variant_name || '').toLowerCase().replace(/[“”"]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+        return variant && variant === key;
     });
     const path = hit && hit.storage_path;
     if (!path || path === 'COMING_SOON' || String(path).indexOf('COMING_SOON/') === 0) return '';
+    if (!/\.(jpe?g|png|webp|gif)$/i.test(path)) return '';
     try {
         const pub = supabaseClient.storage.from('product-photos').getPublicUrl(path);
         return (pub && pub.data && pub.data.publicUrl) || '';
