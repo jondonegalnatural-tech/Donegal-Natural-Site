@@ -2342,14 +2342,26 @@ function placeOrderPhotoUrl(name) {
         return variant && variant === key;
     });
     const path = hit && hit.storage_path;
-    if (!path || path === 'COMING_SOON' || String(path).indexOf('COMING_SOON/') === 0) return '';
-    if (!/\.(jpe?g|png|webp|gif)$/i.test(path)) return '';
-    try {
-        const pub = supabaseClient.storage.from('product-photos').getPublicUrl(path);
-        return (pub && pub.data && pub.data.publicUrl) || '';
-    } catch (err) {
-        return '';
+    if (path && path !== 'COMING_SOON' && String(path).indexOf('COMING_SOON/') !== 0 && /\.(jpe?g|png|webp|gif)$/i.test(path)) {
+        try {
+            const pub = supabaseClient.storage.from('product-photos').getPublicUrl(path);
+            if (pub && pub.data && pub.data.publicUrl) return pub.data.publicUrl;
+        } catch (err) {}
     }
+    const rules = [
+        { match: /green line|monster/i, file: 'Green Line Bully Stick (Full picture).jpg' },
+        { match: /bully cane/i, file: 'Bully Canes .jpg' },
+        { match: /braided bully/i, file: 'Braided Bully (Full Picture).jpg' },
+        { match: /euro bully/i, file: 'Euro Bully Stick 6 in. .jpg' },
+        { match: /lung flip|buffalo bite/i, file: 'Beef Lung Flips (Full Product).jpg' },
+        { match: /lamb lung/i, file: 'Lamb Lung (Full Product).jpg' },
+        { match: /elky training/i, file: 'Jerky Squares Full Product shot.jpg' },
+        { match: /elky/i, file: 'Elky Sticks  (Full Shot).jpg' },
+        { match: /jerky/i, file: 'Turkey Jerky (Full Shot).jpg' }
+    ];
+    const raw = String(name || '');
+    const rule = rules.find(function (item) { return item.match.test(raw); });
+    return rule ? ('media/' + rule.file) : '';
 }
 
 function searchPlaceOrderProducts() {
