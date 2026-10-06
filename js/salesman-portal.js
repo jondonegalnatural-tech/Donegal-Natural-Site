@@ -5557,28 +5557,26 @@ async function exportPriceSheetPdf() {
 
     const grouped = {};
     const categoryOrder = [];
-    const unmatched = [];
+    const nicks = window._placeOrderDisplayNames || {};
+    const sheetOrder = ['Bully Sticks', 'Jerky', 'Ears', 'Cow Cheeks', 'Ox Tails', 'Rabbit', 'Duck and Goose', 'Beef', 'Lamb', 'Buffalo', 'Chicken', 'Braided', 'Pressed Bones', 'Retrievers', "Twisty Q's and Natural Munchy Sticks", "Binkey's", 'Other'];
 
     Object.keys(prices).forEach(name => {
-        const p = catalogByName[name];
-        if (p) {
-            const cat = p.category || "Other";
-            if (!grouped[cat]) {
-                grouped[cat] = [];
-                categoryOrder.push(cat);
-            }
-            grouped[cat].push({
-                name,
-                caseSize: p.caseSize || "",
-                price: Number(prices[name])
-            });
-        } else {
-            unmatched.push({
-                name,
-                caseSize: "",
-                price: Number(prices[name])
-            });
+        const cats = (typeof brianPackCategories === 'function' && brianPackCategories(nicks[name] || name)) || [];
+        const cat = cats[0] || (catalogByName[name] && catalogByName[name].category) || 'Other';
+        if (!grouped[cat]) {
+            grouped[cat] = [];
+            categoryOrder.push(cat);
         }
+        grouped[cat].push({
+            name: nicks[name] || name,
+            caseSize: (catalogByName[name] && catalogByName[name].caseSize) || '',
+            price: Number(prices[name])
+        });
+    });
+    categoryOrder.sort(function (a, b) {
+        const ia = sheetOrder.indexOf(a);
+        const ib = sheetOrder.indexOf(b);
+        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
     });
 
     // Sort products inside each category
