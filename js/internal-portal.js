@@ -3705,6 +3705,9 @@ function renderOrdersTable() {
         const creditBadge = creditAmt > 0
             ? `<span class="ml-1 text-xs font-bold bg-red-100 text-red-800 px-1.5 py-0.5 rounded">Credit</span>`
             : '';
+        const editedBadge = /ORDER UPDATED/i.test(String(order.notes || ''))
+            ? `<span class="ml-2 text-xs font-bold bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded">Edited</span>`
+            : '';
 
         let totalHTML = '';
         if (hasMarketPrice) {
@@ -3726,7 +3729,7 @@ function renderOrdersTable() {
                     <input type="checkbox" class="order-checkbox" value="${safeId}" onchange="updatePrintSelectedButton()">
                 </td>
                 <td class="p-3">${escapeHtml(order.salesman || (order.source === 'wholesale' ? 'Wholesale' : '—'))}</td>
-                <td class="p-3">${escapeHtml(orderCompanyLabel(order))}</td>
+                <td class="p-3">${escapeHtml(orderCompanyLabel(order))}${editedBadge}</td>
                 <td class="p-3">${totalHTML}</td>
                 <td class="p-3 text-sm">${order.submittedAt ? new Date(order.submittedAt).toLocaleDateString() : '—'}</td>
             </tr>
