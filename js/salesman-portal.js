@@ -907,10 +907,10 @@ async function renderCustomers() {
             div.innerHTML = `
                 ${commissionBadge}
                 <div style="font-weight:700;color:#1E4D2B;margin-bottom:0.3rem;padding-right:${showCommission ? '2.6rem' : '0'};">
-                    ${escapeHtml(c.name || '')}${newBadge}
+                    ${escapeHtml(c.company || c.name || '')}${newBadge}
                 </div>
                 <div style="color:#6B4423;font-size:0.85rem;margin-bottom:0.4rem;">
-                    ${escapeHtml(c.company || '')}
+                    ${c.company && c.name && c.company !== c.name ? escapeHtml(c.name) : ''}
                 </div>
                 <div style="color:#6B4423;font-size:0.8rem;margin-bottom:0.6rem;">
                     ${escapeHtml(c.territory || c.status || '')}
