@@ -13289,12 +13289,12 @@ function updateInquiryStats() {
             listEl.innerHTML = '<p class="text-xs text-[#6B4423] text-center">No pending inquiries</p>';
         } else {
             listEl.innerHTML = pendingList.map(i => {
-                const name = (i.owner_name || '—').trim();
-                const company = (i.company_name || '').trim();
+                const name = (i.owner_name || '').trim();
+                const company = (i.company_name || name || '—').trim();
                 return `
                     <div class="bg-[#f8f4eb] rounded-lg px-3 py-1.5 text-left">
-                        <p class="text-sm font-semibold brand-green truncate">${escapeHtml(name)}</p>
-                        ${company ? `<p class="text-xs text-[#6B4423] truncate">${escapeHtml(company)}</p>` : ''}
+                        <p class="text-sm font-semibold brand-green truncate">${escapeHtml(company)}</p>
+                        ${name && name !== company ? `<p class="text-xs text-[#6B4423] truncate">${escapeHtml(name)}</p>` : ''}
                     </div>
                 `;
             }).join('');
