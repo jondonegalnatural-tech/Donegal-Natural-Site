@@ -2308,11 +2308,48 @@ function hidePlaceOrderModal(opts) {
     placeOrderItems = [];
 }
 
+async function loadPlaceOrderPhotos() {
+    if (window._placeOrderPhotosLoaded) return;
+    window._placeOrderPhotos = [];
+    try {
+        const { data, error } = await supabaseClient
+            .from('product_images')
+            .select('variant_name, family_key, is_card_hero, scope, storage_path, sort_order')
+            .order('sort_order', { ascending: true });
+        if (error) throw error;
+        window._placeOrderPhotos = data || [];
+        window._placeOrderPhotosLoaded = true;
+    } catch (err) {
+        console.warn('loadPlaceOrderPhotos:', err);
+    }
+}
+
+function placeOrderPhotoUrl(name) {
+    const want = String(name || '').toLowerCase().replace(/[“”"]/g, '').replace(/\s+/g, ' ').trim();
+    const rows = window._placeOrderPhotos || [];
+    const hit = rows.find(function (row) {
+        return String(row.variant_name || '').toLowerCase().replace(/[“”"]/g, '').replace(/\s+/g, ' ').trim() === want && row.is_card_hero;
+    }) || rows.find(function (row) {
+        return String(row.variant_name || '').toLowerCase().replace(/[“”"]/g, '').replace(/\s+/g, ' ').trim() === want;
+    }) || rows.find(function (row) {
+        return want.indexOf(String(row.family_key || '').replace(/-/g, ' ')) !== -1 && row.scope === 'family';
+    });
+    const path = hit && hit.storage_path;
+    if (!path || path === 'COMING_SOON' || String(path).indexOf('COMING_SOON/') === 0) return '';
+    try {
+        const pub = supabaseClient.storage.from('product-photos').getPublicUrl(path);
+        return (pub && pub.data && pub.data.publicUrl) || '';
+    } catch (err) {
+        return '';
+    }
+}
+
 function searchPlaceOrderProducts() {
     const searchEl = document.getElementById("place-order-product-search");
     const resultsEl = document.getElementById("place-order-product-results");
     if (!searchEl || !resultsEl) return;
 
+    if (!window._placeOrderPhotosLoaded) loadPlaceOrderPhotos().then(searchPlaceOrderProducts);
     const term = (searchEl.value || "").toLowerCase().trim();
     const sheetMap = window._placeOrderBrianPrices || {};
     const sheetNames = Object.keys(sheetMap);
@@ -2376,6 +2413,9 @@ function searchPlaceOrderProducts() {
         lastCat = cat;
         return header + (
             '<div class="px-3 py-2 border-b border-[#d4b78f] flex items-center gap-3">' +
+            (placeOrderPhotoUrl(p.name)
+                ? '<img src="' + placeOrderPhotoUrl(p.name) + '" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:#f8f4eb;flex:0 0 auto;">'
+                : '<div style="width:56px;height:56px;border-radius:8px;background:#e7e2d8;flex:0 0 auto;"></div>') +
             '<div class="flex-1 min-w-0">' +
             '<p class="text-sm font-semibold brand-green">' + escapeHtml(p.nick) + '</p>' +
             (hideCase || !p.caseSize ? '' : ('<p class="text-xs text-[#6B4423]">' + escapeHtml(p.caseSize) + '</p>')) +
