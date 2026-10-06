@@ -3089,6 +3089,15 @@ async function submitPlaceOrder() {
 
         const notesEl = document.getElementById("place-order-notes");
         const notes = notesEl ? notesEl.value.trim() : "";
+        const paymentOnFile = !!(document.getElementById('po-payment-on-file') && document.getElementById('po-payment-on-file').checked);
+        const paymentLast4 = String((document.getElementById('po-payment-last4') || {}).value || '').replace(/\D/g, '').slice(0, 4);
+        if (!paymentOnFile && !confirm('Does this customer have a payment method on file?\n\nIf yes, cancel and check the box. Then call the warehouse and read the full number. Type only the last 4 here.\n\nOK sends the pro forma as payment method not on file.')) {
+            return;
+        }
+        if (paymentOnFile && paymentLast4.length !== 4) {
+            alert('Enter the last 4 digits only. Call the warehouse with the full number. Do not type the full number here.');
+            return;
+        }
 
         const customerObj = (currentPlaceOrderCustomer && typeof currentPlaceOrderCustomer === "object")
             ? currentPlaceOrderCustomer
@@ -3170,6 +3179,8 @@ async function submitPlaceOrder() {
         await notifyMarshallProforma({
             skipMarshall: !!(isJonathanActing() && document.getElementById('po-skip-marshall')?.checked),
             orderId: shortId,
+            paymentOnFile: paymentOnFile,
+            paymentLast4: paymentOnFile ? paymentLast4 : '',
             customerName: payload.customer_name,
             companyName: payload.customer_company,
             customerEmail: payload.customer_email,
