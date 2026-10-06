@@ -4534,6 +4534,7 @@ async function openSalesmanOrderInvoice(orderId) {
         const canEdit = (typeof canEditSalesmanOrder === 'function') && canEditSalesmanOrder(order) &&
             (st === 'submitted' || st === 'pending' || st === '' || st === 'received' || st === 'processing');
         if (canEdit) {
+            editBtn.textContent = 'Update Order';
             editBtn.classList.remove('hidden');
             editBtn.setAttribute('data-order-id', String(order.id));
         } else {
