@@ -2974,24 +2974,38 @@ function openPlaceOrderConfirmModal() {
     let pricedTotal = 0;
     let hasMarket = false;
     let rows = '';
-
-    placeOrderItems.forEach((item) => {
-        const qty = item.quantity || 1;
-        const isMarket = !!item.isMarketPrice;
-        let lineLabel = item.displayPrice || '—';
-        if (isMarket && (item.unitPrice == null || item.unitPrice === '')) {
-            hasMarket = true;
-            lineLabel = 'Market';
-        } else {
-            const unit = parseFloat(item.unitPrice) || 0;
-            const line = unit * qty;
-            pricedTotal += line;
-            lineLabel = '$' + line.toFixed(2);
-        }
-        const unitText = (isMarket && (item.unitPrice == null || item.unitPrice === ''))
-            ? 'Market'
-            : ('$' + (parseFloat(item.unitPrice) || 0).toFixed(2) + ' ea');
-        rows += `
+    const sheetOrder = ['Bully Sticks', 'Jerky', 'Ears', 'Cow Cheeks', 'Ox Tails', 'Rabbit', 'Duck and Goose', 'Beef', 'Lamb', 'Buffalo', 'Chicken', 'Braided', 'Pressed Bones', 'Retrievers', "Twisty Q's and Natural Munchy Sticks", "Binkey's", 'Other'];
+    const grouped = {};
+    placeOrderItems.forEach(function (item) {
+        const key = item.product || item.name || orderLineDisplayName(item);
+        const cats = (typeof brianPackCategories === 'function' && brianPackCategories(key)) || [];
+        const cat = cats[0] || 'Other';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(item);
+    });
+    Object.keys(grouped).sort(function (a, b) {
+        const ia = sheetOrder.indexOf(a);
+        const ib = sheetOrder.indexOf(b);
+        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    }).forEach(function (cat) {
+        rows += `<p style="margin:10px 0 6px;font-size:12px;font-weight:800;letter-spacing:0.04em;color:#6B4423;">${escapeHtml(cat)}</p>`;
+        grouped[cat].forEach(function (item) {
+            const qty = item.quantity || 1;
+            const isMarket = !!item.isMarketPrice;
+            let lineLabel = item.displayPrice || '—';
+            if (isMarket && (item.unitPrice == null || item.unitPrice === '')) {
+                hasMarket = true;
+                lineLabel = 'Market';
+            } else {
+                const unit = parseFloat(item.unitPrice) || 0;
+                const line = unit * qty;
+                pricedTotal += line;
+                lineLabel = '$' + line.toFixed(2);
+            }
+            const unitText = (isMarket && (item.unitPrice == null || item.unitPrice === ''))
+                ? 'Market'
+                : ('$' + (parseFloat(item.unitPrice) || 0).toFixed(2) + ' ea');
+            rows += `
             <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;border-bottom:1px solid #f0e6d6;padding-bottom:8px;margin-bottom:8px;">
                 <div style="min-width:0;flex:1;">
                     <p style="font-weight:600;color:#1E4D2B;margin:0;">${escapeHtml(orderLineDisplayName(item))}</p>
@@ -3001,6 +3015,7 @@ function openPlaceOrderConfirmModal() {
                 <p style="font-weight:600;color:#1E4D2B;margin:0;white-space:nowrap;">${lineLabel}</p>
             </div>
         `;
+        });
     });
 
     document.getElementById('place-order-confirm-dynamic')?.remove();
