@@ -2765,11 +2765,6 @@ function renderCategoryFilters() {
             const back = document.createElement('button');
             back.type = 'button';
             back.className = 'mobile-cat-chip';
-    if (/bully pieces/.test(n)) return 'Bully Pieces';
-    if (/braided bully/.test(n)) return 'Braided Bully';
-    if (/euro bull/.test(n)) return 'Euro Bully';
-    if (/bully cane/.test(n)) return 'Canes';
-    if (/super thick|thin green|regular green|thick green|green line|bully stick/.test(n)) return 'Green Line';
             back.onclick = () => selectWholesaleCategory('All');
             container.appendChild(back);
 
