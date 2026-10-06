@@ -4544,11 +4544,10 @@ async function openSalesmanOrderInvoice(orderId) {
     }
 
     // Show modal after this click finishes so the backdrop does not close it
-    const modal = document.getElementById('order-invoice-modal');
     if (modal) {
-        setTimeout(function () {
-            modal.classList.remove('hidden');
-        }, 0);
+        document.body.appendChild(modal);
+        modal.style.zIndex = '5000';
+        modal.classList.remove('hidden');
     }
 }
 
