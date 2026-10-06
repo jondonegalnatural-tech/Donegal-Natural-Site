@@ -4544,11 +4544,14 @@ async function openSalesmanOrderInvoice(orderId) {
     }
 
     // Show modal after this click finishes so the backdrop does not close it
-    if (modal) {
-        document.body.appendChild(modal);
-        modal.style.zIndex = '5000';
-        modal.classList.remove('hidden');
+    const modal = document.getElementById('order-invoice-modal');
+    if (!modal) {
+        alert('Invoice window is missing from salesman-portal.html.');
+        return;
     }
+    document.body.appendChild(modal);
+    modal.style.zIndex = '5000';
+    modal.classList.remove('hidden');
 }
 
 function canEditSalesmanOrder(order) {
