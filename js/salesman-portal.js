@@ -3151,6 +3151,7 @@ async function submitPlaceOrder() {
             items: placeOrderItems.map(item => ({
                 product: item.name,
                 displayName: item.displayName || salesmanDisplayName(item.name),
+                category: ((typeof brianPackCategories === 'function' && brianPackCategories(item.name || item.product)) || [])[0] || 'Other',
                 quantity: item.quantity || 1,
                 caseSize: item.caseSize || "",
                 unitPrice: item.unitPrice != null ? item.unitPrice : null,
