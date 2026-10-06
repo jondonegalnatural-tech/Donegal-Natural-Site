@@ -2391,13 +2391,16 @@ function searchPlaceOrderProducts() {
         const catalog = (typeof PRODUCT_CATALOG !== 'undefined')
             ? PRODUCT_CATALOG.find(function (p) { return p && p.name === name; })
             : null;
-        let category = (catalog && catalog.category) || '';
-        const n = String(name || '').toLowerCase();
+        const packCats = (typeof brianPackCategories === 'function')
+            ? (brianPackCategories(nick) || brianPackCategories(name))
+            : null;
+        let category = (packCats && packCats[0]) || (catalog && catalog.category) || '';
+        const n = String(nick || name || '').toLowerCase();
         if (!category) {
             if (n.indexOf('bully') !== -1 || n.indexOf('thin green') !== -1) category = 'Bully Sticks';
             else if (n.indexOf('jerky') !== -1 || n.indexOf('elky') !== -1) category = 'Jerky';
             else if (n.indexOf('ear') !== -1) category = 'Ears';
-            else if (n.indexOf('lung') !== -1) category = 'Beef';
+            else if (n.indexOf('lung') !== -1 || n.indexOf('trachea') !== -1) category = 'Beef';
             else category = 'Other';
         }
         rows.push({
@@ -2433,8 +2436,8 @@ function searchPlaceOrderProducts() {
         lastCat = cat;
         return header + (
             '<div class="px-3 py-2 border-b border-[#d4b78f] flex items-center gap-3">' +
-            (placeOrderPhotoUrl(p.name)
-                ? '<img src="' + placeOrderPhotoUrl(p.name) + '" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;background:#f8f4eb;flex:0 0 auto;">'
+            (placeOrderPhotoUrl(p.nick || p.name)
+                ? '<img src="' + placeOrderPhotoUrl(p.nick || p.name) + '" alt="" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#f8f4eb;flex:0 0 auto;">'
                 : '<div style="width:56px;height:56px;border-radius:8px;background:#e7e2d8;flex:0 0 auto;"></div>') +
             '<div class="flex-1 min-w-0">' +
             '<p class="text-sm font-semibold brand-green">' + escapeHtml(p.nick) + '</p>' +
