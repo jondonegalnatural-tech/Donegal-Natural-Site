@@ -3158,6 +3158,16 @@ function renderWholesaleItemGrid(container) {
             return !!(mapped && mapped.indexOf(currentCategoryFilter) !== -1);
         });
     }
+    if (currentSubCategoryFilter) {
+        const tree = (WHOLESALE_BROWSE_TREE || {})[currentCategoryFilter] || {};
+        const allowed = {};
+        (tree[currentSubCategoryFilter] || []).forEach(function (n) { allowed[n] = true; });
+        rows = rows.filter(function (p) {
+            if (allowed[p.name]) return true;
+            const group = (typeof brianPackGroup === 'function') ? brianPackGroup(p.name) : '';
+            return group === currentSubCategoryFilter;
+        });
+    }
     if (searchVal) {
         rows = rows.filter(function (p) {
             const nick = (typeof wholesaleDisplayName === 'function')
