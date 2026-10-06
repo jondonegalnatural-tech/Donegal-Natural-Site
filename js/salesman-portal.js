@@ -5578,6 +5578,7 @@ async function exportPriceSheetPdf() {
         const ib = sheetOrder.indexOf(b);
         return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
     });
+    const unmatched = [];
 
     // Sort products inside each category
     categoryOrder.forEach(cat => {
