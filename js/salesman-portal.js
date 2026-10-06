@@ -2325,14 +2325,18 @@ async function loadPlaceOrderPhotos() {
 }
 
 function placeOrderPhotoUrl(name) {
-    const want = String(name || '').toLowerCase().replace(/[“”"]/g, '').replace(/\s+/g, ' ').trim();
+    const norm = function (value) {
+        return String(value || '').toLowerCase().replace(/[“”"]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    };
+    const want = norm(name);
     const rows = window._placeOrderPhotos || [];
     const hit = rows.find(function (row) {
-        return String(row.variant_name || '').toLowerCase().replace(/[“”"]/g, '').replace(/\s+/g, ' ').trim() === want && row.is_card_hero;
+        return norm(row.variant_name) === want && row.is_card_hero;
     }) || rows.find(function (row) {
-        return String(row.variant_name || '').toLowerCase().replace(/[“”"]/g, '').replace(/\s+/g, ' ').trim() === want;
+        return norm(row.variant_name) === want;
     }) || rows.find(function (row) {
-        return want.indexOf(String(row.family_key || '').replace(/-/g, ' ')) !== -1 && row.scope === 'family';
+        const family = norm(String(row.family_key || '').replace(/-/g, ' '));
+        return family && want.indexOf(family) !== -1 && (row.is_card_hero || row.scope === 'family');
     });
     const path = hit && hit.storage_path;
     if (!path || path === 'COMING_SOON' || String(path).indexOf('COMING_SOON/') === 0) return '';
