@@ -4570,7 +4570,6 @@ function editOrderFromSalesmanInvoice() {
     const btn = document.getElementById('sm-inv-edit-order-btn');
     const orderId = btn ? btn.getAttribute('data-order-id') : '';
     if (!orderId) return;
-    if (typeof hideOrderInvoiceModal === 'function') hideOrderInvoiceModal();
     openSalesmanEditOrder(orderId);
 }
 
@@ -4578,7 +4577,10 @@ let smEditOrder = null;
 let smEditItems = [];
 
 async function openSalesmanEditOrder(orderId) {
-    if (!canEditSalesmanOrder(smEditOrder)) {
+    const existing = (window._salesmanOrders || []).find(function (o) {
+        return String(o.id) === String(orderId);
+    });
+    if (!canEditSalesmanOrder(existing || smEditOrder)) {
         alert('You can only edit an order you submitted.');
         return;
     }
@@ -4640,7 +4642,13 @@ async function openSalesmanEditOrder(orderId) {
         resultsEl.classList.add('hidden');
     }
     renderSalesmanEditItems();
-    document.getElementById('sm-edit-order-modal')?.classList.remove('hidden');
+    const editModal = document.getElementById('sm-edit-order-modal');
+    if (editModal) {
+        document.body.appendChild(editModal);
+        editModal.style.zIndex = '6000';
+        editModal.classList.remove('hidden');
+    }
+    if (typeof hideOrderInvoiceModal === 'function') hideOrderInvoiceModal();
 }
 
 function hideSalesmanEditOrderModal() {
