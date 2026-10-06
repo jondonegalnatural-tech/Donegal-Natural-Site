@@ -2325,13 +2325,17 @@ async function loadPlaceOrderPhotos() {
 }
 
 function placeOrderPhotoUrl(name) {
-    const slug = String(name || '').toLowerCase()
+    const product = String(name || '')
+        .replace(/^\d+\s*pack,\s*/i, '')
+        .replace(/^\d+(?:-\d+)?\s*["”]?\s*/i, '')
+        .replace(/\bcollagen\b/ig, 'corium');
+    const slug = product.toLowerCase()
         .replace(/[“”"]/g, '')
         .replace(/&/g, ' and ')
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/^-+|-+$/g, '')
         .slice(0, 48);
-    const key = String(name || '').toLowerCase().replace(/[“”"]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+    const key = product.toLowerCase().replace(/[“”"]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
     const rows = window._placeOrderPhotos || [];
     const hit = rows.find(function (row) {
         return (row.family_key === slug || row.linked_family_key === slug) && row.is_card_hero;
@@ -2353,13 +2357,14 @@ function placeOrderPhotoUrl(name) {
         { match: /bully cane/i, file: 'Bully Canes .jpg' },
         { match: /braided bully/i, file: 'Braided Bully (Full Picture).jpg' },
         { match: /euro bully/i, file: 'Euro Bully Stick 6 in. .jpg' },
+        { match: /corium|collagen/i, file: 'Beef Wrapped Corium Sticks (Full Product).jpg' },
         { match: /lung flip|buffalo bite/i, file: 'Beef Lung Flips (Full Product).jpg' },
         { match: /lamb lung/i, file: 'Lamb Lung (Full Product).jpg' },
         { match: /elky training/i, file: 'Jerky Squares Full Product shot.jpg' },
         { match: /elky/i, file: 'Elky Sticks  (Full Shot).jpg' },
         { match: /jerky/i, file: 'Turkey Jerky (Full Shot).jpg' }
     ];
-    const raw = String(name || '');
+    const raw = product;
     const rule = rules.find(function (item) { return item.match.test(raw); });
     return rule ? ('media/' + rule.file) : '';
 }
