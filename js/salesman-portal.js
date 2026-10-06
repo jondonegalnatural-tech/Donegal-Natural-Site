@@ -4290,7 +4290,7 @@ function createOrderCard(order, showSalesman = false) {
      const safeId = String(order.id || '').replace(/'/g, "\\'");
     return `
         <div style="background:#fff; border:2px solid #6B4423; border-radius:12px; padding:1rem; margin-bottom:1rem; cursor:pointer;"
-             onclick="openSalesmanOrderInvoice('${safeId}')"
+             onclick="event.stopPropagation(); openSalesmanOrderInvoice('${safeId}')"
              title="Click to view invoice">
             <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:0.75rem;">
                 <div>
@@ -4543,9 +4543,13 @@ async function openSalesmanOrderInvoice(orderId) {
         }
     }
 
-    // Show modal
+    // Show modal after this click finishes so the backdrop does not close it
     const modal = document.getElementById('order-invoice-modal');
-    if (modal) modal.classList.remove('hidden');
+    if (modal) {
+        setTimeout(function () {
+            modal.classList.remove('hidden');
+        }, 0);
+    }
 }
 
 function canEditSalesmanOrder(order) {
