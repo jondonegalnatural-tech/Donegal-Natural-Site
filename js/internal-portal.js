@@ -10732,10 +10732,23 @@ async function saveSalesmanPriceSheetAndPush(opts) {
         alert('No salesman sheet is loaded.');
         return;
     }
-    const prices = collectSalesmanPriceSheetInputs();
+    let prices = collectSalesmanPriceSheetInputs();
     if (!Object.keys(prices).length) {
         alert('No prices to save.');
         return;
+    }
+
+    // Permanent guard for Brian — strip known bad/duplicate keys before saving or pushing
+    const emailCheck = String(window._spsSheet.email || '').toLowerCase().trim();
+    if (emailCheck === 'donegaldogtreats@gmail.com') {
+        const cleaned = {};
+        Object.keys(prices).forEach(function (key) {
+            if (/bagged|Sexy Chicken Feets|Thin Green Line Bully Sticks$/i.test(key)) return;
+            if (key === '20 Pack, 12" Thick Euro Bullies' || key === '25 Pack, 6" Thick Euro Bullies') return;
+            if (key === '20 Pack, 12" Regular Bully Sticks' || key === '25 Pack, 6" Regular Bully Sticks') return;
+            cleaned[key] = prices[key];
+        });
+        prices = cleaned;
     }
 
     const email = String(window._spsSheet.email || '').toLowerCase().trim();
