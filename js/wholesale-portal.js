@@ -5327,6 +5327,31 @@ function quoteItemsFromOpenQuoteRows(rows) {
     }).filter(function (item) { return !!item.name; });
 }
 
+function removeStaleQuoteItems() {
+    if (!Array.isArray(quoteItems) || !quoteItems.length) return;
+    if (typeof WHOLESALE_PRICES === 'undefined' || !Array.isArray(WHOLESALE_PRICES)) return;
+
+    const allowed = {};
+    WHOLESALE_PRICES.forEach(function (p) {
+        if (p && p.name) allowed[p.name] = true;
+    });
+
+    const before = quoteItems.length;
+    quoteItems = quoteItems.filter(function (item) {
+        return item && item.name && allowed[item.name];
+    });
+
+    if (quoteItems.length !== before) {
+        localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
+        const customer = window._currentCustomer;
+        if (customer && customer.id) {
+            localStorage.setItem('wholesaleQuote_' + customer.id, JSON.stringify(quoteItems));
+        }
+        if (typeof renderQuote === 'function') renderQuote();
+        console.log('Removed', before - quoteItems.length, 'stale quote item(s)');
+    }
+}
+
 async function loadOpenQuoteForActiveStore() {
     const customer = window._currentCustomer;
     if (!customer || !customer.id) {
@@ -5360,6 +5385,7 @@ async function loadOpenQuoteForActiveStore() {
         quoteItems = [];
     }
     localStorage.setItem('wholesaleQuote', JSON.stringify(quoteItems));
+        removeStaleQuoteItems();
 }
 
 
