@@ -10743,10 +10743,15 @@ async function saveSalesmanPriceSheetAndPush(opts) {
     if (emailCheck === 'donegaldogtreats@gmail.com') {
         const cleaned = {};
         Object.keys(prices).forEach(function (key) {
-            if (/bagged|Sexy Chicken Feets|Thin Green Line Bully Sticks$/i.test(key)) return;
-            if (key === '20 Pack, 12" Thick Euro Bullies' || key === '25 Pack, 6" Thick Euro Bullies') return;
-            if (key === '20 Pack, 12" Regular Bully Sticks' || key === '25 Pack, 6" Regular Bully Sticks') return;
-            cleaned[key] = prices[key];
+            const k = String(key || '');
+            if (/bagged|Sexy Chicken Feets/i.test(k)) return;
+            if (/Thin Green Line Bully Sticks$/i.test(k)) return;
+            if (/^20 Pack, 12" Thick Euro Bullies$/i.test(k)) return;
+            if (/^25 Pack, 6" Thick Euro Bullies$/i.test(k)) return;
+            if (/^20 Pack, 12" Regular Bully Sticks$/i.test(k)) return;
+            if (/^25 Pack, 6" Regular Bully Sticks$/i.test(k)) return;
+            if (/^50 Pack, (Beef|Chicken|Elky|Turkey|Venison)/i.test(k) && !/USA/.test(k)) return;
+            cleaned[k] = prices[k];
         });
         prices = cleaned;
     }
