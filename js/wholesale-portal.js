@@ -8764,14 +8764,9 @@ async function applyBrianWholesaleSheetPrices() {
             sheetSalesman === salesmanEmail) {
             Object.keys(custSheet.prices).forEach(function (name) {
                 if (custSheet.prices[name] == null || custSheet.prices[name] === '') return;
-                // Overlay if the key is already on the salesman sheet
+                // Only overlay price if the item already exists on the salesman sheet.
+                // Never add a key that the salesman sheet no longer has.
                 if (Object.prototype.hasOwnProperty.call(prices, name)) {
-                    prices[name] = custSheet.prices[name];
-                    return;
-                }
-                // Or if it is an assigned extra for this store
-                const assigned = window._wholesaleAssignedProducts || new Set();
-                if (assigned.has(name)) {
                     prices[name] = custSheet.prices[name];
                 }
             });
