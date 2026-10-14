@@ -20877,7 +20877,81 @@ async function saveBasePriceSheetEdits() {
     }
 }
 
+async function updateSalesmanSheetsFromMaster() {
+    if (!confirm(
+        'Update salesman sheets from the Master?\n\n' +
+        'This writes current Master prices onto every salesman sheet for matching product names.\n' +
+        'Customer specials / locked prices are NOT changed.\n\n' +
+        'Continue?'
+    )) return;
 
+    const btn = document.getElementById('bps-update-salesmen-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+
+    try {
+        // Load Master prices
+        const { data: products, error: pErr } = await supabaseClient
+            .from('products')
+            .select('name, unit_price')
+            .eq('active', true);
+        if (pErr) throw pErr;
+        const master = {};
+        (products || []).forEach(function (p) {
+            if (p && p.name && p.unit_price != null) master[p.name] = Number(p.unit_price);
+        });
+
+        // Load all salesman sheets
+        const { data: sheets, error: sErr } = await supabaseClient
+            .from('salesman_price_sheets')
+            .select('id, salesman_email, prices');
+        if (sErr) throw sErr;
+
+        let updated = 0;
+        for (const sheet of (sheets || [])) {
+            const prices = Object.assign({}, sheet.prices || {});
+            let changed = false;
+            Object.keys(prices).forEach(function (name) {
+                if (master.hasOwnProperty(name) && Number(prices[name]) !== master[name]) {
+                    prices[name] = master[name];
+                    changed = true;
+                }
+            });
+            if (!changed) continue;
+            const { error } = await supabaseClient
+                .from('salesman_price_sheets')
+                .update({ prices: prices, updated_at: new Date().toISOString() })
+                .eq('id', sheet.id);
+            if (error) console.warn('Failed', sheet.salesman_email, error);
+            else updated++;
+        }
+
+        alert('Updated ' + updated + ' salesman sheet(s) from the Master.\nCustomer specials were left unchanged.');
+    } catch (err) {
+        console.error(err);
+        alert('Could not update salesman sheets.\n' + (err.message || ''));
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Update Salesman Sheets'; }
+    }
+}
+
+// Call this whenever a brand-new product name is added on a salesman sheet
+// so the Master catalog stays complete.
+async function ensureProductOnMaster(name, price, category) {
+    const cleanName = String(name || '').trim();
+    if (!cleanName) return;
+    const { data: existing } = await supabaseClient
+        .from('products')
+        .select('id')
+        .eq('name', cleanName)
+        .maybeSingle();
+    if (existing) return; // already on Master
+    await supabaseClient.from('products').insert({
+        name: cleanName,
+        category: category || 'Other',
+        unit_price: price != null ? Number(price) : 0,
+        active: true
+    });
+}
 
 
 function printBasePriceSheet() {
