@@ -10732,7 +10732,11 @@ async function saveSalesmanPriceSheetOnly() {
                 details: { productCount: Object.keys(prices).length }
             });
         }
-        alert('Saved ' + salesmanName + '\'s sheet.\nAssigned store sheets were not changed.\nUse Save & Push to Customers when you want stores updated.');
+        alert(
+            'Saved ' + salesmanName + '\'s sheet.\n\n' +
+            'Customers with approved pricing will see these prices and names on their next page load.\n' +
+            'Save & Push is optional — it only stamps a copy onto customer sheets.'
+        );
     } catch (err) {
         console.error('saveSalesmanPriceSheetOnly:', err);
         alert('Could not save the sheet.\n' + (err.message || ''));
@@ -10874,8 +10878,10 @@ async function saveSalesmanPriceSheetAndPush(opts) {
         if (!silent) {
             alert(
                 'Saved ' + salesmanName + '\'s sheet.\n' +
-                'Pushed prices to ' + pushed + ' store(s).' +
-                (skipped.length ? ('\nSkipped ' + skipped.length + ' protected store(s).') : '')
+                'Pushed a copy to ' + pushed + ' store(s).' +
+                (skipped.length ? ('\nSkipped ' + skipped.length + ' protected store(s).') : '') +
+                '\n\nCustomers with approved pricing already see the live salesman sheet on their next page load.\n' +
+                'The push is optional and only needed if you want a frozen copy on the customer rows.'
             );
         }
     } catch (err) {
