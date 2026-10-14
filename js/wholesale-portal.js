@@ -8776,10 +8776,12 @@ async function applyBrianWholesaleSheetPrices() {
     Object.keys(prices).forEach(function (name) {
         const raw = prices[name];
         const n = Number(raw);
+        const mapped = (typeof brianPackCategories === 'function') ? brianPackCategories(name) : null;
+        const cat = (mapped && mapped[0]) || 'Other';
         next.push({
             name: name,
-            category: 'Other',
-            subCategory: '',
+            category: cat,
+            subCategory: (mapped && mapped[1]) || '',
             cs: '',
             price: (!isNaN(n) && raw !== '' && raw != null) ? ('$' + n.toFixed(2)) : '',
             isMarketPrice: false
