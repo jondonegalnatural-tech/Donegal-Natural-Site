@@ -8710,49 +8710,38 @@ function brianPackCategories(name) {
 }
 
 async function applyBrianWholesaleSheetPrices() {
-    const base = (Array.isArray(window._wholesaleCatalogBase) && window._wholesaleCatalogBase.length)
-        ? window._wholesaleCatalogBase.map(function (p) { return Object.assign({}, p); })
-        : (WHOLESALE_PRICES || []).map(function (p) { return Object.assign({}, p); });
-
     window._wholesaleSalesmanPrices = {};
     window._wholesaleDisplayNames = {};
     window._wholesaleHiddenPrices = {};
 
     const customer = window._currentCustomer;
-    if (!customer || !customer.id) {
-        WHOLESALE_PRICES = shouldFailClosedToSalesmanSheet(customer) ? [] : base;
-        return;
-    }
-    const salesmanEmail = String((customer.salesman_email || customer.salesmanEmail) || '').toLowerCase().trim();
-    if (!salesmanEmail) {
-        WHOLESALE_PRICES = base;
+    const salesmanEmail = String((customer && (customer.salesman_email || customer.salesmanEmail)) || '').toLowerCase().trim();
+
+    if (!customer || !customer.id || !salesmanEmail) {
+        WHOLESALE_PRICES = [];
         return;
     }
 
-    // 1. Load the salesman sheet (source of truth)
+    // Load salesman sheet — this is the only product list
     try {
-        const { data: nickRow } = await supabaseClient
+        const { data: sheet } = await supabaseClient
             .from('salesman_price_sheets')
             .select('prices, display_names, hidden_prices')
             .eq('salesman_email', salesmanEmail)
             .maybeSingle();
-        if (nickRow && nickRow.display_names && typeof nickRow.display_names === 'object') {
-            window._wholesaleDisplayNames = nickRow.display_names;
-        }
-        window._wholesaleHiddenPrices = (nickRow && nickRow.hidden_prices && typeof nickRow.hidden_prices === 'object')
-            ? nickRow.hidden_prices
-            : {};
-        if (nickRow && nickRow.prices && typeof nickRow.prices === 'object') {
-            window._wholesaleSalesmanPrices = nickRow.prices;
+        if (sheet) {
+            window._wholesaleSalesmanPrices = (sheet.prices && typeof sheet.prices === 'object') ? sheet.prices : {};
+            window._wholesaleDisplayNames = (sheet.display_names && typeof sheet.display_names === 'object') ? sheet.display_names : {};
+            window._wholesaleHiddenPrices = (sheet.hidden_prices && typeof sheet.hidden_prices === 'object') ? sheet.hidden_prices : {};
         }
     } catch (err) {
-        console.warn('wholesale salesman sheet:', err);
+        console.warn('salesman sheet load:', err);
     }
 
-    // Start from the salesman sheet only
-    let prices = Object.assign({}, window._wholesaleSalesmanPrices || {});
+    // Start with ONLY the salesman sheet keys
+    const prices = Object.assign({}, window._wholesaleSalesmanPrices);
 
-    // 2. Overlay customer specials (only for keys that exist on the salesman sheet, or assigned extras)
+    // Overlay customer specials — price changes only, never new keys
     try {
         const { data: custSheet } = await supabaseClient
             .from('customer_price_sheets')
@@ -8760,72 +8749,43 @@ async function applyBrianWholesaleSheetPrices() {
             .eq('customer_id', customer.id)
             .maybeSingle();
         const sheetSalesman = String((custSheet && custSheet.salesman_email) || '').toLowerCase().trim();
-        if (custSheet && custSheet.prices && typeof custSheet.prices === 'object' &&
-            sheetSalesman === salesmanEmail) {
+        if (custSheet && custSheet.prices && sheetSalesman === salesmanEmail) {
             Object.keys(custSheet.prices).forEach(function (name) {
                 if (custSheet.prices[name] == null || custSheet.prices[name] === '') return;
-                // Only overlay price if the item already exists on the salesman sheet.
-                // Never add a key that the salesman sheet no longer has.
                 if (Object.prototype.hasOwnProperty.call(prices, name)) {
                     prices[name] = custSheet.prices[name];
                 }
             });
         }
     } catch (err) {
-        console.warn('wholesale customer overlay:', err);
+        console.warn('customer overlay:', err);
     }
 
-    // 3. Remove hidden items
+    // Remove hidden
     const hidden = window._wholesaleHiddenPrices || {};
     Object.keys(prices).forEach(function (name) {
-        const want = (typeof normalizeProductName === 'function')
-            ? normalizeProductName(name)
-            : String(name || '').toLowerCase();
+        const want = String(name || '').toLowerCase();
         const hit = Object.keys(hidden).some(function (key) {
-            const have = (typeof normalizeProductName === 'function')
-                ? normalizeProductName(key)
-                : String(key || '').toLowerCase();
-            return have === want;
+            return String(key || '').toLowerCase() === want;
         });
         if (hit) delete prices[name];
     });
 
-    if (!Object.keys(prices).length) {
-        WHOLESALE_PRICES = shouldFailClosedToSalesmanSheet(customer) ? [] : base;
-        return;
-    }
-
-    // 4. Build the display list from the (possibly overlaid) salesman keys
-    const byName = {};
-    base.forEach(function (p) {
-        if (p && p.name) byName[p.name] = Object.assign({}, p);
-    });
+    // Build final list from salesman keys only
     const next = [];
     Object.keys(prices).forEach(function (name) {
-        const mapped = (typeof brianPackCategories === 'function') ? brianPackCategories(name) : null;
-        const row = byName[name] || {
+        const raw = prices[name];
+        const n = Number(raw);
+        next.push({
             name: name,
-            category: (mapped && mapped[0]) || 'Other',
+            category: 'Other',
             subCategory: '',
             cs: '',
-            price: '',
+            price: (!isNaN(n) && raw !== '' && raw != null) ? ('$' + n.toFixed(2)) : '',
             isMarketPrice: false
-        };
-        if (mapped && mapped[0]) row.category = mapped[0];
-        const packName = String(name || '').toLowerCase();
-        if (packName.indexOf('thin') !== -1 && packName.indexOf('pack') !== -1) {
-            row.category = 'Bully Sticks';
-            row.subCategory = 'Packaged';
-            if (packName.indexOf('40') !== -1) row.cs = '40/pack';
-            else if (packName.indexOf('20') !== -1) row.cs = '20/pack';
-        }
-        const raw = prices[name];
-        if (raw != null && raw !== '') {
-            const n = Number(raw);
-            if (!isNaN(n)) row.price = '$' + n.toFixed(2);
-        }
-        next.push(row);
+        });
     });
+
     WHOLESALE_PRICES = next;
 }
 
