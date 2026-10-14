@@ -7662,11 +7662,29 @@ async function openCustomerProtectedSheet(customerId) {
 
     let prices = {};
     try {
-        const { data: cs } = await supabaseClient.from('customer_price_sheets').select('prices').eq('customer_id', customer.id).maybeSingle();
-        if (cs && cs.prices) prices = cs.prices;
-        if (!Object.keys(prices).length && customer.salesmanEmail) {
-            const { data: ss } = await supabaseClient.from('salesman_price_sheets').select('prices').eq('salesman_email', String(customer.salesmanEmail).toLowerCase()).maybeSingle();
-            if (ss && ss.prices) prices = ss.prices;
+        // Start from the salesman sheet (source of truth)
+        if (customer.salesmanEmail) {
+            const { data: ss } = await supabaseClient
+                .from('salesman_price_sheets')
+                .select('prices')
+                .eq('salesman_email', String(customer.salesmanEmail).toLowerCase())
+                .maybeSingle();
+            if (ss && ss.prices) prices = Object.assign({}, ss.prices);
+        }
+        // Overlay only locked/special prices from the customer sheet
+        const { data: cs } = await supabaseClient
+            .from('customer_price_sheets')
+            .select('prices')
+            .eq('customer_id', customer.id)
+            .maybeSingle();
+        if (cs && cs.prices) {
+            const lockedNames = {};
+            (customer.specialPriceItems || []).forEach(function (n) { lockedNames[n] = true; });
+            Object.keys(cs.prices).forEach(function (name) {
+                if (lockedNames[name] && cs.prices[name] != null) {
+                    prices[name] = cs.prices[name];
+                }
+            });
         }
         window._spsDisplayNames = {};
         if (customer.salesmanEmail) {
