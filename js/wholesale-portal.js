@@ -8729,6 +8729,7 @@ async function applyBrianWholesaleSheetPrices() {
         return;
     }
 
+    // 1. Load the salesman sheet (source of truth)
     try {
         const { data: nickRow } = await supabaseClient
             .from('salesman_price_sheets')
@@ -8745,10 +8746,13 @@ async function applyBrianWholesaleSheetPrices() {
             window._wholesaleSalesmanPrices = nickRow.prices;
         }
     } catch (err) {
-        console.warn('wholesale display_names:', err);
+        console.warn('wholesale salesman sheet:', err);
     }
 
+    // Start from the salesman sheet only
     let prices = Object.assign({}, window._wholesaleSalesmanPrices || {});
+
+    // 2. Overlay customer specials (only for keys that exist on the salesman sheet, or assigned extras)
     try {
         const { data: custSheet } = await supabaseClient
             .from('customer_price_sheets')
@@ -8758,29 +8762,27 @@ async function applyBrianWholesaleSheetPrices() {
         const sheetSalesman = String((custSheet && custSheet.salesman_email) || '').toLowerCase().trim();
         if (custSheet && custSheet.prices && typeof custSheet.prices === 'object' &&
             sheetSalesman === salesmanEmail) {
-            Object.keys(prices).forEach(function (name) {
-                if (custSheet.prices[name] != null && custSheet.prices[name] !== '') {
+            Object.keys(custSheet.prices).forEach(function (name) {
+                if (custSheet.prices[name] == null || custSheet.prices[name] === '') return;
+                // Overlay if the key is already on the salesman sheet
+                if (Object.prototype.hasOwnProperty.call(prices, name)) {
+                    prices[name] = custSheet.prices[name];
+                    return;
+                }
+                // Or if it is an assigned extra for this store
+                const assigned = window._wholesaleAssignedProducts || new Set();
+                if (assigned.has(name)) {
                     prices[name] = custSheet.prices[name];
                 }
             });
-            const assigned = window._wholesaleAssignedProducts || new Set();
-            Object.keys(custSheet.prices).forEach(function (name) {
-                if (Object.prototype.hasOwnProperty.call(prices, name)) return;
-                if (!assigned.has(name)) return;
-                if (custSheet.prices[name] == null || custSheet.prices[name] === '') return;
-                prices[name] = custSheet.prices[name];
-            });
         }
     } catch (err) {
-        console.warn('applyBrianWholesaleSheetPrices customer:', err);
+        console.warn('wholesale customer overlay:', err);
     }
 
+    // 3. Remove hidden items
+    const hidden = window._wholesaleHiddenPrices || {};
     Object.keys(prices).forEach(function (name) {
-        const hidden = window._wholesaleHiddenPrices || {};
-        if (Object.prototype.hasOwnProperty.call(hidden, name)) {
-            delete prices[name];
-            return;
-        }
         const want = (typeof normalizeProductName === 'function')
             ? normalizeProductName(name)
             : String(name || '').toLowerCase();
@@ -8798,6 +8800,7 @@ async function applyBrianWholesaleSheetPrices() {
         return;
     }
 
+    // 4. Build the display list from the (possibly overlaid) salesman keys
     const byName = {};
     base.forEach(function (p) {
         if (p && p.name) byName[p.name] = Object.assign({}, p);
