@@ -5,17 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Donegal Natural | Sales Portal</title>
     <meta name="robots" content="noindex, nofollow">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-// Auth guard — runs before any content paints
-(function () {
-    try {
-        const user = JSON.parse(localStorage.getItem('currentUser') || 'null');
-        if (!user || (user.role !== 'salesman' && user.role !== 'admin')) {
-            window.location.replace('login-portal.html');
-        }
-    } catch (e) {
-        window.location.replace('login-portal.html');
+(async function () {
+  const SUPABASE_URL = 'https://kyzfdlzqlckrpdkavxei.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5emZkbHpxbGNrcnBka2F2eGVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3ODU0NjEsImV4cCI6MjEwMDM2MTQ2MX0.Y1Sshp1-0lFwKakCgpJtAUpaHNB0PQ1vuo6SOHZcPu4';
+  document.documentElement.style.visibility = 'hidden';
+  try {
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session) {
+      localStorage.removeItem('currentUser');
+      window.location.replace('login-portal.html');
+      return;
     }
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
+    if (!profile || (profile.role !== 'salesman' && profile.role !== 'admin')) {
+      localStorage.removeItem('currentUser');
+      window.location.replace('login-portal.html');
+      return;
+    }
+    document.documentElement.style.visibility = 'visible';
+  } catch (e) {
+    localStorage.removeItem('currentUser');
+    window.location.replace('login-portal.html');
+  }
 })();
 </script>
     <link rel="stylesheet" href="css/portal.css">
