@@ -305,10 +305,8 @@ if (typeof loadVendors === 'function') {
 // Access is gated by admin portal session (no client-side shared password)
 
 
-// Update Pending Value on load
-if (typeof updateDashboardPendingValue === 'function') {
-    setTimeout(updateDashboardPendingValue, 400);
-}
+// Pending value is set by updateDashboardOrders (order-item prices at submission).
+// Do not overwrite with catalog prices.
 
 // Update Weekly Sales Matrix card on load
 if (typeof updateDashboardSalesMatrix === 'function') {
