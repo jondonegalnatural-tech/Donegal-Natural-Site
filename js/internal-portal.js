@@ -128,11 +128,10 @@ function isDataFresh(loadedAt) {
     return loadedAt > 0 && (Date.now() - loadedAt) < DATA_TTL_MS;
 }
 
-function showTableLoading(containerId, message) {
-    const el = document.getElementById(containerId);
-    if (!el) return;
-    el.innerHTML = `<p class="text-center text-[#6B4423] py-10"><i class="fas fa-spinner fa-spin mr-2"></i>${message || 'Loading…'}</p>`;
-}
+// showTableLoading moved to js/core/format.js
+window.allOrders = allOrders;
+window.allCustomers = allCustomers;
+window.salesmen = salesmen;
 
 
 // ================== SHARED HELPER FUNCTIONS ==================

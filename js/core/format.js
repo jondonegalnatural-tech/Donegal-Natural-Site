@@ -55,3 +55,10 @@ window.orderHasUpdateNote = orderHasUpdateNote;
 window.markInvoiceUpdatedState = markInvoiceUpdatedState;
 window.fmtMoney = fmtMoney;
 window.fmtDate = fmtDate;
+
+function showTableLoading(containerId, message) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    el.innerHTML = `<p class="text-center text-[#6B4423] py-10"><i class="fas fa-spinner fa-spin mr-2"></i>${message || 'Loading…'}</p>`;
+}
+window.showTableLoading = showTableLoading;
