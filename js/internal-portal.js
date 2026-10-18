@@ -132,6 +132,9 @@ function isDataFresh(loadedAt) {
 window.allOrders = allOrders;
 window.allCustomers = allCustomers;
 window.salesmen = salesmen;
+window.currentFilter = currentFilter;
+window.currentOrdersView = currentOrdersView;
+window.approvePendingBackOrders = approvePendingBackOrders;
 
 
 // ================== SHARED HELPER FUNCTIONS ==================
