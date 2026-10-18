@@ -3061,3 +3061,980 @@ window.showAddSalesmanModal = showAddSalesmanModal;
 window.hideAddSalesmanModal = hideAddSalesmanModal;
 window.addNewSalesman = addNewSalesman;
 window.saveNewSalesman = saveNewSalesman;
+
+// Salesman list, password reset, and order invoice modal.
+// ================== SALESMEN ==================
+// --- Salesmen Helpers ---
+
+function saveSalesmen() {
+    // localStorage writes removed – salesmen live in Supabase
+}
+
+function addTestSalesman() {
+    const firstNames = ['Brian', 'Sarah', 'Mike', 'Jessica', 'David'];
+    const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Davis'];
+    const territories = ['Florida', 'Northeast', 'Midwest', 'Southeast', 'West Coast'];
+
+    const newSalesman = {
+        id: Date.now(),
+        name: firstNames[Math.floor(Math.random() * firstNames.length)] + ' ' +
+              lastNames[Math.floor(Math.random() * lastNames.length)],
+        territory: territories[Math.floor(Math.random() * territories.length)],
+        commission: 8,
+        yearlySales: Math.floor(Math.random() * 200000) + 100000,
+        monthlySales: Math.floor(Math.random() * 30000) + 15000,
+        active: true
+    };
+
+    salesmen.push(newSalesman);
+    saveSalesmen();
+
+    alert('Test salesman added: ' + newSalesman.name);
+    // Optional: refresh the section if you have a render function
+    if (typeof renderSalesmen === 'function') {
+        renderSalesmen();
+    }
+}
+
+function getSalesmanOrderTotals(salesman) {
+    const fullName = (
+        salesman.name ||
+        [salesman.firstName, salesman.lastName].filter(Boolean).join(' ') ||
+        ''
+    ).trim().toLowerCase();
+    const email = (salesman.email || '').trim().toLowerCase();
+
+    const now = new Date();
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    let yearly = 0;
+    let monthly = 0;
+
+    (allOrders || []).forEach(order => {
+        if (typeof isTestStoreOrder === 'function' && isTestStoreOrder(order)) return;
+        const orderName = (
+            order.salesman ||
+            order.salesman_name ||
+            order.salesmanName ||
+            ''
+        ).trim().toLowerCase();
+        const orderEmail = (
+            order.salesmanEmail ||
+            order.salesman_email ||
+            ''
+        ).trim().toLowerCase();
+
+        const nameMatch = fullName && orderName && orderName === fullName;
+        const emailMatch = email && orderEmail && orderEmail === email;
+        if (!nameMatch && !emailMatch) return;
+
+        const orderDate = new Date(
+            order.submittedAt || order.submitted_at || order.created_at || order.date || 0
+        );
+        if (isNaN(orderDate.getTime())) return;
+
+        let orderTotal = 0;
+        (order.items || []).forEach(item => {
+            const qty = parseInt(item.quantity, 10) || 0;
+            const unit = typeof getOrderItemUnitPrice === 'function'
+                ? getOrderItemUnitPrice(item)
+                : (parseFloat(item.unitPrice) || 0);
+            orderTotal += qty * unit;
+        });
+
+        if (orderDate >= startOfYear) yearly += orderTotal;
+        if (orderDate >= startOfMonth) monthly += orderTotal;
+    });
+
+    return { yearly, monthly };
+}
+
+let currentSalesmanOrdersId = null;
+
+function hideSalesmanOrdersModal() {
+    const modal = document.getElementById('salesman-orders-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
+}
+
+function openSalesmanOrdersModal() {
+    const detailModal = document.getElementById('salesman-modal');
+    const salesmanId = detailModal?.dataset?.salesmanId;
+    const salesman = salesmanId
+        ? salesmen.find(s => String(s.id) === String(salesmanId))
+        : null;
+
+    if (!salesman) {
+        alert('No salesman selected.');
+        return;
+    }
+
+    currentSalesmanOrdersId = salesman.id;
+
+    const titleEl = document.getElementById('salesman-orders-title');
+    const displayName = salesman.name
+        || [salesman.firstName, salesman.lastName].filter(Boolean).join(' ')
+        || 'Salesman';
+    if (titleEl) titleEl.textContent = `Orders — ${displayName}`;
+
+    const fill = () => {
+        renderSalesmanOrdersList(salesman);
+        const modal = document.getElementById('salesman-orders-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+        }
+    };
+
+    if (typeof loadOrders === 'function' && (!allOrders || allOrders.length === 0)) {
+        loadOrders().then(fill);
+    } else {
+        fill();
+    }
+}
+
+// hideSalesmanModal lives in js/internal/salesmen.js (the version that saves notes).
+
+
+async function deleteSalesman() {
+    const modal = document.getElementById('salesman-modal');
+    const salesmanId = modal?.dataset?.salesmanId;
+    if (!salesmanId) {
+        alert('Could not find salesman id.');
+        return;
+    }
+
+    const salesman = (salesmen || []).find(s => String(s.id) === String(salesmanId));
+    if (!salesman) {
+        alert('Salesman not found.');
+        return;
+    }
+
+    const displayName = salesman.name
+        || [salesman.firstName, salesman.lastName].filter(Boolean).join(' ')
+        || 'this salesman';
+    const email = (salesman.email || '').toLowerCase().trim();
+
+    if (!email) {
+        alert('This salesman has no email on file. Cannot safely delete.');
+        return;
+    }
+
+    // Confirm 1
+    if (!confirm(
+        'PERMANENTLY delete ' + displayName + '?\n\n' +
+        'This will:\n' +
+        '• Remove their login (Auth + profile)\n' +
+        '• Delete their salesmen record and price sheet\n' +
+        '• Unassign every customer currently under them (prices re-lock until a new salesman approves)\n\n' +
+        'Orders and customer records are NEVER deleted.\n\n' +
+        'This cannot be undone.'
+    )) {
+        return;
+    }
+
+    // Confirm 2 — type the exact email
+    const typed = prompt(
+        'Type the salesman email exactly to confirm permanent delete:\n\n' + email
+    );
+    if (typed === null) return;
+    if (typed.toLowerCase().trim() !== email) {
+        alert('Email did not match. Delete cancelled.');
+        return;
+    }
+
+    try {
+        // 1. Unassign customers + re-lock pricing (Option A)
+        const { error: custErr } = await supabaseClient
+            .from('customers')
+            .update({
+                salesman_email: null,
+                assigned_at: null,
+                pricing_approved_at: null,
+                pricing_approved_by: null
+            })
+            .eq('salesman_email', email);
+        if (custErr) throw custErr;
+
+        // 2. Delete price sheet(s)
+        const { error: sheetErr } = await supabaseClient
+            .from('salesman_price_sheets')
+            .delete()
+            .eq('salesman_email', email);
+        if (sheetErr) throw sheetErr;
+
+        // 3. Delete salesmen row
+        const { error: salesErr } = await supabaseClient
+            .from('salesmen')
+            .delete()
+            .eq('id', salesmanId);
+        if (salesErr) throw salesErr;
+
+        // 4. Auth + profiles cleanup via Edge Function (Step 3)
+        try {
+            const fnUrl = SUPABASE_URL + '/functions/v1/delete-salesman-user';
+            const fnRes = await fetch(fnUrl, {
+                method: 'POST',
+                headers: await getEdgeFunctionHeaders(),
+                body: JSON.stringify({ email: email })
+            });
+            const fnText = await fnRes.text();
+            let fnData = null;
+            try { fnData = JSON.parse(fnText); } catch (e) { fnData = { error: fnText }; }
+            if (!fnRes.ok || (fnData && fnData.error)) {
+                console.warn('Auth cleanup warning:', fnData?.error || fnRes.status);
+                // Non-blocking — tables are already cleaned
+            }
+        } catch (fnErr) {
+            console.warn('delete-salesman-user call failed (tables already cleaned):', fnErr);
+        }
+
+        hideSalesmanModal();
+        if (typeof renderSalesmen === 'function') await renderSalesmen();
+        if (typeof updateDashboardSalesmen === 'function') updateDashboardSalesmen();
+        alert(displayName + ' has been permanently deleted.\nCustomers under them are now unassigned and prices are locked.');
+    } catch (err) {
+        console.error('deleteSalesman error:', err);
+        alert('Could not delete salesman.\n' + (err.message || ''));
+    }
+}
+
+async function resetSalesmanPassword() {
+    const modal = document.getElementById('salesman-modal');
+    const salesmanId = modal?.dataset?.salesmanId;
+    if (!salesmanId) {
+        alert('Could not find salesman id.');
+        return;
+    }
+
+    const salesman = (salesmen || []).find(s => String(s.id) === String(salesmanId));
+    if (!salesman) {
+        alert('Salesman not found.');
+        return;
+    }
+
+    const displayName = salesman.name
+        || [salesman.firstName, salesman.lastName].filter(Boolean).join(' ')
+        || 'this salesman';
+    const email = (salesman.email || '').toLowerCase().trim();
+    const fullName = salesman.name
+        || [salesman.firstName, salesman.lastName].filter(Boolean).join(' ')
+        || email;
+    const territory = salesman.territory || '';
+
+    if (!email || !email.includes('@')) {
+        alert('This salesman has no email on file. Cannot reset the password.');
+        return;
+    }
+    if (email === 'jackerman@donegalnatural.com') {
+        alert('This login is also the admin account. Reset it from Forgot password on the login page instead.');
+        return;
+    }
+
+    if (!confirm(
+        'Reset login password for ' + displayName + ' (' + email + ')?\n\n' +
+        'This emails a new temporary password from noreply@ and forces a password change on next login.\n' +
+        'Their current password will stop working immediately.'
+    )) {
+        return;
+    }
+
+    const btn = document.getElementById('modal-reset-password-btn');
+    if (btn && btn.dataset.busy === '1') return;
+    if (btn) {
+        btn.dataset.busy = '1';
+        btn.disabled = true;
+    }
+
+    try {
+        const fnUrl = SUPABASE_URL + '/functions/v1/create-salesman-user';
+        const fnRes = await fetch(fnUrl, {
+            method: 'POST',
+            headers: await getEdgeFunctionHeaders(),
+            body: JSON.stringify({
+                email: email,
+                full_name: fullName,
+                territory: territory
+            })
+        });
+
+        const fnText = await fnRes.text();
+        let fnData = null;
+        try {
+            fnData = JSON.parse(fnText);
+        } catch (e) {
+            fnData = { error: fnText || 'Empty response' };
+        }
+
+        if (!fnRes.ok || (fnData && fnData.error)) {
+            throw new Error(
+                (fnData && fnData.error) ? fnData.error : ('Function HTTP ' + fnRes.status)
+            );
+        }
+
+        const emailOk = fnData && fnData.email_sent === true;
+        const emailFailReason = (fnData && fnData.email_error) ? String(fnData.email_error) : '';
+        const returnedTemp = (fnData && fnData.temp_password) ? String(fnData.temp_password) : '';
+
+        alert(
+            'Password reset for ' + displayName + '.\n' +
+            'Login: ' + email + '\n\n' +
+            (emailOk
+                ? 'Credentials email was sent from noreply@.\nThey must change the password on first login.'
+                : ('Credentials email was NOT sent.\n' +
+                   (emailFailReason ? ('Reason: ' + emailFailReason + '\n') : '') +
+                   (returnedTemp
+                       ? ('Temporary password (give to salesman):\n' + returnedTemp)
+                       : 'Please check the Edge Function logs.')))
+        );
+    } catch (err) {
+        console.error('resetSalesmanPassword error:', err);
+        alert('Could not reset salesman password.\n\n' + (err.message || String(err)));
+    } finally {
+        if (btn) {
+            btn.dataset.busy = '0';
+            btn.disabled = false;
+        }
+    }
+}
+
+function renderSalesmanOrdersList(salesman) {
+    const container = document.getElementById('salesman-orders-list');
+    if (!container) return;
+
+    const fullName = (
+        salesman.name ||
+        [salesman.firstName, salesman.lastName].filter(Boolean).join(' ') ||
+        ''
+    ).trim().toLowerCase();
+    const email = (salesman.email || '').trim().toLowerCase();
+
+    const matched = (allOrders || []).filter(order => {
+        const orderName = (
+            order.salesman ||
+            order.salesman_name ||
+            order.salesmanName ||
+            ''
+        ).trim().toLowerCase();
+        const orderEmail = (
+            order.salesmanEmail ||
+            order.salesman_email ||
+            ''
+        ).trim().toLowerCase();
+        return (fullName && orderName === fullName) || (email && orderEmail === email);
+    }).sort((a, b) => {
+        const da = new Date(a.submittedAt || a.submitted_at || a.date || 0);
+        const db = new Date(b.submittedAt || b.submitted_at || b.date || 0);
+        return db - da;
+    });
+
+    if (matched.length === 0) {
+        container.innerHTML = '<p class="text-sm text-[#6B4423]">No orders for this salesman yet.</p>';
+        return;
+    }
+
+    // Group by calendar year → month (January starts each year)
+    const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const byYear = {};
+
+    matched.forEach(order => {
+        const d = new Date(order.submittedAt || order.submitted_at || order.date || 0);
+        if (isNaN(d.getTime())) return;
+        const y = d.getFullYear();
+        const m = d.getMonth(); // 0 = January
+        if (!byYear[y]) byYear[y] = {};
+        if (!byYear[y][m]) byYear[y][m] = [];
+        byYear[y][m].push(order);
+    });
+
+    const years = Object.keys(byYear).map(Number).sort((a, b) => b - a); // newest year first
+
+    let html = '';
+    years.forEach(year => {
+        const months = Object.keys(byYear[year]).map(Number).sort((a, b) => b - a); // newest month first
+        let yearOrderCount = 0;
+        let yearTotal = 0;
+
+        months.forEach(m => {
+            (byYear[year][m] || []).forEach(order => {
+                yearOrderCount += 1;
+                (order.items || []).forEach(item => {
+                    const qty = parseInt(item.quantity, 10) || 0;
+                    const unit = typeof getOrderItemUnitPrice === 'function'
+                        ? getOrderItemUnitPrice(item)
+                        : (parseFloat(item.unitPrice) || 0);
+                    yearTotal += qty * unit;
+                });
+            });
+        });
+
+        html += `
+            <div class="mb-5">
+                <div class="flex items-center justify-between mb-2 pb-1 border-b-2 border-[#1E4D2B]">
+                    <h4 class="text-base font-bold brand-green">${year}</h4>
+                    <span class="text-xs text-[#6B4423]">${yearOrderCount} order${yearOrderCount !== 1 ? 's' : ''} · $${yearTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+        `;
+
+        months.forEach(m => {
+            const ordersInMonth = byYear[year][m] || [];
+            let monthTotal = 0;
+            ordersInMonth.forEach(order => {
+                (order.items || []).forEach(item => {
+                    const qty = parseInt(item.quantity, 10) || 0;
+                    const unit = typeof getOrderItemUnitPrice === 'function'
+                        ? getOrderItemUnitPrice(item)
+                        : (parseFloat(item.unitPrice) || 0);
+                    monthTotal += qty * unit;
+                });
+            });
+
+            html += `
+                <div class="mb-3">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <p class="text-sm font-semibold text-[#6B4423]">${monthNames[m]}</p>
+                        <span class="text-xs text-[#6B4423]">${ordersInMonth.length} · $${monthTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div class="space-y-2">
+            `;
+
+            ordersInMonth.forEach(order => {
+                const id = order.id || order.order_id || '';
+                const shortId = String(id).length > 8 ? String(id).slice(0, 8) : id;
+                const customer = order.customer || order.customer_name || '—';
+                const status = order.status || '—';
+                const date = new Date(order.submittedAt || order.submitted_at || order.date || 0);
+                const dateText = isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
+
+                let total = 0;
+                (order.items || []).forEach(item => {
+                    const qty = parseInt(item.quantity, 10) || 0;
+                    const unit = typeof getOrderItemUnitPrice === 'function'
+                        ? getOrderItemUnitPrice(item)
+                        : (parseFloat(item.unitPrice) || 0);
+                    total += qty * unit;
+                });
+
+                const safeId = String(id).replace(/'/g, "\\'");
+
+                html += `
+                    <button type="button"
+                            onclick="openSalesmanOrderInvoice('${safeId}')"
+                            class="w-full text-left bg-[#f8f4eb] border border-[#d4b78f] rounded-xl px-4 py-3 hover:bg-[#f0e6d9] transition">
+                        <div class="flex justify-between gap-2">
+                            <span class="font-semibold brand-green">#${shortId}</span>
+                            <span class="text-sm text-[#6B4423]">${dateText}</span>
+                        </div>
+                        <div class="flex justify-between gap-2 mt-1 text-sm">
+                            <span class="truncate">${customer}</span>
+                            <span class="font-semibold whitespace-nowrap">$${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                        <p class="text-xs text-[#6B4423] mt-1">${status}</p>
+                    </button>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `</div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+function hideOrderInvoiceModal() {
+    const modal = document.getElementById('order-invoice-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+}
+
+function printOrderInvoice() {
+    const modal = document.getElementById('order-invoice-modal');
+    if (!modal || modal.classList.contains('hidden')) {
+        alert('Open an invoice first.');
+        return;
+    }
+    window.print();
+}
+
+function invoiceDownloadFilename() {
+    const raw = (document.getElementById('inv-number') && document.getElementById('inv-number').textContent) || 'invoice';
+    const safe = String(raw).trim().replace(/[^A-Za-z0-9._-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    return (safe || 'invoice') + '.pdf';
+}
+
+async function downloadOrderInvoice() {
+    const modal = document.getElementById('order-invoice-modal');
+    const sheet = document.getElementById('order-invoice-sheet');
+    if (!modal || modal.classList.contains('hidden') || !sheet) {
+        alert('Open an invoice first.');
+        return;
+    }
+    const jsPdfCtor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : window.jsPDF;
+    if (typeof html2canvas !== 'function' || !jsPdfCtor) {
+        alert('PDF library not loaded. Hard-refresh and try again.');
+        return;
+    }
+    const btn = document.getElementById('inv-download-btn');
+    if (btn && btn.getAttribute('data-busy') === '1') return;
+    const prevLabel = btn ? btn.textContent : 'Download';
+    if (btn) {
+        btn.setAttribute('data-busy', '1');
+        btn.disabled = true;
+        btn.textContent = 'Downloading…';
+    }
+
+    const hidden = [];
+    sheet.querySelectorAll('.invoice-no-print').forEach(function (el) {
+        hidden.push({ el: el, display: el.style.display });
+        el.style.display = 'none';
+    });
+    const prevMax = sheet.style.maxHeight;
+    const prevOverflow = sheet.style.overflow;
+    sheet.style.maxHeight = 'none';
+    sheet.style.overflow = 'visible';
+
+    try {
+        const canvas = await html2canvas(sheet, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            backgroundColor: '#ffffff'
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const doc = new jsPdfCtor({ unit: 'pt', format: 'letter', compress: true });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 28;
+        const imgWidth = pageWidth - (margin * 2);
+        const imgHeight = canvas.height * (imgWidth / canvas.width);
+        const pageDrawHeight = pageHeight - (margin * 2);
+        let heightLeft = imgHeight;
+        let position = margin;
+        doc.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
+        heightLeft -= pageDrawHeight;
+        while (heightLeft > 0) {
+            position = heightLeft - imgHeight + margin;
+            doc.addPage();
+            doc.addImage(imgData, 'JPEG', margin, position, imgWidth, imgHeight);
+            heightLeft -= pageDrawHeight;
+        }
+        doc.save(invoiceDownloadFilename());
+    } catch (err) {
+        console.error('downloadOrderInvoice', err);
+        alert('Could not download the invoice. Try Print and choose Save as PDF.');
+    } finally {
+        hidden.forEach(function (item) { item.el.style.display = item.display; });
+        sheet.style.maxHeight = prevMax;
+        sheet.style.overflow = prevOverflow;
+        if (btn) {
+            btn.removeAttribute('data-busy');
+            btn.disabled = false;
+            btn.textContent = prevLabel || 'Download';
+        }
+    }
+}
+
+function openOrderInvoiceModal(orderId) {
+    const order = (allOrders || []).find(o => String(o.id) === String(orderId));
+    if (!order) {
+        alert('Order not found.');
+        return;
+    }
+
+        // Prefer live customer record for addresses (email first, then name)
+    const customerName = (order.customer || order.customer_name || '').trim().toLowerCase();
+    const customerEmail = (order.customerEmail || order.customer_email || '').trim().toLowerCase();
+    const customerId = order.customerId || order.customer_id || '';
+    const customer = (allCustomers || []).find(c => customerId && String(c.id) === String(customerId))
+        || (allCustomers || []).find(c => {
+            const cEmail = (c.email || '').trim().toLowerCase();
+            const cName = (c.name || '').trim().toLowerCase();
+            if (customerEmail && cEmail && customerEmail === cEmail) return true;
+            if (customerName && cName && cName === customerName) return true;
+            return false;
+        }) || null;
+
+    // Invoice number + date
+    const invNum = document.getElementById('inv-number');
+    if (invNum) invNum.textContent = String(displayInvoiceNumber(order));
+    if (typeof markInvoiceUpdatedState === 'function') markInvoiceUpdatedState(order);
+
+    const invDate = document.getElementById('inv-date');
+    if (invDate) {
+        const d = new Date(order.submittedAt || order.submitted_at || order.date || 0);
+        invDate.textContent = isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
+    }
+
+    // UPS tracking (framework — link opens UPS.com)
+    const trackNum = (order.trackingNumber || order.tracking_number || '').trim();
+    const invStatusEl = document.getElementById('inv-status');
+    let trackBadge = document.getElementById('inv-tracking-badge');
+    if (!trackBadge && invStatusEl && invStatusEl.parentElement) {
+        trackBadge = document.createElement('div');
+        trackBadge.id = 'inv-tracking-badge';
+        trackBadge.className = 'mt-2 text-sm';
+        invStatusEl.parentElement.appendChild(trackBadge);
+    }
+    if (trackBadge) {
+        if (trackNum) {
+            const safeText = escapeHtml(trackNum);
+            const safeCarrier = escapeHtml(order.carrier || 'UPS');
+            trackBadge.innerHTML = `
+                <span class="text-[#6B4423]">${safeCarrier} Tracking:</span>
+                <a href="https://www.ups.com/track?tracknum=${encodeURIComponent(trackNum)}"
+                   target="_blank" rel="noopener"
+                   class="ml-1 font-mono font-semibold text-[#1E4D2B] underline hover:text-[#254a2f]">
+                    ${safeText}
+                </a>`;
+        } else {
+            trackBadge.innerHTML = '';
+        }
+    }
+
+    // BILL TO
+    const billEl = document.getElementById('inv-bill-to');
+    if (billEl) {
+        const lines = [];
+        const billName = String(order.customer || order.customer_name || '').trim();
+        const billCo = String(order.customerCompany || order.customer_company || (customer && customer.company) || '').trim();
+        if (billName) lines.push(billName);
+        if (billCo && billCo.toLowerCase() !== billName.toLowerCase()) lines.push(billCo);
+        const billPhone = (customer && customer.phone) || order.customerPhone || order.customer_phone || '';
+        if (billPhone) {
+            lines.push(typeof formatPhoneDisplay === 'function' ? formatPhoneDisplay(billPhone) : billPhone);
+        } else if (order.customerEmail || order.customer_email) {
+            lines.push(order.customerEmail || order.customer_email);
+        }
+        const billing = (customer && (customer.billingAddress || customer.billing_address))
+            || (customer && (customer.shippingAddress || customer.shipping_address))
+            || '';
+        if (billing) lines.push(billing);
+        billEl.innerHTML = lines.length
+            ? lines.map(l => `<p>${escapeHtml(l)}</p>`).join('')
+            : '—';
+    }
+
+    // SHIP TO
+    const shipEl = document.getElementById('inv-ship-to');
+    if (shipEl) {
+        const lines = [];
+        const shipName = String(order.customer || order.customer_name || '').trim();
+        const shipCo = String(order.customerCompany || order.customer_company || (customer && customer.company) || '').trim();
+        if (shipName) lines.push(shipName);
+        if (shipCo && shipCo.toLowerCase() !== shipName.toLowerCase()) lines.push(shipCo);
+        const shipping = (customer && (customer.shippingAddress || customer.shipping_address))
+            || (customer && (customer.billingAddress || customer.billing_address))
+            || '';
+        if (shipping) lines.push(shipping);
+        shipEl.innerHTML = lines.length
+            ? lines.map(l => `<p>${escapeHtml(l)}</p>`).join('')
+            : '—';
+    }
+
+    // Line items (original order + any fulfilled back-order items)
+    const tbody = document.getElementById('inv-items-body');
+    let subtotal = 0;
+
+    if (tbody) {
+        // Ensure back orders are loaded
+        if ((!allBackOrders || allBackOrders.length === 0) && typeof loadBackOrders === 'function') {
+            // fire-and-forget; we still render with whatever is already in memory
+            loadBackOrders();
+        }
+
+        const items = order.items || [];
+        let rowsHtml = '';
+
+        if (items.length) {
+            rowsHtml += items.map(item => {
+                const qty = parseInt(item.quantity, 10) || 0;
+                const unit = typeof getOrderItemUnitPrice === 'function'
+                    ? getOrderItemUnitPrice(item)
+                    : (parseFloat(item.unitPrice) || 0);
+                const hasPrice = unit > 0;
+                const lineTotal = qty * unit;
+                if (hasPrice) subtotal += lineTotal;
+
+                const desc = escapeHtml([
+                    orderLineDisplayName(item),
+                    item.caseSize ? `· ${item.caseSize}` : ''
+                ].filter(Boolean).join(' '));
+
+                const unitText = hasPrice
+                    ? ('$' + unit.toFixed(2))
+                    : (item.isMarketPrice ? 'Market' : '—');
+                const marketNote = item.isMarketPrice
+                    ? '<div class="text-[11px] text-[#c56134] mt-1">Market price. Final invoice may be adjusted to current market cost at shipment.</div>'
+                    : '';
+                const totalText = hasPrice
+                    ? ('$' + lineTotal.toFixed(2))
+                    : '—';
+
+                return `
+                    <tr class="border-t border-[#d4b78f]">
+                        <td class="p-3 text-left font-semibold">${qty}</td>
+                        <td class="p-3 text-left">${desc}${marketNote}</td>
+                        <td class="p-3 text-right">${unitText}</td>
+                        <td class="p-3 text-right font-semibold">${totalText}</td>
+                    </tr>`;
+            }).join('');
+        }
+
+        // Append fulfilled back-order items for this original order
+        const fulfilledBOs = (allBackOrders || []).filter(b =>
+            (b.status || '').toLowerCase() === 'fulfilled' &&
+            (String(b.original_order_id) === String(order.id) ||
+             String(b.invoice_number) === String(order.id))
+        );
+
+        if (fulfilledBOs.length > 0) {
+            rowsHtml += `
+                <tr class="bg-[#f0f7f0]">
+                    <td colspan="4" class="p-2 text-center text-xs font-semibold text-green-800 uppercase tracking-wide">
+                        — Back Order Fulfillment —
+                    </td>
+                </tr>`;
+
+            rowsHtml += fulfilledBOs.map(b => {
+                const qty = parseInt(b.quantity, 10) || 0;
+                const unit = b.unit_price != null ? Number(b.unit_price) : 0;
+                const hasPrice = unit > 0;
+                const lineTotal = qty * unit;
+                if (hasPrice) subtotal += lineTotal;
+
+                const desc = [
+                    escapeHtml(b.product_name || '—'),
+                    b.case_size ? `· ${escapeHtml(b.case_size)}` : '',
+                    '<span class="ml-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-green-100 text-green-800">BO Fulfilled</span>'
+                ].filter(Boolean).join(' ');
+
+                const unitText = hasPrice ? ('$' + unit.toFixed(2)) : escapeHtml(b.display_price || '—');
+                const totalText = hasPrice ? ('$' + lineTotal.toFixed(2)) : '—';
+
+                return `
+                    <tr class="border-t border-[#c8e0c8] bg-[#f8fbf8]">
+                        <td class="p-3 text-left font-semibold">${qty}</td>
+                        <td class="p-3 text-left">${desc}</td>
+                        <td class="p-3 text-right">${unitText}</td>
+                        <td class="p-3 text-right font-semibold">${totalText}</td>
+                    </tr>`;
+            }).join('');
+        }
+
+        if (!rowsHtml) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="p-4 text-center text-[#6B4423]">No line items</td>
+                </tr>`;
+        } else {
+            tbody.innerHTML = rowsHtml;
+        }
+    }
+
+// Notes — hide system default text
+    const notesEl = document.getElementById('inv-notes');
+    if (notesEl) {
+        const raw = (order.notes || '').trim();
+        const isSystem =
+            !raw ||
+            /^(created via add order|submitted via salesman portal)$/i.test(raw);
+        notesEl.textContent = isSystem ? '' : raw;
+    }
+
+// Totals (+ credit only if > 0 after ship)
+    const shipping = Number(order.shippingCost != null ? order.shippingCost : 0) || 0;
+    const credit = Number(order.credit != null ? order.credit : 0) || 0;
+    const total = Math.max(0, subtotal + shipping - credit);
+
+    const subEl = document.getElementById('inv-subtotal');
+    const shipCostEl = document.getElementById('inv-shipping');
+    const creditRow = document.getElementById('inv-credit-row');
+    const creditEl = document.getElementById('inv-credit');
+    const totEl = document.getElementById('inv-total');
+
+    if (subEl) subEl.textContent = '$' + subtotal.toFixed(2);
+    if (shipCostEl) shipCostEl.textContent = '$' + shipping.toFixed(2);
+
+    if (creditRow && creditEl) {
+        if (credit > 0) {
+            creditRow.classList.remove('hidden');
+            creditEl.textContent = '−$' + credit.toFixed(2);
+        } else {
+            creditRow.classList.add('hidden');
+        }
+    }
+
+    if (totEl) totEl.textContent = '$' + total.toFixed(2);
+
+    // Ensure customers are available for addresses on next open if missing
+    if ((!allCustomers || allCustomers.length === 0) && typeof loadCustomers === 'function') {
+        loadCustomers();
+    }
+
+    const editBtn = document.getElementById('inv-edit-order-btn');
+    if (editBtn) {
+        const st = String(order.status || 'submitted').toLowerCase();
+        const canEdit = st === 'submitted' || st === 'pending' || st === '' || st === 'received' || st === 'processing';
+        if (canEdit) {
+            editBtn.classList.remove('hidden');
+            editBtn.setAttribute('data-order-id', String(order.id));
+        } else {
+            editBtn.classList.add('hidden');
+            editBtn.removeAttribute('data-order-id');
+        }
+    }
+
+    const modal = document.getElementById('order-invoice-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+
+function openSalesmanOrderInvoice(orderId) {
+    // Always open the read-only invoice — never the editable Ship modal
+    if (typeof openOrderInvoiceModal === 'function') {
+        openOrderInvoiceModal(orderId);
+        return;
+    }
+    if (typeof showOrderDetails === 'function') {
+        showOrderDetails(orderId);
+        return;
+    }
+    alert('Order invoice view is not available yet for #' + orderId);
+}
+
+async function loadSalesmen() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('salesmen')
+.select('id, first_name, last_name, email, territory, commission, market_commission, price_sheet_status, yearly_sales, monthly_sales, active, notes, mailing_address, assigned_products, last_login_at')
+            .order('last_name', { ascending: true });
+
+        if (error) throw error;
+
+        salesmen = (data || []).map(s => ({
+            id: s.id,
+            firstName: s.first_name,
+            lastName: s.last_name,
+            name: [s.first_name, s.last_name].filter(Boolean).join(' '),
+            email: s.email,
+            territory: s.territory || '',
+            commission: s.commission != null ? Number(s.commission) : 8,
+            marketCommission: s.market_commission != null ? Number(s.market_commission) : 3,
+            priceSheetStatus: s.price_sheet_status,
+            yearlySales: Number(s.yearly_sales) || 0,
+            monthlySales: Number(s.monthly_sales) || 0,
+            active: s.active !== false,
+            notes: s.notes || '',
+            mailingAddress: s.mailing_address || '',
+            assigned_products: Array.isArray(s.assigned_products) ? s.assigned_products : [],
+            lastLoginAt: s.last_login_at || null,
+        }));
+    } catch (err) {
+        console.error('loadSalesmen error:', err);
+        salesmen = [];
+    }
+}
+
+
+async function renderSalesmen() {
+    const list = document.getElementById('salesmen-list');
+    if (!list) return;
+
+    if (typeof loadSalesmen === 'function') {
+        await loadSalesmen();
+    }
+
+    list.innerHTML = '';
+
+    if (!salesmen || salesmen.length === 0) {
+        list.innerHTML = `
+            <div class="col-span-full text-center py-16">
+                <i class="fas fa-users text-6xl text-[#d4b78f] mb-4"></i>
+                <p class="text-[#6B4423]">No salesmen added yet.</p>
+            </div>
+        `;
+        return;
+    }
+
+    salesmen.forEach(s => {
+        const isActive = s.active !== false;
+        const totals = getSalesmanOrderTotals(s);
+        const monthly = '$' + Math.round(totals.monthly).toLocaleString();
+        const yearly = '$' + Math.round(totals.yearly).toLocaleString();
+
+        const card = document.createElement('div');
+        card.className = 'bg-white border-2 border-[#6B4423] rounded-2xl p-6 cursor-pointer hover:shadow-lg transition';
+        card.onclick = () => showSalesmanDetail(s.id);
+
+        card.innerHTML = `
+            <div class="flex items-start justify-between gap-3 mb-4">
+                <div class="flex items-center gap-4 min-w-0">
+                    <div class="w-14 h-14 bg-[#1E4D2B] rounded-full flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-user text-[#d4b78f] text-2xl"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h3 class="text-xl font-bold brand-green truncate">${escapeHtml(s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || 'Unnamed')}</h3>
+                        <p class="text-sm text-[#6B4423]">Territory: <strong>${escapeHtml(s.territory || '—')}</strong></p>
+                        ${(s.email || '').toLowerCase().trim() === 'jackerman@donegalnatural.com'
+                            ? ''
+                            : `<p class="text-xs text-[#6B4423] mt-1">Last login: ${
+                                s.lastLoginAt ? new Date(s.lastLoginAt).toLocaleString() : 'Never'
+                            }</p>`}
+                    </div>
+                    </div>
+                </div>
+                <button type="button"
+                        title="${isActive ? 'Click to disable' : 'Click to enable'}"
+                        onclick="toggleSalesmanActive('${s.id}', event)"
+                        class="px-3 py-1 text-xs font-semibold rounded-full flex-shrink-0 cursor-pointer transition
+                               ${isActive
+                                   ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                   : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}">
+                    ${isActive ? 'Active' : 'Inactive'}
+                </button>
+            </div>
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                    <p class="text-[#6B4423] text-xs">Yearly Sales</p>
+                    <p class="font-semibold brand-green">${yearly}</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-[#6B4423] text-xs">This Month</p>
+                    <p class="font-semibold brand-green">${monthly}</p>
+                </div>
+                <div>
+                    <p class="text-[#6B4423] text-xs">Commission</p>
+                    <p class="font-semibold brand-green">${s.commission != null ? s.commission + '%' : '—'}</p>
+                </div>
+            </div>
+        `;
+
+        list.appendChild(card);
+    });
+}
+
+window.saveSalesmen = saveSalesmen;
+window.addTestSalesman = addTestSalesman;
+window.getSalesmanOrderTotals = getSalesmanOrderTotals;
+window.hideSalesmanOrdersModal = hideSalesmanOrdersModal;
+window.openSalesmanOrdersModal = openSalesmanOrdersModal;
+window.deleteSalesman = deleteSalesman;
+window.resetSalesmanPassword = resetSalesmanPassword;
+window.renderSalesmanOrdersList = renderSalesmanOrdersList;
+window.hideOrderInvoiceModal = hideOrderInvoiceModal;
+window.printOrderInvoice = printOrderInvoice;
+window.invoiceDownloadFilename = invoiceDownloadFilename;
+window.downloadOrderInvoice = downloadOrderInvoice;
+window.openOrderInvoiceModal = openOrderInvoiceModal;
+window.openSalesmanOrderInvoice = openSalesmanOrderInvoice;
+window.loadSalesmen = loadSalesmen;
+window.renderSalesmen = renderSalesmen;
