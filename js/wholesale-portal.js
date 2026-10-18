@@ -5,11 +5,9 @@
 console.log("wholesale-portal.js loaded");
 
 // ================== SUPABASE SETUP ==================
-var SUPABASE_URL = 'https://kyzfdlzqlckrpdkavxei.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5emZkbHpxbGNrcnBka2F2eGVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3ODU0NjEsImV4cCI6MjEwMDM2MTQ2MX0.Y1Sshp1-0lFwKakCgpJtAUpaHNB0PQ1vuo6SOHZcPu4';
+// SUPABASE_URL and SUPABASE_ANON_KEY come from js/supabase-client.js
 
-var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-window.supabaseClient = supabaseClient;
+var supabaseClient = window.supabaseClient;
 
 // Soft guard — fast redirect if no customer cache
 (function () {
@@ -129,6 +127,7 @@ var quoteItems = JSON.parse(localStorage.getItem('wholesaleQuote')) || [];
 
 
 var WHOLESALE_MIN_ORDER = 200;
+window.WHOLESALE_MIN_ORDER = WHOLESALE_MIN_ORDER;
 
 
 
