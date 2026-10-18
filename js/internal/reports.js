@@ -1076,3 +1076,238 @@ window.renderTrendsChart = renderTrendsChart;
 window.renderMtdComparisonChart = renderMtdComparisonChart;
 window.updateTrendsSummary = updateTrendsSummary;
 window.updateReportsSalesSummary = updateReportsSalesSummary;
+
+// Salesman → customer price-sheet drill-down.
+// ========== Reports: Salesman → Customers price-sheet drill-down ==========
+async function populateReportsSalesmanSelect() {
+    const select = document.getElementById('reports-salesman-select');
+    if (!select) return;
+
+    if (!Array.isArray(salesmen) || salesmen.length === 0) {
+        if (typeof loadSalesmen === 'function') await loadSalesmen();
+    }
+    if (!Array.isArray(allCustomers) || !allCustomers.length) {
+        if (typeof loadCustomers === 'function') await loadCustomers();
+    }
+    if (!Array.isArray(allCustomers) || !allCustomers.length) {
+        if (typeof loadCustomers === 'function') await loadCustomers();
+    }
+
+    const active = (salesmen || []).filter(s => s.active !== false && (s.email || '').trim());
+    const current = select.value;
+    select.innerHTML = '<option value="">— Choose a salesman —</option>' +
+        active.map(s => {
+            const name = s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || s.email;
+            const email = (s.email || '').toLowerCase().trim();
+            return `<option value="${escapeHtml(email)}">${escapeHtml(name)}${s.territory ? ' — ' + escapeHtml(s.territory) : ''}</option>`;
+        }).join('');
+
+    // Restore previous selection if still valid
+    if (current && Array.from(select.options).some(o => o.value === current)) {
+        select.value = current;
+    }
+}
+
+async function onReportsSalesmanChange() {
+    const select = document.getElementById('reports-salesman-select');
+    const container = document.getElementById('reports-salesman-customers');
+    if (!container) return;
+
+    const email = (select?.value || '').toLowerCase().trim();
+    if (!email) {
+        container.innerHTML = '';
+        return;
+    }
+
+    // Ensure customers are loaded
+    if ((!allCustomers || allCustomers.length === 0) && typeof loadCustomers === 'function') {
+        await loadCustomers();
+    }
+
+    const filtered = (allCustomers || []).filter(c =>
+        (c.salesmanEmail || '').toLowerCase().trim() === email
+    );
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<p class="text-sm text-[#6B4423]">No customers currently assigned to this salesman.</p>';
+        return;
+    }
+
+    container.innerHTML = filtered.map(c => {
+        const name = (c.name || '—').replace(/"/g, '&quot;');
+        const company = (c.company || c.email || '').replace(/"/g, '&quot;');
+        const id = c.id || '';
+        return `
+            <div class="flex items-center justify-between gap-3 p-3 border border-[#d4b78f] rounded-xl bg-[#f8f4eb]">
+                <div class="min-w-0">
+                    <p class="font-semibold brand-green truncate">${escapeHtml(name)}</p>
+                    <p class="text-xs text-[#6B4423] truncate">${escapeHtml(company)}</p>
+                </div>
+                <button type="button"
+                        onclick="openReportsCustomerPriceSheet('${id}')"
+                        class="px-3 py-1.5 text-xs bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-lg hover:bg-[#254a2f] flex-shrink-0">
+                    <i class="fas fa-file-invoice-dollar mr-1"></i> View Price Sheet
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderComparedPriceSheetTable(sheetPrices, listEl) {
+    if (!listEl) return 0;
+    const catalog = (typeof PRODUCT_CATALOG !== 'undefined' ? PRODUCT_CATALOG : [])
+        .filter(function (p) { return !p.isMarketPrice; });
+    if (!catalog.length) {
+        listEl.innerHTML = '<p class="text-sm text-[#6B4423]">Catalog not loaded.</p>';
+        return 0;
+    }
+    const byCat = {};
+    catalog.forEach(function (p) {
+        const cat = p.category || 'Other';
+        if (!byCat[cat]) byCat[cat] = [];
+        const base = Number(p.unitPrice);
+        const raw = sheetPrices && sheetPrices[p.name] != null ? Number(sheetPrices[p.name]) : base;
+        const sheet = isNaN(raw) ? base : raw;
+        const delta = (!isNaN(base) && base > 0) ? ((sheet - base) / base * 100) : 0;
+        byCat[cat].push({
+            name: p.name,
+            caseSize: p.caseSize || '',
+            base: isNaN(base) ? null : base,
+            sheet: sheet,
+            delta: delta
+        });
+    });
+    const cats = Object.keys(byCat).sort();
+    let total = 0;
+    let html = '';
+    cats.forEach(function (cat) {
+        const rows = byCat[cat].sort(function (a, b) { return a.name.localeCompare(b.name); });
+        total += rows.length;
+        html += '<div><h3 class="text-base font-bold brand-green mb-2 border-b border-[#d4b78f] pb-1">' +
+            escapeHtml(cat) + '</h3>' +
+            '<div class="overflow-x-auto border border-[#d4b78f] rounded-xl mb-4">' +
+            '<table class="w-full text-sm"><thead><tr class="bg-[#1E4D2B] text-[#d4b78f]">' +
+            '<th class="p-2.5 text-left">Product</th>' +
+            '<th class="p-2.5 text-left w-24">Case</th>' +
+            '<th class="p-2.5 text-right w-24">Base</th>' +
+            '<th class="p-2.5 text-right w-24">This sheet</th>' +
+            '<th class="p-2.5 text-right w-20">Delta</th>' +
+            '</tr></thead><tbody>';
+        rows.forEach(function (row, i) {
+            const bg = i % 2 ? 'bg-[#f8f4eb]' : 'bg-white';
+            const deltaClass = Math.abs(row.delta) > 0.05
+                ? (row.delta > 0 ? 'text-green-700' : 'text-red-700')
+                : 'text-[#6B4423]';
+            const deltaText = (row.delta >= 0 ? '+' : '') + row.delta.toFixed(1) + '%';
+            html += '<tr class="border-t border-[#e8d9b8] ' + bg + '">' +
+                '<td class="p-2.5">' + escapeHtml(salesmanSheetDisplayName(row.name)) + '</td>' +
+                '<td class="p-2.5 text-[#6B4423]">' + escapeHtml(row.caseSize || '—') + '</td>' +
+                '<td class="p-2.5 text-right">' + (row.base != null ? ('$' + row.base.toFixed(2)) : '—') + '</td>' +
+                '<td class="p-2.5 text-right font-semibold">$' + row.sheet.toFixed(2) + '</td>' +
+                '<td class="p-2.5 text-right ' + deltaClass + '">' + deltaText + '</td>' +
+                '</tr>';
+        });
+        html += '</tbody></table></div></div>';
+    });
+    listEl.innerHTML = html;
+    return total;
+}
+
+async function openReportsCustomerPriceSheet(customerId) {
+    if (!customerId) {
+        alert('Missing customer id.');
+        return;
+    }
+
+    const customer = (allCustomers || []).find(c => String(c.id) === String(customerId));
+    if (!customer) {
+        alert('Customer not found in current list.');
+        return;
+    }
+
+    const salesmanEmail = (customer.salesmanEmail || '').toLowerCase().trim();
+    window._spsDisplayNames = {};
+    const titleEl = document.getElementById('price-sheet-modal-title');
+    const subEl = document.getElementById('price-sheet-modal-subtitle');
+    const listEl = document.getElementById('price-sheet-modal-list');
+    const modal = document.getElementById('salesman-price-sheet-modal');
+
+    window._spsCanEdit = false;
+    window._spsEditing = false;
+    window._spsSheet = null;
+    if (typeof setSalesmanPriceSheetEditMode === 'function') setSalesmanPriceSheetEditMode(false);
+    if (titleEl) titleEl.textContent = 'Customer Price Sheet';
+    if (subEl) subEl.textContent = (customer.name || customer.email || customerId) + (customer.company ? ' · ' + customer.company : '');
+    if (listEl) listEl.innerHTML = '<p class="text-sm text-[#6B4423]"><i class="fas fa-spinner fa-spin mr-2"></i>Loading…</p>';
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+    }
+
+    try {
+        let prices = null;
+        let sourceLabel = '';
+        let updatedAt = null;
+
+        // 1. Prefer customer_price_sheets
+        const { data: custSheet, error: custErr } = await supabaseClient
+            .from('customer_price_sheets')
+            .select('prices, updated_at')
+            .eq('customer_id', customerId)
+            .maybeSingle();
+        if (custErr) throw custErr;
+
+        if (custSheet && custSheet.prices && typeof custSheet.prices === 'object' && Object.keys(custSheet.prices).length > 0) {
+            prices = custSheet.prices;
+            sourceLabel = 'Customer-specific sheet';
+            updatedAt = custSheet.updated_at;
+        } else if (salesmanEmail) {
+            // 2. Fallback to salesman_price_sheets
+            const { data: salesSheet, error: salesErr } = await supabaseClient
+                .from('salesman_price_sheets')
+                .select('prices, updated_at, salesman_name')
+                .eq('salesman_email', salesmanEmail)
+                .maybeSingle();
+            if (salesErr) throw salesErr;
+
+            if (salesSheet && salesSheet.prices && typeof salesSheet.prices === 'object' && Object.keys(salesSheet.prices).length > 0) {
+                prices = salesSheet.prices;
+                sourceLabel = 'Salesman base sheet' + (salesSheet.salesman_name ? ' (' + salesSheet.salesman_name + ')' : '');
+                updatedAt = salesSheet.updated_at;
+            }
+        }
+
+        if (!prices) {
+            if (listEl) listEl.innerHTML = '<p class="text-sm text-[#6B4423]">No price sheet found for this customer (and no salesman base sheet available).</p>';
+            return;
+        }
+
+        if (salesmanEmail) {
+            const { data: nickRow } = await supabaseClient
+                .from('salesman_price_sheets')
+                .select('display_names')
+                .eq('salesman_email', salesmanEmail)
+                .maybeSingle();
+            if (nickRow && nickRow.display_names && typeof nickRow.display_names === 'object') {
+                window._spsDisplayNames = nickRow.display_names;
+            }
+        }
+        const count = renderComparedPriceSheetTable(prices, listEl);
+
+        if (subEl) {
+            const updated = updatedAt ? new Date(updatedAt).toLocaleString() : '';
+            subEl.textContent = (customer.name || customer.email || customerId)
+                + ' · ' + sourceLabel
+                + ' · ' + count + ' products'
+                + (updated ? ' · Updated ' + updated : '');
+        }
+    } catch (err) {
+        console.error('openReportsCustomerPriceSheet error:', err);
+        if (listEl) listEl.innerHTML = `<p class="text-sm text-red-600">Could not load price sheet.<br>${err.message || ''}</p>`;
+    }
+}
+
+window.populateReportsSalesmanSelect = populateReportsSalesmanSelect;
+window.onReportsSalesmanChange = onReportsSalesmanChange;
+window.renderComparedPriceSheetTable = renderComparedPriceSheetTable;
+window.openReportsCustomerPriceSheet = openReportsCustomerPriceSheet;
