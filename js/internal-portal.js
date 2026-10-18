@@ -8,27 +8,7 @@ const GOOGLE_MAPS_API_KEY = 'AIzaSyA3w15On3HstCQaS_XfKNXbO0I0ipHsQCg';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5emZkbHpxbGNrcnBka2F2eGVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3ODU0NjEsImV4cCI6MjEwMDM2MTQ2MX0.Y1Sshp1-0lFwKakCgpJtAUpaHNB0PQ1vuo6SOHZcPu4';
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// Escape user/DB text before inserting into innerHTML
-function escapeHtml(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-}
-async function getEdgeFunctionHeaders() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session || !session.access_token) {
-        throw new Error('Not signed in — cannot call Edge Function');
-    }
-    return {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + session.access_token,
-        'apikey': SUPABASE_ANON_KEY
-    };
-}
+window.supabaseClient = supabaseClient;
 
 // Soft guard — fast redirect if no local admin cache (reduces UI flash)
 (function () {
@@ -115,57 +95,8 @@ document.addEventListener('visibilitychange', function () {
 });
 
 
-// Edge Function auth — use the logged-in user's JWT (not the public anon key)
-async function getEdgeFunctionHeaders() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (!session || !session.access_token) {
-        throw new Error('Not signed in — cannot call Edge Function');
-    }
-    return {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + session.access_token,
-        'apikey': SUPABASE_ANON_KEY
-    };
-}
-
 // HARD SAFETY — ship/deny emails stay off (QuickBooks). Function kept but unused.
 const EMAILS_ENABLED = false;
-
-function generateInvoiceNumber() {
-    // DN-XXXXX — 5 chars, skip ambiguous 0/O/1/I
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = '';
-    for (let i = 0; i < 5; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return 'DN-' + code;
-}
-
-function displayInvoiceNumber(order) {
-    return order?.invoice_number || order?.invoiceNumber || order?.id || '—';
-}
-
-function orderHasUpdateNote(order) {
-    return /ORDER UPDATED/i.test(String((order && (order.notes || order.changeLog)) || ''));
-}
-
-function markInvoiceUpdatedState(order) {
-    const titleEl = document.getElementById('inv-title');
-    const bannerEl = document.getElementById('inv-updated-banner');
-    const updated = orderHasUpdateNote(order);
-    if (titleEl) titleEl.textContent = updated ? 'UPDATED INVOICE' : 'INVOICE';
-    if (bannerEl) {
-        if (updated) {
-            const match = String(order.notes || '').match(/Edited:\s*(.+)/i);
-            bannerEl.textContent = match
-                ? ('THIS ORDER HAS BEEN UPDATED  ·  ' + match[1].trim())
-                : 'THIS ORDER HAS BEEN UPDATED';
-            bannerEl.classList.remove('hidden');
-        } else {
-            bannerEl.classList.add('hidden');
-        }
-    }
-}
 
 async function notifyMarshallProforma(order) {
     try {
@@ -545,23 +476,6 @@ function calcOrderAmount(o) {
     const shipping = Number(o.shipping_cost) || 0;
     const credit = Number(o.credit) || 0;
     return sub + shipping - credit;
-}
-
-function fmtMoney(n) {
-    const v = Number(n);
-    if (Number.isNaN(v)) return '—';
-    return '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-
-
-function fmtDate(iso) {
-    if (!iso) return '—';
-    try {
-        return new Date(iso).toLocaleDateString();
-    } catch {
-        return iso;
-    }
 }
 
 function changeBankLogYear(delta) {
