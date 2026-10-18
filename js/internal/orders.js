@@ -2430,168 +2430,6 @@ async function confirmAndSubmitAdminOrder() {
     }
 }
 
-async function saveNewOrder(event) {
-    if (event && typeof event.preventDefault === 'function') {
-        event.preventDefault();
-    }
-
-    const customer = (document.getElementById('new-order-customer')?.value || '').trim();
-    const salesman = (document.getElementById('new-order-salesman')?.value || '').trim();
-    const notes = (document.getElementById('new-order-notes')?.value || '').trim();
-    let creditAmt = 0;
-    if (typeof isJonathanAdmin === 'function' && isJonathanAdmin()) {
-        creditAmt = parseFloat(document.getElementById('new-order-credit')?.value || '0');
-        if (isNaN(creditAmt) || creditAmt < 0) {
-            alert('Credit must be 0 or a positive dollar amount.');
-            return;
-        }
-    }
-
-    const isWalkIn = customer === '__walkin__';
-    const walkInName = (document.getElementById('walkin-name')?.value || '').trim();
-    const walkInCompany = (document.getElementById('walkin-company')?.value || '').trim();
-    const walkInEmail = (document.getElementById('walkin-email')?.value || '').trim();
-    const walkInPhone = (document.getElementById('walkin-phone')?.value || '').trim();
-    const walkInStreet = (document.getElementById('walkin-street')?.value || '').trim();
-    const walkInCity = (document.getElementById('walkin-city')?.value || '').trim();
-    const walkInState = (document.getElementById('walkin-state')?.value || '').trim().toUpperCase();
-    const walkInZip = (document.getElementById('walkin-zip')?.value || '').trim();
-    const walkInAddress = [walkInStreet, [walkInCity, walkInState].filter(Boolean).join(', '), walkInZip].filter(Boolean).join(' ');
-    const walkInCommissionRaw = (document.getElementById('walkin-commission')?.value || '').trim();
-    let walkInCommission = null;
-    if (walkInCommissionRaw !== '') {
-        walkInCommission = parseFloat(walkInCommissionRaw);
-        if (isNaN(walkInCommission) || walkInCommission < 0 || walkInCommission > 100) {
-            alert('Commission must be between 0 and 100, or blank.');
-            return;
-        }
-    }
-    if (!customer) {
-        alert('Please select a customer, or choose walk-in / open order.');
-        return;
-    }
-    if (isWalkIn && !walkInName) {
-        alert('Enter a customer name for this open order.');
-        return;
-    }
-
-    let items = [];
-    if (typeof newOrderSelectedProducts !== 'undefined' && newOrderSelectedProducts.length > 0) {
-        items = newOrderSelectedProducts
-            .filter(p => p.name && (p.quantity || 0) > 0)
-            .map(p => {
-                const catalog = (typeof PRODUCT_CATALOG !== 'undefined')
-                    ? PRODUCT_CATALOG.find(c => c.name === p.name)
-                    : null;
-                const unitPrice = (p.unitPrice != null && p.unitPrice !== '')
-                    ? Number(p.unitPrice)
-                    : (catalog && !catalog.isMarketPrice ? catalog.unitPrice : null);
-                const displayPrice = p.displayPrice
-                    || (catalog
-                        ? (catalog.isMarketPrice ? 'Market Price' : ('$' + Number(catalog.unitPrice).toFixed(2)))
-                        : '');
-                return {
-                    product: p.name,
-                    quantity: p.quantity || 1,
-                    caseSize: p.caseSize || catalog?.caseSize || '',
-                    unitPrice: unitPrice,
-                    displayPrice: displayPrice,
-                    isMarketPrice: (p.isMarketPrice != null) ? !!p.isMarketPrice : !!(catalog && catalog.isMarketPrice)
-                };
-            });
-    } else {
-        const rows = document.querySelectorAll('#new-order-lines .order-line-row');
-        rows.forEach(row => {
-            const product = row.querySelector('.order-line-product')?.value || '';
-            const qty = parseInt(row.querySelector('.order-line-qty')?.value, 10) || 0;
-            if (product && qty > 0) {
-                items.push({
-                    product: product,
-                    quantity: qty,
-                    unitPrice: null,
-                    displayPrice: '',
-                    isMarketPrice: false
-                });
-            }
-        });
-    }
-
-    if (items.length === 0) {
-        alert('Please add at least one product with quantity.');
-        return;
-    }
-
-    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    const invoiceNumber = generateInvoiceNumber();
-
-    const payload = {
-        customer_id: null,
-        customer_name: isWalkIn ? walkInName : customer,
-        customer_email: isWalkIn ? (walkInEmail.toLowerCase() || null) : null,
-        customer_company: isWalkIn ? (walkInCompany || null) : null,
-        salesman_email: null,
-        salesman_name: salesman || user.fullName || user.name || 'Admin',
-        status: 'submitted',
-        source: 'internal',
-        items: items,
-        notes: notes || 'Created via Add Order',
-        shipping_cost: 0,
-        credit: creditAmt,
-        submitted_at: new Date().toISOString(),
-        invoice_number: invoiceNumber,
-        salesman_commission_percent: isWalkIn ? walkInCommission : (function () {
-            if (typeof allCustomers === 'undefined' || !Array.isArray(allCustomers)) return null;
-            const match = allCustomers.find(c => (c.name || '').trim() === customer);
-            const raw = match && (match.salesmanCommissionPercent != null
-                ? match.salesmanCommissionPercent
-                : match.salesman_commission_percent);
-            if (raw == null || raw === '' || isNaN(Number(raw))) return null;
-            return Number(raw);
-        })()
-    };
-
-    try {
-        const { data, error } = await supabaseClient
-            .from('orders')
-            .insert([payload])
-            .select('id, invoice_number')
-            .single();
-
-        if (error) throw error;
-
-        const shortId = data?.invoice_number || invoiceNumber || data?.id;
-
-        await notifyMarshallProforma({
-            orderId: shortId,
-            customerName: payload.customer_name,
-            companyName: payload.customer_company,
-            customerEmail: payload.customer_email,
-            salesmanName: payload.salesman_name,
-            items: payload.items,
-            notes: payload.notes,
-            shippingCost: payload.shipping_cost || 0,
-            credit: payload.credit || 0,
-            submittedAt: payload.submitted_at,
-            source: payload.source,
-            commissionRate: payload.salesman_commission_percent || null
-        });
-
-        if (typeof newOrderSelectedProducts !== 'undefined') {
-            newOrderSelectedProducts = [];
-        }
-
-        hideAddOrderModal();
-
-        if (typeof loadOrders === 'function') {
-            await loadOrders();
-        }
-
-        alert('Order added for ' + customer);
-    } catch (err) {
-        console.error(err);
-        alert('Could not save order.\n' + (err.message || ''));
-    }
-}
 
 async function saveNewOrder(event) {
     event.preventDefault();
@@ -3151,7 +2989,6 @@ window.hideAdminOrderConfirmModal = hideAdminOrderConfirmModal;
 window.openAdminOrderConfirmModal = openAdminOrderConfirmModal;
 window.confirmAndSubmitAdminOrder = confirmAndSubmitAdminOrder;
 window.saveNewOrder = saveNewOrder;
-window.saveNewOrder = saveNewOrder;
 window.showMonthlyOrdersModal = showMonthlyOrdersModal;
 window.showMonthlySalesModal = showMonthlySalesModal;
 window.updateDashboardVendors = updateDashboardVendors;
@@ -3160,3 +2997,957 @@ window.updatePrintSelectedButton = updatePrintSelectedButton;
 window.deleteSelectedOrders = deleteSelectedOrders;
 window.bulkSetPortalCommissionRate = bulkSetPortalCommissionRate;
 window.printSelectedOrders = printSelectedOrders;
+
+var allBackOrders = [];
+
+var shipPendingBackOrders = [];
+
+function filterOrdersByStatus(status) {
+    const container = document.getElementById('orders-table');
+    const empty = document.getElementById('orders-empty');
+
+    if (!container || !allOrders) return;
+
+    let filteredOrders = allOrders;
+
+    if (status !== 'all') {
+        filteredOrders = allOrders.filter(order => {
+            const orderStatus = (order.status || '').toString().trim().toLowerCase();
+            if (status === 'pending') {
+                return orderStatus === 'pending' || orderStatus === 'submitted';
+            }
+            return orderStatus === status;
+        });
+    }
+
+    container.innerHTML = '';
+
+    if (filteredOrders.length === 0) {
+        if (empty) empty.classList.remove('hidden');
+        return;
+    }
+
+    if (empty) empty.classList.add('hidden');
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'flex justify-between items-center mb-4 px-2';
+    const displayName = status === 'all' ? 'Orders' : status.charAt(0).toUpperCase() + status.slice(1) + ' Orders';
+
+    header.innerHTML = `
+        <div>
+            <h3 class="text-xl font-bold brand-green">${escapeHtml(displayName)}</h3>
+            <p class="text-sm text-[#6B4423]">${filteredOrders.length} order(s) found</p>
+        </div>
+        ${status !== 'all' ? 
+            `<button onclick="showAllOrders()" class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+                ← Show All Orders
+            </button>` : ''}
+    `;
+    container.appendChild(header);
+
+    // Build table using the new multi-pill row
+    let html = `<table class="w-full"><thead><tr class="bg-[#1E4D2B] text-[#d4b78f]">
+        <th class="p-3 text-left">Order ID</th>
+        <th class="p-3 text-left">Status</th>
+        <th class="p-3 text-left">Date</th>
+        <th class="p-3 text-left">Items</th>
+    </tr></thead><tbody>`;
+
+    filteredOrders.forEach(order => {
+        html += createOrderRow(order);
+    });
+
+    html += `</tbody></table>`;
+    const tableWrapper = document.createElement('div');
+    tableWrapper.innerHTML = html;
+    container.appendChild(tableWrapper);
+}
+
+function createOrderRow(order) {
+    const itemCount = order.items ? order.items.length : 0;
+    const currentStatus = (order.status || 'Pending').toLowerCase();
+
+    const statuses = ['pending', 'received', 'processing', 'shipped', 'delivered'];
+    const statusLabels = {
+        'pending': 'Pending',
+        'received': 'Received',
+        'processing': 'Processing',
+        'shipped': 'Shipped',
+        'delivered': 'Delivered'
+    };
+
+    let statusHTML = '';
+
+    statuses.forEach(status => {
+        const isActive = currentStatus === status;
+        let colorClass = '';
+
+        if (status === 'pending') {
+            colorClass = isActive ? 'bg-orange-500 text-white' : 'bg-orange-100 text-orange-700';
+        } else if (status === 'received') {
+            colorClass = isActive ? 'bg-teal-500 text-white' : 'bg-teal-100 text-teal-700';
+        } else if (status === 'processing') {
+            colorClass = isActive ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-700';
+        } else if (status === 'shipped') {
+            colorClass = isActive ? 'bg-purple-500 text-white' : 'bg-purple-100 text-purple-700';
+        } else if (status === 'delivered') {
+            colorClass = isActive ? 'bg-orange-500 text-white' : 'bg-orange-100 text-orange-700'; // Orange for Delivered
+        }
+
+        statusHTML += `
+                        <span onclick=\"updateOrderStatus('${String(order.id).replace(/'/g, "\\'")}', '${status}', this)\"  
+                  class="px-2.5 py-0.5 text-xs font-semibold rounded-full cursor-pointer transition ${colorClass}">
+                ${statusLabels[status]}
+            </span>
+        `;
+    });
+
+    return `
+        <tr class="border-t border-[#6B4423] hover:bg-[#f8f4eb]">
+            <td class="p-3 font-mono">#${escapeHtml(displayInvoiceNumber(order))}</td>
+            <td class="p-3">
+                <div class="flex flex-wrap gap-1">
+                    ${statusHTML}
+                </div>
+            </td>
+            <td class="p-3 text-sm">${new Date(order.submittedAt).toLocaleDateString()}</td>
+            <td class="p-3">${itemCount} item(s)</td>
+        </tr>
+    `;
+}
+
+function showAllOrders() {
+    currentOrdersView = 'all';
+    currentFilter = 'all';
+
+    // Button styles
+    const btnAll = document.getElementById('btn-all-orders');
+    const btnBack = document.getElementById('btn-back-orders');
+    if (btnAll) {
+        btnAll.className = 'inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold bg-[#1E4D2B] text-[#d4b78f] rounded-xl hover:bg-[#254a2f] transition';
+    }
+    if (btnBack) {
+        btnBack.className = 'inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold border-2 border-orange-500 text-orange-700 bg-white rounded-xl hover:bg-orange-50 transition';
+    }
+
+    // Show/hide containers
+    const ordersTable = document.getElementById('orders-table');
+    const ordersEmpty = document.getElementById('orders-empty');
+    const backTable = document.getElementById('back-orders-table');
+    const backEmpty = document.getElementById('back-orders-empty');
+    if (ordersTable) ordersTable.classList.remove('hidden');
+    if (backTable) backTable.classList.add('hidden');
+    if (backEmpty) backEmpty.classList.add('hidden');
+
+    if (typeof renderOrdersTable === 'function') {
+        renderOrdersTable();
+    }
+}
+
+function showBackOrders() {
+    currentOrdersView = 'back';
+
+    // Button styles
+    const btnAll = document.getElementById('btn-all-orders');
+    const btnBack = document.getElementById('btn-back-orders');
+    if (btnAll) {
+        btnAll.className = 'inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold border-2 border-[#6B4423] text-[#6B4423] bg-white rounded-xl hover:bg-[#f8f4eb] transition';
+    }
+    if (btnBack) {
+        btnBack.className = 'inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold bg-orange-500 text-white rounded-xl hover:bg-orange-600 transition';
+    }
+
+    // Show/hide containers
+    const ordersTable = document.getElementById('orders-table');
+    const ordersEmpty = document.getElementById('orders-empty');
+    const backTable = document.getElementById('back-orders-table');
+    const backEmpty = document.getElementById('back-orders-empty');
+    if (ordersTable) ordersTable.classList.add('hidden');
+    if (ordersEmpty) ordersEmpty.classList.add('hidden');
+    if (backTable) backTable.classList.remove('hidden');
+
+    if (typeof loadBackOrders === 'function') {
+        loadBackOrders();
+    } else if (typeof renderBackOrdersTable === 'function') {
+        renderBackOrdersTable();
+    }
+}
+
+async function loadBackOrders() {
+    const container = document.getElementById('back-orders-table');
+    if (container) {
+        container.innerHTML = `<p class="text-center text-[#6B4423] py-10"><i class="fas fa-spinner fa-spin mr-2"></i>Loading back orders…</p>`;
+    }
+
+    try {
+        const { data, error } = await supabaseClient
+            .from('back_orders')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        allBackOrders = data || [];
+    } catch (err) {
+        console.error('loadBackOrders error:', err);
+        allBackOrders = [];
+    }
+
+    if (typeof updateBackOrdersBadge === 'function') updateBackOrdersBadge();
+    if (typeof renderBackOrdersTable === 'function') renderBackOrdersTable();
+
+    // Re-draw All Orders so nested fulfilled BO rows appear on first load
+    if (currentOrdersView === 'all' && typeof renderOrdersTable === 'function') {
+        renderOrdersTable();
+    }
+}
+
+function updateBackOrdersBadge() {
+    const badge = document.getElementById('back-orders-count');
+    if (!badge) return;
+    const pending = (allBackOrders || []).filter(b =>
+        (b.status || '').toLowerCase() === 'pending'
+    );
+    // Distinct invoices / orders — not individual line items
+    const uniqueInvoices = new Set(
+        pending.map(b => String(b.invoice_number || b.original_order_id || b.id))
+    );
+    badge.textContent = uniqueInvoices.size;
+}
+
+function renderBackOrdersTable() {
+    const container = document.getElementById('back-orders-table');
+    const empty = document.getElementById('back-orders-empty');
+    if (!container) return;
+
+    const rows = allBackOrders || [];
+    if (rows.length === 0) {
+        container.innerHTML = '';
+        if (empty) empty.classList.remove('hidden');
+        return;
+    }
+    if (empty) empty.classList.add('hidden');
+
+    // Group by invoice / original order
+    const groups = {};
+    rows.forEach(b => {
+        const key = String(b.invoice_number || b.original_order_id || b.id);
+        if (!groups[key]) {
+            groups[key] = {
+                key: key,
+                invoice: b.invoice_number || String(b.original_order_id || ''),
+                originalOrderId: b.original_order_id || null,
+                customer: b.customer_name || '—',
+                customerEmail: b.customer_email || null,
+                customerCompany: b.customer_company || null,
+                items: [],
+                createdAt: b.created_at || null
+            };
+        }
+        groups[key].items.push(b);
+        if (b.created_at && (!groups[key].createdAt || b.created_at < groups[key].createdAt)) {
+            groups[key].createdAt = b.created_at;
+        }
+    });
+
+    const groupList = Object.values(groups).sort((a, b) => {
+        const da = new Date(a.createdAt || 0);
+        const db = new Date(b.createdAt || 0);
+        return db - da;
+    });
+
+    if (!window.expandedBackOrders) window.expandedBackOrders = {};
+
+    let html = `
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-[#1E4D2B] text-[#d4b78f]">
+                    <th class="p-3 text-left w-8"></th>
+                    <th class="p-3 text-left">Invoice #</th>
+                    <th class="p-3 text-left">Customer</th>
+                    <th class="p-3 text-center">Items</th>
+                    <th class="p-3 text-left">Status</th>
+                    <th class="p-3 text-left">Date</th>
+                    <th class="p-3 text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    groupList.forEach(g => {
+        const pendingItems = g.items.filter(i => (i.status || '').toLowerCase() === 'pending');
+        const allFulfilled = pendingItems.length === 0;
+        const isExpanded = !!window.expandedBackOrders[g.key];
+        const invShort = String(g.invoice || '').slice(0, 8);
+        const dateText = g.createdAt ? new Date(g.createdAt).toLocaleDateString() : '—';
+
+        let statusBadge;
+        if (allFulfilled) {
+            statusBadge = `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Fulfilled</span>`;
+        } else if (pendingItems.length < g.items.length) {
+            statusBadge = `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Partial</span>`;
+        } else {
+            statusBadge = `<span class="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">Pending</span>`;
+        }
+
+        const safeKey = String(g.key).replace(/'/g, "\\'");
+        const actions = !allFulfilled
+            ? `<button type="button" onclick="fulfillBackOrderGroup('${safeKey}'); event.stopPropagation();"
+                       class="text-xs px-3 py-1 rounded bg-green-600 text-white hover:bg-green-700">
+                   Fulfill
+               </button>`
+            : '—';
+
+        html += `
+            <tr class="border-t border-[#d4b78f] hover:bg-[#f8f4eb] cursor-pointer"
+                onclick="toggleBackOrderExpand('${safeKey}')">
+                <td class="p-3 text-center text-[#6B4423]">
+                    <i class="fas fa-chevron-${isExpanded ? 'down' : 'right'} text-xs"></i>
+                </td>
+                <td class="p-3 font-mono">#${invShort}</td>
+                <td class="p-3">${g.customer}</td>
+                <td class="p-3 text-center font-semibold">${g.items.length}</td>
+                <td class="p-3">${statusBadge}</td>
+                <td class="p-3 text-sm">${dateText}</td>
+                <td class="p-3 text-center" onclick="event.stopPropagation()">${actions}</td>
+            </tr>
+        `;
+
+        if (isExpanded) {
+            html += `
+                <tr class="bg-[#f8f1e9]">
+                    <td colspan="7" class="p-0">
+                        <div class="px-4 py-3">
+                            <table class="w-full text-xs">
+                                <thead>
+                                    <tr class="text-[#6B4423]">
+                                        <th class="p-2 text-left">Product</th>
+                                        <th class="p-2 text-left">Case Size</th>
+                                        <th class="p-2 text-center">Qty</th>
+                                        <th class="p-2 text-left">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+            `;
+            g.items.forEach(item => {
+                const st = (item.status || 'pending').toLowerCase();
+                let itemBadge;
+                if (st === 'fulfilled') {
+                    itemBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">Fulfilled</span>`;
+                } else if (st === 'cancelled') {
+                    itemBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">Cancelled</span>`;
+                } else {
+                    itemBadge = `<span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">Pending</span>`;
+                }
+                html += `
+                    <tr class="border-t border-[#e8d9b8]">
+                        <td class="p-2 font-medium">${item.product_name || '—'}</td>
+                        <td class="p-2">${item.case_size || '—'}</td>
+                        <td class="p-2 text-center font-semibold">${item.quantity || 1}</td>
+                        <td class="p-2">${itemBadge}</td>
+                    </tr>
+                `;
+            });
+            html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+    });
+
+    html += `</tbody></table>`;
+    container.innerHTML = html;
+}
+
+function toggleBackOrderExpand(key) {
+    if (!window.expandedBackOrders) window.expandedBackOrders = {};
+    window.expandedBackOrders[key] = !window.expandedBackOrders[key];
+    renderBackOrdersTable();
+}
+
+async function fulfillBackOrderGroup(groupKey) {
+    if (!groupKey) return;
+
+    const groupItems = (allBackOrders || []).filter(b => {
+        const key = String(b.invoice_number || b.original_order_id || b.id);
+        return key === String(groupKey);
+    });
+    const pending = groupItems.filter(b => (b.status || '').toLowerCase() === 'pending');
+    if (!pending.length) {
+        alert('No pending items left on this invoice.');
+        return;
+    }
+
+    openShipInvoiceForBackOrder(groupKey, pending);
+}
+
+function openShipInvoiceForBackOrder(groupKey, pendingItems) {
+    shipInvoiceMode = 'backorder';
+    shipBackOrderPendingIds = pendingItems.map(b => b.id);
+    shipPendingBackOrders = [];
+
+    const sample = pendingItems[0];
+    const originalId = sample.original_order_id || sample.invoice_number;
+    const originalOrder = (allOrders || []).find(o => String(o.id) === String(originalId)) || null;
+
+    shipInvoiceOrder = originalOrder || {
+        id: originalId,
+        customer: sample.customer_name,
+        customerEmail: sample.customer_email,
+        customerCompany: sample.customer_company,
+        salesman: '',
+        shippingCost: 0,
+        credit: 0
+    };
+
+    shipInvoiceItems = pendingItems.map(item => ({
+        product: item.product_name || '',
+        quantity: item.quantity || 1,
+        caseSize: item.case_size || '',
+        unitPrice: item.unit_price != null ? item.unit_price : null,
+        displayPrice: item.display_price || '',
+        isMarketPrice: !!item.is_market_price
+    }));
+
+    const customerEl = document.getElementById('ship-inv-customer');
+    const salesmanEl = document.getElementById('ship-inv-salesman');
+    const idEl = document.getElementById('ship-inv-id');
+    const subtitleEl = document.getElementById('ship-invoice-subtitle');
+
+    if (customerEl) customerEl.textContent = shipInvoiceOrder.customer || sample.customer_name || '—';
+    if (salesmanEl) salesmanEl.textContent = shipInvoiceOrder.salesman || '—';
+    if (idEl) idEl.textContent = String(sample.invoice_number || originalId || '');
+    if (subtitleEl) subtitleEl.textContent = 'Back order fulfillment — review items and shipping, then confirm';
+
+    const shippingEl = document.getElementById('ship-inv-shipping');
+    if (shippingEl) {
+        // BO follow-up: no additional shipping when original qualified (region legend TBD in Reports)
+        shippingEl.value = '0.00';
+        shippingEl.readOnly = true;
+        shippingEl.classList.add('bg-gray-100');
+    }
+    const noteEl = document.getElementById('ship-inv-shipping-note');
+    if (noteEl) noteEl.textContent = 'Back order follow-up: no additional shipping (free-ship rules / original order)';
+
+    const creditEl = document.getElementById('ship-inv-credit');
+    if (creditEl) creditEl.value = '0.00';
+
+    const searchEl = document.getElementById('ship-inv-product-search');
+    if (searchEl) searchEl.value = '';
+    const resultsEl = document.getElementById('ship-inv-product-results');
+    if (resultsEl) {
+        resultsEl.innerHTML = '';
+        resultsEl.classList.add('hidden');
+    }
+
+    if (typeof renderShipInvoiceItems === 'function') renderShipInvoiceItems();
+
+    const finishBOOpen = () => {
+        if (typeof recalcShipInvoiceTotals === 'function') recalcShipInvoiceTotals();
+        document.getElementById('ship-invoice-modal')?.classList.remove('hidden');
+    };
+    if ((!allCustomers || allCustomers.length === 0) && typeof loadCustomers === 'function') {
+        loadCustomers().then(finishBOOpen).catch(finishBOOpen);
+    } else {
+        finishBOOpen();
+    }
+}
+
+async function confirmBackOrderFulfillFromShipModal() {
+    if (!shipBackOrderPendingIds.length) {
+        alert('No back-order items to fulfill.');
+        return;
+    }
+    if (!shipInvoiceItems.length) {
+        alert('Invoice must have at least one line item.');
+        return;
+    }
+
+    try {
+        const { error } = await supabaseClient
+            .from('back_orders')
+            .update({
+                status: 'fulfilled',
+                fulfilled_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            })
+            .in('id', shipBackOrderPendingIds);
+
+        if (error) throw error;
+
+        if (typeof decreaseInventoryForOrder === 'function') {
+            await decreaseInventoryForOrder({
+                items: shipInvoiceItems.map(i => ({
+                    product: i.product,
+                    quantity: i.quantity
+                }))
+            });
+        }
+
+        hideShipInvoiceModal();
+        if (typeof loadBackOrders === 'function') await loadBackOrders();
+        alert('Back order fulfilled. Inventory updated.');
+    } catch (err) {
+        console.error(err);
+        alert('Could not fulfill back order.\n' + (err.message || ''));
+    }
+}
+
+function openBackOrderFulfillInvoice(groupKey, fulfilledItems) {
+    const items = fulfilledItems || (allBackOrders || []).filter(b => {
+        const key = String(b.invoice_number || b.original_order_id || b.id);
+        return key === String(groupKey);
+    });
+    if (!items.length) {
+        alert('No items to show on invoice.');
+        return;
+    }
+
+    const sample = items[0];
+    const originalId = sample.original_order_id || sample.invoice_number;
+    const originalOrder = (allOrders || []).find(o => String(o.id) === String(originalId)) || null;
+
+    // Prefer original order customer data; fall back to back_order snapshot
+    const customerName = (originalOrder && (originalOrder.customer || originalOrder.customer_name))
+        || sample.customer_name || '—';
+    const customerCompany = (originalOrder && (originalOrder.customerCompany || originalOrder.customer_company))
+        || sample.customer_company || '';
+    const customerEmail = (originalOrder && (originalOrder.customerEmail || originalOrder.customer_email))
+        || sample.customer_email || '';
+
+    // Invoice number / date
+    const invNum = document.getElementById('inv-number');
+    if (invNum) invNum.textContent = String(sample.invoice_number || originalId || '—');
+
+    const invDate = document.getElementById('inv-date');
+    if (invDate) invDate.textContent = new Date().toLocaleDateString();
+
+    const invStatus = document.getElementById('inv-status');
+    if (invStatus) invStatus.textContent = 'Back Order Fulfillment';
+
+    // BILL TO / SHIP TO — reuse customer lookup when possible
+    const customer = (allCustomers || []).find(c => {
+        const cEmail = (c.email || '').trim().toLowerCase();
+        const cName = (c.name || '').trim().toLowerCase();
+        if (customerEmail && cEmail && customerEmail.toLowerCase() === cEmail) return true;
+        if (customerName && cName && cName === customerName.toLowerCase()) return true;
+        return false;
+    }) || null;
+
+    const billEl = document.getElementById('inv-bill-to');
+    if (billEl) {
+        const lines = [customerName];
+        if (customerCompany) lines.push(customerCompany);
+        if (customer?.phone) lines.push(customer.phone);
+        else if (customerEmail) lines.push(customerEmail);
+        const billing = customer?.billingAddress || customer?.shippingAddress || '';
+        if (billing) lines.push(billing);
+        billEl.innerHTML = lines.map(l => `<p>${escapeHtml(l)}</p>`).join('');
+    }
+
+    const shipEl = document.getElementById('inv-ship-to');
+    if (shipEl) {
+        const lines = [customerName];
+        if (customerCompany) lines.push(customerCompany);
+        const shipping = customer?.shippingAddress || customer?.billingAddress || '';
+        if (shipping) lines.push(shipping);
+        shipEl.innerHTML = lines.map(l => `<p>${escapeHtml(l)}</p>`).join('');
+    }
+
+    // Line items from fulfilled back orders
+    const tbody = document.getElementById('inv-items-body');
+    let subtotal = 0;
+    if (tbody) {
+        tbody.innerHTML = items.map(item => {
+            const qty = parseInt(item.quantity, 10) || 0;
+            const unit = item.unit_price != null ? Number(item.unit_price) : 0;
+            const hasPrice = unit > 0;
+            const lineTotal = qty * unit;
+            if (hasPrice) subtotal += lineTotal;
+
+            const desc = escapeHtml([
+                item.product_name || '—',
+                item.case_size ? '· ' + item.case_size : ''
+            ].filter(Boolean).join(' '));
+
+            const unitText = hasPrice ? ('$' + unit.toFixed(2)) : escapeHtml(item.display_price || '—');
+            const totalText = hasPrice ? ('$' + lineTotal.toFixed(2)) : '—';
+
+            return `
+                <tr class="border-t border-[#d4b78f]">
+                    <td class="p-3 text-left font-semibold">${qty}</td>
+                    <td class="p-3 text-left">${desc}</td>
+                    <td class="p-3 text-right">${unitText}</td>
+                    <td class="p-3 text-right font-semibold">${totalText}</td>
+                </tr>`;
+        }).join('');
+    }
+
+    // Notes
+    const notesEl = document.getElementById('inv-notes');
+    if (notesEl) {
+        notesEl.textContent = 'Back order fulfillment for original invoice #' +
+            String(sample.invoice_number || originalId || '').slice(0, 8) +
+            '. These items were previously out of stock and are now ready to ship.';
+    }
+
+    // Shipping: free when original order had $0 shipping or met free-ship rules
+    let shipping = 0;
+    if (originalOrder) {
+        const origShip = Number(originalOrder.shippingCost != null ? originalOrder.shippingCost : originalOrder.shipping_cost);
+        if (!isNaN(origShip) && origShip === 0) {
+            shipping = 0;
+        } else {
+            // Still $0 for back-order follow-up when original qualified for free shipping
+            // (region rules still being finalized — default free for fulfillment shipments)
+            shipping = 0;
+        }
+    }
+
+    const credit = 0;
+    const total = Math.max(0, subtotal + shipping - credit);
+
+    const subEl = document.getElementById('inv-subtotal');
+    const shipCostEl = document.getElementById('inv-shipping');
+    const creditRow = document.getElementById('inv-credit-row');
+    const totEl = document.getElementById('inv-total');
+
+    if (subEl) subEl.textContent = '$' + subtotal.toFixed(2);
+    if (shipCostEl) {
+        const st = (order.status || '').toString().toLowerCase();
+        if (shipping > 0) {
+            shipCostEl.textContent = '$' + shipping.toFixed(2);
+        } else if (st === 'shipped' || st === 'delivered' || st === 'completed') {
+            shipCostEl.textContent = 'Free Shipping';
+        } else {
+            shipCostEl.textContent = '$0.00';
+        }
+    }
+    if (creditRow) creditRow.classList.add('hidden');
+    if (totEl) totEl.textContent = '$' + total.toFixed(2);
+
+    const modal = document.getElementById('order-invoice-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+
+function filterOrdersByCustomer(customerName, customerId) {
+    const container = document.getElementById('orders-table');
+    const empty = document.getElementById('orders-empty');
+    const summaryCards = document.querySelector('#orders .grid-cols-1.md\\:grid-cols-3');
+
+    if (!container || !allOrders) return;
+
+    // Hide the general customer summary cards
+    if (summaryCards) summaryCards.style.display = 'none';
+
+    const customerRow = (typeof allCustomers !== 'undefined')
+        ? allCustomers.find(c =>
+            (customerId && String(c.id) === String(customerId)) ||
+            (customerName && c.name === customerName)
+          )
+        : null;
+    const email = (customerRow && customerRow.email ? String(customerRow.email) : '').toLowerCase().trim();
+    const name = (customerName || (customerRow && customerRow.name) || '').toLowerCase().trim();
+
+    const customerOrders = allOrders.filter(order => {
+        if (customerId && order.customerId && String(order.customerId) === String(customerId)) return true;
+        if (email && order.customerEmail && String(order.customerEmail).toLowerCase() === email) return true;
+        if (name && order.customer && String(order.customer).toLowerCase() === name) return true;
+        return false;
+    });
+
+    container.innerHTML = '';
+
+    // === NEW: Customer Order Summary Stats ===
+    let totalSpent = 0;
+    customerOrders.forEach(order => {
+        if (order.items) {
+            order.items.forEach(item => {
+                totalSpent += (item.quantity || 1) * 50;
+            });
+        }
+    });
+
+    // Calculate average days between orders
+    let avgFrequency = 'N/A';
+    if (customerOrders.length > 1) {
+        const dates = customerOrders
+            .map(o => new Date(o.submittedAt))
+            .sort((a, b) => a - b);
+
+        let totalDays = 0;
+        for (let i = 1; i < dates.length; i++) {
+            totalDays += (dates[i] - dates[i - 1]) / (1000 * 60 * 60 * 24);
+        }
+        avgFrequency = Math.round(totalDays / (dates.length - 1)) + ' days';
+    }
+
+    // Stats header
+    const statsDiv = document.createElement('div');
+    statsDiv.className = 'mb-6 p-4 bg-[#f8f4eb] border border-[#d4b78f] rounded-xl';
+    statsDiv.innerHTML = `
+        <div class="flex justify-between items-center mb-2">
+            <h3 class="text-xl font-bold brand-green">Orders for ${escapeHtml(customerName)}</h3>
+            <button onclick="showSection('customers')" class="px-4 py-2 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">
+              ← Back to Customers
+            </button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+            <div>
+                <p class="text-sm text-[#6B4423]">Total Orders</p>
+                <p class="text-3xl font-bold brand-green">${customerOrders.length}</p>
+            </div>
+            <div>
+                <p class="text-sm text-[#6B4423]">Total Spent</p>
+                <p class="text-3xl font-bold brand-green">$${totalSpent.toLocaleString()}</p>
+            </div>
+            <div>
+                <p class="text-sm text-[#6B4423]">Avg Order Frequency</p>
+                <p class="text-3xl font-bold brand-green">${avgFrequency}</p>
+            </div>
+        </div>
+    `;
+    container.appendChild(statsDiv);
+
+    if (customerOrders.length === 0) {
+        if (empty) empty.classList.remove('hidden');
+        return;
+    }
+
+    if (empty) empty.classList.add('hidden');
+
+    // Orders Table
+    let html = `<table class="w-full"><thead><tr class="bg-[#1E4D2B] text-[#d4b78f]">
+        <th class="p-3 text-left">Order ID</th>
+        <th class="p-3 text-left">Status</th>
+        <th class="p-3 text-left">Date</th>
+        <th class="p-3 text-left">Items</th>
+    </tr></thead><tbody>`;
+
+    customerOrders.forEach(order => {
+        const itemCount = order.items ? order.items.length : 0;
+                html += `<tr onclick=\"showOrderDetails('${String(order.id).replace(/'/g, "\\'")}')\" class=\"border-t border-[#6B4423] cursor-pointer hover:bg-[#f8f4eb]\">
+            <td class="p-3 font-mono">#${escapeHtml(displayInvoiceNumber(order))}</td>
+            <td class="p-3">${order.status || 'Submitted'}</td>
+            <td class="p-3 text-sm">${new Date(order.submittedAt).toLocaleDateString()}</td>
+            <td class="p-3">${itemCount} item(s)</td>
+        </tr>`;
+    });
+
+    html += `</tbody></table>`;
+    const tableWrapper = document.createElement('div');
+    tableWrapper.innerHTML = html;
+    container.appendChild(tableWrapper);
+}
+
+function isSkippedOpenQuoteStore(row) {
+    return false;
+}
+
+function formatOpenQuoteAge(iso) {
+    if (!iso) return '—';
+    const t = new Date(iso).getTime();
+    if (isNaN(t)) return '—';
+    const mins = Math.round((Date.now() - t) / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return mins + ' min ago';
+    const hours = Math.round(mins / 60);
+    if (hours < 24) return hours + (hours === 1 ? ' hr ago' : ' hr ago');
+    const days = Math.round(hours / 24);
+    if (days === 1) return 'Yesterday';
+    return days + ' days ago';
+}
+
+function salesmanLabelForOpenQuote(email) {
+    const e = String(email || '').toLowerCase().trim();
+    if (!e) return '—';
+    const pool = (typeof salesmen !== 'undefined' && Array.isArray(salesmen)) ? salesmen : [];
+    const match = pool.find(function (s) {
+        return String(s.email || '').toLowerCase().trim() === e;
+    });
+    if (match) {
+        const name = match.name || [match.firstName, match.lastName].filter(Boolean).join(' ');
+        if (name) return name;
+    }
+    return e;
+}
+
+function openQuoteLineItemsHtml(items) {
+    const list = Array.isArray(items) ? items : [];
+    if (!list.length) {
+        return '<p class="text-sm text-[#6B4423]">No line items.</p>';
+    }
+    return '<div class="space-y-1">' + list.map(function (item) {
+        const name = escapeHtml(item.product || item.name || '—');
+        const qty = item.quantity || 1;
+        const cs = escapeHtml(item.caseSize || item.cs || '');
+        const market = !!(item.isMarketPrice || String(item.displayPrice || item.price || '').toLowerCase().includes('market'));
+        const priceLabel = market
+            ? 'Market price'
+            : ('$' + (parseFloat(item.unitPrice != null ? item.unitPrice : item.price) || 0).toFixed(2));
+        return '<div class="flex flex-wrap justify-between gap-2 text-sm">' +
+            '<span>' + name + (cs ? (' <span class="text-[#6B4423]">· ' + cs + '</span>') : '') + '</span>' +
+            '<span class="whitespace-nowrap">× ' + escapeHtml(String(qty)) + ' · ' + escapeHtml(priceLabel) + '</span>' +
+            '</div>';
+    }).join('') + '</div>';
+}
+
+function toggleOpenQuoteRow(customerId) {
+    const detail = document.getElementById('open-quote-detail-' + customerId);
+    if (!detail) return;
+    detail.classList.toggle('hidden');
+}
+
+function openQuoteStoreLabel(row) {
+    return String((row && (row.customer_company || row.customer_name || row.customer_email)) || 'Store').trim();
+}
+
+function populateOpenQuotesCustomerSelect(rows) {
+    const sel = document.getElementById('open-quotes-customer-select');
+    if (!sel) return;
+    const previous = sel.value || 'all';
+    const seen = {};
+    const options = ['<option value="all">All open quotes (master)</option>'];
+    (rows || []).slice().sort(function (a, b) {
+        return openQuoteStoreLabel(a).toLowerCase().localeCompare(openQuoteStoreLabel(b).toLowerCase());
+    }).forEach(function (row) {
+        const id = String(row.customer_id || '');
+        if (!id || seen[id]) return;
+        seen[id] = true;
+        const label = openQuoteStoreLabel(row) +
+            (row.customer_name && row.customer_company ? (' — ' + row.customer_name) : '');
+        options.push('<option value="' + escapeHtml(id) + '">' + escapeHtml(label) + '</option>');
+    });
+    sel.innerHTML = options.join('');
+    if (previous === 'all' || seen[previous]) sel.value = previous;
+    else sel.value = 'all';
+}
+
+function onOpenQuotesCustomerChange() {
+    renderOpenQuotesRows(window._openQuotesRows || []);
+}
+
+function renderOpenQuotesRows(allRows) {
+    const tbody = document.getElementById('open-quotes-table');
+    const countEl = document.getElementById('open-quotes-count');
+    const sel = document.getElementById('open-quotes-customer-select');
+    if (!tbody) return;
+    const filterId = sel && sel.value ? sel.value : 'all';
+    const rows = filterId === 'all'
+        ? (allRows || [])
+        : (allRows || []).filter(function (row) {
+            return String(row.customer_id) === String(filterId);
+        });
+    if (countEl) {
+        countEl.textContent = filterId === 'all'
+            ? (rows.length + ' open')
+            : (rows.length ? '1 store' : '0 open');
+    }
+    if (!rows.length) {
+        tbody.innerHTML = filterId === 'all'
+            ? '<tr><td class="p-3 text-[#6B4423]" colspan="6">No open quotes. A store appears here after they add items to a quote.</td></tr>'
+            : '<tr><td class="p-3 text-[#6B4423]" colspan="6">This store has no items in a quote right now.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = rows.map(function (row) {
+        const id = String(row.customer_id || '');
+        const store = escapeHtml(row.customer_company || row.customer_name || '—');
+        const contact = escapeHtml(row.customer_name || '—');
+        const salesman = escapeHtml(salesmanLabelForOpenQuote(row.salesman_email));
+        const itemCount = Number(row.item_count) || (Array.isArray(row.items) ? row.items.length : 0);
+        const estimate = '$' + (Number(row.estimated_subtotal) || 0).toFixed(2);
+        const age = escapeHtml(formatOpenQuoteAge(row.updated_at));
+        const whenFull = row.updated_at ? escapeHtml(new Date(row.updated_at).toLocaleString()) : '';
+        const startOpen = filterId !== 'all';
+        return (
+            '<tr class="border-t border-[#d4b78f] cursor-pointer hover:bg-[#f8f4eb]" onclick="toggleOpenQuoteRow(\'' + id.replace(/'/g, '') + '\')">' +
+            '<td class="p-3 font-semibold text-[#1E4D2B]">' + store + '</td>' +
+            '<td class="p-3">' + contact + '</td>' +
+            '<td class="p-3">' + salesman + '</td>' +
+            '<td class="p-3 text-center">' + escapeHtml(String(itemCount)) + '</td>' +
+            '<td class="p-3 text-right whitespace-nowrap">' + escapeHtml(estimate) + '</td>' +
+            '<td class="p-3" title="' + whenFull + '">' + age + '</td>' +
+            '</tr>' +
+            '<tr id="open-quote-detail-' + id + '" class="' + (startOpen ? '' : 'hidden ') + 'border-t border-[#d4b78f] bg-[#f8f4eb]">' +
+            '<td class="p-3" colspan="6">' +
+            '<p class="text-xs font-semibold text-[#6B4423] mb-2">' + escapeHtml(row.customer_email || '') + '</p>' +
+            openQuoteLineItemsHtml(row.items) +
+            '</td></tr>'
+        );
+    }).join('');
+}
+
+async function loadOpenQuotes() {
+    const tbody = document.getElementById('open-quotes-table');
+    const countEl = document.getElementById('open-quotes-count');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td class="p-3 text-[#6B4423]" colspan="6">Loading…</td></tr>';
+    try {
+        const { data, error } = await supabaseClient
+            .from('customer_open_quotes')
+            .select('customer_id, customer_email, customer_name, customer_company, salesman_email, items, item_count, estimated_subtotal, updated_at')
+            .order('updated_at', { ascending: false });
+        if (error) throw error;
+        const rows = (data || []).filter(function (row) {
+            return !isSkippedOpenQuoteStore(row);
+        });
+        window._openQuotesRows = rows;
+        populateOpenQuotesCustomerSelect(rows);
+        renderOpenQuotesRows(rows);
+    } catch (err) {
+        window._openQuotesRows = [];
+        if (countEl) countEl.textContent = '0 open';
+        tbody.innerHTML = '<tr><td class="p-3 text-red-700" colspan="6">Could not load open quotes.<br>' +
+            escapeHtml(err.message || '') + '</td></tr>';
+    }
+}
+
+function clearOrdersSearch() {
+    const input = document.getElementById('orders-search');
+    if (input) {
+        input.value = '';
+        renderOrdersTable();
+    }
+    updateOrdersSearchClearButton();
+}
+
+function updateOrdersSearchClearButton() {
+    const input = document.getElementById('orders-search');
+    const clearBtn = document.getElementById('orders-search-clear');
+    if (!input || !clearBtn) return;
+
+    if (input.value.trim() !== '') {
+        clearBtn.classList.remove('hidden');
+    } else {
+        clearBtn.classList.add('hidden');
+    }
+}
+
+window.filterOrdersByStatus = filterOrdersByStatus;
+window.createOrderRow = createOrderRow;
+window.showAllOrders = showAllOrders;
+window.showBackOrders = showBackOrders;
+window.loadBackOrders = loadBackOrders;
+window.updateBackOrdersBadge = updateBackOrdersBadge;
+window.renderBackOrdersTable = renderBackOrdersTable;
+window.toggleBackOrderExpand = toggleBackOrderExpand;
+window.fulfillBackOrderGroup = fulfillBackOrderGroup;
+window.openShipInvoiceForBackOrder = openShipInvoiceForBackOrder;
+window.confirmBackOrderFulfillFromShipModal = confirmBackOrderFulfillFromShipModal;
+window.openBackOrderFulfillInvoice = openBackOrderFulfillInvoice;
+window.filterOrdersByCustomer = filterOrdersByCustomer;
+window.isSkippedOpenQuoteStore = isSkippedOpenQuoteStore;
+window.formatOpenQuoteAge = formatOpenQuoteAge;
+window.salesmanLabelForOpenQuote = salesmanLabelForOpenQuote;
+window.openQuoteLineItemsHtml = openQuoteLineItemsHtml;
+window.toggleOpenQuoteRow = toggleOpenQuoteRow;
+window.openQuoteStoreLabel = openQuoteStoreLabel;
+window.populateOpenQuotesCustomerSelect = populateOpenQuotesCustomerSelect;
+window.onOpenQuotesCustomerChange = onOpenQuotesCustomerChange;
+window.renderOpenQuotesRows = renderOpenQuotesRows;
+window.loadOpenQuotes = loadOpenQuotes;
+window.clearOrdersSearch = clearOrdersSearch;
+window.updateOrdersSearchClearButton = updateOrdersSearchClearButton;

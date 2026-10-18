@@ -2634,3 +2634,166 @@ window.formatShipRow = formatShipRow;
 window.resolveCustomerMapAddress = resolveCustomerMapAddress;
 window.persistCustomerMapCoords = persistCustomerMapCoords;
 window.initCustomerMap = initCustomerMap;
+
+async function getPendingCustomers() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('customers')
+            .select('*')
+            .eq('status', 'Pending')
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error(error);
+            return [];
+        }
+        return data || [];
+    } catch (err) {
+        console.error(err);
+        return [];
+    }
+}
+
+async function updateCustomerApprovalsBadge() {
+    const badge = document.getElementById("customer-approvals-badge");
+    if (!badge) return;
+
+    const pending = await getPendingCustomers();
+    if (pending.length > 0) {
+        badge.textContent = pending.length;
+        badge.classList.remove("hidden");
+    } else {
+        badge.classList.add("hidden");
+    }
+}
+
+async function showCustomerApprovalsPanel() {
+    const modal = document.getElementById("customer-approvals-modal");
+    const list = document.getElementById("customer-approvals-list");
+    if (!modal || !list) {
+        alert("Customer approvals modal not found.");
+        return;
+    }
+
+    list.innerHTML = `<p class="text-[#6B4423] text-center py-8">Loading...</p>`;
+    modal.classList.remove("hidden");
+
+    const pending = await getPendingCustomers();
+
+    if (pending.length === 0) {
+        list.innerHTML = `
+            <p class="text-[#6B4423] text-center py-8">No pending customer submissions.</p>
+        `;
+        return;
+    }
+
+    list.innerHTML = pending.map(c => {
+        const date = new Date(c.created_at).toLocaleDateString();
+        return `
+            <div class="border-2 border-[#6B4423] rounded-2xl p-4 mb-3">
+                <div class="flex justify-between items-start mb-2">
+                    <div>
+                        <p class="font-bold text-lg brand-green">${escapeHtml(c.name)}</p>
+                        <p class="text-sm text-[#6B4423]">${escapeHtml(c.company || "")}</p>
+                        <p class="text-xs text-[#6B4423] mt-1">
+                            Submitted by ${escapeHtml(c.submitted_by || "Salesman")} · ${date}
+                        </p>
+                    </div>
+                    <span class="px-3 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">
+                        Pending
+                    </span>
+                </div>
+
+                <div class="text-sm text-[#6B4423] space-y-1 mb-4">
+                    ${c.email ? `<p><strong>Email:</strong> ${escapeHtml(c.email)}</p>` : ""}
+                    ${c.phone ? `<p><strong>Phone:</strong> ${escapeHtml(typeof formatPhoneDisplay === 'function' ? formatPhoneDisplay(c.phone) : c.phone)}</p>` : ""}
+                    ${c.shipping_address ? `<p><strong>Shipping:</strong> ${escapeHtml(c.shipping_address)}</p>` : ""}
+                    ${c.billing_address ? `<p><strong>Billing:</strong> ${escapeHtml(c.billing_address)}</p>` : ""}
+                    ${c.notes ? `<p><strong>Notes:</strong> ${escapeHtml(c.notes)}</p>` : ""}
+                </div>
+
+                <div class="flex gap-3">
+                    <button type="button"
+                            onclick="approveCustomer('${c.id}')"
+                            class="flex-1 px-4 py-2 bg-green-700 text-white font-semibold rounded-xl">
+                        Approve
+                    </button>
+                    <button type="button"
+                            onclick="denyCustomer('${c.id}')"
+                            class="flex-1 px-4 py-2 bg-red-700 text-white font-semibold rounded-xl">
+                        Deny
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join("");
+}
+
+function hideCustomerApprovalsPanel() {
+    const modal = document.getElementById("customer-approvals-modal");
+    if (modal) modal.classList.add("hidden");
+}
+
+async function approveCustomer(id) {
+    try {
+        const { error } = await supabaseClient
+            .from('customers')
+            .update({
+                status: 'Approved',
+                approved_at: new Date().toISOString()
+            })
+            .eq('id', id);
+
+        if (error) {
+            console.error(error);
+            alert("Failed to approve customer.");
+            return;
+        }
+
+        alert("Customer approved.");
+        await updateCustomerApprovalsBadge();
+        showCustomerApprovalsPanel();   // refresh the list
+        if (typeof loadCustomers === 'function') loadCustomers();
+
+    } catch (err) {
+        console.error(err);
+        alert("Something went wrong.");
+    }
+}
+
+async function denyCustomer(id) {
+    const reason = prompt("Reason for denying this customer (optional):", "");
+    if (reason === null) return; // user cancelled
+
+    try {
+        const { error } = await supabaseClient
+            .from('customers')
+            .update({
+                status: 'Rejected',
+                notes: reason ? `Denied: ${reason}` : null
+            })
+            .eq('id', id);
+
+        if (error) {
+            console.error(error);
+            alert("Failed to deny customer.");
+            return;
+        }
+
+        alert("Customer denied.");
+        await updateCustomerApprovalsBadge();
+        showCustomerApprovalsPanel();
+        if (typeof loadCustomers === 'function') loadCustomers();
+
+    } catch (err) {
+        console.error(err);
+        alert("Something went wrong.");
+    }
+}
+
+window.getPendingCustomers = getPendingCustomers;
+window.updateCustomerApprovalsBadge = updateCustomerApprovalsBadge;
+window.showCustomerApprovalsPanel = showCustomerApprovalsPanel;
+window.hideCustomerApprovalsPanel = hideCustomerApprovalsPanel;
+window.approveCustomer = approveCustomer;
+window.denyCustomer = denyCustomer;

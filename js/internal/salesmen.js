@@ -4038,3 +4038,119 @@ window.openOrderInvoiceModal = openOrderInvoiceModal;
 window.openSalesmanOrderInvoice = openSalesmanOrderInvoice;
 window.loadSalesmen = loadSalesmen;
 window.renderSalesmen = renderSalesmen;
+
+function goToSalesmanView() {
+    try {
+        const original = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        if (original) {
+            localStorage.setItem('originalAdminUser', JSON.stringify(original));
+        }
+
+        localStorage.setItem('currentUser', JSON.stringify({
+            id: original?.id || null,
+            username: 'jackerman@donegalnatural.com',
+            fullName: 'Jonathan (Sales View)',
+            name: 'Jonathan (Sales View)',
+            role: 'salesman',
+            email: 'jackerman@donegalnatural.com',
+            mustChangePassword: false,
+            loginTime: new Date().toISOString(),
+            supabase: true,
+            isViewAs: true
+        }));
+    } catch (e) {
+        console.error('goToSalesmanView error:', e);
+    }
+    window.location.href = 'salesman-portal.html';
+}
+
+async function goToOperateAsSalesman(displayName, fallbackEmail) {
+    try {
+        const original = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        const adminEmail = String((original && (original.email || original.username)) || '').toLowerCase().trim();
+        if (adminEmail !== 'jackerman@donegalnatural.com') {
+            alert('Only Jonathan can operate as a salesman.');
+            return;
+        }
+        if ((!salesmen || !salesmen.length) && typeof loadSalesmen === 'function') {
+            await loadSalesmen();
+        }
+        const hintName = String(displayName || '').toLowerCase();
+        const hintEmail = String(fallbackEmail || '').toLowerCase().trim();
+        const seat = (salesmen || []).find(function (s) {
+            const name = String(s.name || [s.firstName, s.lastName].filter(Boolean).join(' ') || '').toLowerCase();
+            const email = String(s.email || '').toLowerCase().trim();
+            return (hintName && name.indexOf(hintName) !== -1) || (hintEmail && email === hintEmail);
+        });
+        const seatEmail = String((seat && seat.email) || fallbackEmail || '').toLowerCase().trim();
+        const seatLabel = (seat && (seat.name || [seat.firstName, seat.lastName].filter(Boolean).join(' '))) || displayName;
+        if (!seatEmail) {
+            alert('Could not find a salesman seat for ' + displayName + '. Add them in Salesmen first.');
+            return;
+        }
+        if (original) {
+            localStorage.setItem('originalAdminUser', JSON.stringify(original));
+        }
+        localStorage.setItem('viewAsSalesmanEmail', seatEmail);
+        localStorage.setItem('viewAsSalesmanName', seatLabel);
+        localStorage.setItem('currentUser', JSON.stringify({
+            id: original && original.id ? original.id : null,
+            username: seatEmail,
+            fullName: 'Jonathan (Operating as ' + seatLabel + ')',
+            name: 'Jonathan (Operating as ' + seatLabel + ')',
+            role: 'salesman',
+            email: seatEmail,
+            viewAsSalesmanEmail: seatEmail,
+            viewAsSalesmanName: seatLabel,
+            mustChangePassword: false,
+            loginTime: new Date().toISOString(),
+            supabase: true,
+            isViewAs: true
+        }));
+    } catch (e) {
+        console.error('goToOperateAsSalesman error:', e);
+        alert('Could not open that salesman view.');
+        return;
+    }
+    window.location.href = 'salesman-portal.html';
+}
+
+function goToBrianSalesmanView() {
+    goToOperateAsSalesman('Brian', 'donegaldogtreats@gmail.com');
+}
+
+function goToMarshallSalesmanView() {
+    goToOperateAsSalesman('Marshall', 'marshallg@comcast.net');
+}
+
+function goToCustomerView() {
+    try {
+        const original = JSON.parse(localStorage.getItem('currentUser') || 'null');
+        if (original) {
+            localStorage.setItem('originalAdminUser', JSON.stringify(original));
+        }
+
+        localStorage.setItem('currentUser', JSON.stringify({
+            id: original?.id || null,
+            username: 'jackerman@donegalnatural.com',
+            fullName: 'Jonathan (Customer View)',
+            name: 'Jonathan (Customer View)',
+            role: 'customer',
+            email: 'jackerman@donegalnatural.com',
+            company: 'Donegal Admin Test Store',
+            mustChangePassword: false,
+            loginTime: new Date().toISOString(),
+            supabase: true,
+            isViewAs: true
+        }));
+    } catch (e) {
+        console.error('goToCustomerView error:', e);
+    }
+    window.location.href = 'wholesale-portal.html';
+}
+
+window.goToSalesmanView = goToSalesmanView;
+window.goToOperateAsSalesman = goToOperateAsSalesman;
+window.goToBrianSalesmanView = goToBrianSalesmanView;
+window.goToMarshallSalesmanView = goToMarshallSalesmanView;
+window.goToCustomerView = goToCustomerView;

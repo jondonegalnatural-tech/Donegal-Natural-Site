@@ -1311,3 +1311,1055 @@ window.populateReportsSalesmanSelect = populateReportsSalesmanSelect;
 window.onReportsSalesmanChange = onReportsSalesmanChange;
 window.renderComparedPriceSheetTable = renderComparedPriceSheetTable;
 window.openReportsCustomerPriceSheet = openReportsCustomerPriceSheet;
+
+async function loadProductCosts() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('product_costs')
+            .select('*')
+            .order('product_name');
+
+        if (error) throw error;
+
+        productCosts = (data || []).map(row => ({
+            id: row.id,
+            productName: row.product_name,
+            category: row.category || '',
+            vendorName: row.vendor_name,
+            unitCost: Number(row.unit_cost),
+            notes: row.notes || '',
+            lastUpdated: row.last_updated
+        }));
+
+        console.log('Product costs loaded from Supabase:', productCosts.length);
+    } catch (err) {
+        console.error('loadProductCosts error:', err);
+        productCosts = [];
+    }
+}
+
+async function openProductCostsModal() {
+    document.getElementById('product-costs-modal').classList.remove('hidden');
+    await loadProductCosts();
+    renderCostOfGoods();
+}
+
+function hideProductCostsModal() {
+    document.getElementById('product-costs-modal').classList.add('hidden');
+}
+
+function renderCostOfGoods() {
+    const tbody = document.getElementById('cost-of-goods-body');
+    const searchInput = document.getElementById('cog-search');
+    if (!tbody) return;
+
+    const search = (searchInput?.value || '').toLowerCase();
+    tbody.innerHTML = '';
+
+    if (!window.expandedProducts) window.expandedProducts = {};
+
+    PRODUCT_CATALOG.forEach((product, index) => {
+        if (search &&
+            !product.name.toLowerCase().includes(search) &&
+            !(product.category || '').toLowerCase().includes(search)) {
+            return;
+        }
+
+        const costsForProduct = productCosts.filter(c => c.productName === product.name);
+        const isExpanded = window.expandedProducts[product.name] === true;
+        const hasMultiple = costsForProduct.length > 1;
+        const hasSingle = costsForProduct.length === 1;
+        const singleCost = hasSingle ? costsForProduct[0] : null;
+
+        // Format date helper
+        const formatDate = (iso) => {
+            if (!iso) return '—';
+            const d = new Date(iso);
+            return `${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}/${d.getFullYear()}`;
+        };
+
+        // --- Main row ---
+        const headerRow = document.createElement('tr');
+        headerRow.className = 'border-b border-[#d4b78f] hover:bg-[#f8f4eb]';
+
+        if (hasMultiple) {
+            // Multiple costs → expandable summary
+            headerRow.classList.add('cursor-pointer');
+            headerRow.innerHTML = `
+                <td class="p-3 font-medium">
+                    <span class="mr-2 text-[#6B4423]">${isExpanded ? '▼' : '▶'}</span>
+                    ${escapeHtml(product.name)}
+                </td>
+                <td class="p-3 text-sm text-[#6B4423]">${product.category || ''}</td>
+                <td class="p-3 text-sm">${costsForProduct.length} cost(s)</td>
+                <td class="p-3"></td>
+                <td class="p-3"></td>
+                <td class="p-3 text-center">
+                    <button data-index="${index}" class="add-cost-btn px-3 py-1 text-xs bg-[#1E4D2B] text-[#d4b78f] rounded-lg hover:bg-[#254a2f]">
+                        Add Cost
+                    </button>
+                </td>
+            `;
+            headerRow.addEventListener('click', function(e) {
+                if (e.target.closest('.add-cost-btn')) return;
+                window.expandedProducts[product.name] = !isExpanded;
+                renderCostOfGoods();
+            });
+        } else if (hasSingle) {
+            // Single cost → show details on the main row
+            headerRow.innerHTML = `
+                <td class="p-3 font-medium">${escapeHtml(product.name)}</td>
+                <td class="p-3 text-sm text-[#6B4423]">${escapeHtml(product.category || '')}</td>
+                <td class="p-3">${escapeHtml(singleCost.vendorName)}</td>
+                <td class="p-3 text-right font-semibold">$${parseFloat(singleCost.unitCost).toFixed(2)}</td>
+                <td class="p-3 text-center text-sm">${formatDate(singleCost.lastUpdated)}</td>
+                <td class="p-3 text-center">
+                    <div class="flex justify-center gap-2">
+                        <button data-id="${singleCost.id}" class="edit-cost-btn px-3 py-1 text-xs border border-[#6B4423] rounded-lg hover:bg-white">
+                            Edit
+                        </button>
+                        <button data-id="${singleCost.id}" class="delete-cost-btn px-3 py-1 text-xs border border-red-400 text-red-600 rounded-lg hover:bg-red-50">
+                            Delete
+                        </button>
+                        <button data-index="${index}" class="add-cost-btn px-3 py-1 text-xs bg-[#1E4D2B] text-[#d4b78f] rounded-lg hover:bg-[#254a2f]">
+                            Add Cost
+                        </button>
+                    </div>
+                </td>
+            `;
+        } else {
+            // No costs
+            headerRow.innerHTML = `
+                <td class="p-3 font-medium">${escapeHtml(product.name)}</td>
+                <td class="p-3 text-sm text-[#6B4423]">${escapeHtml(product.category || '')}</td>
+                <td class="p-3 text-sm">—</td>
+                <td class="p-3"></td>
+                <td class="p-3"></td>
+                <td class="p-3 text-center">
+                    <button data-index="${index}" class="add-cost-btn px-3 py-1 text-xs bg-[#1E4D2B] text-[#d4b78f] rounded-lg hover:bg-[#254a2f]">
+                        Add Cost
+                    </button>
+                </td>
+            `;
+        }
+
+        tbody.appendChild(headerRow);
+
+        // --- Expanded rows (only for multiple costs) ---
+        if (hasMultiple && isExpanded) {
+            costsForProduct.forEach(cost => {
+                const costRow = document.createElement('tr');
+                costRow.className = 'bg-[#f8f4eb] border-b border-[#d4b78f]';
+                costRow.innerHTML = `
+                    <td class="p-3 pl-10 text-sm" colspan="2"></td>
+                    <td class="p-3">${escapeHtml(cost.vendorName)}</td>
+                    <td class="p-3 text-right font-semibold">$${parseFloat(cost.unitCost).toFixed(2)}</td>
+                    <td class="p-3 text-center text-sm">${formatDate(cost.lastUpdated)}</td>
+                    <td class="p-3 text-center">
+                        <div class="flex justify-center gap-2">
+                            <button data-id="${cost.id}" class="edit-cost-btn px-3 py-1 text-xs border border-[#6B4423] rounded-lg hover:bg-white">
+                                Edit
+                            </button>
+                            <button data-id="${cost.id}" class="delete-cost-btn px-3 py-1 text-xs border border-red-400 text-red-600 rounded-lg hover:bg-red-50">
+                                Delete
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(costRow);
+            });
+        }
+    });
+
+    // Event listeners
+    tbody.querySelectorAll('.add-cost-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const index = parseInt(this.getAttribute('data-index'));
+            window.editingCostId = null;
+            assignProductCost(PRODUCT_CATALOG[index].name);
+        });
+    });
+
+    tbody.querySelectorAll('.edit-cost-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const costId = this.getAttribute('data-id'); // keep as string (UUID)
+            window.editingCostId = costId;
+            editProductCostById(costId);
+        });
+    });
+
+    tbody.querySelectorAll('.delete-cost-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const costId = this.getAttribute('data-id'); // keep as string (UUID)
+            deleteProductCost(costId);
+        });
+    });
+}
+
+function showAddCostModal() {
+    const productSelect = document.getElementById('cost-product');
+    productSelect.innerHTML = '<option value="">Select a product...</option>';
+    PRODUCT_CATALOG.forEach(product => {
+        const option = document.createElement('option');
+        option.value = product.name;
+        option.textContent = product.name;
+        productSelect.appendChild(option);
+    });
+
+    const vendorSelect = document.getElementById('cost-vendor');
+    vendorSelect.innerHTML = '<option value="">Select a vendor...</option>';
+    vendors.forEach(v => {
+        const option = document.createElement('option');
+        option.value = v.name;
+        option.textContent = v.name;
+        vendorSelect.appendChild(option);
+    });
+
+    document.getElementById('cost-unit-cost').value = '';
+    document.getElementById('cost-notes').value = '';
+
+    document.getElementById('add-cost-modal').classList.remove('hidden');
+}
+
+function hideAddCostModal() {
+    document.getElementById('add-cost-modal').classList.add('hidden');
+}
+
+async function saveProductCost(event) {
+    event.preventDefault();
+
+    const productName = document.getElementById('cost-product').value;
+    const vendorName = document.getElementById('cost-vendor').value;
+    const unitCostRaw = document.getElementById('cost-unit-cost').value;
+    const unitCost = parseFloat(unitCostRaw);
+    const notes = (document.getElementById('cost-notes').value || '').trim();
+
+    if (!productName || !vendorName || isNaN(unitCost)) {
+        alert('Please fill in Product, Vendor, and a valid Unit Cost.');
+        return;
+    }
+
+    const catalogItem = PRODUCT_CATALOG.find(p => p.name === productName);
+    const category = catalogItem ? catalogItem.category : '';
+
+    try {
+        if (window.editingCostId) {
+            // Update existing row
+            const { error } = await supabaseClient
+                .from('product_costs')
+                .update({
+                    product_name: productName,
+                    category: category || null,
+                    vendor_name: vendorName,
+                    unit_cost: unitCost,
+                    notes: notes || null,
+                    last_updated: new Date().toISOString()
+                })
+                .eq('id', window.editingCostId);
+
+            if (error) throw error;
+            window.editingCostId = null;
+        } else {
+            // Insert new row
+            const { error } = await supabaseClient
+                .from('product_costs')
+                .insert({
+                    product_name: productName,
+                    category: category || null,
+                    vendor_name: vendorName,
+                    unit_cost: unitCost,
+                    notes: notes || null
+                });
+
+            if (error) throw error;
+        }
+
+        await loadProductCosts();
+        renderCostOfGoods();
+        hideAddCostModal();
+    } catch (err) {
+        console.error('saveProductCost error:', err);
+        alert('Could not save cost.\n' + (err.message || ''));
+    }
+}
+
+function assignProductCost(productName) {
+    showAddCostModal();
+    setTimeout(() => {
+        document.getElementById('cost-product').value = productName;
+    }, 100);
+}
+
+function editProductCost(productName) {
+    const costRecord = productCosts.find(c => c.productName === productName);
+    showAddCostModal();
+    setTimeout(() => {
+        if (costRecord) {
+            document.getElementById('cost-product').value = costRecord.productName;
+            document.getElementById('cost-vendor').value = costRecord.vendorName;
+            document.getElementById('cost-unit-cost').value = costRecord.unitCost;
+            document.getElementById('cost-notes').value = costRecord.notes || '';
+        } else {
+            document.getElementById('cost-product').value = productName;
+        }
+    }, 100);
+}
+
+function editProductCostById(costId) {
+    const costRecord = productCosts.find(c => String(c.id) === String(costId));
+    if (!costRecord) {
+        alert('Cost record not found.');
+        return;
+    }
+
+    window.editingCostId = costId;
+    showAddCostModal();
+
+    setTimeout(() => {
+        document.getElementById('cost-product').value = costRecord.productName;
+        document.getElementById('cost-vendor').value = costRecord.vendorName;
+        document.getElementById('cost-unit-cost').value = costRecord.unitCost;
+        document.getElementById('cost-notes').value = costRecord.notes || '';
+    }, 100);
+}
+
+async function deleteProductCost(costId) {
+    if (!confirm('Are you sure you want to delete this cost?')) return;
+
+    try {
+        const { error } = await supabaseClient
+            .from('product_costs')
+            .delete()
+            .eq('id', costId);
+
+        if (error) throw error;
+
+        await loadProductCosts();
+        renderCostOfGoods();
+    } catch (err) {
+        console.error('deleteProductCost error:', err);
+        alert('Could not delete cost.\n' + (err.message || ''));
+    }
+}
+
+let productIngredients = [];
+
+function getDefaultIngredients() {
+    return [
+        {
+            group: "Jerky Stick Treats",
+            name: "USA Beef Jerky Treats",
+            ingredients: "Ground Beef Meat, Rice Flour, Spices, Sugar, Salt and Garlic Powder",
+            notForHuman: true,
+            analysis: { protein: "29.60%", fat: "18.70%", fiber: "0.21%", moisture: "32.70%" },
+            sortOrder: 1
+        },
+        {
+            group: "Jerky Stick Treats",
+            name: "USA Turkey Jerky Treats",
+            ingredients: "Ground Turkey Meat, Rice Flour, Spices, Sugar, Salt and Garlic Powder",
+            notForHuman: true,
+            analysis: { protein: "30.80%", fat: "16.90%", fiber: "0.25%", moisture: "32.20%" },
+            sortOrder: 2
+        },
+        {
+            group: "Jerky Stick Treats",
+            name: "USA Chicken Jerky Treats",
+            ingredients: "Ground Chicken Meat, Rice Flour, Spices, Sugar, Salt and Garlic Powder",
+            notForHuman: true,
+            analysis: { protein: "31.20%", fat: "16.40%", fiber: "0.25%", moisture: "32.00%" },
+            sortOrder: 3
+        },
+        {
+            group: "Jerky Stick Treats",
+            name: "USA Elky Jerky Treats/Squares",
+            ingredients: "Ground Elk Meat, Rice Flour, Spices, Sugar, Salt and Garlic Powder",
+            notForHuman: true,
+            analysis: { protein: "29.60%", fat: "18.70%", fiber: "0.21%", moisture: "32.70%" },
+            sortOrder: 4
+        },
+        {
+            group: "Jerky Stick Treats",
+            name: "USA Venison & Sweet Potato Jerky Treats",
+            ingredients: "Ground Venison, Sweet Potato, Rice Flour, Spices, Sugar, Salt and Garlic Powder",
+            notForHuman: true,
+            analysis: { protein: "27.50%", fat: "17.80%", fiber: "1.80%", moisture: "31.50%" },
+            sortOrder: 5
+        },
+        {
+            group: "Natural Vanilla",
+            name: "Vanilla Rollios (all sizes + PHAT)",
+            ingredients: "Flavored with natural vanilla",
+            notForHuman: false,
+            analysis: null,
+            sortOrder: 10
+        },
+        {
+            group: "Natural Vanilla",
+            name: "Vanilla Cow Ears / Lamb Ears / Ox Tails / Chicken Feet",
+            ingredients: "Flavored with natural vanilla",
+            notForHuman: false,
+            analysis: null,
+            sortOrder: 11
+        },
+        {
+            group: "Natural Vanilla",
+            name: "Vanilla Cow Cheek Slabs & Chunky Cheeks",
+            ingredients: "Flavored with natural vanilla",
+            notForHuman: false,
+            analysis: null,
+            sortOrder: 12
+        },
+        {
+            group: "Natural Vanilla",
+            name: "Vanilla Supreme Chips / Binky’s / Retrievers / Braided Donuts / Twisty Q’s",
+            ingredients: "Flavored with natural vanilla",
+            notForHuman: false,
+            analysis: null,
+            sortOrder: 13
+        },
+        {
+            group: "Natural Honey + Smoke",
+            name: "Honey Smoked Rollios (all sizes + PHAT)",
+            ingredients: "Natural honey and natural smoke flavoring",
+            notForHuman: false,
+            analysis: null,
+            sortOrder: 20
+        },
+        {
+            group: "Natural Honey + Smoke",
+            name: "Honey Smoked Cow Ears / MAGNA Buffalo Ears / Ox Tails",
+            ingredients: "Natural honey and natural smoke flavoring",
+            notForHuman: false,
+            analysis: null,
+            sortOrder: 21
+        },
+        {
+            group: "Natural Honey + Smoke",
+            name: "Smoked Cow Hooves",
+            ingredients: "Natural smoke flavoring",
+            notForHuman: false,
+            analysis: null,
+            sortOrder: 22
+        },
+        {
+            group: "All Natural Peanut Butter",
+            name: "Peanut Butter Rollios",
+            ingredients: "All natural peanut butter",
+            notForHuman: false,
+            analysis: null,
+            sortOrder: 30
+        },
+        {
+            group: "All Natural Peanut Butter",
+            name: "Peanut Butter Stuffed Buffalo Bone",
+            ingredients: "All natural peanut butter",
+            notForHuman: false,
+            analysis: null,
+            sortOrder: 31
+        },
+        {
+            group: "All Natural Peanut Butter",
+            name: "Peanut Butter Supreme Chips / Binky’s",
+            ingredients: "All natural peanut butter",
+            notForHuman: false,
+            analysis: null,
+            sortOrder: 32
+        }
+    ];
+}
+
+function mapIngredientRow(row) {
+    return {
+        id: row.id,
+        group: row.group_name,
+        name: row.name,
+        ingredients: row.ingredients || '',
+        notForHuman: !!row.not_for_human,
+        analysis: row.analysis || null,
+        sortOrder: row.sort_order != null ? row.sort_order : 0
+    };
+}
+
+async function loadIngredients() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('product_ingredients')
+            .select('*')
+            .order('sort_order', { ascending: true });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+            // First-time seed from defaults
+            const defaults = getDefaultIngredients();
+            const payload = defaults.map(d => ({
+                group_name: d.group,
+                name: d.name,
+                ingredients: d.ingredients,
+                not_for_human: d.notForHuman,
+                analysis: d.analysis,
+                sort_order: d.sortOrder
+            }));
+
+            const { data: inserted, error: insertError } = await supabaseClient
+                .from('product_ingredients')
+                .insert(payload)
+                .select();
+
+            if (insertError) throw insertError;
+            productIngredients = (inserted || []).map(mapIngredientRow);
+        } else {
+            productIngredients = data.map(mapIngredientRow);
+        }
+
+        updateIngredientsCardPreview();
+        return productIngredients;
+    } catch (err) {
+        console.error('loadIngredients error:', err);
+        productIngredients = [];
+        return [];
+    }
+}
+
+async function saveIngredientItem(item) {
+    if (!item || !item.id) return;
+
+    try {
+        const { error } = await supabaseClient
+            .from('product_ingredients')
+            .update({
+                ingredients: item.ingredients || '',
+                not_for_human: !!item.notForHuman,
+                analysis: item.analysis || null,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', item.id);
+
+        if (error) throw error;
+    } catch (err) {
+        console.error('saveIngredientItem error:', err);
+        alert('Could not save ingredient.\n' + (err.message || ''));
+        throw err;
+    }
+}
+
+function updateIngredientsCardPreview() {
+    const elky = productIngredients.find(i =>
+        (i.name || '').toLowerCase().includes('elky')
+    ) || productIngredients[0];
+
+    if (!elky) return;
+
+    const titleEl = document.getElementById('ingredients-card-title');
+    const textEl = document.getElementById('ingredients-card-text');
+    const warnEl = document.getElementById('ingredients-card-warning');
+    const analysisEl = document.getElementById('ingredients-card-analysis');
+
+    if (titleEl) titleEl.textContent = elky.name || '';
+    if (textEl) textEl.textContent = elky.ingredients || '';
+    if (warnEl) {
+        if (elky.notForHuman) {
+            warnEl.textContent = 'NOT FOR HUMAN CONSUMPTION';
+            warnEl.classList.remove('hidden');
+        } else {
+            warnEl.textContent = '';
+            warnEl.classList.add('hidden');
+        }
+    }
+    if (analysisEl && elky.analysis) {
+        analysisEl.innerHTML = `
+            <div class="bg-[#f8f4eb] rounded-lg py-2">
+                <p class="text-xs text-[#6B4423]">Protein</p>
+                <p class="font-bold">${elky.analysis.protein || '—'}</p>
+            </div>
+            <div class="bg-[#f8f4eb] rounded-lg py-2">
+                <p class="text-xs text-[#6B4423]">Acid Fat</p>
+                <p class="font-bold">${elky.analysis.fat || '—'}</p>
+            </div>
+            <div class="bg-[#f8f4eb] rounded-lg py-2">
+                <p class="text-xs text-[#6B4423]">Crude Fiber</p>
+                <p class="font-bold">${elky.analysis.fiber || '—'}</p>
+            </div>
+            <div class="bg-[#f8f4eb] rounded-lg py-2">
+                <p class="text-xs text-[#6B4423]">Moisture</p>
+                <p class="font-bold">${elky.analysis.moisture || '—'}</p>
+            </div>
+        `;
+    }
+}
+
+function renderIngredients() {
+    const container = document.getElementById('ingredients-list');
+    const searchInput = document.getElementById('ingredients-search');
+    if (!container) return;
+
+    const search = (searchInput?.value || '').toLowerCase();
+    container.innerHTML = '';
+
+    if (!productIngredients || productIngredients.length === 0) {
+        container.innerHTML = '<p class="text-[#6B4423] text-sm p-4">No ingredients loaded yet.</p>';
+        return;
+    }
+
+    const groups = {};
+    productIngredients.forEach(item => {
+        if (search &&
+            !(item.name || '').toLowerCase().includes(search) &&
+            !(item.group || '').toLowerCase().includes(search)) {
+            return;
+        }
+        if (!groups[item.group]) groups[item.group] = [];
+        groups[item.group].push(item);
+    });
+
+    Object.keys(groups).forEach(groupName => {
+        const header = document.createElement('div');
+        header.className = 'mt-5 mb-2';
+        header.innerHTML = `<h3 class="text-lg font-bold brand-green border-b border-[#d4b78f] pb-1">${escapeHtml(groupName)}</h3>`;
+        container.appendChild(header);
+
+        groups[groupName].forEach(item => {
+            const isExpanded = window.expandedIngredients && window.expandedIngredients[item.id];
+            const safeId = String(item.id).replace(/'/g, "\\'");
+
+            let analysisHTML = '';
+            if (item.analysis) {
+                analysisHTML = `
+                    <div class="mt-3">
+                        <p class="font-semibold mb-2">Guaranteed Analysis</p>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
+                            <div class="bg-[#f8f4eb] rounded-lg py-2">
+                                <p class="text-xs text-[#6B4423]">Protein</p>
+                                <p class="font-bold">${item.analysis.protein || '—'}</p>
+                            </div>
+                            <div class="bg-[#f8f4eb] rounded-lg py-2">
+                                <p class="text-xs text-[#6B4423]">Acid Fat</p>
+                                <p class="font-bold">${item.analysis.fat || '—'}</p>
+                            </div>
+                            <div class="bg-[#f8f4eb] rounded-lg py-2">
+                                <p class="text-xs text-[#6B4423]">Crude Fiber</p>
+                                <p class="font-bold">${item.analysis.fiber || '—'}</p>
+                            </div>
+                            <div class="bg-[#f8f4eb] rounded-lg py-2">
+                                <p class="text-xs text-[#6B4423]">Moisture</p>
+                                <p class="font-bold">${item.analysis.moisture || '—'}</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            const card = document.createElement('div');
+            card.className = 'border border-[#d4b78f] rounded-xl overflow-hidden mb-2';
+            card.innerHTML = `
+                <div class="flex items-center justify-between px-4 py-3 bg-[#f8f4eb] cursor-pointer hover:bg-[#f0e6d9]"
+                     onclick="toggleIngredient('${safeId}')">
+                    <span class="font-medium">${escapeHtml(item.name)}</span>
+                    <span class="text-[#6B4423] text-lg">${isExpanded ? '▼' : '▶'}</span>
+                </div>
+                <div id="ingredient-detail-${safeId}" class="${isExpanded ? '' : 'hidden'} px-4 py-4 bg-white text-sm space-y-2">
+                    <p><strong>Ingredients:</strong> ${escapeHtml(item.ingredients || '')}</p>
+                    ${item.notForHuman ? '<p class="text-red-600 font-semibold">NOT FOR HUMAN CONSUMPTION</p>' : ''}
+                    ${analysisHTML}
+                    <div class="pt-3">
+                        <button onclick="editIngredient('${safeId}'); event.stopPropagation();"
+                                class="px-4 py-1.5 text-xs bg-[#1E4D2B] text-[#d4b78f] rounded-lg hover:bg-[#254a2f]">
+                            Edit
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+    });
+}
+
+function toggleIngredient(id) {
+    if (!window.expandedIngredients) window.expandedIngredients = {};
+    window.expandedIngredients[id] = !window.expandedIngredients[id];
+    renderIngredients();
+}
+
+async function editIngredient(id) {
+    const item = productIngredients.find(i => String(i.id) === String(id));
+    if (!item) return;
+
+    const newIngredients = prompt('Edit Ingredients:', item.ingredients);
+    if (newIngredients === null) return;
+
+    item.ingredients = newIngredients.trim();
+
+    if (item.analysis) {
+        const protein = prompt('Protein % (number only):', String(item.analysis.protein || '').replace('%', ''));
+        const fat = prompt('Acid Fat % (number only):', String(item.analysis.fat || '').replace('%', ''));
+        const fiber = prompt('Crude Fiber % (number only):', String(item.analysis.fiber || '').replace('%', ''));
+        const moisture = prompt('Moisture % (number only):', String(item.analysis.moisture || '').replace('%', ''));
+
+        if (protein !== null && protein !== '') item.analysis.protein = protein + '%';
+        if (fat !== null && fat !== '') item.analysis.fat = fat + '%';
+        if (fiber !== null && fiber !== '') item.analysis.fiber = fiber + '%';
+        if (moisture !== null && moisture !== '') item.analysis.moisture = moisture + '%';
+    }
+
+    try {
+        await saveIngredientItem(item);
+        updateIngredientsCardPreview();
+        renderIngredients();
+        alert('Ingredients saved successfully!');
+    } catch (err) {
+        // error already alerted in saveIngredientItem
+    }
+}
+
+async function openIngredientsModal() {
+    const modal = document.getElementById('ingredients-modal');
+    if (!modal) return;
+
+    if (!productIngredients || productIngredients.length === 0) {
+        await loadIngredients();
+    }
+
+    modal.classList.remove('hidden');
+    renderIngredients();
+}
+
+function closeIngredientsModal() {
+    const modal = document.getElementById('ingredients-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function getProductMarginData() {
+    // Only products that have at least one cost record
+    const productsWithCost = [];
+
+    PRODUCT_CATALOG.forEach(product => {
+        const costs = productCosts.filter(c => c.productName === product.name);
+        if (costs.length === 0) return;
+
+        // Use the lowest cost if multiple vendors (most common approach)
+        const unitCost = Math.min(...costs.map(c => parseFloat(c.unitCost)));
+        const sellingPrice = parseFloat(product.unitPrice) || 0;
+
+        if (sellingPrice <= 0) return;
+
+        const marginDollar = sellingPrice - unitCost;
+        const marginPercent = (marginDollar / sellingPrice) * 100;
+
+        let status = 'normal';
+        if (marginPercent > 55) status = 'outperform';
+        else if (marginPercent < 30) status = 'underperform';
+
+        productsWithCost.push({
+            name: product.name,
+            category: product.category || '',
+            unitCost: unitCost,
+            sellingPrice: sellingPrice,
+            marginDollar: marginDollar,
+            marginPercent: marginPercent,
+            status: status
+        });
+    });
+
+    // Sort by margin % descending
+    productsWithCost.sort((a, b) => b.marginPercent - a.marginPercent);
+
+    return productsWithCost;
+}
+
+function getMarginSummary() {
+    const data = getProductMarginData();
+
+    if (data.length === 0) {
+        return {
+            totalProducts: 0,
+            avgMargin: 0,
+            outperformCount: 0,
+            underperformCount: 0,
+            topPerformers: []
+        };
+    }
+
+    const totalMargin = data.reduce((sum, p) => sum + p.marginPercent, 0);
+    const avgMargin = totalMargin / data.length;
+
+    const outperformCount = data.filter(p => p.status === 'outperform').length;
+    const underperformCount = data.filter(p => p.status === 'underperform').length;
+
+    // Top 20% by margin
+    const topCount = Math.max(1, Math.ceil(data.length * 0.20));
+    const topPerformers = data.slice(0, topCount);
+
+    return {
+        totalProducts: data.length,
+        avgMargin: avgMargin,
+        outperformCount: outperformCount,
+        underperformCount: underperformCount,
+        topPerformers: topPerformers,
+        allProducts: data
+    };
+}
+
+function updateDashboardProfitMargin() {
+    const summary = getMarginSummary();
+
+    const avgEl = document.getElementById('dash-avg-margin');
+    const outEl = document.getElementById('dash-outperform-count');
+    const underEl = document.getElementById('dash-underperform-count');
+
+    if (avgEl) {
+        avgEl.textContent = summary.totalProducts > 0 
+            ? summary.avgMargin.toFixed(1) + '%' 
+            : '—';
+    }
+    if (outEl) outEl.textContent = summary.outperformCount;
+    if (underEl) underEl.textContent = summary.underperformCount;
+}
+
+let currentMarginFilter = 'all';
+
+function renderProfitMarginSection() {
+    const summary = getMarginSummary();
+
+    // Summary cards
+    const avgEl = document.getElementById('pm-avg-margin');
+    const outEl = document.getElementById('pm-outperform');
+    const underEl = document.getElementById('pm-underperform');
+
+    if (avgEl) {
+        avgEl.textContent = summary.totalProducts > 0 
+            ? summary.avgMargin.toFixed(1) + '%' 
+            : '—';
+    }
+    if (outEl) outEl.textContent = summary.outperformCount;
+    if (underEl) underEl.textContent = summary.underperformCount;
+
+    // Top Performers (always shows top 20%)
+    const topContainer = document.getElementById('pm-top-performers');
+    if (topContainer) {
+        if (summary.topPerformers.length === 0) {
+            topContainer.innerHTML = '<p class="text-[#6B4423]">No products with cost data yet.</p>';
+        } else {
+            topContainer.innerHTML = summary.topPerformers.map((p, i) => `
+                <div class="flex justify-between items-center bg-[#f8f4eb] rounded-xl px-4 py-2">
+                    <span class="font-medium">${i + 1}. ${escapeHtml(p.name)}</span>
+                    <span class="font-bold text-green-700">${p.marginPercent.toFixed(1)}%</span>
+                </div>
+            `).join('');
+        }
+    }
+
+}
+
+function setMarginFilter(filter) {
+    currentMarginFilter = filter;
+
+    // Clear the search box
+    const searchInput = document.getElementById('pm-search');
+    if (searchInput) searchInput.value = '';
+
+    if (filter === 'all') {
+        // All Products → open modal
+        showPmProductsModal('all');
+    } else {
+        // Out Performing or Under-Performing → show inside the section
+        renderMarginFilteredList();
+    }
+}
+
+function renderMarginFilteredList() {
+    const resultsContainer = document.getElementById('pm-search-results');
+    if (!resultsContainer) return;
+
+    const data = getProductMarginData();
+    let filtered = [];
+
+    if (currentMarginFilter === 'outperform') {
+        filtered = data.filter(p => p.status === 'outperform');
+    } else if (currentMarginFilter === 'underperform') {
+        filtered = data.filter(p => p.status === 'underperform');
+    } else {
+        filtered = data; // all
+    }
+
+    resultsContainer.innerHTML = '';
+
+    if (filtered.length === 0) {
+        resultsContainer.innerHTML = '<p class="text-[#6B4423] text-sm">No products in this category.</p>';
+        return;
+    }
+
+    filtered.forEach(p => {
+        let statusBadge = '';
+        if (p.status === 'outperform') {
+            statusBadge = '<span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">★ Outperform</span>';
+        } else if (p.status === 'underperform') {
+            statusBadge = '<span class="px-2 py-1 text-xs font-semibold bg-red-100 text-red-700 rounded-full">⚠ Under</span>';
+        } else {
+            statusBadge = '<span class="px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded-full">Normal</span>';
+        }
+
+        const card = document.createElement('div');
+        card.className = 'bg-[#f8f4eb] border border-[#d4b78f] rounded-xl px-4 py-3';
+        card.innerHTML = `
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="font-medium">${escapeHtml(p.name)}</p>
+                    <p class="text-sm text-[#6B4423] mt-1">
+                        Cost: $${p.unitCost.toFixed(2)} &nbsp;|&nbsp; 
+                        Price: $${p.sellingPrice.toFixed(2)} &nbsp;|&nbsp; 
+                        Margin: $${p.marginDollar.toFixed(2)} (${p.marginPercent.toFixed(1)}%)
+                    </p>
+                </div>
+                <div>${statusBadge}</div>
+            </div>
+        `;
+        resultsContainer.appendChild(card);
+    });
+}
+
+function renderProfitMarginSearch() {
+    const searchInput = document.getElementById('pm-search');
+    if (!searchInput) return;
+
+    const search = searchInput.value.trim().toLowerCase();
+
+    if (search.length < 2) {
+        // Clear the in-section list when search is empty
+        const resultsContainer = document.getElementById('pm-search-results');
+        if (resultsContainer) resultsContainer.innerHTML = '';
+        return;
+    }
+
+    // Search → open modal
+    showPmProductsModal('search', search);
+}
+
+function showPmProductsModal(filter, searchTerm = '') {
+    const modal = document.getElementById('pm-products-modal');
+    const listContainer = document.getElementById('pm-modal-list');
+    const titleEl = document.getElementById('pm-modal-title');
+    const subtitleEl = document.getElementById('pm-modal-subtitle');
+
+    if (!modal || !listContainer) return;
+
+    const marginData = getProductMarginData();
+    const marginByName = {};
+    marginData.forEach(p => { marginByName[p.name] = p; });
+
+    let filtered = [];
+    let title = 'Products';
+    let subtitle = '';
+
+    if (filter === 'search') {
+        const term = (searchTerm || '').toLowerCase().trim();
+        const catalog = (typeof PRODUCT_CATALOG !== 'undefined') ? PRODUCT_CATALOG : [];
+        filtered = catalog
+            .filter(p =>
+                p.name.toLowerCase().includes(term) ||
+                (p.category || '').toLowerCase().includes(term)
+            )
+            .map(p => {
+                if (marginByName[p.name]) return marginByName[p.name];
+                return {
+                    name: p.name,
+                    category: p.category || '',
+                    unitCost: null,
+                    sellingPrice: parseFloat(p.unitPrice) || 0,
+                    marginDollar: null,
+                    marginPercent: null,
+                    status: 'no-cost'
+                };
+            });
+        title = 'Search Results';
+        subtitle = term
+            ? `Showing products matching "${searchTerm}"`
+            : 'Search results';
+    } else {
+        filtered = marginData;
+        title = 'All Products';
+        subtitle = 'All products with cost data';
+    }
+
+    if (titleEl) titleEl.textContent = title;
+    if (subtitleEl) subtitleEl.textContent = subtitle;
+
+    listContainer.innerHTML = '';
+
+    if (filtered.length === 0) {
+        listContainer.innerHTML = '<p class="text-[#6B4423] text-sm">No products found.</p>';
+    } else {
+        filtered.forEach(p => {
+            let statusBadge = '';
+            let detailLine = '';
+
+            if (p.status === 'no-cost' || p.unitCost == null) {
+                statusBadge = '<span class="px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded-full">No cost data</span>';
+                detailLine = `Price: $${(p.sellingPrice || 0).toFixed(2)} · Add a cost in Cost of Goods to see margin`;
+            } else if (p.status === 'outperform') {
+                statusBadge = '<span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">★ Outperform</span>';
+                detailLine = `Cost: $${p.unitCost.toFixed(2)} · Price: $${p.sellingPrice.toFixed(2)} · Margin: $${p.marginDollar.toFixed(2)} (${p.marginPercent.toFixed(1)}%)`;
+            } else if (p.status === 'underperform') {
+                statusBadge = '<span class="px-2 py-1 text-xs font-semibold bg-red-100 text-red-700 rounded-full">⚠ Under</span>';
+                detailLine = `Cost: $${p.unitCost.toFixed(2)} · Price: $${p.sellingPrice.toFixed(2)} · Margin: $${p.marginDollar.toFixed(2)} (${p.marginPercent.toFixed(1)}%)`;
+            } else {
+                statusBadge = '<span class="px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded-full">Normal</span>';
+                detailLine = `Cost: $${p.unitCost.toFixed(2)} · Price: $${p.sellingPrice.toFixed(2)} · Margin: $${p.marginDollar.toFixed(2)} (${p.marginPercent.toFixed(1)}%)`;
+            }
+
+            const card = document.createElement('div');
+            card.className = 'bg-[#f8f4eb] border border-[#d4b78f] rounded-xl px-4 py-3';
+            card.innerHTML = `
+                <div class="flex justify-between items-start gap-3">
+                    <div>
+                        <p class="font-medium">${escapeHtml(p.name)}</p>
+                        <p class="text-sm text-[#6B4423] mt-1">${escapeHtml(detailLine)}</p>
+                    </div>
+                    <div>${statusBadge}</div>
+                </div>
+            `;
+            listContainer.appendChild(card);
+        });
+    }
+
+    modal.classList.remove('hidden');
+}
+
+function hidePmProductsModal() {
+    const modal = document.getElementById('pm-products-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+window.loadProductCosts = loadProductCosts;
+window.openProductCostsModal = openProductCostsModal;
+window.hideProductCostsModal = hideProductCostsModal;
+window.renderCostOfGoods = renderCostOfGoods;
+window.showAddCostModal = showAddCostModal;
+window.hideAddCostModal = hideAddCostModal;
+window.saveProductCost = saveProductCost;
+window.assignProductCost = assignProductCost;
+window.editProductCost = editProductCost;
+window.editProductCostById = editProductCostById;
+window.deleteProductCost = deleteProductCost;
+window.getDefaultIngredients = getDefaultIngredients;
+window.mapIngredientRow = mapIngredientRow;
+window.loadIngredients = loadIngredients;
+window.saveIngredientItem = saveIngredientItem;
+window.updateIngredientsCardPreview = updateIngredientsCardPreview;
+window.renderIngredients = renderIngredients;
+window.toggleIngredient = toggleIngredient;
+window.editIngredient = editIngredient;
+window.openIngredientsModal = openIngredientsModal;
+window.closeIngredientsModal = closeIngredientsModal;
+window.getProductMarginData = getProductMarginData;
+window.getMarginSummary = getMarginSummary;
+window.updateDashboardProfitMargin = updateDashboardProfitMargin;
+window.renderProfitMarginSection = renderProfitMarginSection;
+window.setMarginFilter = setMarginFilter;
+window.renderMarginFilteredList = renderMarginFilteredList;
+window.renderProfitMarginSearch = renderProfitMarginSearch;
+window.showPmProductsModal = showPmProductsModal;
+window.hidePmProductsModal = hidePmProductsModal;

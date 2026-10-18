@@ -1633,3 +1633,504 @@ window.decreaseInventoryForOrder = decreaseInventoryForOrder;
 window.getThisWeekTopProducts = getThisWeekTopProducts;
 window.updateDashboardSalesMatrix = updateDashboardSalesMatrix;
 window.goToSalesMatrix = goToSalesMatrix;
+
+let oosStatusMap = {};
+
+let oosListTab = 'all';
+
+function oosActor() {
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        return user.email || user.fullName || user.name || 'Admin';
+    } catch (e) {
+        return 'Admin';
+    }
+}
+
+function currentOosCount() {
+    let n = 0;
+    Object.keys(oosStatusMap || {}).forEach(function (name) {
+        if (oosStatusMap[name] && oosStatusMap[name].is_out_of_stock === true) n += 1;
+    });
+    return n;
+}
+
+function updateOosCountBadge() {
+    const n = currentOosCount();
+    const badge = document.getElementById('oos-count-badge');
+    if (badge) {
+        badge.textContent = String(n);
+        if (n) badge.classList.remove('hidden');
+        else badge.classList.add('hidden');
+        badge.title = n === 1
+            ? '1 item currently out of stock'
+            : n + ' items currently out of stock';
+    }
+    const tabCount = document.getElementById('oos-tab-count');
+    if (tabCount) tabCount.textContent = String(n);
+}
+
+function setOosTabButtons() {
+    const allBtn = document.getElementById('oos-tab-all');
+    const curBtn = document.getElementById('oos-tab-current');
+    const on = 'px-4 py-1.5 text-sm rounded-xl font-semibold bg-[#1E4D2B] text-[#d4b78f] border-2 border-[#1E4D2B]';
+    const off = 'px-4 py-1.5 text-sm rounded-xl font-semibold border-2 border-[#6B4423] text-[#1E4D2B] hover:bg-[#f8f4eb]';
+    if (allBtn) allBtn.className = oosListTab === 'all' ? on : off;
+    if (curBtn) curBtn.className = oosListTab === 'current' ? on : off;
+}
+
+function setOosListTab(tab) {
+    oosListTab = tab === 'current' ? 'current' : 'all';
+    setOosTabButtons();
+    renderOutOfStockList();
+}
+
+async function openOutOfStockModal(tab) {
+    const modal = document.getElementById('out-of-stock-modal');
+    if (!modal) return;
+    oosListTab = tab === 'current' ? 'current' : 'all';
+    const search = document.getElementById('oos-search');
+    if (search) search.value = '';
+    modal.classList.remove('hidden');
+    await loadOutOfStockStatus();
+    setOosTabButtons();
+    renderOutOfStockList();
+}
+
+function hideOutOfStockModal() {
+    const modal = document.getElementById('out-of-stock-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+async function loadOutOfStockStatus() {
+    oosStatusMap = {};
+    try {
+        const { data, error } = await supabaseClient
+            .from('product_stock_status')
+            .select('product_name, is_out_of_stock, estimated_back_at, oos_since');
+        if (error) throw error;
+        (data || []).forEach(row => {
+            oosStatusMap[row.product_name] = row;
+        });
+    } catch (err) {
+        console.error('loadOutOfStockStatus:', err);
+        alert('Could not load stock status.\nRun the product_stock_status SQL in Supabase if that table is missing.\n' + (err.message || ''));
+    }
+    updateOosCountBadge();
+}
+
+function renderOutOfStockList() {
+    const list = document.getElementById('oos-list');
+    if (!list || typeof PRODUCT_CATALOG === 'undefined') return;
+    const q = (document.getElementById('oos-search')?.value || '').trim().toLowerCase();
+    const products = PRODUCT_CATALOG.filter(p => {
+        if (p.isMarketPrice) return false;
+        if (oosListTab === 'current') {
+            const st = oosStatusMap[p.name] || {};
+            if (st.is_out_of_stock !== true) return false;
+        }
+        if (!q) return true;
+        return (p.name || '').toLowerCase().includes(q)
+            || (p.category || '').toLowerCase().includes(q);
+    });
+    const byCat = {};
+    products.forEach(p => {
+        const cat = p.category || 'Uncategorized';
+        if (!byCat[cat]) byCat[cat] = [];
+        byCat[cat].push(p);
+    });
+    const cats = Object.keys(byCat).sort();
+    if (!cats.length) {
+        list.innerHTML = oosListTab === 'current'
+            ? '<p class="text-sm text-[#6B4423] text-center py-8">No products are currently out of stock.</p>'
+            : '<p class="text-sm text-[#6B4423] text-center py-8">No products match.</p>';
+        return;
+    }
+    list.innerHTML = cats.map(cat => {
+        const rows = byCat[cat].map(p => {
+            const st = oosStatusMap[p.name] || {};
+            const oos = st.is_out_of_stock === true;
+            const dateVal = st.estimated_back_at ? String(st.estimated_back_at).slice(0, 10) : '';
+            const since = st.oos_since ? new Date(st.oos_since).toLocaleDateString() : '';
+            const safe = (p.name || '').replace(/"/g, '&quot;');
+            return `
+                <label class="flex flex-wrap items-center gap-3 p-2 rounded-xl border ${oos ? 'border-red-300 bg-red-50' : 'border-[#e8d9b8] bg-white'}">
+                    <input type="checkbox" class="oos-cb accent-[#1E4D2B]" data-product="${safe}">
+                    <span class="flex-1 min-w-[140px] text-sm font-medium ${oos ? 'text-red-800' : 'brand-green'}">${escapeHtml(p.name || '')}</span>
+                    <span class="text-xs text-[#6B4423]">${escapeHtml(p.caseSize || '')}</span>
+                    ${oos ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-200 text-red-800">OOS${since ? ' since ' + since : ''}</span>` : ''}
+                    <input type="date" class="oos-date border border-[#d4b78f] rounded-lg px-2 py-1 text-xs"
+                           data-product="${safe}" value="${dateVal}" title="Estimated back in stock">
+                </label>
+            `;
+        }).join('');
+        const safeCat = cat.replace(/"/g, '&quot;');
+        return `
+            <div class="border-2 border-[#6B4423] rounded-2xl overflow-hidden">
+                <div class="flex items-center gap-2 px-3 py-2 bg-[#1E4D2B] text-[#d4b78f]">
+                    <input type="checkbox" class="oos-cat-cb accent-[#d4b78f]" data-cat="${safeCat}"
+                           onchange="toggleOosCategory(this)">
+                    <span class="font-bold text-sm">${escapeHtml(cat)}</span>
+                    <span class="text-xs ml-auto">${byCat[cat].length}</span>
+                </div>
+                <div class="p-2 space-y-2" data-oos-cat="${safeCat}">${rows}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function toggleOosCategory(master) {
+    const cat = master.getAttribute('data-cat');
+    const wrap = document.querySelector('[data-oos-cat="' + cat + '"]');
+    if (!wrap) return;
+    wrap.querySelectorAll('.oos-cb').forEach(cb => { cb.checked = master.checked; });
+}
+
+function selectedOosNames() {
+    return Array.from(document.querySelectorAll('.oos-cb:checked'))
+        .map(cb => cb.getAttribute('data-product'))
+        .filter(Boolean);
+}
+
+function oosDateFor(name) {
+    const el = document.querySelector('.oos-date[data-product="' + name.replace(/"/g, '\\"') + '"]');
+    if (el && el.value) return el.value;
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + d;
+}
+
+async function markSelectedOutOfStock() {
+    const names = selectedOosNames();
+    if (!names.length) {
+        alert('Select at least one product.');
+        return;
+    }
+    const who = oosActor();
+    const now = new Date().toISOString();
+    try {
+        for (const name of names) {
+            const eta = oosDateFor(name);
+            const { error: stErr } = await supabaseClient
+                .from('product_stock_status')
+                .upsert({
+                    product_name: name,
+                    is_out_of_stock: true,
+                    estimated_back_at: eta,
+                    oos_since: now,
+                    updated_at: now,
+                    updated_by: who
+                }, { onConflict: 'product_name' });
+            if (stErr) throw stErr;
+            const { error: evErr } = await supabaseClient
+                .from('product_stock_events')
+                .insert({
+                    product_name: name,
+                    event: 'out_of_stock',
+                    estimated_back_at: eta,
+                    created_by: who
+                });
+            if (evErr) throw evErr;
+        }
+        await loadOutOfStockStatus();
+        renderOutOfStockList();
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'oos',
+                entityType: 'product',
+                entityLabel: names.join(', '),
+                summary: 'Marked out of stock'
+            });
+        }
+        alert(names.length + ' product(s) marked Out of Stock.');
+    } catch (err) {
+        console.error(err);
+        alert('Could not mark Out of Stock.\n' + (err.message || ''));
+    }
+}
+
+async function markSelectedInStock() {
+    const names = selectedOosNames();
+    if (!names.length) {
+        alert('Select at least one product.');
+        return;
+    }
+    const who = oosActor();
+    const now = new Date().toISOString();
+    try {
+        for (const name of names) {
+            const { error: stErr } = await supabaseClient
+                .from('product_stock_status')
+                .upsert({
+                    product_name: name,
+                    is_out_of_stock: false,
+                    estimated_back_at: null,
+                    oos_since: null,
+                    updated_at: now,
+                    updated_by: who
+                }, { onConflict: 'product_name' });
+            if (stErr) throw stErr;
+            const { error: evErr } = await supabaseClient
+                .from('product_stock_events')
+                .insert({
+                    product_name: name,
+                    event: 'back_in_stock',
+                    estimated_back_at: null,
+                    created_by: who
+                });
+            if (evErr) throw evErr;
+        }
+        await loadOutOfStockStatus();
+        renderOutOfStockList();
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'oos',
+                entityType: 'product',
+                entityLabel: names.join(', '),
+                summary: 'Cleared out of stock'
+            });
+        }
+        alert(names.length + ' product(s) marked In Stock.');
+    } catch (err) {
+        console.error(err);
+        alert('Could not mark In Stock.\n' + (err.message || ''));
+    }
+}
+
+function oosLocalTodayYmd() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + d;
+}
+
+function oosYmdToLabel(ymd) {
+    const parts = String(ymd || '').slice(0, 10).split('-');
+    if (parts.length !== 3) return ymd || '—';
+    return parts[1] + '/' + parts[2] + '/' + String(parts[0]).slice(-2);
+}
+
+function dueOosRows() {
+    const today = oosLocalTodayYmd();
+    const rows = [];
+    Object.keys(oosStatusMap || {}).forEach(function (name) {
+        const st = oosStatusMap[name] || {};
+        if (st.is_out_of_stock !== true) return;
+        const eta = String(st.estimated_back_at || '').slice(0, 10);
+        if (!eta || eta > today) return;
+        rows.push({ name: name, eta: eta });
+    });
+    rows.sort(function (a, b) {
+        if (a.eta === b.eta) return a.name.localeCompare(b.name);
+        return a.eta.localeCompare(b.eta);
+    });
+    return rows;
+}
+
+function updateOosDueBadge() {
+    if (typeof updateOosCountBadge === 'function') updateOosCountBadge();
+}
+
+function renderOosDueList() {
+    const list = document.getElementById('oos-due-list');
+    if (!list) return;
+    const rows = dueOosRows();
+    const today = oosLocalTodayYmd();
+    if (!rows.length) {
+        list.innerHTML = '<p class="text-sm text-[#6B4423] text-center py-6">No expected-back dates are due.</p>';
+        return;
+    }
+    list.innerHTML = rows.map(function (row) {
+        const safe = String(row.name).replace(/"/g, '&quot;');
+        const overdue = row.eta < today;
+        return (
+            '<div class="border-2 ' + (overdue ? 'border-red-300 bg-red-50' : 'border-[#d4b78f] bg-[#f8f4eb]') + ' rounded-xl p-3">' +
+                '<div class="flex flex-wrap items-start justify-between gap-2 mb-2">' +
+                    '<p class="font-semibold text-[#1E4D2B]">' + escapeHtml(row.name) + '</p>' +
+                    '<span class="text-xs font-bold ' + (overdue ? 'text-red-800' : 'text-[#6B4423]') + '">' +
+                        (overdue ? 'Overdue · ' : 'Due today · ') +
+                        'expected ' + escapeHtml(oosYmdToLabel(row.eta)) +
+                    '</span>' +
+                '</div>' +
+                '<div class="flex flex-wrap items-end gap-2">' +
+                    '<label class="text-xs font-semibold text-[#6B4423]">New date' +
+                        '<input type="date" class="oos-due-date block border-2 border-[#6B4423] rounded-xl px-3 py-1.5 text-sm mt-1"' +
+                               ' data-product="' + safe + '" min="' + today + '" value="' + today + '">' +
+                    '</label>' +
+                    '<button type="button" onclick="extendOosDueItem(this.getAttribute(\'data-product\'))"' +
+                            ' data-product="' + safe + '"' +
+                            ' class="px-4 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl hover:bg-white font-semibold text-[#1E4D2B]">' +
+                        'Extend date' +
+                    '</button>' +
+                    '<button type="button" onclick="restockOosDueItem(this.getAttribute(\'data-product\'))"' +
+                            ' data-product="' + safe + '"' +
+                            ' class="px-4 py-1.5 text-sm bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-semibold">' +
+                        'Back in stock' +
+                    '</button>' +
+                '</div>' +
+            '</div>'
+        );
+    }).join('');
+}
+
+function hideOosDueModal() {
+    const modal = document.getElementById('oos-due-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+function snoozeOosDueModal() {
+    try { sessionStorage.setItem('oosDueSnooze', oosLocalTodayYmd()); } catch (e) {}
+    hideOosDueModal();
+}
+
+function showOosDueModal() {
+    const modal = document.getElementById('oos-due-modal');
+    if (!modal) return;
+    renderOosDueList();
+    modal.classList.remove('hidden');
+}
+
+async function checkOosDueAlerts() {
+    if (typeof loadOutOfStockStatus === 'function') {
+        await loadOutOfStockStatus();
+    }
+    updateOosDueBadge();
+    const rows = dueOosRows();
+    if (!rows.length) {
+        hideOosDueModal();
+        return;
+    }
+    let snoozed = '';
+    try { snoozed = sessionStorage.getItem('oosDueSnooze') || ''; } catch (e) {}
+    if (snoozed === oosLocalTodayYmd()) return;
+    showOosDueModal();
+}
+
+async function extendOosDueItem(name) {
+    if (!name) return;
+    const input = document.querySelector('.oos-due-date[data-product="' + name.replace(/"/g, '\\"') + '"]');
+    const eta = input && input.value ? input.value : '';
+    const today = oosLocalTodayYmd();
+    if (!eta || eta < today) {
+        alert('Pick a new expected-back date that is today or later.');
+        return;
+    }
+    const who = oosActor();
+    const now = new Date().toISOString();
+    try {
+        const { error: stErr } = await supabaseClient
+            .from('product_stock_status')
+            .upsert({
+                product_name: name,
+                is_out_of_stock: true,
+                estimated_back_at: eta,
+                updated_at: now,
+                updated_by: who
+            }, { onConflict: 'product_name' });
+        if (stErr) throw stErr;
+        const { error: evErr } = await supabaseClient
+            .from('product_stock_events')
+            .insert({
+                product_name: name,
+                event: 'date_extended',
+                estimated_back_at: eta,
+                created_by: who
+            });
+        if (evErr) throw evErr;
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'oos',
+                entityType: 'product',
+                entityLabel: name,
+                summary: 'Extended OOS date to ' + eta
+            });
+        }
+        await loadOutOfStockStatus();
+        updateOosDueBadge();
+        if (dueOosRows().length) renderOosDueList();
+        else hideOosDueModal();
+        if (document.getElementById('out-of-stock-modal') &&
+            !document.getElementById('out-of-stock-modal').classList.contains('hidden')) {
+            renderOutOfStockList();
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Could not extend the date.\n' + (err.message || ''));
+    }
+}
+
+async function restockOosDueItem(name) {
+    if (!name) return;
+    const who = oosActor();
+    const now = new Date().toISOString();
+    try {
+        const { error: stErr } = await supabaseClient
+            .from('product_stock_status')
+            .upsert({
+                product_name: name,
+                is_out_of_stock: false,
+                estimated_back_at: null,
+                oos_since: null,
+                updated_at: now,
+                updated_by: who
+            }, { onConflict: 'product_name' });
+        if (stErr) throw stErr;
+        const { error: evErr } = await supabaseClient
+            .from('product_stock_events')
+            .insert({
+                product_name: name,
+                event: 'back_in_stock',
+                estimated_back_at: null,
+                created_by: who
+            });
+        if (evErr) throw evErr;
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'oos',
+                entityType: 'product',
+                entityLabel: name,
+                summary: 'Cleared out of stock from due alert'
+            });
+        }
+        await loadOutOfStockStatus();
+        updateOosDueBadge();
+        if (dueOosRows().length) renderOosDueList();
+        else hideOosDueModal();
+        if (document.getElementById('out-of-stock-modal') &&
+            !document.getElementById('out-of-stock-modal').classList.contains('hidden')) {
+            renderOutOfStockList();
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Could not mark in stock.\n' + (err.message || ''));
+    }
+}
+
+window.oosActor = oosActor;
+window.currentOosCount = currentOosCount;
+window.updateOosCountBadge = updateOosCountBadge;
+window.setOosTabButtons = setOosTabButtons;
+window.setOosListTab = setOosListTab;
+window.openOutOfStockModal = openOutOfStockModal;
+window.hideOutOfStockModal = hideOutOfStockModal;
+window.loadOutOfStockStatus = loadOutOfStockStatus;
+window.renderOutOfStockList = renderOutOfStockList;
+window.toggleOosCategory = toggleOosCategory;
+window.selectedOosNames = selectedOosNames;
+window.oosDateFor = oosDateFor;
+window.markSelectedOutOfStock = markSelectedOutOfStock;
+window.markSelectedInStock = markSelectedInStock;
+window.oosLocalTodayYmd = oosLocalTodayYmd;
+window.oosYmdToLabel = oosYmdToLabel;
+window.dueOosRows = dueOosRows;
+window.updateOosDueBadge = updateOosDueBadge;
+window.renderOosDueList = renderOosDueList;
+window.hideOosDueModal = hideOosDueModal;
+window.snoozeOosDueModal = snoozeOosDueModal;
+window.showOosDueModal = showOosDueModal;
+window.checkOosDueAlerts = checkOosDueAlerts;
+window.extendOosDueItem = extendOosDueItem;
+window.restockOosDueItem = restockOosDueItem;
