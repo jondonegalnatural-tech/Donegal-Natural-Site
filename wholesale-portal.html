@@ -6,32 +6,11 @@
     <title>Donegal Natural | Wholesale Portal</title>
     <meta name="robots" content="noindex, nofollow">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-client.js"></script>
+    <script src="js/auth-guard.js"></script>
     <script>
-(async function () {
-  const SUPABASE_URL = 'https://kyzfdlzqlckrpdkavxei.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt5emZkbHpxbGNrcnBka2F2eGVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3ODU0NjEsImV4cCI6MjEwMDM2MTQ2MX0.Y1Sshp1-0lFwKakCgpJtAUpaHNB0PQ1vuo6SOHZcPu4';
-  document.documentElement.style.visibility = 'hidden';
-  try {
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { data: { session }, error } = await supabase.auth.getSession();
-    if (error || !session) {
-      localStorage.removeItem('currentUser');
-      window.location.replace('login-portal.html');
-      return;
-    }
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
-    if (!profile || profile.role !== 'customer') {
-      localStorage.removeItem('currentUser');
-      window.location.replace('login-portal.html');
-      return;
-    }
-    document.documentElement.style.visibility = 'visible';
-  } catch (e) {
-    localStorage.removeItem('currentUser');
-    window.location.replace('login-portal.html');
-  }
-})();
-</script>
+      runAuthGuard(['customer']);
+    </script>
     <link rel="stylesheet" href="css/portal.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
