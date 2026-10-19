@@ -1277,12 +1277,20 @@ async function submitPasswordChange() {
             }
         }
 
-        // Clear local flag so this session continues
+        // Clear local flag
         user.mustChangePassword = false;
         localStorage.setItem('currentUser', JSON.stringify(user));
 
         document.getElementById('password-change-modal')?.classList.add('hidden');
-        location.reload();
+
+        // Supabase invalidates the current session on password update.
+        // Sign out and send them to login so they authenticate cleanly
+        // with the new password and a fresh JWT.
+        try {
+            await supabaseClient.auth.signOut();
+        } catch (_) {}
+        localStorage.removeItem('currentUser');
+        window.location.href = 'login-portal.html';
     } catch (err) {
         console.error(err);
         if (errEl) {
