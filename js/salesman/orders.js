@@ -857,7 +857,10 @@ function renderSalesmanEditProductSearch() {
     }
     results.innerHTML = matches.map(function (name) {
         const shown = String(names[name] || name);
-        const safe = String(name).replace(/'/g, "\\'");
+        const safe = String(name)
+            .replace(/\\/g, '\\\\')
+            .replace(/'/g, "\\'")
+            .replace(/"/g, '&quot;');
         return '<button type="button" class="w-full text-left px-3 py-2 hover:bg-[#f8f4eb]" onclick="addSalesmanEditProduct(\'' + safe + '\')">' +
             escapeHtml(shown) + ' · $' + Number(prices[name]).toFixed(2) + '</button>';
     }).join('');

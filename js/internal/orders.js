@@ -784,7 +784,10 @@ function renderApproveOrderProductSearch() {
     }
 
     resultsEl.innerHTML = matches.map(p => {
-        const safeName = p.name.replace(/'/g, "\\'");
+        const safeName = String(p.name)
+            .replace(/\\/g, '\\\\')
+            .replace(/'/g, "\\'")
+            .replace(/"/g, '&quot;');
         return `
             <button type="button"
                     onclick="addApproveOrderProduct('${safeName}')"
