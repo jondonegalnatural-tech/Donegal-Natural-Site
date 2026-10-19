@@ -304,6 +304,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     window.history.replaceState(null, '', window.location.pathname + window.location.search);
                 }
 
+                // Mark password as permanently changed so the force modal does not reappear
+                try {
+                    const { data: { user } } = await supabaseClient.auth.getUser();
+                    const email = (user?.email || '').toLowerCase().trim();
+                    if (email) {
+                        await supabaseClient
+                            .from('customers')
+                            .update({ password_changed: true })
+                            .ilike('email', email);
+                    }
+                } catch (e) {
+                    console.warn('password_changed update on recovery failed:', e);
+                }
+
                 // Sign out recovery session so they log in cleanly
                 await supabaseClient.auth.signOut();
 
