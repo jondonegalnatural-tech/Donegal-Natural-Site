@@ -1,5 +1,5 @@
 // Internal portal — mass email, mailing list, and email log.
-var SUPABASE_URL = 'https://kyzfdlzqlckrpdkavxei.supabase.co';
+// SUPABASE_URL comes from js/supabase-client.js
 
 let mailingListExtras = [];
 
