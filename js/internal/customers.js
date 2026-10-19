@@ -480,7 +480,14 @@ async function initAddCustomerPlaces() {
     const host = document.getElementById('new-customer-ship-places-host');
     const streetEl = document.getElementById('new-customer-ship-street');
     if (!host || !streetEl || host.dataset.bound === '1') return;
-    if (!window.google || !google.maps || !google.maps.importLibrary) return;
+    if (!window.google || !google.maps || !google.maps.importLibrary) {
+        initAddCustomerPlaces._tries = (initAddCustomerPlaces._tries || 0) + 1;
+        if (initAddCustomerPlaces._tries > 20) return;
+        if (typeof loadGoogleMaps === 'function') loadGoogleMaps().catch(function () {});
+        setTimeout(initAddCustomerPlaces, 300);
+        return;
+    }
+    initAddCustomerPlaces._tries = 0;
     try {
         const placesLib = await google.maps.importLibrary('places');
         const PlaceAutocompleteElement = placesLib.PlaceAutocompleteElement;
@@ -2427,6 +2434,7 @@ async function initCustomerMap() {
     if (!mapContainer) return;
 
     if (!window.google || !google.maps || !google.maps.Map) {
+        if (typeof loadGoogleMaps === 'function') loadGoogleMaps().catch(function () {});
         initCustomerMap._tries = (initCustomerMap._tries || 0) + 1;
         if (initCustomerMap._tries > 20) {
             if (statusEl) statusEl.textContent = 'Google Maps did not load. Check the API key.';

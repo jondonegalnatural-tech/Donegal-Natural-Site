@@ -62,3 +62,43 @@ function showTableLoading(containerId, message) {
     el.innerHTML = `<p class="text-center text-[#6B4423] py-10"><i class="fas fa-spinner fa-spin mr-2"></i>${message || 'Loading…'}</p>`;
 }
 window.showTableLoading = showTableLoading;
+
+function loadScriptOnce(src) {
+    if (!window.__donegalScriptPromises) window.__donegalScriptPromises = {};
+    if (window.__donegalScriptPromises[src]) return window.__donegalScriptPromises[src];
+    window.__donegalScriptPromises[src] = new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = src;
+        s.async = false;
+        s.onload = function () { resolve(); };
+        s.onerror = function () { reject(new Error('Failed to load ' + src)); };
+        document.head.appendChild(s);
+    });
+    return window.__donegalScriptPromises[src];
+}
+
+function loadChartLib() {
+    return loadScriptOnce('https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js');
+}
+
+function loadExcelLib() {
+    return loadScriptOnce('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
+}
+
+function loadPdfLibs() {
+    return loadScriptOnce('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js').then(function () {
+        return loadScriptOnce('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js');
+    }).then(function () {
+        return loadScriptOnce('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
+    });
+}
+
+function loadGoogleMaps() {
+    return loadScriptOnce('https://maps.googleapis.com/maps/api/js?key=AIzaSyA3w15On3HstCQaS_XfKNXbO0I0ipHsQCg&loading=async');
+}
+
+window.loadScriptOnce = loadScriptOnce;
+window.loadChartLib = loadChartLib;
+window.loadExcelLib = loadExcelLib;
+window.loadPdfLibs = loadPdfLibs;
+window.loadGoogleMaps = loadGoogleMaps;

@@ -838,6 +838,12 @@ function exportBasePriceSheetExcel() {
         return;
     }
     if (typeof XLSX === 'undefined') {
+        if (typeof loadExcelLib === 'function') {
+            loadExcelLib().then(function () { exportBasePriceSheetExcel(); }).catch(function () {
+                alert('Excel library not loaded.');
+            });
+            return;
+        }
         alert('Excel library not loaded.');
         return;
     }

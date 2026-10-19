@@ -634,7 +634,7 @@ function renderProductPhotoGallery() {
             '<button type="button" onclick="openPhotoFamily(\'' + safeKey + '\')" ' +
             'class="text-left bg-[#f8f4eb] border-2 border-[#6B4423] rounded-xl overflow-hidden hover:bg-[#f0e6d9]">' +
             (thumb
-                ? '<img src="' + escapeHtml(thumb) + '" alt="" class="w-full h-28 object-contain bg-white">'
+                ? '<img src="' + escapeHtml(thumb) + '" alt="" loading="lazy" decoding="async" class="w-full h-28 object-contain bg-white">'
                 : '<div class="w-full h-28 bg-white flex items-center justify-center text-xs text-[#6B4423]">No photo yet</div>') +
             '<div class="p-2">' +
             '<p class="text-sm font-semibold brand-green">' + escapeHtml(f.title) + '</p>' +
@@ -720,7 +720,7 @@ function renderProductPhotoFamilyView() {
         return (
             '<div class="border-2 border-[#6B4423] rounded-xl overflow-hidden bg-white">' +
             '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener">' +
-            '<img src="' + escapeHtml(url) + '" alt="" class="w-full h-40 object-contain bg-[#f8f4eb]">' +
+            '<img src="' + escapeHtml(url) + '" alt="" loading="lazy" decoding="async" class="w-full h-40 object-contain bg-[#f8f4eb]">' +
             '</a>' +
             '<div class="p-3">' +
             '<p class="text-xs font-semibold text-[#6B4423] mb-2">' + escapeHtml(label) +

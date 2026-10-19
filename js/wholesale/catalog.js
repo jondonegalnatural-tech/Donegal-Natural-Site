@@ -2367,7 +2367,7 @@ function renderWholesaleItemGrid(container) {
                 return '<button type="button" class="flex-shrink-0" title="View photo" onclick="openGridProductPhoto(decodeURIComponent(\'' +
                     encodeURIComponent(p.name) + '\'))">' +
                     '<img src="' + escapeHtml(src) +
-                    '" alt="" class="w-12 h-12 object-contain rounded-lg border border-[#d4b78f] bg-[#f8f4eb]" ' +
+                    '" alt="" loading="lazy" decoding="async" class="w-12 h-12 object-contain rounded-lg border border-[#d4b78f] bg-[#f8f4eb]" ' +
                     'onerror="this.onerror=null;this.parentNode.outerHTML=\'<div class=\\\'w-12 h-12 flex-shrink-0 rounded-lg bg-[#8a8680] text-white text-[8px] leading-tight font-semibold flex items-center justify-center text-center px-1\\\'>Photograph Coming Soon</div>\';">' +
                     '</button>';
             }()) +
@@ -3693,6 +3693,8 @@ function buildCombinedCard(group) {
     const photo = document.createElement('div');
     photo.className = 'card-photo';
     const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.decoding = 'async';
     img.src = getProductImagePath(fallback);
     img.alt = group.title;
     img.onerror = function () {
@@ -3949,6 +3951,8 @@ function buildProductCard(product) {
     const photo = document.createElement('div');
     photo.className = 'card-photo';
     const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.decoding = 'async';
     img.src = getProductImagePath(product);
     img.onerror = function () {
         this.onerror = null;

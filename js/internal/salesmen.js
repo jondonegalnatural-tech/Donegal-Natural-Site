@@ -1423,6 +1423,12 @@ function exportOpenSalesmanPriceSheetExcel() {
         return;
     }
     if (typeof XLSX === 'undefined') {
+        if (typeof loadExcelLib === 'function') {
+            loadExcelLib().then(function () { exportOpenSalesmanPriceSheetExcel(); }).catch(function () {
+                alert('Excel library not loaded.');
+            });
+            return;
+        }
         alert('Excel library not loaded.');
         return;
     }
@@ -1491,6 +1497,9 @@ function loadSheetLogoDataUrl() {
 }
 
 async function exportOpenSalesmanPriceSheetPdf() {
+    if (typeof loadPdfLibs === 'function') {
+        try { await loadPdfLibs(); } catch (e) {}
+    }
     const sheet = getOpenSalesmanSheetForExport();
     if (!sheet || !sheet.prices || !Object.keys(sheet.prices).length) {
         alert('No price sheet is loaded.');
@@ -3573,6 +3582,9 @@ function invoiceDownloadFilename() {
 }
 
 async function downloadOrderInvoice() {
+    if (typeof loadPdfLibs === 'function') {
+        try { await loadPdfLibs(); } catch (e) {}
+    }
     const modal = document.getElementById('order-invoice-modal');
     const sheet = document.getElementById('order-invoice-sheet');
     if (!modal || modal.classList.contains('hidden') || !sheet) {

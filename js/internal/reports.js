@@ -341,7 +341,15 @@ function exportMatrixToCSV() {
 function exportMatrixToExcel() {
     const table = document.querySelector('#weekly-matrix-container table');
     if (!table) return alert("No data to export.");
-    if (typeof XLSX === 'undefined') return alert("Excel library not loaded.");
+    if (typeof XLSX === 'undefined') {
+        if (typeof loadExcelLib === 'function') {
+            loadExcelLib().then(function () { exportMatrixToExcel(); }).catch(function () {
+                alert("Excel library not loaded.");
+            });
+            return;
+        }
+        return alert("Excel library not loaded.");
+    }
 
     const wb = XLSX.utils.table_to_book(table, { sheet: "Weekly Sales" });
     XLSX.writeFile(wb, `Weekly_Sales_Matrix_${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -631,7 +639,13 @@ function getMonthlyTrendData(selectedYears, categories, metric) {
 
 function renderTrendsChart() {
     const canvas = document.getElementById('trends-chart');
-    if (!canvas || typeof Chart === 'undefined') return;
+    if (!canvas) return;
+    if (typeof Chart === 'undefined') {
+        if (typeof loadChartLib === 'function') {
+            loadChartLib().then(function () { renderTrendsChart(); }).catch(function () {});
+        }
+        return;
+    }
 
     const selectedCategories = getSelectedTrendsCategories();
     const metric = currentTrendsMetric || 'units';

@@ -433,7 +433,7 @@ function searchPlaceOrderProducts() {
         return header + (
             '<div class="px-3 py-2 border-b border-[#d4b78f] flex items-center gap-3">' +
             (placeOrderPhotoUrl(p.nick || p.name)
-                ? '<img src="' + placeOrderPhotoUrl(p.nick || p.name) + '" alt="" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#f8f4eb;flex:0 0 auto;">'
+                ? '<img src="' + placeOrderPhotoUrl(p.nick || p.name) + '" alt="" loading="lazy" decoding="async" style="width:56px;height:56px;object-fit:contain;border-radius:8px;background:#f8f4eb;flex:0 0 auto;">'
                 : '<div style="width:56px;height:56px;border-radius:8px;background:#e7e2d8;flex:0 0 auto;"></div>') +
             '<div class="flex-1 min-w-0">' +
             '<p class="text-sm font-semibold brand-green">' + escapeHtml(p.nick) + '</p>' +
