@@ -370,7 +370,10 @@ function searchPlaceOrderProducts() {
     const sheetMap = window._placeOrderBrianPrices || {};
     const sheetNames = Object.keys(sheetMap);
     if (!sheetNames.length) {
-        resultsEl.innerHTML = '<p class="p-3 text-sm text-[#6B4423]">Choose a customer first to see that salesman\'s items.</p>';
+        const emptyMsg = currentPlaceOrderCustomer
+            ? 'No products on this pricing sheet.'
+            : 'Choose a customer first to see that salesman\'s items.';
+        resultsEl.innerHTML = '<p class="p-3 text-sm text-[#6B4423]">' + emptyMsg + '</p>';
         resultsEl.classList.remove("hidden");
         return;
     }
@@ -378,8 +381,11 @@ function searchPlaceOrderProducts() {
     const hideCase = typeof isBrianAssignedCustomer === 'function'
         && isBrianAssignedCustomer(currentPlaceOrderCustomer);
 
+    const brianCustomer = isBrianSeatCustomer(currentPlaceOrderCustomer);
     const rows = [];
     sheetNames.forEach(function (name) {
+        // Brian place-order search is the loaded sheet only — never the full catalog.
+        if (brianCustomer && !isBrianPlaceOrderProductAllowed(name)) return;
         const nick = (typeof salesmanDisplayName === 'function')
             ? salesmanDisplayName(name) : name;
         const hay = (name + ' ' + nick).toLowerCase();
@@ -532,6 +538,51 @@ function isBrianAssignedCustomer(customer) {
     return !!email && email === seat;
 }
 
+function isBrianSeatCustomer(customer) {
+    const email = String((customer && (customer.salesman_email || customer.salesmanEmail)) || '').toLowerCase().trim();
+    return email === BRIAN_SEAT_EMAIL;
+}
+
+function normalizeSheetProductName(name) {
+    if (typeof normalizeProductName === 'function') return normalizeProductName(name);
+    return String(name || '')
+        .toLowerCase()
+        .replace(/[“”]/g, '"')
+        .replace(/[‘’]/g, "'")
+        .replace(/,/g, '')
+        .replace(/\bcrunch\b/g, 'crunchy')
+        .replace(/\bbunny\b/g, 'rabbit')
+        .replace(/\b10-pack of /g, '10-pack ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function rememberBrianPlaceOrderAllowList(prices) {
+    const keys = Object.keys(prices || {});
+    window._brianPlaceOrderAllowedNames = new Set(keys.map(normalizeSheetProductName));
+}
+
+function clearBrianPlaceOrderAllowList() {
+    window._brianPlaceOrderAllowedNames = null;
+}
+
+function isBrianPlaceOrderProductAllowed(name) {
+    if (!isBrianSeatCustomer(currentPlaceOrderCustomer)) return true;
+    const allowed = window._brianPlaceOrderAllowedNames;
+    if (!allowed) return false;
+    return allowed.has(normalizeSheetProductName(name));
+}
+
+function sheetNameForPlaceOrder(productName) {
+    const sheetMap = window._placeOrderBrianPrices || {};
+    if (!productName) return '';
+    if (Object.prototype.hasOwnProperty.call(sheetMap, productName)) return productName;
+    const want = normalizeSheetProductName(productName);
+    return Object.keys(sheetMap).find(function (key) {
+        return normalizeSheetProductName(key) === want;
+    }) || '';
+}
+
 function salesmanDisplayName(catalogName) {
     const map = window._placeOrderDisplayNames || {};
     if (!catalogName) return '';
@@ -584,18 +635,23 @@ async function loadBrianPlaceOrderPrices(customer) {
     window._placeOrderBrianPrices = {};
     window._placeOrderDisplayNames = {};
     window._placeOrderHiddenPrices = {};
+    clearBrianPlaceOrderAllowList();
     if (!customer || !customer.id) return;
     const salesmanEmail = String((customer.salesman_email || customer.salesmanEmail || getOperatingSalesmanEmail()) || '').toLowerCase().trim();
     if (!salesmanEmail) return;
 
+    const brianCustomer = isBrianSeatCustomer(customer);
     let salesmanPrices = {};
     let assigned = [];
+    let sheetLoaded = false;
     try {
-        const { data: nickRow } = await supabaseClient
+        const { data: nickRow, error: sheetError } = await supabaseClient
             .from('salesman_price_sheets')
             .select('prices, display_names, hidden_prices')
             .eq('salesman_email', salesmanEmail)
             .maybeSingle();
+        if (sheetError) throw sheetError;
+        sheetLoaded = true;
         if (nickRow && nickRow.display_names && typeof nickRow.display_names === 'object') {
             window._placeOrderDisplayNames = nickRow.display_names;
         }
@@ -607,6 +663,12 @@ async function loadBrianPlaceOrderPrices(customer) {
         }
     } catch (err) {
         console.warn('place order display_names:', err);
+    }
+
+    if (brianCustomer && !sheetLoaded) {
+        window._placeOrderBrianPrices = {};
+        clearBrianPlaceOrderAllowList();
+        return;
     }
 
     try {
@@ -637,23 +699,45 @@ async function loadBrianPlaceOrderPrices(customer) {
                     prices[name] = custSheet.prices[name];
                 }
             });
-            assigned.forEach(function (name) {
-                if (!name || Object.prototype.hasOwnProperty.call(prices, name)) return;
-                if (custSheet.prices[name] == null || custSheet.prices[name] === '') return;
-                prices[name] = custSheet.prices[name];
-            });
+            // Brian's customers cannot gain products that are not already sheet keys.
+            if (!brianCustomer) {
+                assigned.forEach(function (name) {
+                    if (!name || Object.prototype.hasOwnProperty.call(prices, name)) return;
+                    if (custSheet.prices[name] == null || custSheet.prices[name] === '') return;
+                    prices[name] = custSheet.prices[name];
+                });
+            }
         }
     } catch (err) {
         console.warn('loadBrianPlaceOrderPrices customer:', err);
     }
 
-    Object.keys(window._placeOrderHiddenPrices || {}).forEach(function (name) {
-        delete prices[name];
-    });
+    if (brianCustomer) {
+        const hidden = window._placeOrderHiddenPrices || {};
+        Object.keys(prices).forEach(function (name) {
+            const want = normalizeSheetProductName(name);
+            const hit = Object.keys(hidden).some(function (key) {
+                return normalizeSheetProductName(key) === want;
+            });
+            if (hit) delete prices[name];
+        });
+    } else {
+        Object.keys(window._placeOrderHiddenPrices || {}).forEach(function (name) {
+            delete prices[name];
+        });
+    }
     window._placeOrderBrianPrices = prices;
+    if (brianCustomer) rememberBrianPlaceOrderAllowList(prices);
 }
 
 function addProductToPlaceOrder(productName) {
+    if (isBrianSeatCustomer(currentPlaceOrderCustomer)) {
+        if (!isBrianPlaceOrderProductAllowed(productName)) {
+            alert('This item is not on your pricing sheet and cannot be ordered.');
+            return;
+        }
+        productName = sheetNameForPlaceOrder(productName);
+    }
     const sheetMap = window._placeOrderBrianPrices || {};
     if (!productName || !Object.prototype.hasOwnProperty.call(sheetMap, productName)) return;
     const catalogProduct = (typeof PRODUCT_CATALOG !== 'undefined')

@@ -1818,6 +1818,8 @@ function normalizeProductName(name) {
 }
 
 function findCatalogProduct(name) {
+    // Browse trees look products up by name. Off-sheet names must not resolve for Brian.
+    if (typeof isProductAllowedForBrian === 'function' && !isProductAllowedForBrian(name)) return null;
     const want = normalizeProductName(name);
     return (WHOLESALE_PRICES || []).find(p => {
         if (isTestProductName(p.name)) return false;
@@ -2120,7 +2122,7 @@ function stopRecommendedRotator() {
 }
 
 function pickRandomProducts(count) {
-    const pool = (WHOLESALE_PRICES || []).filter(p => !isTestProductName(p.name));
+    const pool = productsAllowedForCurrentCustomer(WHOLESALE_PRICES).filter(p => !isTestProductName(p.name));
     for (let i = pool.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         const tmp = pool[i];
@@ -2241,7 +2243,8 @@ function renderWholesaleItemGrid(container) {
     updateProductsHeading('Wholesale Products');
     const searchVal = String((document.getElementById('product-search') || {}).value || '')
         .toLowerCase().trim();
-    let rows = (WHOLESALE_PRICES || []).filter(function (p) {
+    // Item grid is Brian's catalog. Only pricing-sheet names may appear here.
+    let rows = productsAllowedForCurrentCustomer(WHOLESALE_PRICES).filter(function (p) {
         if (!p || !p.name) return false;
         if (typeof isTestProductName === 'function' && isTestProductName(p.name)) return false;
         return true;
@@ -3273,7 +3276,7 @@ function parseCaseQty(cs) {
 
 function appendProductCards(grid, products) {
     const seen = {};
-    (products || []).forEach(product => {
+    productsAllowedForCurrentCustomer(products).forEach(product => {
         const group = getCombinedGroupForName(product.name);
         if (group) {
             if (seen[group.id]) return;
@@ -4032,6 +4035,7 @@ function buildProductCard(product) {
 }
 
 function renderProductCardGrid(container, products, emptyMessage) {
+    products = productsAllowedForCurrentCustomer(products);
     container.innerHTML = '';
     if (!products || products.length === 0) {
         container.innerHTML = '<p class="text-center py-8 text-[#6B4423]">' + (emptyMessage || 'No products found.') + '</p>';
@@ -4044,6 +4048,7 @@ function renderProductCardGrid(container, products, emptyMessage) {
 }
 
 function renderGroupedCategoryCards(container, products, emptyMessage) {
+    products = productsAllowedForCurrentCustomer(products);
     container.innerHTML = '';
     if (!products || products.length === 0) {
         container.innerHTML = '<p class="text-center py-8 text-[#6B4423]">' + (emptyMessage || 'No products found.') + '</p>';
@@ -4197,7 +4202,7 @@ function renderPortalProducts() {
     }
 
     if (!tree) {
-        const productsToShow = WHOLESALE_PRICES.filter(p =>
+        const productsToShow = productsAllowedForCurrentCustomer(WHOLESALE_PRICES).filter(p =>
             p.category === currentCategoryFilter && !isTestProductName(p.name)
         );
         renderGroupedCategoryCards(container, productsToShow, 'No products found in this category.');
@@ -4266,7 +4271,7 @@ function setupSearch() {
         }
 
         // Filter products for suggestions and grid
-        const filteredProducts = WHOLESALE_PRICES.filter(product =>
+        const filteredProducts = productsAllowedForCurrentCustomer(WHOLESALE_PRICES).filter(product =>
             product.name.toLowerCase().includes(term)
         );
 
@@ -4322,7 +4327,7 @@ function filterAndRenderProducts(searchTerm) {
     updateProductsHeading('Search results');
 
     const term = (searchTerm || '').toLowerCase();
-    const filtered = WHOLESALE_PRICES.filter(p =>
+    const filtered = productsAllowedForCurrentCustomer(WHOLESALE_PRICES).filter(p =>
         (p.name || '').toLowerCase().includes(term)
     );
     renderProductCardGrid(container, filtered, 'No products found.');
@@ -4407,6 +4412,32 @@ const BRIAN_SEAT_EMAIL = 'donegaldogtreats@gmail.com';
 function isBrianAssignedCustomer(customer) {
     const email = String((customer && (customer.salesman_email || customer.salesmanEmail)) || '').toLowerCase().trim();
     return email === BRIAN_SEAT_EMAIL;
+}
+
+function clearBrianSheetAllowList() {
+    // Null means "sheet not proven". Brian customers then see and order nothing.
+    window._brianAllowedProductNames = null;
+    window._brianAllowedRawNames = null;
+}
+
+function rememberBrianSheetAllowList(prices) {
+    const keys = Object.keys(prices || {});
+    window._brianAllowedProductNames = new Set(keys.map(normalizeProductName));
+    window._brianAllowedRawNames = new Set(keys);
+}
+
+function isProductAllowedForBrian(name) {
+    if (!isBrianAssignedCustomer(window._currentCustomer)) return true;
+    if (!window._brianAllowedProductNames) return false;
+    return window._brianAllowedProductNames.has(normalizeProductName(name));
+}
+
+function productsAllowedForCurrentCustomer(list) {
+    const rows = Array.isArray(list) ? list : [];
+    if (!isBrianAssignedCustomer(window._currentCustomer)) return rows;
+    return rows.filter(function (p) {
+        return p && isProductAllowedForBrian(p.name);
+    });
 }
 
 function shouldFailClosedToSalesmanSheet(customer) {
@@ -4608,17 +4639,22 @@ async function applyBrianWholesaleSheetPrices() {
     const salesmanEmail = String((customer && (customer.salesman_email || customer.salesmanEmail)) || '').toLowerCase().trim();
 
     if (!customer || !customer.id || !salesmanEmail) {
+        // Missing customer context must not leave the full catalog in place.
         WHOLESALE_PRICES = [];
+        clearBrianSheetAllowList();
         return;
     }
 
     // Load salesman sheet — this is the only product list
+    let sheetLoaded = false;
     try {
-        const { data: sheet } = await supabaseClient
+        const { data: sheet, error: sheetError } = await supabaseClient
             .from('salesman_price_sheets')
             .select('prices, display_names, hidden_prices')
             .eq('salesman_email', salesmanEmail)
             .maybeSingle();
+        if (sheetError) throw sheetError;
+        sheetLoaded = true;
         if (sheet) {
             window._wholesaleSalesmanPrices = (sheet.prices && typeof sheet.prices === 'object') ? sheet.prices : {};
             window._wholesaleDisplayNames = (sheet.display_names && typeof sheet.display_names === 'object') ? sheet.display_names : {};
@@ -4626,6 +4662,12 @@ async function applyBrianWholesaleSheetPrices() {
         }
     } catch (err) {
         console.warn('salesman sheet load:', err);
+    }
+
+    if (!sheetLoaded) {
+        WHOLESALE_PRICES = [];
+        clearBrianSheetAllowList();
+        return;
     }
 
     // Start with ONLY the salesman sheet keys
@@ -4679,6 +4721,8 @@ async function applyBrianWholesaleSheetPrices() {
     });
 
     WHOLESALE_PRICES = next;
+    // Allowed set is the final sheet (salesman keys + customer price overlay − hidden).
+    rememberBrianSheetAllowList(prices);
 }
 
 function isBeefOrBuffaloLungName(name) {
@@ -4729,6 +4773,10 @@ async function loadWholesaleCatalog() {
     try {
         if (typeof supabaseClient === 'undefined' || !supabaseClient) {
             console.warn('loadWholesaleCatalog: supabaseClient not ready — keeping hardcoded list');
+            if (!window._currentCustomer || isBrianAssignedCustomer(window._currentCustomer)) {
+                WHOLESALE_PRICES = [];
+                clearBrianSheetAllowList();
+            }
             return;
         }
 
@@ -4742,6 +4790,9 @@ async function loadWholesaleCatalog() {
         if (error) throw error;
         if (!data || data.length === 0) {
             console.warn('loadWholesaleCatalog: no active products — keeping hardcoded list');
+            if (!window._currentCustomer || isBrianAssignedCustomer(window._currentCustomer)) {
+                await applyBrianWholesaleSheetPrices();
+            }
             return;
         }
 
@@ -4995,6 +5046,8 @@ window.wholesaleOosLabel = wholesaleOosLabel;
 window.loadWholesaleOutOfStock = loadWholesaleOutOfStock;
 window.filterWholesaleCatalogForSalesman = filterWholesaleCatalogForSalesman;
 window.isBrianAssignedCustomer = isBrianAssignedCustomer;
+window.isProductAllowedForBrian = isProductAllowedForBrian;
+window.productsAllowedForCurrentCustomer = productsAllowedForCurrentCustomer;
 window.shouldFailClosedToSalesmanSheet = shouldFailClosedToSalesmanSheet;
 window.wholesaleDisplayName = wholesaleDisplayName;
 window.orderLineDisplayName = orderLineDisplayName;

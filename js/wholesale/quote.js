@@ -4,6 +4,10 @@ function showPackagedItemModal(name, price, cs, category, image = null, healthBe
         alert('This account is currently inactive and cannot add items to a quote.');
         return;
     }
+    if (typeof isProductAllowedForBrian === 'function' && !isProductAllowedForBrian(name)) {
+        alert('This item is not on your pricing sheet and cannot be ordered.');
+        return;
+    }
     const oldModal = document.getElementById('add-to-quote-modal');
     if (oldModal) oldModal.remove();
 
@@ -288,6 +292,12 @@ function addToQuoteFromModal() {
         closeAddToQuoteModal();
         return;
     }
+    if (typeof isProductAllowedForBrian === 'function' && !isProductAllowedForBrian(pending.name)) {
+        alert('This item is not on your pricing sheet and cannot be ordered.');
+        closeAddToQuoteModal();
+        window._pendingQuoteItem = null;
+        return;
+    }
 
     const qtyInput = document.getElementById('quote-quantity');
     const qty = parseInt(qtyInput?.value, 10) || 1;
@@ -308,6 +318,10 @@ function addToQuoteFromModal() {
 }
 
 function addToQuote(name, price, cs, quantity) {
+    if (typeof isProductAllowedForBrian === 'function' && !isProductAllowedForBrian(name)) {
+        alert('This item is not on your pricing sheet and cannot be ordered.');
+        return;
+    }
     if (isWholesaleOos(name)) {
         alert(wholesaleOosLabel(name) || 'This item is out of stock.');
         return;
@@ -1177,7 +1191,10 @@ function renderEditQuoteProductSearch() {
         return;
     }
 
-    const matches = (WHOLESALE_PRICES || []).filter(p =>
+    const source = (typeof productsAllowedForCurrentCustomer === 'function')
+        ? productsAllowedForCurrentCustomer(WHOLESALE_PRICES)
+        : (WHOLESALE_PRICES || []);
+    const matches = source.filter(p =>
         p.name.toLowerCase().includes(search) ||
         (p.category || '').toLowerCase().includes(search)
     ).slice(0, 20);
@@ -1203,6 +1220,10 @@ function renderEditQuoteProductSearch() {
 }
 
 function addEditQuoteProduct(productName) {
+    if (typeof isProductAllowedForBrian === 'function' && !isProductAllowedForBrian(productName)) {
+        alert('This item is not on your pricing sheet and cannot be ordered.');
+        return;
+    }
     const catalog = (WHOLESALE_PRICES || []).find(p => p.name === productName);
     const isMarket = catalog && (catalog.price || '').toLowerCase().includes('market');
     const numericPrice = isMarket

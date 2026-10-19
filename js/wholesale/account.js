@@ -446,6 +446,7 @@ function getWholesalePriceListRows() {
     (WHOLESALE_PRICES || []).forEach(function (p) {
         if (!p || !p.name) return;
         if (typeof isTestProductName === 'function' && isTestProductName(p.name)) return;
+        if (typeof isProductAllowedForBrian === 'function' && !isProductAllowedForBrian(p.name)) return;
         if (hidden[p.name]) return;
         const extraOk = window._wholesaleAssignedProducts &&
             window._wholesaleAssignedProducts.has(p.name);
