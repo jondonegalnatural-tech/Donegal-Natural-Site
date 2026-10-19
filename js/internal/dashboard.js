@@ -237,6 +237,7 @@ function showSection(section) {
             if (typeof loadMailingListExtras === 'function') await loadMailingListExtras();
             if (typeof loadOpenQuotes === 'function') loadOpenQuotes();
             if (typeof loadAdminActivityLog === 'function') loadAdminActivityLog();
+            if (typeof loadEmailLog === 'function') loadEmailLog();
             if (typeof renderProductPhotoGallery === 'function' && typeof _photoGalleryFamilyKey !== 'undefined' && _photoGalleryFamilyKey) {
                 renderProductPhotoGallery();
             }
