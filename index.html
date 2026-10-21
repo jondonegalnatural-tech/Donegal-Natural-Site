@@ -571,7 +571,7 @@
             placeholder="e.g. 1310 Vermont Rd or PO Box 123"
             style="width:100%; padding:.65rem .9rem; border:1.5px solid var(--border); border-radius:.6rem; background:var(--cream); font-size:.9rem; font-family:inherit;">
                       <p id="wi-street-hint" style="font-size:.75rem; color:var(--brown); margin:.35rem 0 0;">
-            Start typing and pick your address from the list. PO Boxes can be typed in full.
+            Type the full street address or PO Box.
           </p>
         </div>
         <div>
@@ -583,12 +583,12 @@
         <div id="wi-city-state-zip-wrap" style="display:grid; grid-template-columns:1fr 1fr 0.7fr; gap:.75rem;">
           <div>
             <label for="wi-city" style="display:block; font-size:.8rem; font-weight:700; margin-bottom:.35rem; color:var(--brown);">City *</label>
-            <input type="text" id="wi-city" name="city"
+            <input type="text" id="wi-city" name="city" required
               style="width:100%; padding:.65rem .9rem; border:1.5px solid var(--border); border-radius:.6rem; background:var(--cream); font-size:.9rem; font-family:inherit;">
           </div>
           <div>
             <label for="wi-state" style="display:block; font-size:.8rem; font-weight:700; margin-bottom:.35rem; color:var(--brown);">State *</label>
-            <select id="wi-state" name="state"
+            <select id="wi-state" name="state" required
               style="width:100%; padding:.65rem .9rem; border:1.5px solid var(--border); border-radius:.6rem; background:var(--cream); font-size:.9rem; font-family:inherit;">
               <option value="">Select…</option>
               <option value="AL">AL</option><option value="AK">AK</option><option value="AZ">AZ</option><option value="AR">AR</option>
@@ -608,9 +608,10 @@
           </div>
           <div>
             <label for="wi-zip" style="display:block; font-size:.8rem; font-weight:700; margin-bottom:.35rem; color:var(--brown);">ZIP *</label>
-             <input type="text" id="wi-zip" name="zip"
+             <input type="text" id="wi-zip" name="zip" required
               placeholder="ZIP"              title="Enter a 5-digit ZIP or ZIP+4" autocomplete="off"
               maxlength="10"
+              pattern="^\d{5}(-\d{4})?$"
               style="width:100%; padding:.65rem .9rem; border:1.5px solid var(--border); border-radius:.6rem; background:var(--cream); font-size:.9rem; font-family:inherit;">
           </div>
         </div>
@@ -654,7 +655,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/main.js"></script>
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyA3w15On3HstCQaS_XfKNXbO0I0ipHsQCg&libraries=places&callback=initInquiryPlaces&loading=async" async defer></script>
 <script>
 // ─── Supabase client (public page) ───
 const SUPABASE_URL = 'https://kyzfdlzqlckrpdkavxei.supabase.co';
@@ -677,9 +677,6 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     thanks.style.display = 'none';
     form.reset();
     otherWrap.style.display = 'none';
-        selectedPlace = null;
-    const locWrap = document.getElementById('wi-city-state-zip-wrap');
-    if (locWrap) locWrap.style.display = 'none';
     if (submitBtn) {
       submitBtn.disabled = false;
       submitBtn.textContent = 'Submit Inquiry';
@@ -720,130 +717,6 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 
   const consentTerms = document.getElementById('consent-terms');
   const consentPrivacy = document.getElementById('consent-privacy');
-    let selectedPlace = null;
-    
-      function setCityStateZipVisible(show) {
-    const wrap = document.getElementById('wi-city-state-zip-wrap');
-    if (!wrap) return;
-    wrap.style.display = show ? 'grid' : 'none';
-  }
-
-  function isPoBoxAddress(value) {
-    return /^\s*(p\.?\s*o\.?\s*box|post\s*office\s*box)\b/i.test(String(value || ''));
-  }
-
-  function fillInquiryFromPlace(place) {
-    if (!place || !place.address_components) return;
-    const get = function (type, useShort) {
-      const part = place.address_components.find(function (c) {
-        return c.types.indexOf(type) !== -1;
-      });
-      if (!part) return '';
-      return useShort ? part.short_name : part.long_name;
-    };
-    const streetNum = get('street_number');
-    const route = get('route');
-    const streetLine = [streetNum, route].filter(Boolean).join(' ');
-    const city = get('locality') || get('sublocality') || get('administrative_area_level_3');
-    const state = get('administrative_area_level_1', true);
-    const zip = get('postal_code');
-    const apt = get('subpremise');
-    if (streetLine) document.getElementById('wi-street').value = streetLine;
-    if (city) document.getElementById('wi-city').value = city;
-    if (state) document.getElementById('wi-state').value = state;
-    if (zip) document.getElementById('wi-zip').value = zip;
-    const aptEl = document.getElementById('wi-apt');
-    if (apt && aptEl && !aptEl.value.trim()) aptEl.value = apt;
-    selectedPlace = {
-      place_id: place.place_id || '',
-      formatted: place.formatted_address || streetLine,
-      lat: place.geometry && place.geometry.location ? place.geometry.location.lat() : null,
-      lng: place.geometry && place.geometry.location ? place.geometry.location.lng() : null
-    };
-  }
-
-  window.initInquiryPlaces = async function () {
-    const streetEl = document.getElementById('wi-street');
-    const hintEl = document.getElementById('wi-street-hint');
-    if (!streetEl) return;
-    if (document.getElementById('wi-street-places')) return;
-
-    try {
-      const { PlaceAutocompleteElement } = await google.maps.importLibrary('places');
-      const widget = new PlaceAutocompleteElement({
-        includedRegionCodes: ['us'],
-        requestedLanguage: 'en'
-      });
-      widget.id = 'wi-street-places';
-      widget.setAttribute('placeholder', 'e.g. 1310 Vermont Rd or PO Box 123');
-      widget.setAttribute('no-input-icon', '');
-      widget.setAttribute('no-clear-button', '');
-      widget.style.cssText = 'width:100%; display:block; color-scheme:light; background-color:#f8f1e9; border:1.5px solid #e2d6c5; border-radius:.6rem; color:#6B4423;';
-      streetEl.parentElement.insertBefore(widget, streetEl);
-      streetEl.classList.add('places-backed');
-
-      widget.addEventListener('gmp-select', async function (event) {
-        const prediction = event.placePrediction;
-        if (!prediction || typeof prediction.toPlace !== 'function') {
-          selectedPlace = null;
-          return;
-        }
-        const place = prediction.toPlace();
-        await place.fetchFields({
-          fields: ['addressComponents', 'formattedAddress', 'location', 'id']
-        });
-        fillInquiryFromNewPlace(place);
-        setCityStateZipVisible(true);
-      });
-      widget.addEventListener('input', function () {
-        const typed = widget.value || '';
-        streetEl.value = typed;
-        selectedPlace = null;
-        setCityStateZipVisible(isPoBoxAddress(typed));
-      });
-    } catch (err) {
-      console.warn('Places (New) failed to load:', err);
-      if (hintEl) {
-        hintEl.textContent = 'Address lookup is unavailable. Type the full address.';
-      }
-    }
-  };
-
-  function fillInquiryFromNewPlace(place) {
-    if (!place) return;
-    const comps = place.addressComponents || [];
-    const get = function (type, useShort) {
-      const part = comps.find(function (c) {
-        return (c.types || []).indexOf(type) !== -1;
-      });
-      if (!part) return '';
-      return useShort ? (part.shortText || '') : (part.longText || '');
-    };
-    const streetLine = [get('street_number'), get('route')].filter(Boolean).join(' ');
-    const city = get('locality') || get('sublocality') || get('administrative_area_level_3');
-    const state = get('administrative_area_level_1', true);
-    const zip = get('postal_code');
-    const apt = get('subpremise');
-    if (!streetLine) {
-      selectedPlace = null;
-      alert('Pick a full street address from the list (house number and street). A city name is not a shipping address.\nPO Boxes can be typed in full.');
-      setCityStateZipVisible(true);
-      return;
-    }
-    document.getElementById('wi-street').value = streetLine;
-    if (city) document.getElementById('wi-city').value = city;
-    if (state) document.getElementById('wi-state').value = state;
-    if (zip) document.getElementById('wi-zip').value = zip;
-    const aptEl = document.getElementById('wi-apt');
-    if (apt && aptEl && !aptEl.value.trim()) aptEl.value = apt;
-    const loc = place.location;
-    selectedPlace = {
-      place_id: place.id || '',
-      formatted: place.formattedAddress || streetLine,
-      lat: loc && typeof loc.lat === 'function' ? loc.lat() : (loc && loc.lat) || null,
-      lng: loc && typeof loc.lng === 'function' ? loc.lng() : (loc && loc.lng) || null
-    };
-  }
   const TERMS_VERSION = '2026-08-29';
   const PRIVACY_VERSION = '2026-08-29';
 
@@ -894,20 +767,13 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     const cityPreview = document.getElementById('wi-city')?.value.trim() || '';
     const statePreview = document.getElementById('wi-state')?.value.trim() || '';
     const zipPreview = document.getElementById('wi-zip')?.value.trim() || '';
-    const placesReady = !!(window.google && google.maps && google.maps.places);
-    if (placesReady && !selectedPlace && !isPoBoxAddress(streetPreview)) {
-      alert('Please pick your street address from the Google list so we can confirm it.\nPO Boxes can be typed in full.');
-      document.getElementById('wi-street')?.focus();
-      return;
-    }
-    if (!isPoBoxAddress(streetPreview) && !(streetPreview.length >= 5 && /\d/.test(streetPreview))) {
-      alert('A real street address is required. Pick it from the Google list.');
+    if (!streetPreview || streetPreview.length < 3) {
+      alert('Please enter a street address or PO Box.');
       document.getElementById('wi-street')?.focus();
       return;
     }
     if (!cityPreview || !/^[A-Z]{2}$/i.test(statePreview) || !/^\d{5}(-\d{4})?$/.test(zipPreview)) {
       alert('City, state, and a 5-digit ZIP are required.');
-      setCityStateZipVisible(true);
       document.getElementById('wi-city')?.focus();
       return;
     }
@@ -926,16 +792,10 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     const city = document.getElementById('wi-city')?.value.trim() || '';
     const state = document.getElementById('wi-state')?.value.trim() || '';
     const zip = document.getElementById('wi-zip')?.value.trim() || '';
-    const formatted = (selectedPlace && (selectedPlace.formatted || selectedPlace.formattedAddress)) || '';
-    const cleanFormatted = String(formatted).replace(/,\s*USA\s*$/i, '').trim();
     const shippingParts = [];
-    if (cleanFormatted) {
-      shippingParts.push(cleanFormatted);
-    } else {
-      shippingParts.push(street);
-      if (apt) shippingParts.push(apt);
-      shippingParts.push(city + ', ' + state + ' ' + zip);
-    }
+    shippingParts.push(street);
+    if (apt) shippingParts.push(apt);
+    shippingParts.push(city + ', ' + state + ' ' + zip);
     const shipping = shippingParts.join('\n');
     const now = new Date().toISOString();
 
@@ -950,14 +810,7 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
       source: 'landing_page',
       status: 'pending',
       region: (city && state) ? (city + ', ' + state) : null,
-      notes: shipping
-        ? ('Shipping: ' + shipping +
-           (cleanFormatted ? ('\nGoogle formatted: ' + cleanFormatted) : '') +
-           (selectedPlace && selectedPlace.place_id
-             ? ('\nGoogle place: ' + selectedPlace.place_id +
-                (selectedPlace.lat != null ? ('\nLat: ' + selectedPlace.lat + '\nLng: ' + selectedPlace.lng) : ''))
-             : ''))
-        : null,
+      notes: shipping ? ('Shipping: ' + shipping) : null,
       terms_accepted: true,
       privacy_accepted: true,
       terms_accepted_at: now,
