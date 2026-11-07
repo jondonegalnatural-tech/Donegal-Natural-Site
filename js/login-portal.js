@@ -56,14 +56,59 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            // Fetch the profile to get the role
-            const { data: profile, error: profileError } = await supabaseClient
-                .from('profiles')
-                .select('*')
-                .eq('id', data.user.id)
-                .single();
+            if (!data.session?.access_token || !data.session?.refresh_token || !data.user?.id) {
+                showError("Login could not start a session. Please try again.");
+                return;
+            }
 
-            if (profileError || !profile) {
+            // Password login can succeed while the next request still goes out as
+            // the anonymous key. Read the profile with this sign-in's token, then
+            // store that same session so the portal does not bounce them back.
+            const storedSession = await supabaseClient.auth.getSession();
+            let activeSession = storedSession.data?.session?.user?.id === data.user.id
+                ? storedSession.data.session
+                : null;
+            if (!activeSession) {
+                const { data: restored, error: restoreError } = await supabaseClient.auth.setSession({
+                    access_token: data.session.access_token,
+                    refresh_token: data.session.refresh_token
+                });
+                if (restoreError || restored?.session?.user?.id !== data.user.id) {
+                    console.error('Could not store login session', restoreError);
+                    try { await supabaseClient.auth.signOut(); } catch (_) {}
+                    showError("Login could not start a session. Please try again.");
+                    return;
+                }
+                activeSession = restored.session;
+            }
+
+            let profile = null;
+            let profileStatus = 0;
+            for (let attempt = 0; attempt < 2; attempt++) {
+                const profileRes = await fetch(
+                    SUPABASE_URL + '/rest/v1/profiles?id=eq.' + encodeURIComponent(data.user.id) + '&select=*',
+                    {
+                        headers: {
+                            apikey: SUPABASE_ANON_KEY,
+                            Authorization: 'Bearer ' + activeSession.access_token,
+                            Accept: 'application/json'
+                        }
+                    }
+                );
+                profileStatus = profileRes.status;
+                if (profileRes.ok) {
+                    const rows = await profileRes.json();
+                    profile = Array.isArray(rows) ? rows[0] : null;
+                    if (profile) break;
+                }
+                if (attempt === 0) {
+                    await new Promise(function (resolve) { setTimeout(resolve, 400); });
+                }
+            }
+
+            if (!profile) {
+                console.error('Profile lookup failed after sign-in', profileStatus, data.user.id);
+                try { await supabaseClient.auth.signOut(); } catch (_) {}
                 showError("Login succeeded but profile not found. Contact an administrator.");
                 return;
             }
