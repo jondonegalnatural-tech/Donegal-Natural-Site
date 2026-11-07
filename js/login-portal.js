@@ -35,13 +35,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const password = document.getElementById('password').value.trim();
 
         if (!username || !password) {
-            showError("Please enter both email and password.");
+            showError("Please enter both email and password.", {
+                email: username,
+                step: 'missing_fields',
+                summary: 'Email or password was left blank.'
+            });
             return;
         }
 
         // Require an email address
         if (!username.includes('@')) {
-            showError("Please enter your email address (not a username).");
+            showError("Please enter your email address (not a username).", {
+                step: 'not_an_email',
+                summary: 'They entered a username instead of an email address.'
+            });
             return;
         }
 
@@ -52,12 +59,38 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             if (error) {
-                showError(error.message || "Invalid email or password.");
+                const message = String(error.message || '');
+                let step = 'login_failed';
+                let summary = 'Sign-in stopped before a session started.';
+                let shown = message || 'Login failed. Please try again.';
+                if (/email not confirmed/i.test(message)) {
+                    step = 'email_not_confirmed';
+                    summary = 'The email address is not confirmed yet.';
+                    shown = 'This email is not confirmed yet. Read Donegal the code below.';
+                } else if (/too many|rate limit/i.test(message)) {
+                    step = 'rate_limited';
+                    summary = 'Too many sign-in attempts.';
+                    shown = 'Too many attempts. Wait a few minutes, then try again.';
+                } else if (/invalid login|invalid credentials/i.test(message)) {
+                    step = 'invalid_credentials';
+                    summary = 'Password was not accepted.';
+                    shown = 'That email and password were not accepted. Use Forgot password, or read Donegal the code below.';
+                }
+                showError(shown, {
+                    email: username,
+                    step: step,
+                    summary: summary,
+                    httpStatus: error.status
+                });
                 return;
             }
 
             if (!data.session?.access_token || !data.session?.refresh_token || !data.user?.id) {
-                showError("Login could not start a session. Please try again.");
+                showError("Login could not start a session. Please try again.", {
+                    email: username,
+                    step: 'no_session',
+                    summary: 'Password was accepted, but no session was returned.'
+                });
                 return;
             }
 
@@ -76,7 +109,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (restoreError || restored?.session?.user?.id !== data.user.id) {
                     console.error('Could not store login session', restoreError);
                     try { await supabaseClient.auth.signOut(); } catch (_) {}
-                    showError("Login could not start a session. Please try again.");
+                    showError("Login could not start a session. Please try again.", {
+                        email: username,
+                        step: 'session_store_failed',
+                        summary: 'Password was accepted, but the browser did not keep the session.'
+                    });
                     return;
                 }
                 activeSession = restored.session;
@@ -109,7 +146,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!profile) {
                 console.error('Profile lookup failed after sign-in', profileStatus, data.user.id);
                 try { await supabaseClient.auth.signOut(); } catch (_) {}
-                showError("Login succeeded but profile not found. Contact an administrator.");
+                showError("Login succeeded but profile not found. Contact an administrator.", {
+                    email: username,
+                    step: 'profile_not_found',
+                    summary: 'Password was accepted, but the profile read failed.',
+                    httpStatus: profileStatus
+                });
                 return;
             }
 
@@ -193,21 +235,50 @@ document.addEventListener('DOMContentLoaded', function() {
             } else if (profile.role === "admin") {
                 window.location.href = "internal-portal.html";
             } else {
-                showError("Unknown role. Contact an administrator.");
+                showError("Unknown role. Contact an administrator.", {
+                    email: profile.email || username,
+                    step: 'unknown_role',
+                    summary: 'The account signed in, but it has no portal role.'
+                });
             }
         } catch (err) {
             console.error(err);
-            showError("Login failed. Please try again.");
+            showError("Login failed. Please try again.", {
+                email: username,
+                step: 'login_failed',
+                summary: 'Sign-in stopped unexpectedly.'
+            });
         }
     });
 
-    function showError(message) {
+    const errorCode = document.getElementById('errorCode');
+    document.getElementById('errorDismiss')?.addEventListener('click', function () {
+        errorMessage.classList.add('hidden');
+    });
+
+    function showError(message, event) {
+        const code = window.makeSupportCode ? window.makeSupportCode() : '';
         errorText.textContent = message;
+        if (errorCode) errorCode.textContent = code ? ('Please email Donegal support at support@donegalnatural.com with this code for assistance: ' + code) : '';
         errorMessage.classList.remove('hidden');
-        setTimeout(() => {
-            errorMessage.classList.add('hidden');
-        }, 5000);
+        if (event && code && window.recordSupportEvent) {
+            window.recordSupportEvent(supabaseClient, {
+                code: code,
+                email: event.email || '',
+                step: event.step,
+                summary: event.summary,
+                httpStatus: event.httpStatus
+            });
+        }
     }
+
+    (function showReturnedHelpCode() {
+        const code = (new URLSearchParams(window.location.search).get('help') || '').toUpperCase();
+        if (!/^L-[A-Z2-9]{4}$/.test(code)) return;
+        errorText.textContent = 'The wholesale portal sent you back to the login page.';
+        if (errorCode) errorCode.textContent = 'Please email Donegal support at support@donegalnatural.com with this code for assistance: ' + code;
+        errorMessage.classList.remove('hidden');
+    })();
 
     // ========== FORGOT PASSWORD ==========
     const forgotBtn = document.getElementById('forgot-password-btn');
@@ -283,13 +354,36 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
 
                 if (error) {
-                    showForgotMessage(error.message || 'Could not send reset email.', true);
+                    const code = window.makeSupportCode ? window.makeSupportCode() : '';
+                    if (code && window.recordSupportEvent) {
+                        window.recordSupportEvent(supabaseClient, {
+                            code: code,
+                            email: email,
+                            step: 'password_reset_failed',
+                            summary: 'Password reset email could not be sent.',
+                            httpStatus: error.status
+                        });
+                    }
+                    showForgotMessage(
+                        (error.message || 'Could not send reset email.') +
+                        (code ? (' Please email Donegal support at support@donegalnatural.com with this code for assistance: ' + code) : ''),
+                        true
+                    );
                 } else {
                     showForgotMessage('If an account exists for that email, a reset link has been sent. Check your inbox (and spam).', false);
                 }
             } catch (err) {
                 console.error(err);
-                showForgotMessage('Something went wrong. Please try again.', true);
+                const code = window.makeSupportCode ? window.makeSupportCode() : '';
+                if (code && window.recordSupportEvent) {
+                    window.recordSupportEvent(supabaseClient, {
+                        code: code,
+                        email: email,
+                        step: 'password_reset_failed',
+                        summary: 'Password reset email could not be sent.'
+                    });
+                }
+                showForgotMessage('Something went wrong. Please try again.' + (code ? (' Please email Donegal support at support@donegalnatural.com with this code for assistance: ' + code) : ''), true);
             } finally {
                 forgotSendBtn.disabled = false;
                 forgotSendBtn.textContent = 'Send reset link';

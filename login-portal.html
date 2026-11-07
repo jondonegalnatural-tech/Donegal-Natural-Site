@@ -93,8 +93,14 @@
 
                 <!-- Error Message -->
                 <div id="errorMessage" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl text-sm">
-                    <i class="fas fa-exclamation-circle mr-2"></i>
-                    <span id="errorText"></span>
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <i class="fas fa-exclamation-circle mr-2"></i>
+                            <span id="errorText"></span>
+                            <p id="errorCode" class="mt-2 font-bold tracking-wide"></p>
+                        </div>
+                        <button type="button" id="errorDismiss" class="text-red-700 font-bold leading-none" aria-label="Dismiss">×</button>
+                    </div>
                 </div>
 
                 <!-- Login Button -->
@@ -170,6 +176,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/support-events.js"></script>
     <script src="js/login-portal.js"></script>
 </body>
 </html>

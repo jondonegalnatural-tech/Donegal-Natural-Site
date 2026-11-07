@@ -949,6 +949,21 @@ body { background: #f8f1e9; }
                 </div>
             </div>
 
+            <div class="mb-6 max-w-xl bg-[#f8f4eb] border border-[#d4b78f] rounded-2xl p-4">
+                <p class="text-sm font-semibold brand-green">Login help code</p>
+                <p class="text-xs text-[#6B4423] mt-1">When a customer reads a code like L-4F2A, look it up here.</p>
+                <div class="flex flex-wrap gap-2 mt-3">
+                    <input type="text" id="login-help-code" placeholder="L-4F2A"
+                           class="flex-1 min-w-[10rem] border-2 border-[#6B4423] rounded-xl px-4 py-2 uppercase"
+                           onkeydown="if (event.key === 'Enter') { event.preventDefault(); lookupLoginHelpCode(); }">
+                    <button type="button" onclick="lookupLoginHelpCode()"
+                            class="px-4 py-2 bg-[#1E4D2B] text-[#d4b78f] rounded-xl font-semibold text-sm">
+                        Look up
+                    </button>
+                </div>
+                <div id="login-help-result" class="mt-3 text-sm"></div>
+            </div>
+
             <div class="mb-6 max-w-md">
                 <input type="text" id="customer-search" placeholder="Search customers..."
                        class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-3"
@@ -2140,6 +2155,10 @@ body { background: #f8f1e9; }
             <div>
                 <p class="text-sm text-[#6B4423] font-semibold">Email</p>
                 <p class="text-lg" id="modal-customer-email"></p>
+            </div>
+            <div id="modal-customer-login-help" class="border-t border-[#d4b78f] pt-4">
+                <p class="text-sm font-semibold brand-green mb-2">Recent login problems</p>
+                <div id="modal-customer-login-help-list" class="text-sm text-[#6B4423]">Open a customer to see login attempts.</div>
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div>

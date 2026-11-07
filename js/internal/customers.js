@@ -1163,6 +1163,7 @@ onboardingSection.innerHTML = `
     const billingEl = document.getElementById('modal-customer-billing');
     if (billingEl) billingEl.textContent = customer.billingAddress || 'N/A';
     document.getElementById('modal-customer-notes').textContent = customer.notes || 'No notes.';
+    loadCustomerLoginHelp(customer.email);
 
     const customerOrders = (allOrders || []).filter(o =>
         o.customer && o.customer.toLowerCase() === customer.name.toLowerCase()
@@ -1172,6 +1173,133 @@ onboardingSection.innerHTML = `
         modal.classList.remove('hidden');
     modal.style.display = 'flex';
 }
+
+const LOGIN_HELP_STEPS = {
+    missing_fields: {
+        title: 'Empty email or password',
+        next: 'Have them fill in both fields and try again.'
+    },
+    not_an_email: {
+        title: 'Username instead of email',
+        next: 'Have them type the full email address, not a username.'
+    },
+    invalid_credentials: {
+        title: 'Password not accepted',
+        next: 'Send a password reset. The password they have is not the current one.'
+    },
+    email_not_confirmed: {
+        title: 'Email not confirmed',
+        next: 'Confirm the account in Supabase, then have them try again.'
+    },
+    rate_limited: {
+        title: 'Too many attempts',
+        next: 'Ask them to wait a few minutes, then try once more.'
+    },
+    no_session: {
+        title: 'Sign-in did not start a session',
+        next: 'Ask them to hard-refresh the login page and try again.'
+    },
+    session_store_failed: {
+        title: 'Browser did not keep the session',
+        next: 'Ask them to use a normal browser window, not a private one, and try again.'
+    },
+    profile_not_found: {
+        title: 'Signed in, profile could not be read',
+        next: 'The password worked. Ask them to hard-refresh and try once more.'
+    },
+    unknown_role: {
+        title: 'Account has no portal role',
+        next: 'Check this login’s role on the profile. It is not customer, salesman, or admin.'
+    },
+    login_failed: {
+        title: 'Login stopped unexpectedly',
+        next: 'Ask them to try again and read you the new code.'
+    },
+    portal_rejected: {
+        title: 'Portal sent them back to login',
+        next: 'They reached the wholesale portal and were returned. Ask them to sign in again after a hard refresh.'
+    },
+    password_reset_failed: {
+        title: 'Password reset email failed',
+        next: 'Wait a minute, then send the reset again from the login page.'
+    }
+};
+
+function renderLoginHelpEvents(rows) {
+    if (!rows || !rows.length) {
+        return '<p class="text-sm text-[#6B4423]">No login problems recorded yet.</p>';
+    }
+    return rows.map(function (row) {
+        const info = LOGIN_HELP_STEPS[row.step] || {
+            title: row.step || 'Login problem',
+            next: 'Ask them to try again and read you the code.'
+        };
+        const when = row.created_at ? new Date(row.created_at).toLocaleString() : '';
+        const status = row.http_status ? (' · HTTP ' + row.http_status) : '';
+        return (
+            '<div class="border border-[#d4b78f] rounded-xl p-3 mb-2 bg-white">' +
+            '<div class="flex justify-between gap-3">' +
+            '<span class="font-bold tracking-wide text-[#1E4D2B]">' + escapeHtml(row.support_code || '') + '</span>' +
+            '<span class="text-xs text-[#6B4423]">' + escapeHtml(when) + '</span>' +
+            '</div>' +
+            '<p class="font-semibold mt-1">' + escapeHtml(info.title) + '</p>' +
+            '<p class="text-sm text-[#6B4423]">' + escapeHtml(row.summary || '') + '</p>' +
+            '<p class="text-sm text-[#1E4D2B] mt-1">' + escapeHtml(info.next) + '</p>' +
+            '<p class="text-xs text-[#6B4423] mt-1">' + escapeHtml((row.browser || 'Browser') + status) +
+            (row.email ? (' · ' + escapeHtml(row.email)) : '') + '</p>' +
+            '</div>'
+        );
+    }).join('');
+}
+
+async function loadCustomerLoginHelp(email) {
+    const box = document.getElementById('modal-customer-login-help-list');
+    if (!box) return;
+    const address = String(email || '').trim();
+    if (!address) {
+        box.innerHTML = '<p class="text-sm text-[#6B4423]">No email on this customer.</p>';
+        return;
+    }
+    box.innerHTML = '<p class="text-sm text-[#6B4423]">Loading login attempts…</p>';
+    try {
+        const { data, error } = await supabaseClient
+            .from('customer_support_events')
+            .select('created_at, support_code, email, step, summary, http_status, browser')
+            .ilike('email', address)
+            .order('created_at', { ascending: false })
+            .limit(8);
+        if (error) throw error;
+        box.innerHTML = renderLoginHelpEvents(data || []);
+    } catch (err) {
+        box.innerHTML = '<p class="text-sm text-red-700">Could not load login attempts. ' + escapeHtml(err.message || '') + '</p>';
+    }
+}
+
+async function lookupLoginHelpCode() {
+    const input = document.getElementById('login-help-code');
+    const result = document.getElementById('login-help-result');
+    if (!input || !result) return;
+    const code = String(input.value || '').trim().toUpperCase();
+    if (!/^L-[A-Z2-9]{4}$/.test(code)) {
+        result.innerHTML = '<p class="text-red-700">Enter a code like L-4F2A.</p>';
+        return;
+    }
+    result.innerHTML = '<p class="text-[#6B4423]">Looking up ' + escapeHtml(code) + '…</p>';
+    try {
+        const { data, error } = await supabaseClient
+            .from('customer_support_events')
+            .select('created_at, support_code, email, step, summary, http_status, browser')
+            .eq('support_code', code)
+            .order('created_at', { ascending: false })
+            .limit(5);
+        if (error) throw error;
+        result.innerHTML = renderLoginHelpEvents(data || []);
+    } catch (err) {
+        result.innerHTML = '<p class="text-red-700">Could not look up that code. ' + escapeHtml(err.message || '') + '</p>';
+    }
+}
+
+window.lookupLoginHelpCode = lookupLoginHelpCode;
 
 function hideEditCustomerModal() {
     const modal = document.getElementById('edit-customer-modal');

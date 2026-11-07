@@ -22,12 +22,36 @@ var supabaseClient = window.supabaseClient;
 })();
 
 // Hard guard — live session + role from profiles
+async function reportPortalBounce(session, summary) {
+    const code = window.makeSupportCode ? window.makeSupportCode() : '';
+    if (code && window.recordSupportEvent) {
+        await window.recordSupportEvent(supabaseClient, {
+            code: code,
+            email: (session && session.user && session.user.email) || '',
+            step: 'portal_rejected',
+            summary: summary
+        });
+    }
+    window.location.replace(code ? ('login-portal.html?help=' + encodeURIComponent(code)) : 'login-portal.html');
+}
+
 (async function enforceCustomerSession() {
     try {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (!session) {
+            let hadLogin = false;
+            try {
+                const cached = JSON.parse(localStorage.getItem('currentUser') || 'null');
+                hadLogin = !!(cached && cached.role);
+            } catch (e) {
+                hadLogin = false;
+            }
             localStorage.removeItem('currentUser');
-            window.location.replace('login-portal.html');
+            if (hadLogin) {
+                await reportPortalBounce(null, 'The wholesale portal had a saved login, but the session was gone.');
+            } else {
+                window.location.replace('login-portal.html');
+            }
             return;
         }
         const { data: profile, error } = await supabaseClient
@@ -36,9 +60,12 @@ var supabaseClient = window.supabaseClient;
             .eq('id', session.user.id)
             .single();
         if (error || !profile || (profile.role !== 'customer' && profile.role !== 'admin')) {
+            const summary = (error || !profile)
+                ? 'Wholesale portal could not read the profile.'
+                : 'Wholesale portal blocked this login because it is not a customer account.';
             localStorage.removeItem('currentUser');
             try { await supabaseClient.auth.signOut(); } catch (_) {}
-            window.location.replace('login-portal.html');
+            await reportPortalBounce(session, summary);
             return;
         }
         const prev = JSON.parse(localStorage.getItem('currentUser') || '{}');
