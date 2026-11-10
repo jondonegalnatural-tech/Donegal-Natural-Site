@@ -114,6 +114,7 @@ async function refreshCustomerInsights() {
     // Sort
     filtered = filtered.slice().sort((a, b) => {
         if (sortBy === 'orders') return b.orderCount - a.orderCount;
+        if (sortBy === 'spent') return b.totalSpent - a.totalSpent;
         if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
         // days (default) — nulls last, highest days first
         if (a.daysSince === null && b.daysSince === null) return 0;
@@ -256,6 +257,9 @@ function showSection(section) {
     if (section === 'dashboard') {
     if (typeof updateDashboardSales === 'function') {
         updateDashboardSales();
+    }
+    if (typeof updateDashboardTopCustomers === 'function') {
+        updateDashboardTopCustomers();
     }
     if (typeof updatePendingPOIndicators === 'function') {
         updatePendingPOIndicators();
@@ -847,8 +851,147 @@ window.goToOrderRecommendations = goToOrderRecommendations;
 window.saveDashboardCardOrder = saveDashboardCardOrder;
 window.applyDashboardCardOrder = applyDashboardCardOrder;
 window.initDashboardDragAndDrop = initDashboardDragAndDrop;
+function orderSpentAmount(order) {
+    let total = 0;
+    (order.items || []).forEach(function (item) {
+        const qty = parseInt(item.quantity, 10) || 0;
+        const unit = typeof getOrderItemUnitPrice === 'function'
+            ? getOrderItemUnitPrice(item)
+            : (parseFloat(item.unitPrice) || 0);
+        total += qty * unit;
+    });
+    return total;
+}
+
+function orderDateValue(order) {
+    const orderDate = new Date(order.submittedAt || order.submitted_at || order.created_at || order.date || 0);
+    return isNaN(orderDate.getTime()) ? null : orderDate;
+}
+
+function orderInTopCustomerPeriod(order, period) {
+    if (period === 'all') return true;
+    const orderDate = orderDateValue(order);
+    if (!orderDate) return false;
+    const now = new Date();
+    if (period === 'mtd') return orderDate >= new Date(now.getFullYear(), now.getMonth(), 1);
+    if (period === '90days') {
+        const start = new Date(now);
+        start.setHours(0, 0, 0, 0);
+        start.setDate(start.getDate() - 90);
+        return orderDate >= start;
+    }
+    return orderDate >= new Date(now.getFullYear(), 0, 1);
+}
+
+function matchCustomerForOrder(order, customers) {
+    const cid = order.customerId || order.customer_id;
+    if (cid) {
+        const byId = customers.find(function (c) { return String(c.id) === String(cid); });
+        if (byId) return byId;
+    }
+    const email = String(order.customerEmail || order.customer_email || '').toLowerCase().trim();
+    if (email) {
+        const byEmail = customers.find(function (c) {
+            return String(c.email || '').toLowerCase().trim() === email;
+        });
+        if (byEmail) return byEmail;
+    }
+    const cName = String(order.customer || order.customer_name || order.customerName || '').toLowerCase().trim();
+    if (!cName) return null;
+    return customers.find(function (c) {
+        return String(c.name || '').toLowerCase().trim() === cName;
+    }) || null;
+}
+
+function openDashTopCustomer(name) {
+    const customerName = String(name || '');
+    const exists = (allCustomers || []).some(function (c) { return (c.name || '') === customerName; });
+    if (exists && typeof showCustomerDetail === 'function') {
+        showCustomerDetail(customerName);
+        return;
+    }
+    if (typeof showSection === 'function') showSection('reports');
+}
+
+async function updateDashboardTopCustomers(period) {
+    const container = document.getElementById('dash-top-customers');
+    if (!container) return;
+    if (!container.dataset.bound) {
+        container.dataset.bound = '1';
+        container.addEventListener('click', function (event) {
+            const row = event.target.closest('[data-top-customer]');
+            if (!row) return;
+            event.stopPropagation();
+            let name = '';
+            try { name = decodeURIComponent(row.getAttribute('data-top-customer') || ''); } catch (e) { name = ''; }
+            openDashTopCustomer(name);
+        });
+    }
+
+    const select = document.getElementById('dash-top-customers-period');
+    const selected = period || (select && select.value) || 'ytd';
+    if (select && select.value !== selected) select.value = selected;
+
+    container.innerHTML = '<p class="text-[#6B4423]">Loading...</p>';
+
+    try {
+        if (typeof loadCustomers === 'function' && (!allCustomers || allCustomers.length === 0)) {
+            await loadCustomers();
+        }
+        if (typeof loadOrders === 'function' && (!allOrders || allOrders.length === 0)) {
+            await loadOrders();
+        }
+    } catch (err) {
+        console.warn('updateDashboardTopCustomers: could not load data', err);
+    }
+
+    const customers = (allCustomers || []).filter(function (customer) {
+        return !(typeof isHiddenTestCustomer === 'function' && isHiddenTestCustomer(customer));
+    });
+    const spentById = {};
+
+    (allOrders || []).forEach(function (order) {
+        if (typeof isTestStoreOrder === 'function' && isTestStoreOrder(order)) return;
+        if (!orderInTopCustomerPeriod(order, selected)) return;
+        const customer = matchCustomerForOrder(order, customers);
+        if (!customer || !customer.id) return;
+        if (!spentById[customer.id]) {
+            spentById[customer.id] = {
+                name: customer.name || '—',
+                company: customer.company || '',
+                spent: 0
+            };
+        }
+        spentById[customer.id].spent += orderSpentAmount(order);
+    });
+
+    const top = Object.values(spentById)
+        .filter(function (row) { return row.spent > 0; })
+        .sort(function (a, b) { return b.spent - a.spent; })
+        .slice(0, 10);
+
+    if (!top.length) {
+        container.innerHTML = '<p class="text-[#6B4423]">No customer sales for this period.</p>';
+        return;
+    }
+
+    container.innerHTML = top.map(function (row, index) {
+        const company = row.company ? (' (' + row.company + ')') : '';
+        const amount = row.spent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return (
+            '<button type="button" data-top-customer="' + encodeURIComponent(row.name) + '" ' +
+            'class="w-full flex justify-between items-center gap-2 text-left hover:bg-[#f8f4eb] rounded-lg px-1 py-0.5">' +
+            '<span class="font-medium truncate pr-2">' + (index + 1) + '. ' + escapeHtml(row.name || '—') + escapeHtml(company) + '</span>' +
+            '<span class="font-semibold whitespace-nowrap">$' + amount + '</span>' +
+            '</button>'
+        );
+    }).join('');
+}
+
 window.updateDashboardSalesmen = updateDashboardSalesmen;
 window.updateDashboardSales = updateDashboardSales;
+window.updateDashboardTopCustomers = updateDashboardTopCustomers;
+window.openDashTopCustomer = openDashTopCustomer;
 window.getAdminActivityActor = getAdminActivityActor;
 window.logAdminActivity = logAdminActivity;
 window.loadAdminActivityLog = loadAdminActivityLog;

@@ -231,6 +231,7 @@ window.onload = async function() {
     if (typeof updatePendingPOIndicators === 'function') updatePendingPOIndicators();
     if (typeof updateDashboardVendors === 'function') updateDashboardVendors();
     if (typeof updateDashboardSalesmen === 'function') updateDashboardSalesmen();
+    if (typeof updateDashboardTopCustomers === 'function') updateDashboardTopCustomers();
     if (typeof updateDashboardProfitMargin === 'function') updateDashboardProfitMargin();
     if (typeof updateDashboardSalesMatrix === 'function') updateDashboardSalesMatrix();
     if (typeof updateDashboardAchCounts === 'function') updateDashboardAchCounts();

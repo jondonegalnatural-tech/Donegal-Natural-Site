@@ -510,6 +510,36 @@ body { background: #f8f1e9; }
 
                 </div>
 
+                <!-- Top Customers Card -->
+                <div data-card-id="top-customers"
+                     class="dashboard-card bg-white border-2 border-[#6B4423] rounded-2xl p-6 hover:shadow-lg transition">
+                    <div class="dashboard-drag-handle hidden text-center text-[#6B4423] text-xs mb-2 cursor-grab">
+                        <i class="fas fa-grip-vertical mr-1"></i> Drag to reorder
+                    </div>
+                    <div class="flex items-start justify-between gap-3 mb-4">
+                        <div>
+                            <p class="text-sm text-[#6B4423] font-semibold">Top Customers</p>
+                            <p class="text-xs text-[#6B4423] mt-0.5">Top 10 by total spent</p>
+                        </div>
+                        <select id="dash-top-customers-period"
+                                class="border-2 border-[#6B4423] rounded-xl px-2 py-1 text-xs text-[#6B4423] bg-white"
+                                onchange="event.stopPropagation(); updateDashboardTopCustomers(this.value)">
+                            <option value="all">All Time</option>
+                            <option value="ytd" selected>YTD</option>
+                            <option value="mtd">MTD</option>
+                            <option value="90days">Last 90 days</option>
+                        </select>
+                    </div>
+                    <div id="dash-top-customers" class="space-y-1.5 text-sm">
+                        <p class="text-[#6B4423]">Loading...</p>
+                    </div>
+                    <button type="button"
+                            onclick="event.stopPropagation(); showSection('reports')"
+                            class="mt-3 text-xs font-semibold brand-green hover:underline">
+                        View all
+                    </button>
+                </div>
+
                 <!-- Price Sheet Card -->
                 <div data-card-id="price-sheet"
                      onclick="dashboardCardClick(event, 'price-sheet')"
@@ -1374,6 +1404,7 @@ body { background: #f8f1e9; }
                             <select id="insights-sort" class="border-2 border-[#6B4423] rounded-xl px-3 py-2" onchange="refreshCustomerInsights()">
                                 <option value="days">Days Since Last Order</option>
                                 <option value="orders">Total Orders</option>
+                                <option value="spent">Total Spent (high → low)</option>
                                 <option value="name">Customer Name</option>
                             </select>
                         </div>
