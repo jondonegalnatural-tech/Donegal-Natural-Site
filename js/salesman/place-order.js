@@ -784,8 +784,7 @@ function renderPlaceOrderItems(skipFocus) {
         return;
     }
 
-    const canEditPrice = (typeof canPlaceOpenOrder === 'function' && canPlaceOpenOrder())
-        || !!(currentPlaceOrderCustomer && currentPlaceOrderCustomer.walkIn);
+    const canEditPrice = canEditPlaceOrderPrice();
 
     function placeOrderItemCategory(item) {
         const catalog = (typeof PRODUCT_CATALOG !== 'undefined')
@@ -896,7 +895,29 @@ function updatePlaceOrderQty(index, value) {
     }
 }
 
+function canEditPlaceOrderPrice() {
+    const jonathanEmails = [
+        'jackerman@donegalnatural.com',
+        'jon.donegalnatural@gmail.com'
+    ];
+    const marshallEmail = 'marshallg@comcast.net';
+    function emailOf(obj) {
+        return String((obj && (obj.email || obj.username)) || '').toLowerCase().trim();
+    }
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || 'null') || {};
+        const email = emailOf(user);
+        if (!user.isViewAs && (jonathanEmails.indexOf(email) !== -1 || email === marshallEmail)) {
+            return true;
+        }
+        const original = JSON.parse(localStorage.getItem('originalAdminUser') || 'null');
+        if (jonathanEmails.indexOf(emailOf(original)) !== -1) return true;
+    } catch (e) {}
+    return false;
+}
+
 function updatePlaceOrderPrice(index, value) {
+    if (!canEditPlaceOrderPrice()) return;
     const item = placeOrderItems[index];
     if (!item) return;
     const raw = String(value || '').trim();
@@ -1301,3 +1322,4 @@ window.isJonathanActing = isJonathanActing;
 window.openPlaceOrderConfirmModal = openPlaceOrderConfirmModal;
 window.confirmAndSubmitPlaceOrder = confirmAndSubmitPlaceOrder;
 window.submitPlaceOrder = submitPlaceOrder;
+window.canEditPlaceOrderPrice = canEditPlaceOrderPrice;

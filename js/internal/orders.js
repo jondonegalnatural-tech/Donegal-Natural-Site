@@ -2205,7 +2205,7 @@ function renderNewOrderSelectedList(skipFocus) {
         return;
     }
 
-    const isWalkIn = (document.getElementById('new-order-customer')?.value || '') === '__walkin__';
+    const canEditPrice = canEditNewOrderPrice();
 
     list.innerHTML = newOrderSelectedProducts.map((p, index) => {
         const caseSize = p.caseSize || '—';
@@ -2214,13 +2214,13 @@ function renderNewOrderSelectedList(skipFocus) {
             : '';
         const priceText = p.displayPrice
             || (p.isMarketPrice ? 'Market' : (priceVal ? ('$' + priceVal) : '—'));
-        const priceField = isWalkIn
+        const priceField = canEditPrice
             ? ('<label class="text-xs text-[#6B4423]">$</label>' +
                '<input type="number" step="0.01" min="0" value="' + priceVal + '" placeholder="0.00" ' +
                'class="new-order-price w-20 border-2 border-[#6B4423] rounded-lg px-2 py-1 text-sm text-center" ' +
                'onchange="updateOrderProductPrice(' + index + ', this.value)">')
             : '';
-        const sub = isWalkIn ? escapeHtml(caseSize) : (escapeHtml(caseSize) + ' · ' + escapeHtml(priceText));
+        const sub = canEditPrice ? escapeHtml(caseSize) : (escapeHtml(caseSize) + ' · ' + escapeHtml(priceText));
         const qtyN = Number(p.quantity) || 0;
         const unitN = Number(p.unitPrice);
         const lineText = isFinite(unitN) ? ('$' + (unitN * qtyN).toFixed(2)) : '';
@@ -2272,7 +2272,18 @@ function updateOrderProductQty(index, value) {
     }
 }
 
+function canEditNewOrderPrice() {
+    if (typeof isJonathanAdmin === 'function' && isJonathanAdmin()) return true;
+    try {
+        const user = JSON.parse(localStorage.getItem('currentUser') || 'null') || {};
+        const email = String(user.email || user.username || '').toLowerCase().trim();
+        if (!user.isViewAs && email === 'marshallg@comcast.net') return true;
+    } catch (e) {}
+    return false;
+}
+
 function updateOrderProductPrice(index, value) {
+    if (!canEditNewOrderPrice()) return;
     const item = newOrderSelectedProducts[index];
     if (!item) return;
     const raw = String(value || '').trim();
