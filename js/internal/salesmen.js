@@ -840,7 +840,8 @@ function applyJakeElkyTrainingPrices(prices) {
     return next;
 }
 
-async function applyNewSalesmanPriceSheetToCustomer(customer, newSalesmanEmail) {
+async function applyNewSalesmanPriceSheetToCustomer(customer, newSalesmanEmail, opts) {
+    const quiet = !!(opts && opts.quiet);
     const dest = String(newSalesmanEmail || '').toLowerCase().trim();
     if (!customer || !customer.id) return { ok: false, reason: 'Missing customer' };
     if (typeof shouldSkipSalesmanPricePush === 'function' && shouldSkipSalesmanPricePush(customer)) {
@@ -867,15 +868,27 @@ async function applyNewSalesmanPriceSheetToCustomer(customer, newSalesmanEmail) 
     Object.keys(sheet.hidden_prices || {}).forEach(function (name) {
         delete prices[name];
     });
-    if (dest === 'donegaldogtreats@gmail.com' && typeof isJakePetSupplyCustomer === 'function' && isJakePetSupplyCustomer(customer) && typeof applyJakeElkyTrainingPrices === 'function') {
-        prices = applyJakeElkyTrainingPrices(prices);
-    }
     const { data: prevSheet } = await supabaseClient
         .from('customer_price_sheets')
         .select('prices')
         .eq('customer_id', customer.id)
         .maybeSingle();
     prices = mergeStoreOnlyPriceExtras(prices, prevSheet && prevSheet.prices, dest);
+    // Keep locked specials from the existing customer sheet when present
+    const lockedItems = Array.isArray(customer.special_price_items)
+        ? customer.special_price_items
+        : (Array.isArray(customer.specialPriceItems) ? customer.specialPriceItems : []);
+    if (lockedItems.length && prevSheet && prevSheet.prices) {
+        lockedItems.forEach(function (name) {
+            if (!name) return;
+            if (prevSheet.prices[name] == null || prevSheet.prices[name] === '') return;
+            prices[name] = prevSheet.prices[name];
+        });
+    }
+    // Jake Elky specials win last for Jake Pet Supply on Brian's sheet
+    if (dest === 'donegaldogtreats@gmail.com' && typeof isJakePetSupplyCustomer === 'function' && isJakePetSupplyCustomer(customer) && typeof applyJakeElkyTrainingPrices === 'function') {
+        prices = applyJakeElkyTrainingPrices(prices);
+    }
     const { error: upErr } = await supabaseClient
         .from('customer_price_sheets')
         .upsert({
@@ -886,7 +899,7 @@ async function applyNewSalesmanPriceSheetToCustomer(customer, newSalesmanEmail) 
             updated_at: new Date().toISOString()
         }, { onConflict: 'customer_id' });
     if (upErr) {
-        if (typeof logAdminActivity === 'function') {
+        if (!quiet && typeof logAdminActivity === 'function') {
             logAdminActivity({
                 action: 'assign',
                 entityType: 'customer',
@@ -898,7 +911,7 @@ async function applyNewSalesmanPriceSheetToCustomer(customer, newSalesmanEmail) 
         }
         return { ok: false, reason: upErr.message };
     }
-    if (typeof logAdminActivity === 'function') {
+    if (!quiet && typeof logAdminActivity === 'function') {
         logAdminActivity({
             action: 'assign',
             entityType: 'customer',
@@ -1608,14 +1621,15 @@ async function exportOpenSalesmanPriceSheetPdf() {
     doc.save(salesmanSheetFileSlug(title) + '_Price_Sheet_' + fileStamp + '.pdf');
 }
 
-async function saveSalesmanPriceSheetOnly() {
+async function saveSalesmanPriceSheetOnly(opts) {
+    const silent = !!(opts && opts.silent);
     if (!window._spsSheet || !window._spsSheet.id || !window._spsSheet.email) {
-        alert('No salesman sheet is loaded.');
+        if (!silent) alert('No salesman sheet is loaded.');
         return;
     }
     let prices = collectSalesmanPriceSheetInputs();
     if (!Object.keys(prices).length) {
-        alert('No prices to save.');
+        if (!silent) alert('No prices to save.');
         return;
     }
 
@@ -1643,38 +1657,82 @@ async function saveSalesmanPriceSheetOnly() {
     }
     try {
         const nowIso = new Date().toISOString();
+        const hiddenPrices = (window._spsHiddenPrices && Object.keys(window._spsHiddenPrices).length)
+            ? window._spsHiddenPrices
+            : ((window._spsSheet && window._spsSheet.hidden_prices) || {});
         const { error } = await supabaseClient
             .from('salesman_price_sheets')
             .update({
                 prices: prices,
                 display_names: names,
-                hidden_prices: (window._spsHiddenPrices && Object.keys(window._spsHiddenPrices).length)
-                    ? window._spsHiddenPrices
-                    : ((window._spsSheet && window._spsSheet.hidden_prices) || {}),
+                hidden_prices: hiddenPrices,
                 salesman_name: salesmanName,
                 updated_at: nowIso
             })
             .eq('id', window._spsSheet.id);
         if (error) throw error;
         window._spsSheet.prices = prices;
+        window._spsSheet.hidden_prices = hiddenPrices;
         window._spsDisplayNames = names;
+
+        // Stamp the saved sheet onto assigned customer rows so wholesale overlays match
+        let assigned = [];
+        const { data: assignedRows, error: assignedErr } = await supabaseClient
+            .from('customers')
+            .select('id, name, company, email, salesman_email, special_pricing, special_price_items')
+            .ilike('salesman_email', email);
+        if (assignedErr) throw assignedErr;
+        assigned = assignedRows || [];
+
+        let pushed = 0;
+        let skipped = 0;
+        let failed = 0;
+        for (let i = 0; i < assigned.length; i++) {
+            const customer = assigned[i];
+            if (typeof shouldSkipSalesmanPricePush === 'function' && shouldSkipSalesmanPricePush(customer)) {
+                skipped += 1;
+                continue;
+            }
+            const moved = await applyNewSalesmanPriceSheetToCustomer(customer, email, { quiet: true });
+            if (moved && moved.skipped) {
+                skipped += 1;
+                continue;
+            }
+            if (!moved || !moved.ok) {
+                failed += 1;
+                console.warn('saveSalesmanPriceSheetOnly push failed', (customer && (customer.company || customer.name)) || '', moved && moved.reason);
+                continue;
+            }
+            pushed += 1;
+        }
+
         if (typeof logAdminActivity === 'function') {
             logAdminActivity({
                 action: 'save',
                 entityType: 'salesman_sheet',
                 entityLabel: salesmanName,
-                summary: 'Saved sheet only (no store push)',
-                details: { productCount: Object.keys(prices).length }
+                summary: 'Saved sheet and pushed to ' + pushed + ' store(s)',
+                details: {
+                    productCount: Object.keys(prices).length,
+                    pushed: pushed,
+                    skipped: skipped,
+                    failed: failed
+                }
             });
         }
-        alert(
-            'Saved ' + salesmanName + '\'s sheet.\n\n' +
-            'Customers with approved pricing will see these prices and names on their next page load.\n' +
-            'Save & Push is optional — it only stamps a copy onto customer sheets.'
-        );
+        if (!silent) {
+            alert(
+                'Saved ' + salesmanName + '\'s sheet.\n' +
+                'Pushed prices to ' + pushed + ' assigned store(s).' +
+                (skipped ? ('\nSkipped ' + skipped + ' protected store(s).') : '') +
+                (failed ? ('\n' + failed + ' store(s) failed — check the console.') : '') +
+                '\n\nAssigned customers will see these prices on their next wholesale page load.\n' +
+                'Jake specials, locked specials, and store-only extras were preserved.'
+            );
+        }
     } catch (err) {
         console.error('saveSalesmanPriceSheetOnly:', err);
-        alert('Could not save the sheet.\n' + (err.message || ''));
+        if (!silent) alert('Could not save the sheet.\n' + (err.message || ''));
     } finally {
         if (saveBtn) {
             saveBtn.disabled = false;
@@ -1684,8 +1742,8 @@ async function saveSalesmanPriceSheetOnly() {
 }
 
 async function saveSalesmanPriceSheetAndPush(opts) {
-    alert('Save & Push has been removed.\n\nEdit the salesman sheet and click Save.\nCustomers with approved pricing see the live sheet on their next page load.');
-    return;
+    // Hide/unhide still call this; Save now includes the assigned-store push
+    return saveSalesmanPriceSheetOnly(opts);
 }
 
 window.showSalesmanDetail = showSalesmanDetail;
