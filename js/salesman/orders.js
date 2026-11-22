@@ -493,7 +493,12 @@ async function openSalesmanOrderInvoice(orderId) {
         const d = new Date(order.submitted_at || order.submittedAt || Date.now());
         invDate.textContent = isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
     }
-    if (invStatus) invStatus.textContent = (order.status || 'Submitted').toString();
+    if (typeof setInvoiceStatusBadge === 'function') {
+        setInvoiceStatusBadge(order.status || 'Submitted');
+    } else if (invStatus) {
+        invStatus.textContent = (order.status || 'Submitted').toString();
+        invStatus.classList.remove('hidden');
+    }
 
     // BILL TO / SHIP TO
     const billEl = document.getElementById('inv-bill-to');
