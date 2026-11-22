@@ -3539,8 +3539,15 @@ function openBackOrderFulfillInvoice(groupKey, fulfilledItems) {
     const invDate = document.getElementById('inv-date');
     if (invDate) invDate.textContent = new Date().toLocaleDateString();
 
-    const invStatus = document.getElementById('inv-status');
-    if (invStatus) invStatus.textContent = 'Back Order Fulfillment';
+    if (typeof setInvoiceStatusBadge === 'function') {
+        setInvoiceStatusBadge('Back Order Fulfillment');
+    } else {
+        const invStatus = document.getElementById('inv-status');
+        if (invStatus) {
+            invStatus.textContent = 'Back Order Fulfillment';
+            invStatus.classList.remove('hidden');
+        }
+    }
 
     // BILL TO / SHIP TO — reuse customer lookup when possible
     const customer = (allCustomers || []).find(c => {
