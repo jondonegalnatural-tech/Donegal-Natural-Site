@@ -13,6 +13,17 @@ function invoiceSheetText(el) {
     return el ? String(el.textContent || '').replace(/\s+/g, ' ').trim() : '';
 }
 
+function invoiceDescriptionFromCell(el) {
+    if (!el) return '';
+    const note = el.querySelector('.invoice-packaging-note');
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll('.invoice-packaging-note').forEach(function (n) { n.remove(); });
+    const title = String(clone.textContent || '').replace(/\s+/g, ' ').trim();
+    const noteText = note ? String(note.textContent || '').replace(/\s+/g, ' ').trim() : '';
+    if (title && noteText) return title + '\n' + noteText;
+    return title || noteText;
+}
+
 function invoiceSheetLines(el) {
     if (!el) return [];
     const paras = el.querySelectorAll('p');
@@ -58,7 +69,7 @@ function collectInvoiceSheetData() {
         }
         items.push({
             qty: invoiceSheetText(cells[0]),
-            description: invoiceSheetText(cells[1]),
+            description: invoiceDescriptionFromCell(cells[1]) || invoiceSheetText(cells[1]),
             unit: invoiceSheetText(cells[2]),
             total: invoiceSheetText(cells[3])
         });

@@ -3759,25 +3759,29 @@ function openOrderInvoiceModal(orderId) {
 
         if (items.length) {
             rowsHtml += items.map(item => {
-                const qty = parseInt(item.quantity, 10) || 0;
+                const line = typeof enrichInvoiceLineItem === 'function'
+                    ? enrichInvoiceLineItem(item, order, customer)
+                    : item;
+                const qty = parseInt(line.quantity, 10) || 0;
                 const unit = typeof getOrderItemUnitPrice === 'function'
-                    ? getOrderItemUnitPrice(item)
-                    : (parseFloat(item.unitPrice) || 0);
+                    ? getOrderItemUnitPrice(line)
+                    : (parseFloat(line.unitPrice) || 0);
                 const hasPrice = unit > 0;
                 const lineTotal = qty * unit;
                 if (hasPrice) subtotal += lineTotal;
 
-                const desc = escapeHtml([
-                    orderLineDisplayName(item),
-                    item.caseSize ? `· ${item.caseSize}` : ''
-                ].filter(Boolean).join(' '));
-
                 const unitText = hasPrice
                     ? ('$' + unit.toFixed(2))
-                    : (item.isMarketPrice ? 'Market' : '—');
-                const marketNote = item.isMarketPrice
+                    : (line.isMarketPrice ? 'Market' : '—');
+                const marketNote = line.isMarketPrice
                     ? '<div class="text-[11px] text-[#c56134] mt-1">Market price. Final invoice may be adjusted to current market cost at shipment.</div>'
                     : '';
+                const descHtml = typeof invoiceLineDescriptionHtml === 'function'
+                    ? invoiceLineDescriptionHtml(line, { marketNoteHtml: marketNote })
+                    : (escapeHtml([
+                        orderLineDisplayName(line),
+                        line.caseSize ? ('· ' + line.caseSize) : ''
+                    ].filter(Boolean).join(' ')) + marketNote);
                 const totalText = hasPrice
                     ? ('$' + lineTotal.toFixed(2))
                     : '—';
@@ -3785,7 +3789,7 @@ function openOrderInvoiceModal(orderId) {
                 return `
                     <tr class="border-t border-[#d4b78f]">
                         <td class="p-3 text-left font-semibold">${qty}</td>
-                        <td class="p-3 text-left">${desc}${marketNote}</td>
+                        <td class="p-3 text-left">${descHtml}</td>
                         <td class="p-3 text-right">${unitText}</td>
                         <td class="p-3 text-right font-semibold">${totalText}</td>
                     </tr>`;
