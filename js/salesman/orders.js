@@ -528,27 +528,23 @@ async function openSalesmanOrderInvoice(orderId) {
             tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-[#6B4423]">No line items</td></tr>`;
         } else {
             tbody.innerHTML = items.map(item => {
-                const qty = parseInt(item.quantity, 10) || 0;
-                const unit = parseFloat(item.unitPrice);
+                const line = typeof enrichInvoiceLineItem === 'function'
+                    ? enrichInvoiceLineItem(item, order, customer)
+                    : item;
+                const qty = parseInt(line.quantity, 10) || 0;
+                const unit = parseFloat(line.unitPrice);
                 const hasPrice = !isNaN(unit) && unit > 0;
                 const lineTotal = hasPrice ? unit * qty : 0;
                 if (hasPrice) productSubtotal += lineTotal;
-                const unitLabel = hasPrice ? '$' + unit.toFixed(2) : (item.displayPrice || 'Market Price');
-                const totalLabel = hasPrice ? '$' + lineTotal.toFixed(2) : (item.displayPrice || '—');
+                const unitLabel = hasPrice ? '$' + unit.toFixed(2) : (line.displayPrice || 'Market Price');
+                const totalLabel = hasPrice ? '$' + lineTotal.toFixed(2) : (line.displayPrice || '—');
+                const descHtml = typeof invoiceLineDescriptionHtml === 'function'
+                    ? invoiceLineDescriptionHtml(line)
+                    : escapeHtml(orderLineDisplayName(line));
                 return `
                     <tr class="border-b border-[#eee]">
                         <td class="p-3 align-top">${qty}</td>
-                        <td class="p-3 align-top">${escapeHtml(orderLineDisplayName(item))}${
-                            (item.itemNumber || item.needsUpcLabel || item.needsCigarTag)
-                                ? ('<div class="text-[11px] font-semibold text-[#6B4423] mt-0.5">' +
-                                    escapeHtml([
-                                        item.itemNumber ? ('#' + item.itemNumber) : '',
-                                        item.skuCode || '',
-                                        item.needsUpcLabel ? 'UPC + Label' : '',
-                                        item.needsCigarTag ? 'Cigar Tag' : ''
-                                    ].filter(Boolean).join(' · ')) + '</div>')
-                                : ''
-                        }</td>
+                        <td class="p-3 align-top">${descHtml}</td>
                         <td class="p-3 text-right align-top">${unitLabel}</td>
                         <td class="p-3 text-right align-top font-semibold">${totalLabel}</td>
                     </tr>
