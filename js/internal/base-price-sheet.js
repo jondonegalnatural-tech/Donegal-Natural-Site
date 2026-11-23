@@ -105,17 +105,30 @@ async function markSelectedProductsOutOfStock() {
         alert('Could not read product names.');
         return;
     }
-    if (!confirm('Mark ' + names.length + ' product(s) Out of Stock?\n\nInventory will be set to 0. The item stays on the price sheet.')) {
+    if (!confirm('Add ' + names.length + ' product(s) to the Out of Stock report?\n\nExpected back defaults to today. Change the date on the Out of Stock list if needed.\nInventory will be set to 0. The item stays on the price sheet.')) {
         return;
     }
     try {
+        if (typeof saveOutOfStockNames !== 'function') {
+            throw new Error('Out of Stock list is not available.');
+        }
+        const today = typeof oosLocalTodayYmd === 'function' ? oosLocalTodayYmd() : '';
+        await saveOutOfStockNames(names, today);
         for (const name of names) {
             if (typeof upsertInventoryQuantity === 'function') {
                 await upsertInventoryQuantity(name, 0);
             }
             if (typeof inventory === 'object') inventory[name] = 0;
         }
-        alert(names.length + ' product(s) marked Out of Stock.');
+        if (typeof logAdminActivity === 'function') {
+            logAdminActivity({
+                action: 'oos',
+                entityType: 'product',
+                entityLabel: names.join(', '),
+                summary: 'Marked out of stock from price sheet'
+            });
+        }
+        alert(names.length + ' product(s) added to the Out of Stock report.');
         if (typeof showCurrentInventory === 'function') showCurrentInventory();
         if (typeof renderBasePriceSheet === 'function') renderBasePriceSheet();
     } catch (err) {
