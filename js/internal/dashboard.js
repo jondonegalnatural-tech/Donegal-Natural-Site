@@ -852,15 +852,64 @@ window.saveDashboardCardOrder = saveDashboardCardOrder;
 window.applyDashboardCardOrder = applyDashboardCardOrder;
 window.initDashboardDragAndDrop = initDashboardDragAndDrop;
 function orderSpentAmount(order) {
-    let total = 0;
+    let merchandise = 0;
     (order.items || []).forEach(function (item) {
+        const unit = parseFloat(item.unitPrice);
         const qty = parseInt(item.quantity, 10) || 0;
-        const unit = typeof getOrderItemUnitPrice === 'function'
-            ? getOrderItemUnitPrice(item)
-            : (parseFloat(item.unitPrice) || 0);
-        total += qty * unit;
+        if (!isNaN(unit) && unit > 0 && qty > 0) merchandise += unit * qty;
     });
-    return total;
+    const shipping = Number(order.shippingCost != null ? order.shippingCost : order.shipping_cost) || 0;
+    const credit = Number(order.credit != null ? order.credit : 0) || 0;
+    return Math.max(0, merchandise + shipping - credit);
+}
+
+function orderCountsTowardTopCustomers(order) {
+    const status = String((order && order.status) || '').toLowerCase();
+    return status !== 'denied' && status !== 'cancelled' && status !== 'canceled';
+}
+
+function normalizeCustomerKey(value) {
+    return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+
+function topCustomerBucket(order, customers) {
+    const orderCompany = String(order.customerCompany || order.customer_company || '').trim();
+    const orderName = String(order.customer || order.customer_name || order.customerName || '').trim();
+    const linked = matchCustomerForOrder(order, customers);
+    const companySource = orderCompany || ((linked && linked.company) || '');
+    const companyKey = normalizeCustomerKey(companySource);
+
+    if (companyKey) {
+        const primary = customers.find(function (customer) {
+            return normalizeCustomerKey(customer.company) === companyKey
+                || normalizeCustomerKey(customer.name) === companyKey;
+        }) || null;
+        const name = (primary && primary.name) || orderName || orderCompany || '—';
+        const company = (primary && primary.company) || orderCompany || '';
+        return {
+            key: 'company:' + companyKey,
+            name: name,
+            company: company,
+            openName: (primary && primary.name) || ''
+        };
+    }
+
+    if (linked && linked.id) {
+        return {
+            key: 'id:' + linked.id,
+            name: linked.name || orderName || '—',
+            company: linked.company || '',
+            openName: linked.name || ''
+        };
+    }
+
+    const nameKey = normalizeCustomerKey(orderName);
+    return {
+        key: 'name:' + (nameKey || 'unknown'),
+        name: orderName || '—',
+        company: '',
+        openName: orderName
+    };
 }
 
 function orderDateValue(order) {
@@ -952,17 +1001,24 @@ async function updateDashboardTopCustomers(period) {
 
     (allOrders || []).forEach(function (order) {
         if (typeof isTestStoreOrder === 'function' && isTestStoreOrder(order)) return;
+        if (!orderCountsTowardTopCustomers(order)) return;
         if (!orderInTopCustomerPeriod(order, selected)) return;
-        const customer = matchCustomerForOrder(order, customers);
-        if (!customer || !customer.id) return;
-        if (!spentById[customer.id]) {
-            spentById[customer.id] = {
-                name: customer.name || '—',
-                company: customer.company || '',
-                spent: 0
+        const amount = orderSpentAmount(order);
+        if (!(amount > 0)) return;
+        const bucket = topCustomerBucket(order, customers);
+        if (!spentById[bucket.key]) {
+            spentById[bucket.key] = {
+                name: bucket.name || '—',
+                company: bucket.company || '',
+                openName: bucket.openName || '',
+                spent: 0,
+                orders: 0
             };
         }
-        spentById[customer.id].spent += orderSpentAmount(order);
+        const row = spentById[bucket.key];
+        row.spent += amount;
+        row.orders += 1;
+        if (!row.openName && bucket.openName) row.openName = bucket.openName;
     });
 
     const top = Object.values(spentById)
@@ -976,12 +1032,16 @@ async function updateDashboardTopCustomers(period) {
     }
 
     container.innerHTML = top.map(function (row, index) {
-        const company = row.company ? (' (' + row.company + ')') : '';
+        const sameLabel = normalizeCustomerKey(row.company) && normalizeCustomerKey(row.company) === normalizeCustomerKey(row.name);
+        const company = row.company && !sameLabel ? (' (' + row.company + ')') : '';
+        const orderLabel = row.orders === 1 ? '1 order' : (row.orders + ' orders');
         const amount = row.spent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const openName = row.openName || row.name || '';
         return (
-            '<button type="button" data-top-customer="' + encodeURIComponent(row.name) + '" ' +
+            '<button type="button" data-top-customer="' + encodeURIComponent(openName) + '" ' +
             'class="w-full flex justify-between items-center gap-2 text-left hover:bg-[#f8f4eb] rounded-lg px-1 py-0.5">' +
-            '<span class="font-medium truncate pr-2">' + (index + 1) + '. ' + escapeHtml(row.name || '—') + escapeHtml(company) + '</span>' +
+            '<span class="font-medium truncate pr-2">' + (index + 1) + '. ' + escapeHtml(row.name || '—') + escapeHtml(company) +
+            ' <span class="font-normal text-[#6B4423]">· ' + orderLabel + '</span></span>' +
             '<span class="font-semibold whitespace-nowrap">$' + amount + '</span>' +
             '</button>'
         );
