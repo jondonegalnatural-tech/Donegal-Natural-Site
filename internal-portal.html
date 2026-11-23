@@ -4261,19 +4261,20 @@ body { background: #f8f1e9; }
 <!-- Out of Stock Modal -->
 <div id="out-of-stock-modal"
      onclick="hideOutOfStockModal()"
-     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-6">
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+     style="z-index:120;">
     <div onclick="event.stopImmediatePropagation()"
-         class="bg-white border-2 border-[#6B4423] rounded-2xl flex flex-col overflow-hidden"
-         style="width:min(1100px,92vw);max-height:72vh;padding:24px;">
-        <div class="flex justify-between items-start mb-2">
+         class="bg-white border-2 border-[#6B4423] rounded-2xl"
+         style="width:min(1100px,92vw);height:min(720px,calc(100vh - 32px));max-height:calc(100vh - 32px);padding:24px;display:flex;flex-direction:column;overflow:hidden;">
+        <div class="flex justify-between items-start mb-2" style="flex-shrink:0;">
             <div>
                 <h2 class="text-xl font-bold brand-green">Out of Stock</h2>
-                <p class="text-sm text-[#6B4423]">Check items to mark unavailable or back in stock. Date is per product.</p>
+                <p class="text-sm text-[#6B4423]">Use All products to add items. Check them, set a date, then Mark Out of Stock.</p>
             </div>
             <button type="button" onclick="hideOutOfStockModal()"
                     class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
         </div>
-        <div class="flex flex-wrap gap-2 mb-3">
+        <div class="flex flex-wrap gap-2 mb-3" style="flex-shrink:0;">
             <button type="button" id="oos-tab-all" onclick="setOosListTab('all')"
                     class="px-4 py-1.5 text-sm border-2 border-[#6B4423] rounded-xl font-semibold">
                 All products
@@ -4283,20 +4284,20 @@ body { background: #f8f1e9; }
                 Currently OOS (<span id="oos-tab-count">0</span>)
             </button>
         </div>
-        <div class="mb-4">
-            <input type="text" id="oos-search" placeholder="Search products…"
+        <div class="mb-4" style="flex-shrink:0;">
+            <input type="text" id="oos-search" placeholder="Search products to add…"
                    class="w-full border-2 border-[#6B4423] rounded-xl px-4 py-2 text-sm"
                    oninput="renderOutOfStockList()">
         </div>
-        <div id="oos-list" class="space-y-3 flex-1 min-h-0 overflow-y-auto mb-4"></div>
-        <div class="flex flex-wrap justify-end gap-3 pt-3 border-t border-[#d4b78f] flex-shrink-0">
-            <button type="button" onclick="hideOutOfStockModal()"
+        <div id="oos-list" class="space-y-3 overflow-y-auto mb-4" style="flex:1 1 auto;min-height:0;"></div>
+        <div class="flex flex-wrap justify-end gap-3 pt-3 border-t border-[#d4b78f]" style="flex-shrink:0;">
+            <button type="button" id="oos-close-btn" onclick="hideOutOfStockModal()"
                     class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">Close</button>
-            <button type="button" onclick="markSelectedInStock()"
+            <button type="button" id="oos-in-stock-btn" onclick="markSelectedInStock()"
                     class="px-5 py-2 border-2 border-[#1E4D2B] text-[#1E4D2B] font-semibold rounded-xl hover:bg-[#f8f4eb]">
                 Mark In Stock
             </button>
-            <button type="button" onclick="markSelectedOutOfStock()"
+            <button type="button" id="oos-out-stock-btn" onclick="markSelectedOutOfStock()"
                     class="px-5 py-2 bg-[#1E4D2B] text-[#d4b78f] font-semibold rounded-xl hover:bg-[#254a2f]">
                 Mark Out of Stock
             </button>
@@ -4305,11 +4306,12 @@ body { background: #f8f1e9; }
 </div>
 <!-- OOS expected-back due alert -->
 <div id="oos-due-modal"
-     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[80] p-6">
+     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-6"
+     style="z-index:130;">
     <div onclick="event.stopImmediatePropagation()"
-         class="bg-white border-2 border-[#6B4423] rounded-2xl flex flex-col overflow-hidden"
-         style="width:min(720px,92vw);max-height:78vh;padding:24px;">
-        <div class="flex justify-between items-start mb-2">
+         class="bg-white border-2 border-[#6B4423] rounded-2xl"
+         style="width:min(720px,92vw);height:min(640px,calc(100vh - 48px));max-height:calc(100vh - 48px);padding:24px;display:flex;flex-direction:column;overflow:hidden;">
+        <div class="flex justify-between items-start mb-2" style="flex-shrink:0;">
             <div>
                 <h2 class="text-xl font-bold brand-green">Expected back in stock</h2>
                 <p class="text-sm text-[#6B4423]">These OOS dates are today or overdue. Extend the date or mark the item in stock.</p>
@@ -4317,7 +4319,7 @@ body { background: #f8f1e9; }
             <button type="button" onclick="snoozeOosDueModal()"
                     class="text-3xl leading-none text-[#6B4423] hover:text-red-600">&times;</button>
         </div>
-        <div id="oos-due-list" class="space-y-3 flex-1 min-h-0 overflow-y-auto mb-4"></div>
+        <div id="oos-due-list" class="space-y-3 overflow-y-auto mb-4" style="flex:1 1 auto;min-height:0;"></div>
         <div class="flex flex-wrap justify-end gap-3 pt-3 border-t border-[#d4b78f] flex-shrink-0">
             <button type="button" onclick="snoozeOosDueModal()"
                     class="px-5 py-2 border-2 border-[#6B4423] rounded-xl hover:bg-[#f8f4eb]">Remind me later</button>

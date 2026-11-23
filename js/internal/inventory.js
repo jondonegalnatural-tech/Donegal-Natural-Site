@@ -1724,7 +1724,6 @@ function renderOutOfStockList() {
     if (!list || typeof PRODUCT_CATALOG === 'undefined') return;
     const q = (document.getElementById('oos-search')?.value || '').trim().toLowerCase();
     const products = PRODUCT_CATALOG.filter(p => {
-        if (p.isMarketPrice) return false;
         if (oosListTab === 'current') {
             const st = oosStatusMap[p.name] || {};
             if (st.is_out_of_stock !== true) return false;
@@ -1752,7 +1751,7 @@ function renderOutOfStockList() {
             const oos = st.is_out_of_stock === true;
             const dateVal = st.estimated_back_at ? String(st.estimated_back_at).slice(0, 10) : '';
             const since = st.oos_since ? new Date(st.oos_since).toLocaleDateString() : '';
-            const safe = (p.name || '').replace(/"/g, '&quot;');
+            const safe = escapeHtml(p.name || '');
             return `
                 <label class="flex flex-wrap items-center gap-3 p-2 rounded-xl border ${oos ? 'border-red-300 bg-red-50' : 'border-[#e8d9b8] bg-white'}">
                     <input type="checkbox" class="oos-cb accent-[#1E4D2B]" data-product="${safe}">
@@ -1764,7 +1763,7 @@ function renderOutOfStockList() {
                 </label>
             `;
         }).join('');
-        const safeCat = cat.replace(/"/g, '&quot;');
+        const safeCat = escapeHtml(cat);
         return `
             <div class="border-2 border-[#6B4423] rounded-2xl overflow-hidden">
                 <div class="flex items-center gap-2 px-3 py-2 bg-[#1E4D2B] text-[#d4b78f]">
@@ -1792,14 +1791,47 @@ function selectedOosNames() {
         .filter(Boolean);
 }
 
+function oosFieldValue(className, name) {
+    const nodes = document.querySelectorAll('.' + className);
+    for (let i = 0; i < nodes.length; i++) {
+        if (nodes[i].getAttribute('data-product') === name) return nodes[i].value || '';
+    }
+    return '';
+}
+
 function oosDateFor(name) {
-    const el = document.querySelector('.oos-date[data-product="' + name.replace(/"/g, '\\"') + '"]');
-    if (el && el.value) return el.value;
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const d = String(now.getDate()).padStart(2, '0');
-    return y + '-' + m + '-' + d;
+    const value = oosFieldValue('oos-date', name);
+    if (value) return value;
+    return oosLocalTodayYmd();
+}
+
+async function saveOutOfStockNames(names, etaForName) {
+    const who = oosActor();
+    const now = new Date().toISOString();
+    for (const name of names) {
+        const eta = typeof etaForName === 'function' ? etaForName(name) : etaForName;
+        const { error: stErr } = await supabaseClient
+            .from('product_stock_status')
+            .upsert({
+                product_name: name,
+                is_out_of_stock: true,
+                estimated_back_at: eta || oosLocalTodayYmd(),
+                oos_since: now,
+                updated_at: now,
+                updated_by: who
+            }, { onConflict: 'product_name' });
+        if (stErr) throw stErr;
+        const { error: evErr } = await supabaseClient
+            .from('product_stock_events')
+            .insert({
+                product_name: name,
+                event: 'out_of_stock',
+                estimated_back_at: eta || oosLocalTodayYmd(),
+                created_by: who
+            });
+        if (evErr) throw evErr;
+    }
+    await loadOutOfStockStatus();
 }
 
 async function markSelectedOutOfStock() {
@@ -1808,33 +1840,8 @@ async function markSelectedOutOfStock() {
         alert('Select at least one product.');
         return;
     }
-    const who = oosActor();
-    const now = new Date().toISOString();
     try {
-        for (const name of names) {
-            const eta = oosDateFor(name);
-            const { error: stErr } = await supabaseClient
-                .from('product_stock_status')
-                .upsert({
-                    product_name: name,
-                    is_out_of_stock: true,
-                    estimated_back_at: eta,
-                    oos_since: now,
-                    updated_at: now,
-                    updated_by: who
-                }, { onConflict: 'product_name' });
-            if (stErr) throw stErr;
-            const { error: evErr } = await supabaseClient
-                .from('product_stock_events')
-                .insert({
-                    product_name: name,
-                    event: 'out_of_stock',
-                    estimated_back_at: eta,
-                    created_by: who
-                });
-            if (evErr) throw evErr;
-        }
-        await loadOutOfStockStatus();
+        await saveOutOfStockNames(names, oosDateFor);
         renderOutOfStockList();
         if (typeof logAdminActivity === 'function') {
             logAdminActivity({
@@ -2011,8 +2018,7 @@ async function checkOosDueAlerts() {
 
 async function extendOosDueItem(name) {
     if (!name) return;
-    const input = document.querySelector('.oos-due-date[data-product="' + name.replace(/"/g, '\\"') + '"]');
-    const eta = input && input.value ? input.value : '';
+    const eta = oosFieldValue('oos-due-date', name);
     const today = oosLocalTodayYmd();
     if (!eta || eta < today) {
         alert('Pick a new expected-back date that is today or later.');
@@ -2120,7 +2126,9 @@ window.loadOutOfStockStatus = loadOutOfStockStatus;
 window.renderOutOfStockList = renderOutOfStockList;
 window.toggleOosCategory = toggleOosCategory;
 window.selectedOosNames = selectedOosNames;
+window.oosFieldValue = oosFieldValue;
 window.oosDateFor = oosDateFor;
+window.saveOutOfStockNames = saveOutOfStockNames;
 window.markSelectedOutOfStock = markSelectedOutOfStock;
 window.markSelectedInStock = markSelectedInStock;
 window.oosLocalTodayYmd = oosLocalTodayYmd;
